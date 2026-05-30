@@ -42,13 +42,13 @@ from dotenv import load_dotenv
 
 
 OPENAPI_STOCK_URLS = {
-    "KOSPI": "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
-    "KOSDAQ": "https://data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd",
+    "KOSPI": "https://openapi.krx.co.kr/svc/apis/sto/stk_bydd_trd",
+    "KOSDAQ": "https://openapi.krx.co.kr/svc/apis/sto/ksq_bydd_trd",
 }
 
 OPENAPI_INDEX_URLS = {
-    "KOSPI": "https://data-dbg.krx.co.kr/svc/apis/idx/kospi_dd_trd",
-    "KOSDAQ": "https://data-dbg.krx.co.kr/svc/apis/idx/kosdaq_dd_trd",
+    "KOSPI": "https://openapi.krx.co.kr/svc/apis/idx/kospi_dd_trd",
+    "KOSDAQ": "https://openapi.krx.co.kr/svc/apis/idx/kosdaq_dd_trd",
 }
 
 

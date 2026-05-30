@@ -315,14 +315,91 @@ def collect_history_by_openapi(start_dt: date, end_dt: date, auth_key: str, log_
 # -----------------------------
 
 def summarize_market(hist: pd.DataFrame, market: str, low_liq_krw: float) -> pd.DataFrame:
+    """
+    Open API 원자료를 시장별 요약표로 변환한다.
+    v4.1 수정점
+    - market 값이 KOSPI/KOSDAQ, 유가증권, 코스닥 등 어떤 형태여도 최대한 인식
+    - date/가격/거래량 컬럼을 요약 직전에 다시 숫자형으로 정규화
+    - 원자료가 있는데 summary가 0행으로 끝나는 문제 방지
+    """
     if hist is None or hist.empty:
         return empty_summary_columns()
 
-    df = hist[hist["market"].eq(market)].copy()
+    df_all = hist.copy()
+
+    if "date" not in df_all.columns:
+        if "BAS_DD" in df_all.columns:
+            df_all["date"] = pd.to_datetime(df_all["BAS_DD"].astype(str), errors="coerce")
+        else:
+            return empty_summary_columns()
+    else:
+        df_all["date"] = pd.to_datetime(df_all["date"], errors="coerce")
+
+    if "market" not in df_all.columns:
+        if "MKT_NM" in df_all.columns:
+            df_all["market"] = df_all["MKT_NM"]
+        else:
+            df_all["market"] = ""
+
+    m = df_all["market"].astype(str).str.upper().str.strip()
+    df_all["market_norm"] = np.where(
+        m.str.contains("KOSDAQ|코스닥", case=False, na=False),
+        "KOSDAQ",
+        np.where(m.str.contains("KOSPI|유가|유가증권", case=False, na=False), "KOSPI", m),
+    )
+
+    market_norm = market.upper().strip()
+    df = df_all[df_all["market_norm"].eq(market_norm)].copy()
+
+    if df.empty and "MKT_NM" in df_all.columns:
+        mm = df_all["MKT_NM"].astype(str).str.upper().str.strip()
+        if market_norm == "KOSPI":
+            df = df_all[mm.str.contains("KOSPI|유가|유가증권", case=False, na=False)].copy()
+        elif market_norm == "KOSDAQ":
+            df = df_all[mm.str.contains("KOSDAQ|코스닥", case=False, na=False)].copy()
+
     if df.empty:
         return empty_summary_columns()
 
-    df = df.dropna(subset=["close"]).sort_values(["ticker", "date"])
+    if "ticker" not in df.columns:
+        if "ISU_CD" in df.columns:
+            df["ticker"] = df["ISU_CD"].map(normalize_ticker)
+        elif "ISU_SRT_CD" in df.columns:
+            df["ticker"] = df["ISU_SRT_CD"].map(normalize_ticker)
+        else:
+            return empty_summary_columns()
+    df["ticker"] = df["ticker"].astype(str).map(normalize_ticker)
+
+    if "name" not in df.columns:
+        if "ISU_NM" in df.columns:
+            df["name"] = df["ISU_NM"].astype(str)
+        elif "ISU_ABBRV" in df.columns:
+            df["name"] = df["ISU_ABBRV"].astype(str)
+        else:
+            df["name"] = df["ticker"]
+
+    numeric_cols = ["open", "high", "low", "close", "volume", "trading_value", "market_cap", "listed_shares"]
+    fallback_map = {
+        "open": ["TDD_OPNPRC", "OPNPRC"],
+        "high": ["TDD_HGPRC", "HGPRC"],
+        "low": ["TDD_LWPRC", "LWPRC"],
+        "close": ["TDD_CLSPRC", "CLSPRC"],
+        "volume": ["ACC_TRDVOL", "TRDVOL"],
+        "trading_value": ["ACC_TRDVAL", "TRDVAL"],
+        "market_cap": ["MKTCAP"],
+        "listed_shares": ["LIST_SHRS"],
+    }
+    for col in numeric_cols:
+        if col not in df.columns:
+            source = find_col(list(df.columns), fallback_map.get(col, []))
+            df[col] = clean_number_series(df[source]) if source else np.nan
+        else:
+            df[col] = clean_number_series(df[col])
+
+    df = df.dropna(subset=["date", "ticker", "close"])
+    df = df[df["ticker"].astype(str).str.fullmatch(r"[0-9]{6}", na=False)]
+    df = df.sort_values(["ticker", "date"])
+
     if df.empty:
         return empty_summary_columns()
 
@@ -381,7 +458,7 @@ def summarize_market(hist: pd.DataFrame, market: str, low_liq_krw: float) -> pd.
         rows.append({
             "name": last_name,
             "ticker": ticker,
-            "market": market,
+            "market": market_norm,
             "status": "OK",
             "last_date": iso(last_date),
             "current_close": kr_tick_round(last_close),

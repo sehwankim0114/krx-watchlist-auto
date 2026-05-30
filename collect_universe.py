@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-코피표·코닥표·코급표용 KRX 전체시장 자동 수집기 v4.1
+코피표·코닥표·코급표용 KRX 전체시장 자동 수집기 v4.2
 
 v4 핵심 변경
 - KRX CSV-OTP 스크래핑과 pykrx fallback 의존 제거
@@ -602,6 +602,191 @@ def save_if_not_empty(df: pd.DataFrame, path: Path, log_lines: List[str], label:
 
 
 # -----------------------------
+# 강제 요약 fallback
+# -----------------------------
+
+def force_summarize_market(hist: pd.DataFrame, market: str, low_liq_krw: float, log_lines: List[str]) -> pd.DataFrame:
+    """
+    primary summarize_market가 0행일 때 쓰는 강제 fallback.
+    핵심: 이미 저장 성공한 Open API 원자료를 다시 표준화해서 KOSPI/KOSDAQ summary를 만든다.
+    """
+    try:
+        if hist is None or hist.empty:
+            log_lines.append(f"FORCE_SUMMARY {market}: hist empty")
+            return empty_summary_columns()
+
+        df = hist.copy()
+        log_lines.append(f"FORCE_SUMMARY {market}: input rows={len(df)}, cols={list(df.columns)}")
+
+        # 날짜 보정
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"], errors="coerce")
+        elif "BAS_DD" in df.columns:
+            df["date"] = pd.to_datetime(df["BAS_DD"].astype(str), errors="coerce")
+        else:
+            log_lines.append(f"FORCE_SUMMARY {market}: no date/BAS_DD column")
+            return empty_summary_columns()
+
+        # 시장 보정
+        if "market" in df.columns:
+            market_text = df["market"].astype(str)
+        elif "MKT_NM" in df.columns:
+            market_text = df["MKT_NM"].astype(str)
+        else:
+            market_text = pd.Series([market] * len(df), index=df.index)
+
+        market_upper = market_text.str.upper().str.strip()
+        if market.upper() == "KOSPI":
+            mask = market_upper.str.contains("KOSPI", na=False) | market_text.str.contains("유가|유가증권|코스피", regex=True, na=False)
+        else:
+            mask = market_upper.str.contains("KOSDAQ", na=False) | market_text.str.contains("코스닥", regex=True, na=False)
+
+        df = df[mask].copy()
+        log_lines.append(f"FORCE_SUMMARY {market}: after market filter rows={len(df)}")
+        if df.empty:
+            return empty_summary_columns()
+
+        # 종목코드 보정
+        if "ticker" in df.columns:
+            df["ticker"] = df["ticker"].map(normalize_ticker)
+        elif "ISU_SRT_CD" in df.columns:
+            df["ticker"] = df["ISU_SRT_CD"].map(normalize_ticker)
+        elif "ISU_CD" in df.columns:
+            df["ticker"] = df["ISU_CD"].map(normalize_ticker)
+        else:
+            log_lines.append(f"FORCE_SUMMARY {market}: no ticker column")
+            return empty_summary_columns()
+
+        if "name" not in df.columns:
+            if "ISU_NM" in df.columns:
+                df["name"] = df["ISU_NM"].astype(str)
+            elif "ISU_ABBRV" in df.columns:
+                df["name"] = df["ISU_ABBRV"].astype(str)
+            else:
+                df["name"] = df["ticker"]
+
+        col_candidates = {
+            "open": ["open", "TDD_OPNPRC", "OPNPRC"],
+            "high": ["high", "TDD_HGPRC", "HGPRC"],
+            "low": ["low", "TDD_LWPRC", "LWPRC"],
+            "close": ["close", "TDD_CLSPRC", "CLSPRC"],
+            "volume": ["volume", "ACC_TRDVOL", "TRDVOL"],
+            "trading_value": ["trading_value", "ACC_TRDVAL", "TRDVAL"],
+            "market_cap": ["market_cap", "MKTCAP"],
+            "listed_shares": ["listed_shares", "LIST_SHRS"],
+        }
+
+        for target, candidates in col_candidates.items():
+            source = None
+            for cand in candidates:
+                if cand in df.columns:
+                    source = cand
+                    break
+            if source is None:
+                df[target] = np.nan
+            else:
+                df[target] = clean_number_series(df[source])
+
+        df = df.dropna(subset=["date", "ticker", "close"])
+        df = df[df["ticker"].astype(str).str.fullmatch("[0-9]{6}", na=False)]
+        df = df.sort_values(["ticker", "date"])
+        log_lines.append(f"FORCE_SUMMARY {market}: after clean rows={len(df)}, tickers={df['ticker'].nunique() if not df.empty else 0}")
+
+        if df.empty:
+            return empty_summary_columns()
+
+        last_date = df["date"].max()
+        one_month_ago = last_date - relativedelta(months=1)
+        three_months_ago = last_date - relativedelta(months=3)
+        rows = []
+
+        for ticker, g in df.groupby("ticker", sort=False):
+            g = g.sort_values("date")
+            if g.empty:
+                continue
+            last = g.iloc[-1]
+            last_close = float(last["close"])
+            low = float(g["low"].min()) if g["low"].notna().any() else float(g["close"].min())
+            high = float(g["high"].max()) if g["high"].notna().any() else float(g["close"].max())
+            close_low = float(g["close"].min())
+            close_high = float(g["close"].max())
+            avg_abs = g["close"].diff().abs().dropna().mean()
+            avg_pct = (g["close"].pct_change().abs() * 100).dropna().mean()
+            wave = calc_wave_period(g["close"])
+            range_pct = ((high - low) / low * 100) if low else np.nan
+            position = ((last_close - low) / (high - low) * 100) if high > low else np.nan
+            ref_1m = find_close_on_or_after(g, one_month_ago)
+            ref_3m = find_close_on_or_after(g, three_months_ago)
+            ret_1m = safe_return_pct(last_close, ref_1m)
+            ret_3m = safe_return_pct(last_close, ref_3m)
+
+            price_range = high - low
+            move = float(avg_abs) if not pd.isna(avg_abs) and avg_abs > 0 else last_close * 0.03
+            if price_range > 0:
+                split_low = max(low * 1.01, last_close - move * 2.5)
+                split_high = min(last_close * 0.99, last_close - move * 0.3)
+                if split_low > split_high:
+                    split_low = min(last_close * 0.94, low + price_range * 0.45)
+                    split_high = min(last_close * 0.99, low + price_range * 0.62)
+                target1 = min(last_close + move * 2.2, low + price_range * 0.78)
+                target2 = min(last_close + move * 4.0, low + price_range * 0.90)
+                stop = max(low * 0.97, last_close - move * 3.0)
+            else:
+                split_low = last_close * 0.94
+                split_high = last_close * 0.99
+                target1 = last_close * 1.08
+                target2 = last_close * 1.15
+                stop = last_close * 0.92
+
+            avg20_tv = g["trading_value"].tail(20).mean()
+            last_tv = last["trading_value"]
+
+            rows.append({
+                "name": str(last.get("name", ticker)),
+                "ticker": ticker,
+                "market": market.upper(),
+                "status": "OK",
+                "last_date": iso(last_date),
+                "current_close": kr_tick_round(last_close),
+                "split_buy_low_ref": kr_tick_round(split_low),
+                "split_buy_high_ref": kr_tick_round(split_high),
+                "target1_ref": kr_tick_round(target1),
+                "target2_ref": kr_tick_round(target2),
+                "stop_ref": kr_tick_round(stop),
+                "avg_daily_move_abs": kr_tick_round(avg_abs) if not pd.isna(avg_abs) else None,
+                "avg_daily_move_pct": round(float(avg_pct), 2) if not pd.isna(avg_pct) else None,
+                "avg_wave_days": wave,
+                "low_3m_intraday": kr_tick_round(low),
+                "high_3m_intraday": kr_tick_round(high),
+                "low_3m_close": kr_tick_round(close_low),
+                "high_3m_close": kr_tick_round(close_high),
+                "range_3m_pct": round(float(range_pct), 2) if not pd.isna(range_pct) else None,
+                "position_in_3m_range_pct": round(float(position), 2) if not pd.isna(position) else None,
+                "return_1m_pct": ret_1m,
+                "return_3m_pct": ret_3m,
+                "last_volume": int(last["volume"]) if not pd.isna(last["volume"]) else None,
+                "last_trading_value": int(last_tv) if not pd.isna(last_tv) else None,
+                "avg20_trading_value": int(avg20_tv) if not pd.isna(avg20_tv) else None,
+                "low_liquidity": bool(not pd.isna(avg20_tv) and avg20_tv < low_liq_krw),
+                "market_cap": int(last["market_cap"]) if not pd.isna(last["market_cap"]) else None,
+                "listed_shares": int(last["listed_shares"]) if not pd.isna(last["listed_shares"]) else None,
+                "data_rows": int(len(g)),
+                "source_used": "krx_openapi_force_summary",
+            })
+
+        out = pd.DataFrame(rows)
+        log_lines.append(f"FORCE_SUMMARY {market}: output rows={len(out)}")
+        if out.empty:
+            return empty_summary_columns()
+        return out.sort_values(["name", "ticker"]).reset_index(drop=True)
+
+    except Exception as e:
+        log_lines.append(f"FORCE_SUMMARY_FAIL {market}: {repr(e)}")
+        log_lines.append(traceback.format_exc())
+        return empty_summary_columns()
+
+
+# -----------------------------
 # 메인 실행
 # -----------------------------
 
@@ -625,7 +810,7 @@ def main() -> int:
     log_lines = [
         f"run_at={datetime.now().isoformat(timespec='seconds')}",
         f"period={start_dt.isoformat()}~{end_dt.isoformat()}",
-        "script=collect_universe.py v4.1_openapi_summary_fix",
+        "script=collect_universe.py v4.2_force_summary",
         f"KRX_AUTH_KEY_present={bool(auth_key)}",
     ]
 
@@ -635,8 +820,13 @@ def main() -> int:
         raw_path = outdir / "universe_raw_history_latest.csv"
         save_if_not_empty(hist, raw_path, log_lines, "universe_raw_history")
 
-        kospi = summarize_market(hist, "KOSPI", low_liq_krw)
-        kosdaq = summarize_market(hist, "KOSDAQ", low_liq_krw)
+        # v4.2: 기존 summarize_market가 0행으로 끝나는 문제가 반복되어
+        # 이번 버전에서는 강제 요약 루틴을 기본 경로로 사용한다.
+        log_lines.append("KOSPI_summary force_summarize_market start")
+        kospi = force_summarize_market(hist, "KOSPI", low_liq_krw, log_lines)
+
+        log_lines.append("KOSDAQ_summary force_summarize_market start")
+        kosdaq = force_summarize_market(hist, "KOSDAQ", low_liq_krw, log_lines)
 
         kospi_path = outdir / "kospi_universe_summary_latest.csv"
         kosdaq_path = outdir / "kosdaq_universe_summary_latest.csv"

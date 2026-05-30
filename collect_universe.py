@@ -1,15 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-코피표·코닥표·코급표용 KRX 전체시장 자동 수집기 v3
+코피표·코닥표·코급표용 KRX 전체시장 자동 수집기 v4
 
-v3 수정점
-- KRX OTP LOGOUT 방지: OTP 요청 전 KRX 메인 페이지를 열어 세션 쿠키 확보
-- KRX OTP payload의 url을 bld로 수정
-- KRX 전종목 CSV 수집 실패 시 pykrx fallback 실행
+v4 핵심 변경
+- KRX CSV-OTP 스크래핑과 pykrx fallback 의존 제거
+- 공식 KRX Open API 사용
+- GitHub Actions Secret: KRX_AUTH_KEY 필요
+- 신청 필요 API
+  1) 유가증권 일별매매정보: stk_bydd_trd
+  2) 코스닥 일별매매정보: ksq_bydd_trd
+  3) 선택: KOSPI 지수 일별시세정보: kospi_dd_trd
+  4) 선택: KOSDAQ 지수 일별시세정보: kosdaq_dd_trd
 - 새 데이터가 0행이면 기존 정상 CSV를 빈 파일로 덮어쓰지 않음
-- 코피표/코닥표/코급표용 파일 생성 안정성 강화
-- 로그에 실패 원인과 저장 여부를 더 명확히 기록
 
 생성/갱신 파일
 - latest/universe_raw_history_latest.csv
@@ -23,8 +26,8 @@ v3 수정점
 from __future__ import annotations
 
 import argparse
-import io
 import os
+import re
 import time
 import traceback
 from datetime import date, datetime
@@ -36,6 +39,17 @@ import pandas as pd
 import requests
 from dateutil.relativedelta import relativedelta
 from dotenv import load_dotenv
+
+
+OPENAPI_STOCK_URLS = {
+    "KOSPI": "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
+    "KOSDAQ": "https://data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd",
+}
+
+OPENAPI_INDEX_URLS = {
+    "KOSPI": "https://data-dbg.krx.co.kr/svc/apis/idx/kospi_dd_trd",
+    "KOSDAQ": "https://data-dbg.krx.co.kr/svc/apis/idx/kosdaq_dd_trd",
+}
 
 
 # -----------------------------
@@ -83,6 +97,56 @@ def kr_tick_round(x):
     return int(round(x / unit) * unit)
 
 
+def clean_number(x):
+    if x is None or pd.isna(x):
+        return np.nan
+    s = str(x).strip()
+    s = s.replace(",", "").replace("'", "").replace(" ", "")
+    if s in ["", "-", "nan", "None"]:
+        return np.nan
+    return pd.to_numeric(s, errors="coerce")
+
+
+def clean_number_series(s: pd.Series) -> pd.Series:
+    return s.map(clean_number)
+
+
+def normalize_ticker(x) -> str:
+    """
+    KRX Open API 출력의 ISU_CD가 6자리 단축코드일 때도 있고,
+    ISIN 형태일 때도 있어 최대한 안전하게 6자리 종목코드로 변환한다.
+    예: 005930 -> 005930
+        KR7005930003 -> 005930
+    """
+    if x is None or pd.isna(x):
+        return ""
+    s = str(x).strip().replace("'", "")
+    if re.fullmatch(r"\d{6}", s):
+        return s
+    if s.startswith("KR") and len(s) >= 9:
+        cand = s[3:9]
+        if re.fullmatch(r"\d{6}", cand):
+            return cand
+    m = re.search(r"\d{6}", s)
+    if m:
+        return m.group(0)
+    return s.zfill(6)[-6:]
+
+
+def find_col(columns: List[str], candidates: List[str]) -> Optional[str]:
+    normalized = {str(c).upper(): c for c in columns}
+    for cand in candidates:
+        cand_u = cand.upper()
+        if cand_u in normalized:
+            return normalized[cand_u]
+    for cand in candidates:
+        cand_u = cand.upper()
+        for c in columns:
+            if cand_u in str(c).upper():
+                return c
+    return None
+
+
 def calc_wave_period(close: pd.Series) -> Optional[float]:
     s = pd.Series(close).dropna()
     if len(s) < 10:
@@ -91,14 +155,12 @@ def calc_wave_period(close: pd.Series) -> Optional[float]:
     signs = np.sign(diff).replace(0, np.nan).ffill().dropna()
     if len(signs) < 8:
         return None
-
     turning = []
     prev = signs.iloc[0]
     for i, val in enumerate(signs.iloc[1:], start=1):
         if val != prev:
             turning.append(i)
         prev = val
-
     if len(turning) < 2:
         return None
     return round(float(np.mean(np.diff(turning))), 1)
@@ -119,25 +181,6 @@ def find_close_on_or_after(g: pd.DataFrame, target_date: pd.Timestamp) -> Option
     return float(part["close"].iloc[0])
 
 
-def clean_number_series(s: pd.Series) -> pd.Series:
-    return pd.to_numeric(
-        s.astype(str)
-        .str.replace(",", "", regex=False)
-        .str.replace("'", "", regex=False)
-        .str.replace(" ", "", regex=False)
-        .replace({"": np.nan, "-": np.nan, "nan": np.nan, "None": np.nan}),
-        errors="coerce",
-    )
-
-
-def find_col(columns: List[str], keywords: List[str]) -> Optional[str]:
-    for key in keywords:
-        for c in columns:
-            if key in str(c):
-                return c
-    return None
-
-
 def empty_summary_columns() -> pd.DataFrame:
     cols = [
         "name", "ticker", "market", "status", "last_date",
@@ -155,97 +198,68 @@ def empty_summary_columns() -> pd.DataFrame:
 
 
 # -----------------------------
-# KRX OTP 전종목 수집
+# KRX Open API 수집
 # -----------------------------
 
-def fetch_krx_otp_daily_all(trd_dd: str) -> pd.DataFrame:
-    """
-    KRX 정보데이터시스템 CSV-OTP 전종목 일별시세.
-    LOGOUT 방지를 위해 KRX 페이지를 먼저 열어 세션 쿠키를 받고,
-    OTP payload는 url이 아니라 bld를 사용한다.
-    """
-    session = requests.Session()
+def request_krx_openapi(url: str, auth_key: str, bas_dd: str, log_lines: List[str], label: str) -> pd.DataFrame:
+    headers = {"AUTH_KEY": auth_key}
+    params = {"basDd": bas_dd}
+    r = requests.get(url, params=params, headers=headers, timeout=40)
 
-    main_url = "https://data.krx.co.kr/contents/MDC/MDI/mdiLoader/index.cmd"
-    gen_url = "https://data.krx.co.kr/comm/fileDn/GenerateOTP/generate.cmd"
-    down_url = "https://data.krx.co.kr/comm/fileDn/download_csv/download.cmd"
-
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/125.0.0.0 Safari/537.36"
-        ),
-        "Accept": "*/*",
-        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-        "Origin": "https://data.krx.co.kr",
-        "Referer": "https://data.krx.co.kr/contents/MDC/MDI/mdiLoader/index.cmd?menuId=MDC0201020101",
-        "X-Requested-With": "XMLHttpRequest",
-        "Connection": "keep-alive",
-    }
-
-    # 세션 쿠키 확보. 이 과정이 없으면 LOGOUT 응답이 나올 수 있음.
-    session.get(main_url, headers=headers, timeout=20)
-
-    payload = {
-        "locale": "ko_KR",
-        "mktId": "ALL",
-        "trdDd": trd_dd,
-        "share": "1",
-        "money": "1",
-        "csvxls_isNo": "false",
-        "name": "fileDown",
-        "bld": "dbms/MDC/STAT/standard/MDCSTAT01501",
-    }
-
-    otp = session.post(gen_url, data=payload, headers=headers, timeout=20).text.strip()
-
-    if not otp or len(otp) < 10 or "LOGOUT" in otp.upper():
-        raise RuntimeError(f"OTP 생성 실패: {trd_dd}, response={otp[:120]}")
-
-    r = session.post(down_url, data={"code": otp}, headers=headers, timeout=40)
-    r.raise_for_status()
+    if r.status_code != 200:
+        log_lines.append(f"OPENAPI_FAIL {label} {bas_dd}: status={r.status_code}, body={r.text[:200]}")
+        return pd.DataFrame()
 
     try:
-        return pd.read_csv(io.BytesIO(r.content), encoding="cp949")
-    except Exception:
-        return pd.read_csv(io.BytesIO(r.content), encoding="utf-8-sig")
+        data = r.json()
+    except Exception as e:
+        log_lines.append(f"OPENAPI_JSON_FAIL {label} {bas_dd}: {repr(e)}, body={r.text[:200]}")
+        return pd.DataFrame()
+
+    # 정상 응답은 보통 OutBlock_1에 들어 있다.
+    rows = data.get("OutBlock_1")
+    if rows is None:
+        # 혹시 구조가 바뀐 경우 list 타입 값을 찾아본다.
+        for v in data.values():
+            if isinstance(v, list):
+                rows = v
+                break
+
+    if not rows:
+        msg = data.get("message") or data.get("MSG") or data.get("errMsg") or ""
+        log_lines.append(f"OPENAPI_EMPTY {label} {bas_dd}: keys={list(data.keys())}, message={msg}")
+        return pd.DataFrame()
+
+    return pd.DataFrame(rows)
 
 
-def normalize_krx_daily(raw: pd.DataFrame, trd_dd: str) -> pd.DataFrame:
+def normalize_openapi_stock(raw: pd.DataFrame, market: str, bas_dd: str, log_lines: List[str]) -> pd.DataFrame:
     if raw is None or raw.empty:
         return pd.DataFrame()
 
     cols = list(raw.columns)
-    code_col = find_col(cols, ["종목코드", "단축코드", "표준코드"])
-    name_col = find_col(cols, ["종목명", "한글 종목명", "한글종목명"])
-    market_col = find_col(cols, ["시장구분", "시장", "MKT"])
-    open_col = find_col(cols, ["시가"])
-    high_col = find_col(cols, ["고가"])
-    low_col = find_col(cols, ["저가"])
-    close_col = find_col(cols, ["종가", "현재가"])
-    volume_col = find_col(cols, ["거래량"])
-    trading_value_col = find_col(cols, ["거래대금"])
-    market_cap_col = find_col(cols, ["시가총액"])
-    shares_col = find_col(cols, ["상장주식수"])
+    log_lines.append(f"OPENAPI_COLS {market} {bas_dd}: {cols}")
+
+    code_col = find_col(cols, ["ISU_SRT_CD", "ISU_CD", "종목코드", "단축코드"])
+    name_col = find_col(cols, ["ISU_ABBRV", "ISU_NM", "종목명", "한글종목명"])
+    open_col = find_col(cols, ["TDD_OPNPRC", "OPNPRC", "시가"])
+    high_col = find_col(cols, ["TDD_HGPRC", "HGPRC", "고가"])
+    low_col = find_col(cols, ["TDD_LWPRC", "LWPRC", "저가"])
+    close_col = find_col(cols, ["TDD_CLSPRC", "CLSPRC", "종가", "현재가"])
+    volume_col = find_col(cols, ["ACC_TRDVOL", "TRDVOL", "거래량"])
+    trading_value_col = find_col(cols, ["ACC_TRDVAL", "TRDVAL", "거래대금"])
+    market_cap_col = find_col(cols, ["MKTCAP", "시가총액"])
+    shares_col = find_col(cols, ["LIST_SHRS", "상장주식수"])
 
     if code_col is None or close_col is None:
+        log_lines.append(f"OPENAPI_NORMALIZE_FAIL {market} {bas_dd}: code_col={code_col}, close_col={close_col}, cols={cols}")
         return pd.DataFrame()
 
     out = pd.DataFrame()
-    out["date"] = pd.to_datetime(trd_dd)
-    out["ticker"] = raw[code_col].astype(str).str.replace("'", "", regex=False).str.zfill(6)
+    out["date"] = pd.to_datetime(bas_dd)
+    out["market"] = market
+    out["ticker"] = raw[code_col].map(normalize_ticker)
     out["name"] = raw[name_col].astype(str) if name_col else out["ticker"]
-
-    if market_col:
-        m = raw[market_col].astype(str)
-        out["market"] = np.where(
-            m.str.contains("KOSDAQ|코스닥", case=False, na=False),
-            "KOSDAQ",
-            np.where(m.str.contains("KOSPI|유가|유가증권", case=False, na=False), "KOSPI", m),
-        )
-    else:
-        out["market"] = ""
 
     for source_col, dest_col in [
         (open_col, "open"),
@@ -263,116 +277,33 @@ def normalize_krx_daily(raw: pd.DataFrame, trd_dd: str) -> pd.DataFrame:
             out[dest_col] = np.nan
 
     out = out.dropna(subset=["close"])
-    out = out[out["ticker"].str.len().eq(6)]
+    out = out[out["ticker"].astype(str).str.fullmatch(r"\d{6}")]
     return out
 
 
-def collect_history_by_otp(start_dt: date, end_dt: date, log_lines: List[str]) -> pd.DataFrame:
+def collect_history_by_openapi(start_dt: date, end_dt: date, auth_key: str, log_lines: List[str]) -> pd.DataFrame:
     frames = []
+    if not auth_key:
+        log_lines.append("OPENAPI_AUTH_KEY_MISSING: GitHub Secret KRX_AUTH_KEY가 비어 있음")
+        return pd.DataFrame()
+
     for d in pd.date_range(start_dt, end_dt, freq="B"):
         ds = ymd(d)
-        try:
-            raw = fetch_krx_otp_daily_all(ds)
-            one = normalize_krx_daily(raw, ds)
-            if not one.empty:
-                frames.append(one)
-                log_lines.append(f"OTP {ds}: rows={len(one)}")
-                print(f"[OTP] {ds}: rows={len(one)}")
-            else:
-                log_lines.append(f"OTP {ds}: empty after normalize, raw_cols={list(raw.columns) if raw is not None else 'None'}")
-                print(f"[OTP_EMPTY] {ds}")
-        except Exception as e:
-            log_lines.append(f"OTP_FAIL {ds}: {repr(e)}")
-            print(f"[OTP_FAIL] {ds}: {e}")
-        time.sleep(0.2)
-
-    if not frames:
-        return pd.DataFrame()
-    return pd.concat(frames, ignore_index=True)
-
-
-# -----------------------------
-# pykrx fallback
-# -----------------------------
-
-def collect_history_by_pykrx_fallback(start_dt: date, end_dt: date, log_lines: List[str]) -> pd.DataFrame:
-    """
-    OTP가 모두 실패한 경우의 보조 방식.
-    pykrx의 일자별 전체시장 OHLCV를 시도하되,
-    컬럼 구조가 바뀌어도 최대한 유연하게 처리한다.
-    """
-    try:
-        from pykrx import stock
-    except Exception as e:
-        log_lines.append(f"PYKRX_IMPORT_FAIL: {repr(e)}")
-        return pd.DataFrame()
-
-    frames = []
-    colmap = {
-        "시가": "open",
-        "고가": "high",
-        "저가": "low",
-        "종가": "close",
-        "현재가": "close",
-        "거래량": "volume",
-        "거래대금": "trading_value",
-        "시가총액": "market_cap",
-        "상장주식수": "listed_shares",
-        "Open": "open",
-        "High": "high",
-        "Low": "low",
-        "Close": "close",
-        "Volume": "volume",
-        "TradingValue": "trading_value",
-    }
-
-    for market in ["KOSPI", "KOSDAQ"]:
-        for d in pd.date_range(start_dt, end_dt, freq="B"):
-            ds = ymd(d)
+        for market, url in OPENAPI_STOCK_URLS.items():
             try:
-                raw = stock.get_market_ohlcv_by_ticker(ds, market=market)
-                if raw is None or raw.empty:
-                    log_lines.append(f"PYKRX {market} {ds}: empty")
-                    continue
-
-                log_lines.append(f"PYKRX_COLS {market} {ds}: {list(raw.columns)}")
-
-                df = raw.copy()
-                df.index = df.index.astype(str).str.zfill(6)
-                df = df.reset_index().rename(columns={"티커": "ticker", "index": "ticker"})
-                if "ticker" not in df.columns:
-                    df = df.rename(columns={df.columns[0]: "ticker"})
-
-                df = df.rename(columns={c: colmap.get(c, c) for c in df.columns})
-
-                for col in ["open", "high", "low", "close", "volume", "trading_value", "market_cap", "listed_shares"]:
-                    if col not in df.columns:
-                        df[col] = np.nan
-                    df[col] = pd.to_numeric(df[col], errors="coerce")
-
-                if df["close"].isna().all():
-                    log_lines.append(f"PYKRX {market} {ds}: close all NaN after normalize")
-                    continue
-
-                df["date"] = pd.to_datetime(ds)
-                df["market"] = market
-                df["ticker"] = df["ticker"].astype(str).str.zfill(6)
-
-                try:
-                    df["name"] = df["ticker"].map(lambda x: stock.get_market_ticker_name(x))
-                except Exception:
-                    df["name"] = df["ticker"]
-
-                frames.append(
-                    df[[
-                        "date", "market", "ticker", "name",
-                        "open", "high", "low", "close",
-                        "volume", "trading_value", "market_cap", "listed_shares",
-                    ]]
-                )
-                log_lines.append(f"PYKRX {market} {ds}: rows={len(df)}")
+                raw = request_krx_openapi(url, auth_key, ds, log_lines, f"{market}_stock")
+                one = normalize_openapi_stock(raw, market, ds, log_lines)
+                if not one.empty:
+                    frames.append(one)
+                    log_lines.append(f"OPENAPI {market} {ds}: rows={len(one)}")
+                    print(f"[OPENAPI] {market} {ds}: rows={len(one)}")
+                else:
+                    log_lines.append(f"OPENAPI {market} {ds}: empty after normalize")
+                    print(f"[OPENAPI_EMPTY] {market} {ds}")
             except Exception as e:
-                log_lines.append(f"PYKRX_FAIL {market} {ds}: {repr(e)}")
+                log_lines.append(f"OPENAPI_FAIL {market} {ds}: {repr(e)}")
+                print(f"[OPENAPI_FAIL] {market} {ds}: {e}")
+            time.sleep(0.15)
 
     if not frames:
         return pd.DataFrame()
@@ -477,7 +408,7 @@ def summarize_market(hist: pd.DataFrame, market: str, low_liq_krw: float) -> pd.
             "market_cap": int(last["market_cap"]) if "market_cap" in g.columns and not pd.isna(last["market_cap"]) else None,
             "listed_shares": int(last["listed_shares"]) if "listed_shares" in g.columns and not pd.isna(last["listed_shares"]) else None,
             "data_rows": int(len(g)),
-            "source_used": "krx_otp_or_pykrx",
+            "source_used": "krx_openapi",
         })
 
     if not rows:
@@ -487,79 +418,94 @@ def summarize_market(hist: pd.DataFrame, market: str, low_liq_krw: float) -> pd.
 
 
 # -----------------------------
-# 시장지수 요약
+# 시장지수 요약: 선택 기능
 # -----------------------------
 
-def collect_index_summary(start_dt: date, end_dt: date, log_lines: List[str]) -> pd.DataFrame:
+def normalize_openapi_index(raw: pd.DataFrame, label: str, bas_dd: str, log_lines: List[str]) -> pd.DataFrame:
+    if raw is None or raw.empty:
+        return pd.DataFrame()
+    cols = list(raw.columns)
+    log_lines.append(f"INDEX_OPENAPI_COLS {label} {bas_dd}: {cols}")
+
+    name_col = find_col(cols, ["IDX_NM", "지수명", "지수명칭"])
+    code_col = find_col(cols, ["IDX_CD", "지수코드"])
+    close_col = find_col(cols, ["CLSPRC_IDX", "TDD_CLSPRC", "종가", "현재가"])
+    high_col = find_col(cols, ["HGPRC_IDX", "TDD_HGPRC", "고가"])
+    low_col = find_col(cols, ["LWPRC_IDX", "TDD_LWPRC", "저가"])
+
+    if close_col is None:
+        log_lines.append(f"INDEX_OPENAPI_NORMALIZE_FAIL {label} {bas_dd}: close_col missing, cols={cols}")
+        return pd.DataFrame()
+
+    out = pd.DataFrame()
+    out["date"] = pd.to_datetime(bas_dd)
+    out["index_group"] = label
+    out["index_name"] = raw[name_col].astype(str) if name_col else label
+    out["index_code"] = raw[code_col].astype(str) if code_col else label
+    out["close"] = clean_number_series(raw[close_col])
+    out["high"] = clean_number_series(raw[high_col]) if high_col else out["close"]
+    out["low"] = clean_number_series(raw[low_col]) if low_col else out["close"]
+    return out.dropna(subset=["close"])
+
+
+def collect_index_summary(start_dt: date, end_dt: date, auth_key: str, log_lines: List[str]) -> pd.DataFrame:
     cols = [
         "index_name", "index_code", "last_date", "current_close",
         "low_3m", "high_3m", "range_3m_pct",
         "return_1m_pct", "return_3m_pct", "avg_daily_move_pct",
         "data_rows", "source_used",
     ]
-
-    try:
-        from pykrx import stock
-    except Exception as e:
-        log_lines.append(f"INDEX_PYKRX_IMPORT_FAIL: {repr(e)}")
+    if not auth_key:
         return pd.DataFrame(columns=cols)
 
-    index_map = {
-        "KOSPI": "1001",
-        "KOSDAQ": "2001",
-        "KOSPI200": "1028",
-    }
+    frames = []
+    for d in pd.date_range(start_dt, end_dt, freq="B"):
+        ds = ymd(d)
+        for label, url in OPENAPI_INDEX_URLS.items():
+            raw = request_krx_openapi(url, auth_key, ds, log_lines, f"{label}_index")
+            one = normalize_openapi_index(raw, label, ds, log_lines)
+            if not one.empty:
+                frames.append(one)
+            time.sleep(0.05)
 
+    if not frames:
+        return pd.DataFrame(columns=cols)
+
+    hist = pd.concat(frames, ignore_index=True)
     rows = []
-    for name, code in index_map.items():
-        try:
-            idx = stock.get_index_ohlcv_by_date(ymd(start_dt), ymd(end_dt), code)
-            if idx is None or idx.empty:
-                log_lines.append(f"INDEX {name}: empty")
-                continue
+    # 대표 지수만 우선: 이름에 KOSPI/KOSDAQ 또는 코스피/코스닥이 들어가는 첫 행 우선
+    for label in ["KOSPI", "KOSDAQ"]:
+        part = hist[hist["index_group"].eq(label)].copy()
+        if part.empty:
+            continue
+        mask = part["index_name"].str.contains(label, case=False, na=False) | part["index_name"].str.contains("코스피|코스닥", regex=True, na=False)
+        if mask.any():
+            name = part[mask]["index_name"].iloc[0]
+            part = part[part["index_name"].eq(name)]
+        else:
+            name = part["index_name"].iloc[0]
+            part = part[part["index_name"].eq(name)]
 
-            log_lines.append(f"INDEX_COLS {name}: {list(idx.columns)}")
-            idx = idx.copy().sort_index()
-            idx = idx.rename(columns={
-                "시가": "open",
-                "고가": "high",
-                "저가": "low",
-                "종가": "close",
-                "현재가": "close",
-                "거래량": "volume",
-                "거래대금": "trading_value",
-            })
-
-            if "close" not in idx.columns:
-                log_lines.append(f"INDEX_FAIL {name}: close column missing")
-                continue
-
-            last = float(idx["close"].iloc[-1])
-            low = float(idx["low"].min()) if "low" in idx.columns else float(idx["close"].min())
-            high = float(idx["high"].max()) if "high" in idx.columns else float(idx["close"].max())
-            avg_pct = (idx["close"].pct_change().abs() * 100).dropna().mean()
-
-            idx_reset = idx.reset_index()
-            date_col = idx_reset.columns[0]
-            idx_reset = idx_reset.rename(columns={date_col: "date"})
-            ref_1m = find_close_on_or_after(idx_reset, pd.Timestamp(idx.index[-1]) - relativedelta(months=1))
-
-            rows.append({
-                "index_name": name,
-                "index_code": code,
-                "last_date": iso(idx.index[-1]),
-                "current_close": round(last, 2),
-                "low_3m": round(low, 2),
-                "high_3m": round(high, 2),
-                "range_3m_pct": round((high - low) / low * 100, 2) if low else None,
-                "return_1m_pct": safe_return_pct(last, ref_1m),
-                "return_3m_pct": safe_return_pct(last, float(idx["close"].iloc[0])),
-                "avg_daily_move_pct": round(float(avg_pct), 2) if not pd.isna(avg_pct) else None,
-                "data_rows": len(idx),
-                "source_used": "pykrx",
-            })
-        except Exception as e:
-            log_lines.append(f"INDEX_FAIL {name}: {repr(e)}")
+        part = part.sort_values("date")
+        last = float(part["close"].iloc[-1])
+        low = float(part["low"].min())
+        high = float(part["high"].max())
+        avg_pct = (part["close"].pct_change().abs() * 100).dropna().mean()
+        ref_1m = find_close_on_or_after(part.rename(columns={"close": "close"}), part["date"].max() - relativedelta(months=1))
+        rows.append({
+            "index_name": name,
+            "index_code": part["index_code"].iloc[-1],
+            "last_date": iso(part["date"].max()),
+            "current_close": round(last, 2),
+            "low_3m": round(low, 2),
+            "high_3m": round(high, 2),
+            "range_3m_pct": round((high - low) / low * 100, 2) if low else None,
+            "return_1m_pct": safe_return_pct(last, ref_1m),
+            "return_3m_pct": safe_return_pct(last, float(part["close"].iloc[0])),
+            "avg_daily_move_pct": round(float(avg_pct), 2) if not pd.isna(avg_pct) else None,
+            "data_rows": len(part),
+            "source_used": "krx_openapi",
+        })
 
     return pd.DataFrame(rows, columns=cols)
 
@@ -590,6 +536,7 @@ def main() -> int:
     args = parser.parse_args()
 
     load_dotenv()
+    auth_key = os.getenv("KRX_AUTH_KEY", "").strip()
     low_liq_krw = float(os.getenv("LOW_LIQUIDITY_KRW", "10000000000"))
 
     outdir = Path(args.output_dir)
@@ -601,14 +548,12 @@ def main() -> int:
     log_lines = [
         f"run_at={datetime.now().isoformat(timespec='seconds')}",
         f"period={start_dt.isoformat()}~{end_dt.isoformat()}",
-        "script=collect_universe.py v3",
+        "script=collect_universe.py v4_openapi",
+        f"KRX_AUTH_KEY_present={bool(auth_key)}",
     ]
 
     try:
-        hist = collect_history_by_otp(start_dt, end_dt, log_lines)
-        if hist.empty:
-            log_lines.append("OTP 전체 실패 또는 0행. pykrx fallback 시작.")
-            hist = collect_history_by_pykrx_fallback(start_dt, end_dt, log_lines)
+        hist = collect_history_by_openapi(start_dt, end_dt, auth_key, log_lines)
 
         raw_path = outdir / "universe_raw_history_latest.csv"
         save_if_not_empty(hist, raw_path, log_lines, "universe_raw_history")
@@ -634,10 +579,9 @@ def main() -> int:
                 gainers.insert(0, "rank_1m", range(1, len(gainers) + 1))
         else:
             gainers = pd.DataFrame()
-
         save_if_not_empty(gainers, gainers_path, log_lines, "kospi_gainers_1m")
 
-        idx = collect_index_summary(start_dt, end_dt, log_lines)
+        idx = collect_index_summary(start_dt, end_dt, auth_key, log_lines)
         idx_path = outdir / "market_index_summary_latest.csv"
         save_if_not_empty(idx, idx_path, log_lines, "market_index_summary")
 

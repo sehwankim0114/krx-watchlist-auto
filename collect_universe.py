@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-코피표·코닥표·코급표용 KRX 전체시장 자동 수집기 v4
+코피표·코닥표·코급표용 KRX 전체시장 자동 수집기 v4.1
 
 v4 핵심 변경
 - KRX CSV-OTP 스크래핑과 pykrx fallback 의존 제거
@@ -625,7 +625,7 @@ def main() -> int:
     log_lines = [
         f"run_at={datetime.now().isoformat(timespec='seconds')}",
         f"period={start_dt.isoformat()}~{end_dt.isoformat()}",
-        "script=collect_universe.py v4_openapi",
+        "script=collect_universe.py v4.1_openapi_summary_fix",
         f"KRX_AUTH_KEY_present={bool(auth_key)}",
     ]
 

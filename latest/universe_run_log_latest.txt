@@ -1,6 +1,6 @@
-run_at=2026-05-30T20:34:38
-period=2026-02-28~2026-05-30
-script=collect_universe.py v4.3_simple_summary
+run_at=2026-05-31T04:19:01
+period=2026-02-28~2026-05-31
+script=collect_universe.py v4.4_with_candidates
 KRX_AUTH_KEY_present=True
 OPENAPI_EMPTY KOSPI_stock 20260302: keys=['OutBlock_1']
 OPENAPI KOSPI 20260302: empty after normalize
@@ -138,19 +138,61 @@ OPENAPI KOSPI 20260527: rows=923
 OPENAPI KOSDAQ 20260527: rows=1778
 OPENAPI KOSPI 20260528: rows=923
 OPENAPI KOSDAQ 20260528: rows=1778
-OPENAPI_EMPTY KOSPI_stock 20260529: keys=['OutBlock_1']
-OPENAPI KOSPI 20260529: empty after normalize
-OPENAPI_EMPTY KOSDAQ_stock 20260529: keys=['OutBlock_1']
-OPENAPI KOSDAQ 20260529: empty after normalize
-universe_raw_history=latest/universe_raw_history_latest.csv, rows=162348
-SUMMARY KOSPI: input rows=55472
-SUMMARY KOSPI: cleaned rows=55472, tickers=926
+OPENAPI KOSPI 20260529: rows=923
+OPENAPI KOSDAQ 20260529: rows=1778
+universe_raw_history=latest/universe_raw_history_latest.csv, rows=165049
+SUMMARY KOSPI: input rows=56395
+SUMMARY KOSPI: cleaned rows=56395, tickers=926
 SUMMARY KOSPI: output rows=926
-SUMMARY KOSDAQ: input rows=106876
-SUMMARY KOSDAQ: cleaned rows=106876, tickers=1795
+SUMMARY KOSDAQ: input rows=108654
+SUMMARY KOSDAQ: cleaned rows=108654, tickers=1795
 SUMMARY KOSDAQ: output rows=1795
 KOSPI_summary=latest/kospi_universe_summary_latest.csv, rows=926
 KOSDAQ_summary=latest/kosdaq_universe_summary_latest.csv, rows=1795
 kospi_gainers_1m=latest/kospi_gainers_1m_latest.csv, rows=20
-market_index_summary skipped in v4.3_simple_summary
-DONE universe collection finished
+CANDIDATES: filtered from 926 to 775 (excluded stocks)
+CANDIDATES: top 30 selected, rows=30
+FATAL_ERROR: KeyError('avg_daily_move_pct')
+Traceback (most recent call last):
+  File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/pandas/core/indexes/base.py", line 3812, in get_loc
+    return self._engine.get_loc(casted_key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "pandas/_libs/index.pyx", line 167, in pandas._libs.index.IndexEngine.get_loc
+  File "pandas/_libs/index.pyx", line 196, in pandas._libs.index.IndexEngine.get_loc
+  File "pandas/_libs/hashtable_class_helper.pxi", line 7088, in pandas._libs.hashtable.PyObjectHashTable.get_item
+  File "pandas/_libs/hashtable_class_helper.pxi", line 7096, in pandas._libs.hashtable.PyObjectHashTable.get_item
+KeyError: 'avg_daily_move_pct'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/collect_universe.py", line 656, in main
+    candidates_30, recommend_7 = build_candidates_from_kospi(kospi, log_lines)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/collect_universe.py", line 575, in build_candidates_from_kospi
+    candidates_30["recommend_score"] = candidates_30.apply(recommend_score, axis=1)
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/pandas/core/frame.py", line 10401, in apply
+    return op.apply().__finalize__(self, method="apply")
+           ^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/pandas/core/apply.py", line 916, in apply
+    return self.apply_standard()
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/pandas/core/apply.py", line 1063, in apply_standard
+    results, res_index = self.apply_series_generator()
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/pandas/core/apply.py", line 1081, in apply_series_generator
+    results[i] = self.func(v, *self.args, **self.kwargs)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/collect_universe.py", line 570, in recommend_score
+    vol = row["avg_daily_move_pct"]
+          ~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/pandas/core/series.py", line 1133, in __getitem__
+    return self._get_value(key)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/pandas/core/series.py", line 1249, in _get_value
+    loc = self.index.get_loc(label)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/pandas/core/indexes/base.py", line 3819, in get_loc
+    raise KeyError(key) from err
+KeyError: 'avg_daily_move_pct'

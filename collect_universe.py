@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 코피표·코닥표·코급표용 KRX 전체시장 자동 수집기
-v4.5_full_replacement
+v4.6_kosdaq_candidates_gainer_filter
 
 생성/갱신 파일
 - latest/universe_raw_history_latest.csv

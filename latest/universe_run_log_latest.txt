@@ -1,5 +1,5 @@
-script=collect_universe.py v4.5_full_replacement
-started_at=2026-05-31T04:45:05
+script=collect_universe.py v4.6_kosdaq_candidates_gainer_filter
+started_at=2026-05-31T06:10:20
 collection_period=2026-01-26~2026-05-31
 OPENAPI KOSPI 20260126: rows=927
 OPENAPI KOSDAQ 20260126: rows=1794
@@ -195,7 +195,7 @@ OPENAPI KOSPI 20260528: rows=923
 OPENAPI KOSDAQ 20260528: rows=1778
 OPENAPI KOSPI 20260529: rows=923
 OPENAPI KOSDAQ 20260529: rows=1778
-HISTORY_COMBINE: fresh=224770, existing=74801, combined=216613
+HISTORY_COMBINE: fresh=224770, existing=98202, combined=216613
 raw_history=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/universe_raw_history_latest.csv, rows=216613
 SUMMARY KOSPI: input rows=73980
 SUMMARY KOSPI: 3m rows=56395, tickers=926
@@ -205,11 +205,17 @@ SUMMARY KOSDAQ: 3m rows=108654, tickers=1795
 SUMMARY KOSDAQ: output rows=1795
 KOSPI_summary=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kospi_universe_summary_latest.csv, rows=926
 KOSDAQ_summary=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kosdaq_universe_summary_latest.csv, rows=1795
+KOSPI_GAINERS_ANOMALY_EXCLUDED: rows=16, examples=DKME, SG세계물산, SH에너지화학, 금호에이치티, 남성, 메타케어, 블루산업개발, 비비안, 서울식품, 신성이엔지
+KOSPI_GAINERS_FILTER: before=787, after_valid=87
 KOSPI_GAINERS: rows=20
 KOSPI_CANDIDATES: after exclusion rows=787
 KOSPI_CANDIDATES: candidates=30, recommend=7
 kospi_gainers_1m=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kospi_gainers_1m_latest.csv, rows=20
 kospi_candidates_30=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kospi_candidates_30_latest.csv, rows=30
 kospi_recommend_7=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kospi_recommend_7_latest.csv, rows=7
+KOSDAQ_CANDIDATES: after exclusion rows=1653
+KOSDAQ_CANDIDATES: candidates=10, recommend=5
+kosdaq_candidates_10=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kosdaq_candidates_10_latest.csv, rows=10
+kosdaq_recommend_5=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kosdaq_recommend_5_latest.csv, rows=5
 market_index_summary=kept_existing:/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/market_index_summary_latest.csv
-finished_at=2026-05-31T04:51:35
+finished_at=2026-05-31T06:16:39

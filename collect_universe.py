@@ -11,6 +11,8 @@ v4.5_full_replacement
 - latest/kospi_gainers_1m_latest.csv
 - latest/kospi_candidates_30_latest.csv
 - latest/kospi_recommend_7_latest.csv
+- latest/kosdaq_candidates_10_latest.csv
+- latest/kosdaq_recommend_5_latest.csv
 - latest/universe_run_log_latest.txt
 
 필수 GitHub Secret
@@ -40,7 +42,7 @@ except Exception:  # GitHub Actions에 dotenv가 없어도 실행되게 처리
         return False
 
 
-SCRIPT_VERSION = "collect_universe.py v4.5_full_replacement"
+SCRIPT_VERSION = "collect_universe.py v4.6_kosdaq_candidates_gainer_filter"
 
 OPENAPI_STOCK_URLS = {
     "KOSPI": "http://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
@@ -549,7 +551,7 @@ def build_market_summary(hist: pd.DataFrame, market: str, low_liq_krw: float, lo
 
 
 # -----------------------------------------------------------------------------
-# 코피표 후보 30 / 추천 7 / 코급표 20 산출
+# 코피표 후보 30 / 추천 7 / 코닥표 후보 10 / 추천 5 / 코급표 20 산출
 # -----------------------------------------------------------------------------
 
 
@@ -752,14 +754,25 @@ def row_to_candidate(row: pd.Series, rank: int, recommend_flag: str, scoring: Di
     }
 
 
-def build_kospi_candidates(summary: pd.DataFrame, log_lines: List[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def build_market_candidates(
+    summary: pd.DataFrame,
+    log_lines: List[str],
+    market_label: str,
+    candidate_n: int,
+    recommend_n: int,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    코피표/코닥표 공통 후보 선정 함수.
+    - KOSPI: 후보 30개, 추천 7개
+    - KOSDAQ: 후보 10개, 추천 5개
+    """
     if summary is None or summary.empty:
-        log_lines.append("KOSPI_CANDIDATES: summary empty")
+        log_lines.append(f"{market_label}_CANDIDATES: summary empty")
         return pd.DataFrame(columns=CANDIDATE_COLUMNS), pd.DataFrame(columns=CANDIDATE_COLUMNS)
 
     df = summary.copy()
     df = df[~df.apply(is_excluded_stock, axis=1)].copy()
-    log_lines.append(f"KOSPI_CANDIDATES: after exclusion rows={len(df)}")
+    log_lines.append(f"{market_label}_CANDIDATES: after exclusion rows={len(df)}")
 
     if df.empty:
         return pd.DataFrame(columns=CANDIDATE_COLUMNS), pd.DataFrame(columns=CANDIDATE_COLUMNS)
@@ -770,27 +783,42 @@ def build_kospi_candidates(summary: pd.DataFrame, log_lines: List[str]) -> Tuple
         score_rows.append({**row.to_dict(), **scoring})
 
     scored = pd.DataFrame(score_rows)
+
     scored = scored.sort_values(
         ["score", "avg20_trading_value", "return_1m_pct"],
         ascending=[False, False, False],
         na_position="last",
     ).reset_index(drop=True)
 
-    top30_base = scored.head(30).copy()
+    top_base = scored.head(candidate_n).copy()
 
-    # 추천 7개는 점수 상위 중 저유동성/과열이 아닌 종목을 우선한다.
-    stable = scored[(~scored["liquidity_flag"].astype(bool)) & (~scored["overheat_flag"].astype(bool))].copy()
-    rec_base = stable.head(7)
-    if len(rec_base) < 7:
-        fill = scored[~scored.index.isin(rec_base.index)].head(7 - len(rec_base))
+    # 추천 종목은 저유동성/과열이 아닌 종목을 우선 선정한다.
+    stable = scored[
+        (~scored["liquidity_flag"].astype(bool))
+        & (~scored["overheat_flag"].astype(bool))
+    ].copy()
+
+    rec_base = stable.head(recommend_n)
+
+    # 안정 후보가 부족하면 점수순으로 채운다.
+    if len(rec_base) < recommend_n:
+        fill = scored[~scored.index.isin(rec_base.index)].head(recommend_n - len(rec_base))
         rec_base = pd.concat([rec_base, fill], ignore_index=False)
+
     rec_codes = set(rec_base["ticker"].astype(str).tolist())
 
     candidates = []
-    for i, (_, row) in enumerate(top30_base.iterrows(), start=1):
-        flag = "✅" if str(row.get("ticker")) in rec_codes else "🟡"
-        if row.get("overheat_flag") or row.get("liquidity_flag"):
-            flag = "✅" if str(row.get("ticker")) in rec_codes else "⚠️"
+    for i, (_, row) in enumerate(top_base.iterrows(), start=1):
+        is_rec = str(row.get("ticker")) in rec_codes
+        has_warning = bool(row.get("overheat_flag")) or bool(row.get("liquidity_flag"))
+
+        if is_rec:
+            flag = "✅"
+        elif has_warning:
+            flag = "⚠️"
+        else:
+            flag = "🟡"
+
         scoring = {
             "score": row.get("score"),
             "overheat_flag": bool(row.get("overheat_flag")),
@@ -804,7 +832,8 @@ def build_kospi_candidates(summary: pd.DataFrame, log_lines: List[str]) -> Tuple
         ["score", "avg20_trading_value"],
         ascending=[False, False],
         na_position="last",
-    ).head(7)
+    ).head(recommend_n)
+
     for i, (_, row) in enumerate(rec_base.iterrows(), start=1):
         scoring = {
             "score": row.get("score"),
@@ -816,31 +845,131 @@ def build_kospi_candidates(summary: pd.DataFrame, log_lines: List[str]) -> Tuple
 
     cand_df = pd.DataFrame(candidates, columns=CANDIDATE_COLUMNS)
     rec_df = pd.DataFrame(recommends, columns=CANDIDATE_COLUMNS)
-    log_lines.append(f"KOSPI_CANDIDATES: candidates={len(cand_df)}, recommend={len(rec_df)}")
+
+    log_lines.append(
+        f"{market_label}_CANDIDATES: candidates={len(cand_df)}, recommend={len(rec_df)}"
+    )
+
     return cand_df, rec_df
 
 
+def build_kospi_candidates(summary: pd.DataFrame, log_lines: List[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    return build_market_candidates(
+        summary=summary,
+        log_lines=log_lines,
+        market_label="KOSPI",
+        candidate_n=30,
+        recommend_n=7,
+    )
+
+
+def build_kosdaq_candidates(summary: pd.DataFrame, log_lines: List[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    return build_market_candidates(
+        summary=summary,
+        log_lines=log_lines,
+        market_label="KOSDAQ",
+        candidate_n=10,
+        recommend_n=5,
+    )
+
+
 def build_kospi_gainers(summary: pd.DataFrame, log_lines: List[str], top_n: int = 20) -> pd.DataFrame:
+    """
+    코급표 생성 함수.
+    최근 1개월 상승률 상위 20개를 만들되,
+    액면병합·거래재개·데이터 결측 등으로 추정되는 비정상 상승률은 제외한다.
+    """
     if summary is None or summary.empty:
         log_lines.append("KOSPI_GAINERS: summary empty")
         return pd.DataFrame(columns=GAINER_COLUMNS)
 
     df = summary.copy()
     df = df[~df.apply(is_excluded_stock, axis=1)].copy()
+
     df["return_1m_pct_num"] = df["return_1m_pct"].map(clean_number)
+    df["data_rows_num"] = df["data_rows"].map(clean_number)
+
+    before_count = len(df)
+
     df = df.dropna(subset=["return_1m_pct_num"])
+    df = df[df["data_rows_num"] >= 40]
+
+    # 비정상 상승률 방지:
+    # 1개월 +300% 초과는 실제 급등 가능성도 있지만,
+    # 자동 표에서는 액면병합·거래재개·데이터 왜곡 가능성이 커서 제외한다.
+    anomaly_df = df[df["return_1m_pct_num"] > 300].copy()
+    if not anomaly_df.empty:
+        names = ", ".join(anomaly_df["name"].astype(str).head(10).tolist())
+        log_lines.append(
+            f"KOSPI_GAINERS_ANOMALY_EXCLUDED: rows={len(anomaly_df)}, examples={names}"
+        )
+
+    df = df[
+        (df["return_1m_pct_num"] >= 5)
+        & (df["return_1m_pct_num"] <= 300)
+    ].copy()
+
+    log_lines.append(
+        f"KOSPI_GAINERS_FILTER: before={before_count}, after_valid={len(df)}"
+    )
+
     if df.empty:
-        log_lines.append("KOSPI_GAINERS: no valid return_1m_pct")
+        log_lines.append("KOSPI_GAINERS: no valid return_1m_pct after anomaly filter")
         return pd.DataFrame(columns=GAINER_COLUMNS)
 
+    # 먼저 1개월 상승률 상위 20개를 확정한다.
     df = df.sort_values("return_1m_pct_num", ascending=False).head(top_n).reset_index(drop=True)
-    rows = []
-    for i, (_, row) in enumerate(df.iterrows(), start=1):
+
+    scored_rows = []
+    for _, row in df.iterrows():
         scoring = calculate_candidate_score(row)
-        flag = "✅" if i <= 7 and not scoring["liquidity_flag"] else "🟡"
-        if scoring["liquidity_flag"] or scoring["overheat_flag"]:
-            flag = "⚠️" if i > 7 else "✅"
+        scored_rows.append({**row.to_dict(), **scoring})
+
+    scored = pd.DataFrame(scored_rows)
+
+    # 투자적합 7개는 단순 상승률이 아니라 점수·유동성·과열 여부를 함께 반영한다.
+    stable = scored[
+        (~scored["liquidity_flag"].astype(bool))
+        & (~scored["overheat_flag"].astype(bool))
+    ].copy()
+
+    rec_base = stable.sort_values(
+        ["score", "avg20_trading_value", "return_1m_pct_num"],
+        ascending=[False, False, False],
+        na_position="last",
+    ).head(7)
+
+    if len(rec_base) < 7:
+        fill = scored[~scored.index.isin(rec_base.index)].sort_values(
+            ["score", "avg20_trading_value", "return_1m_pct_num"],
+            ascending=[False, False, False],
+            na_position="last",
+        ).head(7 - len(rec_base))
+        rec_base = pd.concat([rec_base, fill], ignore_index=False)
+
+    rec_codes = set(rec_base["ticker"].astype(str).tolist())
+
+    rows = []
+    for i, (_, row) in enumerate(scored.iterrows(), start=1):
+        scoring = {
+            "score": row.get("score"),
+            "overheat_flag": bool(row.get("overheat_flag")),
+            "liquidity_flag": bool(row.get("liquidity_flag")),
+            "reason": row.get("reason", ""),
+        }
+
+        is_rec = str(row.get("ticker")) in rec_codes
+        has_warning = bool(row.get("overheat_flag")) or bool(row.get("liquidity_flag"))
+
+        if is_rec:
+            flag = "✅"
+        elif has_warning:
+            flag = "⚠️"
+        else:
+            flag = "🟡"
+
         cand = row_to_candidate(row, i, flag, scoring)
+
         rows.append(
             {
                 "rank": cand["rank"],
@@ -867,6 +996,7 @@ def build_kospi_gainers(summary: pd.DataFrame, log_lines: List[str], top_n: int 
                 "reason": cand["reason"],
             }
         )
+
     out = pd.DataFrame(rows, columns=GAINER_COLUMNS)
     log_lines.append(f"KOSPI_GAINERS: rows={len(out)}")
     return out
@@ -924,6 +1054,8 @@ def main() -> int:
     kospi_gainers_path = latest_dir / "kospi_gainers_1m_latest.csv"
     kospi_candidates_path = latest_dir / "kospi_candidates_30_latest.csv"
     kospi_recommend_path = latest_dir / "kospi_recommend_7_latest.csv"
+    kosdaq_candidates_path = latest_dir / "kosdaq_candidates_10_latest.csv"
+    kosdaq_recommend_path = latest_dir / "kosdaq_recommend_5_latest.csv"
     market_index_path = latest_dir / "market_index_summary_latest.csv"
     log_path = latest_dir / "universe_run_log_latest.txt"
 
@@ -975,6 +1107,28 @@ def main() -> int:
                 log_lines.append(f"kospi_recommend_7={kospi_recommend_path.as_posix()}, rows={len(recommends)}")
             else:
                 log_lines.append("kospi_recommend_7=not_written_empty")
+
+
+        if not kosdaq_summary.empty:
+            kosdaq_candidates, kosdaq_recommends = build_kosdaq_candidates(kosdaq_summary, log_lines)
+
+            if not kosdaq_candidates.empty:
+                write_csv(kosdaq_candidates, kosdaq_candidates_path)
+                log_lines.append(
+                    f"kosdaq_candidates_10={kosdaq_candidates_path.as_posix()}, rows={len(kosdaq_candidates)}"
+                )
+            else:
+                log_lines.append("kosdaq_candidates_10=not_written_empty")
+
+            if not kosdaq_recommends.empty:
+                write_csv(kosdaq_recommends, kosdaq_recommend_path)
+                log_lines.append(
+                    f"kosdaq_recommend_5={kosdaq_recommend_path.as_posix()}, rows={len(kosdaq_recommends)}"
+                )
+            else:
+                log_lines.append("kosdaq_recommend_5=not_written_empty")
+        else:
+            log_lines.append("KOSDAQ_CANDIDATES_SKIPPED: kosdaq_summary empty")
 
         # 시장지수 파일은 이번 스크립트에서 새 수집하지 않는다. 기존 파일이 없을 때만 안내용으로 만든다.
         if not market_index_path.exists():

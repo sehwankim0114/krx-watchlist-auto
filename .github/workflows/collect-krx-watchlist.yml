@@ -39,7 +39,7 @@ jobs:
           KRX_AUTH_KEY: ${{ secrets.KRX_AUTH_KEY }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: |
-          python collect_universe.py --lookback-months 3 --output-dir latest
+          python collect_universe.py --days 90 --output-dir latest
 
       - name: Commit latest data
         run: |

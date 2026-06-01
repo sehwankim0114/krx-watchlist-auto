@@ -1,11 +1,11 @@
 script=collect_watchlist.py v4.7_return_anomaly_flag
-run_at=2026-05-31T07:34:57
-period=2026-02-28~2026-05-31
+run_at=2026-06-01T21:18:10
+period=2026-03-01~2026-06-01
 source=auto
 return_anomaly_rules=1m>300 or 1m<-80 or 3m>500 or 3m<-90 or data_rows<40
 summary_rows=47
 return_anomaly_rows=2
-summary=latest/watchlist_summary_20260531.csv
-raw=latest/raw_history_20260531.csv
+summary=latest/watchlist_summary_20260601.csv
+raw=latest/raw_history_20260601.csv
 latest_summary=latest/watchlist_summary_latest.csv
 latest_raw=latest/raw_history_latest.csv

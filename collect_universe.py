@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 코피표·코닥표·코급표용 KRX 전체시장 자동 수집기
-v4.7_return_anomaly_common_filter
+v4.6_kosdaq_candidates_gainer_filter
 
 생성/갱신 파일
 - latest/universe_raw_history_latest.csv
@@ -42,7 +42,7 @@ except Exception:  # GitHub Actions에 dotenv가 없어도 실행되게 처리
         return False
 
 
-SCRIPT_VERSION = "collect_universe.py v4.7_return_anomaly_common_filter"
+SCRIPT_VERSION = "collect_universe.py v4.6_kosdaq_candidates_gainer_filter"
 
 OPENAPI_STOCK_URLS = {
     "KOSPI": "http://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
@@ -72,8 +72,6 @@ SUMMARY_COLUMNS = [
     "position_in_3m_range_pct",
     "return_1m_pct",
     "return_3m_pct",
-    "return_anomaly_flag",
-    "return_anomaly_reason",
     "last_volume",
     "last_trading_value",
     "avg20_trading_value",
@@ -103,8 +101,6 @@ CANDIDATE_COLUMNS = [
     "position_in_3m_range_pct",
     "return_1m_pct",
     "return_3m_pct",
-    "return_anomaly_flag",
-    "return_anomaly_reason",
     "avg_volume",
     "avg_trading_value",
     "liquidity_flag",
@@ -122,8 +118,6 @@ GAINER_COLUMNS = [
     "asof_date",
     "close",
     "return_1m_pct",
-    "return_anomaly_flag",
-    "return_anomaly_reason",
     "buy_range",
     "sell_range",
     "avg_daily_move_text",
@@ -433,35 +427,6 @@ def safe_return_pct(last_close: float, ref_close: Optional[float]) -> Optional[f
     return round((float(last_close) / float(ref_close) - 1) * 100, 2)
 
 
-def detect_return_anomaly(return_1m, return_3m, data_rows) -> Tuple[bool, str]:
-    """
-    상승률 이상치 탐지.
-    - 완전한 수정주가 보정은 아니며, 액면병합·거래재개·데이터 결측 등으로
-      급등률/급락률이 왜곡될 가능성이 큰 종목을 자동 표시/제외하기 위한 안전장치다.
-    """
-    r1 = safe_float(return_1m)
-    r3 = safe_float(return_3m)
-    rows = safe_float(data_rows)
-    reasons: List[str] = []
-
-    if pd.isna(rows) or rows < 40:
-        reasons.append(f"데이터행 부족 {0 if pd.isna(rows) else int(rows)}개")
-
-    if not pd.isna(r1):
-        if r1 > 300:
-            reasons.append(f"1개월 상승률 이상치 {r1:.2f}%")
-        elif r1 < -80:
-            reasons.append(f"1개월 하락률 이상치 {r1:.2f}%")
-
-    if not pd.isna(r3):
-        if r3 > 500:
-            reasons.append(f"3개월 상승률 이상치 {r3:.2f}%")
-        elif r3 < -90:
-            reasons.append(f"3개월 하락률 이상치 {r3:.2f}%")
-
-    return bool(reasons), "; ".join(reasons)
-
-
 def find_close_on_or_after(g: pd.DataFrame, target_date: pd.Timestamp) -> Optional[float]:
     part = g[g["date"] >= target_date].sort_values("date")
     if part.empty:
@@ -517,7 +482,6 @@ def build_market_summary(hist: pd.DataFrame, market: str, low_liq_krw: float, lo
         ref_3m = find_close_on_or_after(g, three_months_ago)
         ret_1m = safe_return_pct(last_close, ref_1m)
         ret_3m = safe_return_pct(last_close, ref_3m)
-        return_anomaly_flag, return_anomaly_reason = detect_return_anomaly(ret_1m, ret_3m, len(g))
 
         price_range = high - low
         move = safe_float(avg_abs, last_close * 0.03)
@@ -568,8 +532,6 @@ def build_market_summary(hist: pd.DataFrame, market: str, low_liq_krw: float, lo
                 "position_in_3m_range_pct": round(float(position), 2) if not pd.isna(position) else None,
                 "return_1m_pct": ret_1m,
                 "return_3m_pct": ret_3m,
-                "return_anomaly_flag": return_anomaly_flag,
-                "return_anomaly_reason": return_anomaly_reason,
                 "last_volume": int(last["volume"]) if not pd.isna(last["volume"]) else None,
                 "last_trading_value": int(last_tv) if not pd.isna(last_tv) else None,
                 "avg20_trading_value": int(avg20_tv) if not pd.isna(avg20_tv) else None,
@@ -657,13 +619,6 @@ def calculate_candidate_score(row: pd.Series) -> Dict[str, object]:
     avg_move_pct = safe_float(row.get("avg_daily_move_pct"))
     market_cap = safe_float(row.get("market_cap"))
     low_liq = safe_bool(row.get("low_liquidity"))
-    return_anomaly = safe_bool(row.get("return_anomaly_flag"))
-    return_anomaly_reason = str(row.get("return_anomaly_reason", "")).strip()
-
-    if return_anomaly:
-        score -= 40
-        overheat_flag = True
-        reasons.append(return_anomaly_reason or "상승률 데이터 이상치")
 
     # 과열 감점: 최근 1개월 급등 + 3개월 고점권
     if not pd.isna(return_1m):
@@ -790,8 +745,6 @@ def row_to_candidate(row: pd.Series, rank: int, recommend_flag: str, scoring: Di
         "position_in_3m_range_pct": row.get("position_in_3m_range_pct"),
         "return_1m_pct": row.get("return_1m_pct"),
         "return_3m_pct": row.get("return_3m_pct"),
-        "return_anomaly_flag": safe_bool(row.get("return_anomaly_flag")),
-        "return_anomaly_reason": row.get("return_anomaly_reason", ""),
         "avg_volume": row.get("last_volume"),
         "avg_trading_value": row.get("avg20_trading_value"),
         "liquidity_flag": scoring["liquidity_flag"],
@@ -820,21 +773,6 @@ def build_market_candidates(
     df = summary.copy()
     df = df[~df.apply(is_excluded_stock, axis=1)].copy()
     log_lines.append(f"{market_label}_CANDIDATES: after exclusion rows={len(df)}")
-
-    if not df.empty:
-        anomaly_mask = df.apply(
-            lambda r: safe_bool(r.get("return_anomaly_flag"))
-            or detect_return_anomaly(r.get("return_1m_pct"), r.get("return_3m_pct"), r.get("data_rows"))[0],
-            axis=1,
-        )
-        anomaly_df = df[anomaly_mask].copy()
-        if not anomaly_df.empty:
-            examples = ", ".join(anomaly_df["name"].astype(str).head(10).tolist())
-            log_lines.append(
-                f"{market_label}_CANDIDATES_RETURN_ANOMALY_EXCLUDED: rows={len(anomaly_df)}, examples={examples}"
-            )
-        df = df[~anomaly_mask].copy()
-        log_lines.append(f"{market_label}_CANDIDATES: after return anomaly filter rows={len(df)}")
 
     if df.empty:
         return pd.DataFrame(columns=CANDIDATE_COLUMNS), pd.DataFrame(columns=CANDIDATE_COLUMNS)
@@ -949,27 +887,27 @@ def build_kospi_gainers(summary: pd.DataFrame, log_lines: List[str], top_n: int 
     df = df[~df.apply(is_excluded_stock, axis=1)].copy()
 
     df["return_1m_pct_num"] = df["return_1m_pct"].map(clean_number)
-    df["return_3m_pct_num"] = df["return_3m_pct"].map(clean_number)
     df["data_rows_num"] = df["data_rows"].map(clean_number)
 
     before_count = len(df)
 
     df = df.dropna(subset=["return_1m_pct_num"])
+    df = df[df["data_rows_num"] >= 40]
 
-    anomaly_mask = df.apply(
-        lambda r: safe_bool(r.get("return_anomaly_flag"))
-        or detect_return_anomaly(r.get("return_1m_pct_num"), r.get("return_3m_pct_num"), r.get("data_rows_num"))[0],
-        axis=1,
-    )
-    anomaly_df = df[anomaly_mask].copy()
+    # 비정상 상승률 방지:
+    # 1개월 +300% 초과는 실제 급등 가능성도 있지만,
+    # 자동 표에서는 액면병합·거래재개·데이터 왜곡 가능성이 커서 제외한다.
+    anomaly_df = df[df["return_1m_pct_num"] > 300].copy()
     if not anomaly_df.empty:
         names = ", ".join(anomaly_df["name"].astype(str).head(10).tolist())
         log_lines.append(
             f"KOSPI_GAINERS_ANOMALY_EXCLUDED: rows={len(anomaly_df)}, examples={names}"
         )
 
-    df = df[~anomaly_mask].copy()
-    df = df[df["return_1m_pct_num"] >= 5].copy()
+    df = df[
+        (df["return_1m_pct_num"] >= 5)
+        & (df["return_1m_pct_num"] <= 300)
+    ].copy()
 
     log_lines.append(
         f"KOSPI_GAINERS_FILTER: before={before_count}, after_valid={len(df)}"
@@ -1042,8 +980,6 @@ def build_kospi_gainers(summary: pd.DataFrame, log_lines: List[str], top_n: int 
                 "asof_date": cand["asof_date"],
                 "close": cand["close"],
                 "return_1m_pct": cand["return_1m_pct"],
-                "return_anomaly_flag": cand.get("return_anomaly_flag", False),
-                "return_anomaly_reason": cand.get("return_anomaly_reason", ""),
                 "buy_range": cand["buy_range"],
                 "sell_range": cand["sell_range"],
                 "avg_daily_move_text": cand["avg_daily_move_text"],

@@ -2,12 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 관종표·분석표용 KRX/미국 시세 자동 수집기
-v4.7_return_anomaly_flag
+v4.6_previous_no_return_anomaly
 
 주요 기능
 - 국내: pykrx를 우선 사용합니다. pykrx 실패 시 KRX CSV-OTP 최신 일별시세 수집을 보조로 사용할 수 있습니다.
 - 미국: yfinance를 사용합니다.
-- 관종표/분석표 원자료에 상승률 이상치 경고 컬럼을 추가합니다.
 
 산출물
 - outputs/watchlist_summary_YYYYMMDD.csv
@@ -45,7 +44,7 @@ except Exception:
         return False
 
 
-SCRIPT_VERSION = "collect_watchlist.py v4.7_return_anomaly_flag"
+SCRIPT_VERSION = "collect_watchlist.py v4.6_previous_no_return_anomaly"
 
 SUMMARY_COLUMNS = [
     "name",
@@ -68,10 +67,6 @@ SUMMARY_COLUMNS = [
     "high_3m_close",
     "range_3m_pct",
     "position_in_3m_range_pct",
-    "return_1m_pct",
-    "return_3m_pct",
-    "return_anomaly_flag",
-    "return_anomaly_reason",
     "last_volume",
     "last_trading_value",
     "avg20_trading_value",
@@ -209,34 +204,6 @@ def find_close_on_or_after(df: pd.DataFrame, target_date: pd.Timestamp) -> Optio
     return float(value)
 
 
-def detect_return_anomaly(return_1m_pct, return_3m_pct, data_rows: int) -> Tuple[bool, str]:
-    """
-    관종표/분석표용 상승률 이상치 경고.
-    관종표는 사용자가 지정한 종목을 유지해야 하므로 제외하지 않고 경고 컬럼만 남긴다.
-    """
-    reasons: List[str] = []
-    r1 = safe_float(return_1m_pct)
-    r3 = safe_float(return_3m_pct)
-    rows = int(data_rows) if data_rows is not None and not pd.isna(data_rows) else 0
-
-    if rows < 40:
-        reasons.append(f"3개월 데이터 부족 {rows}행")
-
-    if not pd.isna(r1):
-        if r1 > 300:
-            reasons.append(f"1개월 수익률 이상치 +{r1:.2f}%")
-        elif r1 < -80:
-            reasons.append(f"1개월 수익률 급락 이상치 {r1:.2f}%")
-
-    if not pd.isna(r3):
-        if r3 > 500:
-            reasons.append(f"3개월 수익률 이상치 +{r3:.2f}%")
-        elif r3 < -90:
-            reasons.append(f"3개월 수익률 급락 이상치 {r3:.2f}%")
-
-    return bool(reasons), "; ".join(reasons)
-
-
 def reorder_summary_columns(summary: pd.DataFrame) -> pd.DataFrame:
     if summary is None or summary.empty:
         return pd.DataFrame(columns=SUMMARY_COLUMNS)
@@ -348,19 +315,6 @@ def summarize_history(
     position_pct = ((current - low) / (high - low) * 100) if high > low else np.nan
     wave = calc_wave_period(df["close"])
 
-    # 신규: 1개월/3개월 수익률과 이상치 경고
-    one_month_ago = pd.Timestamp(last_date) - relativedelta(months=1)
-    three_months_ago = pd.Timestamp(last_date) - relativedelta(months=3)
-    ref_1m = find_close_on_or_after(df, one_month_ago)
-    ref_3m = find_close_on_or_after(df, three_months_ago)
-    return_1m_pct = safe_return_pct(current, ref_1m)
-    return_3m_pct = safe_return_pct(current, ref_3m)
-    return_anomaly_flag, return_anomaly_reason = detect_return_anomaly(
-        return_1m_pct,
-        return_3m_pct,
-        len(df),
-    )
-
     # 단순 산정값: ChatGPT 관종표에서 최종 판단 전 원자료 기준점으로 사용
     price_range = high - low
     if price_range > 0:
@@ -443,10 +397,6 @@ def summarize_history(
         "high_3m_close": close_high_out,
         "range_3m_pct": round(range_pct, 2) if not pd.isna(range_pct) else None,
         "position_in_3m_range_pct": round(position_pct, 2) if not pd.isna(position_pct) else None,
-        "return_1m_pct": return_1m_pct,
-        "return_3m_pct": return_3m_pct,
-        "return_anomaly_flag": bool(return_anomaly_flag),
-        "return_anomaly_reason": return_anomaly_reason,
         "last_volume": round(last_volume, 0) if not pd.isna(last_volume) else None,
         "last_trading_value": round(last_trading_value, 0) if not pd.isna(last_trading_value) else None,
         "avg20_trading_value": round(avg20_trading_value, 0) if not pd.isna(avg20_trading_value) else None,
@@ -645,7 +595,6 @@ def main() -> int:
         f"run_at={datetime.now().isoformat(timespec='seconds')}",
         f"period={start_dt.isoformat()}~{end_dt.isoformat()}",
         f"source={args.source}",
-        "return_anomaly_rules=1m>300 or 1m<-80 or 3m>500 or 3m<-90 or data_rows<40",
     ]
 
     otp_all = None
@@ -723,8 +672,7 @@ def main() -> int:
 
             summaries.append(s)
             print(
-                f"[OK] {name} {ticker}: {s.get('status')} {s.get('last_date','')} "
-                f"anomaly={s.get('return_anomaly_flag','')}"
+                f"[OK] {name} {ticker}: {s.get('status')} {s.get('last_date','')}"
             )
 
         except Exception as e:
@@ -750,11 +698,7 @@ def main() -> int:
     # 표시명 기준 정렬: 영문은 그대로, 한글은 유니코드 정렬. ChatGPT 표 재정렬 전 기초자료.
     summary = summary.sort_values(["name"]).reset_index(drop=True)
 
-    anomaly_count = 0
-    if "return_anomaly_flag" in summary.columns:
-        anomaly_count = int(summary["return_anomaly_flag"].fillna(False).astype(bool).sum())
     log_lines.append(f"summary_rows={len(summary)}")
-    log_lines.append(f"return_anomaly_rows={anomaly_count}")
 
     dated_summary = outdir / f"watchlist_summary_{run_id}.csv"
     latest_summary = outdir / "watchlist_summary_latest.csv"
@@ -789,7 +733,6 @@ def main() -> int:
     print(f"\nSaved: {dated_summary}")
     print(f"Saved: {dated_raw}")
     print(f"Saved: {latest_summary}")
-    print(f"Return anomaly rows: {anomaly_count}")
     return 0
 
 

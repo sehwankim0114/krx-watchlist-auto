@@ -42,7 +42,7 @@ except Exception:  # GitHub Actions에 dotenv가 없어도 실행되게 처리
         return False
 
 
-SCRIPT_VERSION = "collect_universe.py v4.6_kosdaq_candidates_gainer_filter"
+SCRIPT_VERSION = "collect_universe.py v4.6.1_kosdaq_candidates_gainer_filter_actual_date_log"
 
 OPENAPI_STOCK_URLS = {
     "KOSPI": "http://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
@@ -1073,6 +1073,20 @@ def main() -> int:
         # 요약 생성: 새 raw가 없어도 기존 raw가 있으면 기존 raw로 재생성한다.
         kospi_summary = build_market_summary(hist, "KOSPI", args.low_liq_krw, log_lines)
         kosdaq_summary = build_market_summary(hist, "KOSDAQ", args.low_liq_krw, log_lines)
+
+        # 실제 데이터 기준일을 명확히 남긴다.
+        # 예: 휴장일/장마감 전 실행이면 collection end date와 실제 가격 데이터 기준일이 다를 수 있다.
+        actual_dates = []
+        for _summary in [kospi_summary, kosdaq_summary]:
+            if _summary is not None and not _summary.empty and "last_date" in _summary.columns:
+                _d = pd.to_datetime(_summary["last_date"], errors="coerce").max()
+                if pd.notna(_d):
+                    actual_dates.append(_d)
+        if actual_dates:
+            actual_data_last_date = max(actual_dates).date().isoformat()
+            log_lines.append(f"actual_data_last_date={actual_data_last_date}")
+        else:
+            log_lines.append("actual_data_last_date=unknown")
 
         if not kospi_summary.empty:
             write_csv(kospi_summary, kospi_summary_path)

@@ -5,6 +5,8 @@ on:
   schedule:
     # 한국시간 16:50 = UTC 07:50
     - cron: "50 7 * * 1-5"
+    # 한국시간 18:10 = UTC 09:10
+    - cron: "10 9 * * 1-5"
 
 permissions:
   contents: write

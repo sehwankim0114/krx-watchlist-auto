@@ -44,7 +44,7 @@ except Exception:
         return False
 
 
-SCRIPT_VERSION = "collect_watchlist.py v4.6_previous_no_return_anomaly"
+SCRIPT_VERSION = "collect_watchlist.py v4.6.1_previous_no_return_anomaly_actual_date_log"
 
 SUMMARY_COLUMNS = [
     "name",
@@ -699,6 +699,22 @@ def main() -> int:
     summary = summary.sort_values(["name"]).reset_index(drop=True)
 
     log_lines.append(f"summary_rows={len(summary)}")
+
+    # 실제 데이터 기준일을 명확히 남긴다.
+    # 예: 휴장일/장마감 전 실행이면 run_at 날짜와 실제 가격 데이터 기준일이 다를 수 있다.
+    ok_summary = summary[summary["status"].astype(str).eq("OK")].copy() if "status" in summary.columns else pd.DataFrame()
+    if not ok_summary.empty and "last_date" in ok_summary.columns:
+        actual_last_date = pd.to_datetime(ok_summary["last_date"], errors="coerce").max()
+        if pd.notna(actual_last_date):
+            log_lines.append(f"actual_data_last_date={actual_last_date.date().isoformat()}")
+        else:
+            log_lines.append("actual_data_last_date=unknown")
+    else:
+        log_lines.append("actual_data_last_date=unknown")
+
+    if "status" in summary.columns:
+        status_counts = summary["status"].astype(str).value_counts().to_dict()
+        log_lines.append(f"status_counts={status_counts}")
 
     dated_summary = outdir / f"watchlist_summary_{run_id}.csv"
     latest_summary = outdir / "watchlist_summary_latest.csv"

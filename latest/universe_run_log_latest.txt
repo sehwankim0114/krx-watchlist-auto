@@ -1,8 +1,6 @@
 script=collect_universe.py v4.6_kosdaq_candidates_gainer_filter
-started_at=2026-06-02T19:59:35
-collection_period=2026-01-27~2026-06-02
-OPENAPI KOSPI 20260127: rows=926
-OPENAPI KOSDAQ 20260127: rows=1793
+started_at=2026-06-03T00:40:20
+collection_period=2026-01-28~2026-06-03
 OPENAPI KOSPI 20260128: rows=926
 OPENAPI KOSDAQ 20260128: rows=1791
 OPENAPI KOSPI 20260129: rows=926
@@ -195,31 +193,33 @@ OPENAPI KOSPI 20260529: rows=923
 OPENAPI KOSDAQ 20260529: rows=1778
 OPENAPI KOSPI 20260601: rows=923
 OPENAPI KOSDAQ 20260601: rows=1778
-OPENAPI_EMPTY KOSPI_stock 20260602: keys=['OutBlock_1']
-OPENAPI KOSPI 20260602: empty after normalize
-OPENAPI_EMPTY KOSDAQ_stock 20260602: keys=['OutBlock_1']
-OPENAPI KOSDAQ 20260602: empty after normalize
-HISTORY_COMBINE: fresh=224750, existing=96958, combined=213882
-raw_history=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/universe_raw_history_latest.csv, rows=213882
-SUMMARY KOSPI: input rows=73051
-SUMMARY KOSPI: 3m rows=57318, tickers=926
+OPENAPI KOSPI 20260602: rows=923
+OPENAPI KOSDAQ 20260602: rows=1778
+OPENAPI_EMPTY KOSPI_stock 20260603: keys=['OutBlock_1']
+OPENAPI KOSPI 20260603: empty after normalize
+OPENAPI_EMPTY KOSDAQ_stock 20260603: keys=['OutBlock_1']
+OPENAPI KOSDAQ 20260603: empty after normalize
+HISTORY_COMBINE: fresh=224732, existing=96958, combined=216583
+raw_history=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/universe_raw_history_latest.csv, rows=216583
+SUMMARY KOSPI: input rows=73974
+SUMMARY KOSPI: 3m rows=58241, tickers=926
 SUMMARY KOSPI: output rows=926
-SUMMARY KOSDAQ: input rows=140831
-SUMMARY KOSDAQ: 3m rows=110432, tickers=1795
+SUMMARY KOSDAQ: input rows=142609
+SUMMARY KOSDAQ: 3m rows=112210, tickers=1795
 SUMMARY KOSDAQ: output rows=1795
 KOSPI_summary=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kospi_universe_summary_latest.csv, rows=926
 KOSDAQ_summary=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kosdaq_universe_summary_latest.csv, rows=1795
 KOSPI_GAINERS_ANOMALY_EXCLUDED: rows=14, examples=DKME, SG세계물산, SH에너지화학, 남성, 메타케어, 블루산업개발, 비비안, 서울식품, 신성이엔지, 아이티센씨티에스
-KOSPI_GAINERS_FILTER: before=788, after_valid=81
+KOSPI_GAINERS_FILTER: before=788, after_valid=84
 KOSPI_GAINERS: rows=20
 KOSPI_CANDIDATES: after exclusion rows=788
 KOSPI_CANDIDATES: candidates=30, recommend=7
 kospi_gainers_1m=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kospi_gainers_1m_latest.csv, rows=20
 kospi_candidates_30=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kospi_candidates_30_latest.csv, rows=30
 kospi_recommend_7=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kospi_recommend_7_latest.csv, rows=7
-KOSDAQ_CANDIDATES: after exclusion rows=1654
+KOSDAQ_CANDIDATES: after exclusion rows=1655
 KOSDAQ_CANDIDATES: candidates=10, recommend=5
 kosdaq_candidates_10=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kosdaq_candidates_10_latest.csv, rows=10
 kosdaq_recommend_5=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kosdaq_recommend_5_latest.csv, rows=5
 market_index_summary=kept_existing:/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/market_index_summary_latest.csv
-finished_at=2026-06-02T20:05:28
+finished_at=2026-06-03T00:54:28

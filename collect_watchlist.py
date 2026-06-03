@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 관종표·분석표용 KRX/미국 시세 자동 수집기
-v4.6_previous_no_return_anomaly
+v4.6.2_buy_range_actual_date_log
 
 주요 기능
 - 국내: pykrx를 우선 사용합니다. pykrx 실패 시 KRX CSV-OTP 최신 일별시세 수집을 보조로 사용할 수 있습니다.
@@ -44,7 +44,7 @@ except Exception:
         return False
 
 
-SCRIPT_VERSION = "collect_watchlist.py v4.6.1_previous_no_return_anomaly_actual_date_log"
+SCRIPT_VERSION = "collect_watchlist.py v4.6.2_buy_range_actual_date_log"
 
 SUMMARY_COLUMNS = [
     "name",
@@ -55,6 +55,8 @@ SUMMARY_COLUMNS = [
     "status",
     "last_date",
     "current_close",
+    "split_buy_low_ref",
+    "split_buy_high_ref",
     "split_buy_ref",
     "target1_ref",
     "stop_ref",
@@ -316,21 +318,44 @@ def summarize_history(
     wave = calc_wave_period(df["close"])
 
     # 단순 산정값: ChatGPT 관종표에서 최종 판단 전 원자료 기준점으로 사용
+    # v4.6.2: 분할매수 기준을 단일값(split_buy_ref)뿐 아니라 하한~상한 범위로도 산출한다.
+    # - split_buy_low_ref: 분할매수 하한
+    # - split_buy_high_ref: 분할매수 상한
+    # - split_buy_ref: 기존 호환용 기준값. 범위 상한과 동일하게 둔다.
     price_range = high - low
+    move = avg_abs_move if not pd.isna(avg_abs_move) and avg_abs_move > 0 else current * 0.03
+
     if price_range > 0:
-        split_buy = min(current * 0.97, low + price_range * 0.38)
+        split_buy_low = max(low * 1.01, current - move * 2.5)
+        split_buy_high = min(current * 0.99, current - move * 0.3)
+
+        # 하한이 상한보다 높아지는 예외 상황에서는 3개월 가격범위 기반으로 보정한다.
+        if split_buy_low > split_buy_high:
+            split_buy_low = min(current * 0.94, low + price_range * 0.45)
+            split_buy_high = min(current * 0.99, low + price_range * 0.62)
+
         target1 = min(
-            current + avg_abs_move * 2.2 if not pd.isna(avg_abs_move) else current * 1.08,
+            current + move * 2.2,
             low + price_range * 0.78,
         )
         stop = max(
             low * 0.97,
-            current - avg_abs_move * 3.0 if not pd.isna(avg_abs_move) else current * 0.90,
+            current - move * 3.0,
         )
     else:
-        split_buy, target1, stop = current * 0.97, current * 1.08, current * 0.92
+        split_buy_low, split_buy_high, target1, stop = (
+            current * 0.94,
+            current * 0.99,
+            current * 1.08,
+            current * 0.92,
+        )
+
+    # 기존 호환 컬럼. 앞으로 표 작성에는 split_buy_low_ref~split_buy_high_ref 범위를 우선 사용한다.
+    split_buy = split_buy_high
 
     if country == "KR":
+        split_buy_low = kr_tick_round(split_buy_low)
+        split_buy_high = kr_tick_round(split_buy_high)
         split_buy = kr_tick_round(split_buy)
         target1 = kr_tick_round(target1)
         stop = kr_tick_round(stop)
@@ -341,6 +366,8 @@ def summarize_history(
         close_low_out = kr_tick_round(close_low)
         close_high_out = kr_tick_round(close_high)
     else:
+        split_buy_low = us_round(split_buy_low)
+        split_buy_high = us_round(split_buy_high)
         split_buy = us_round(split_buy)
         target1 = us_round(target1)
         stop = us_round(stop)
@@ -385,6 +412,8 @@ def summarize_history(
         "status": "OK",
         "last_date": iso(last_date),
         "current_close": current_out,
+        "split_buy_low_ref": split_buy_low,
+        "split_buy_high_ref": split_buy_high,
         "split_buy_ref": split_buy,
         "target1_ref": target1,
         "stop_ref": stop,
@@ -699,6 +728,7 @@ def main() -> int:
     summary = summary.sort_values(["name"]).reset_index(drop=True)
 
     log_lines.append(f"summary_rows={len(summary)}")
+    log_lines.append("buy_range_columns=split_buy_low_ref,split_buy_high_ref")
 
     # 실제 데이터 기준일을 명확히 남긴다.
     # 예: 휴장일/장마감 전 실행이면 run_at 날짜와 실제 가격 데이터 기준일이 다를 수 있다.

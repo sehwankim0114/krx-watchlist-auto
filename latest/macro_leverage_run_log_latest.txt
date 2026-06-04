@@ -1,27 +1,31 @@
-script=macro_leverage_status.py v1.1_retry_fred_stable
-run_at=2026-06-04T17:59:12+09:00
+script=macro_leverage_status.py v1.2_yahoo_fallback
+run_at=2026-06-04T18:58:24+09:00
 HTTP_RETRY_FAIL FRED DEXKOUS: attempt=1, TimeoutError: The read operation timed out
 HTTP_RETRY_FAIL FRED DEXKOUS: attempt=2, TimeoutError: The read operation timed out
-HTTP_RETRY_FAIL FRED DEXKOUS: attempt=3, TimeoutError: The read operation timed out
-HTTP_RETRY_FAIL FRED DEXKOUS: attempt=4, TimeoutError: The read operation timed out
 HTTP_FINAL_FAIL FRED DEXKOUS: TimeoutError: The read operation timed out
 FRED_FAIL DEXKOUS: no text after retry
+FRED_TO_YAHOO_FALLBACK DEXKOUS -> KRW=X
+HTTP_RETRY_FAIL YAHOO KRW=X: attempt=1, HTTPError 429
+HTTP_RETRY_FAIL YAHOO KRW=X: attempt=2, HTTPError 429
+HTTP_RETRY_FAIL YAHOO KRW=X: attempt=3, HTTPError 429
+HTTP_FINAL_FAIL YAHOO KRW=X: HTTPError 429
+YAHOO_FAIL KRW=X: no text
 HTTP_RETRY_FAIL FRED DGS10: attempt=1, TimeoutError: The read operation timed out
 HTTP_RETRY_FAIL FRED DGS10: attempt=2, TimeoutError: The read operation timed out
-HTTP_RETRY_FAIL FRED DGS10: attempt=3, TimeoutError: The read operation timed out
-HTTP_RETRY_FAIL FRED DGS10: attempt=4, TimeoutError: The read operation timed out
 HTTP_FINAL_FAIL FRED DGS10: TimeoutError: The read operation timed out
 FRED_FAIL DGS10: no text after retry
+FRED_TO_YAHOO_FALLBACK DGS10 -> ^TNX
+HTTP_RETRY_FAIL YAHOO ^TNX: attempt=1, HTTPError 429
+HTTP_RETRY_FAIL YAHOO ^TNX: attempt=2, HTTPError 429
+HTTP_RETRY_FAIL YAHOO ^TNX: attempt=3, HTTPError 429
+HTTP_FINAL_FAIL YAHOO ^TNX: HTTPError 429
+YAHOO_FAIL ^TNX: no text
 HTTP_RETRY_FAIL FRED DFF: attempt=1, TimeoutError: The read operation timed out
 HTTP_RETRY_FAIL FRED DFF: attempt=2, TimeoutError: The read operation timed out
-HTTP_RETRY_FAIL FRED DFF: attempt=3, TimeoutError: The read operation timed out
-HTTP_RETRY_FAIL FRED DFF: attempt=4, TimeoutError: The read operation timed out
 HTTP_FINAL_FAIL FRED DFF: TimeoutError: The read operation timed out
 FRED_FAIL DFF: no text after retry
 HTTP_RETRY_FAIL FRED IRLTLT01KRM156N: attempt=1, TimeoutError: The read operation timed out
 HTTP_RETRY_FAIL FRED IRLTLT01KRM156N: attempt=2, TimeoutError: The read operation timed out
-HTTP_RETRY_FAIL FRED IRLTLT01KRM156N: attempt=3, TimeoutError: The read operation timed out
-HTTP_RETRY_FAIL FRED IRLTLT01KRM156N: attempt=4, TimeoutError: The read operation timed out
 HTTP_FINAL_FAIL FRED IRLTLT01KRM156N: TimeoutError: The read operation timed out
 FRED_FAIL IRLTLT01KRM156N: no text after retry
 KOFIA_DASHBOARD_TRY https://freesis.kofia.or.kr/: found=0
@@ -33,8 +37,9 @@ BUBBLE_MERGE: base_signals=7, macro_signals=0, merged=7
 bubble_risk_level=위험
 bubble_signal_count=7
 bubble_alert_required=False
-fred_success_count=1
-fred_success_codes=KOREA10Y_FRED_IRLTLT01KRM156N
+macro_success_count=1
+macro_success_codes=KOREA10Y_FRED_IRLTLT01KRM156N
+macro_summary_sources={'KOREA10Y_FRED_IRLTLT01KRM156N': 'FRED/OECD'}
 macro_history_rows=8
 macro_summary_rows=1
 macro_signal_count=0

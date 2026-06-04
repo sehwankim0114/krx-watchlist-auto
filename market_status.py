@@ -7,11 +7,19 @@ market_status.py
 KRX 전체시장 원자료(universe_raw_history_latest.csv)를 기반으로
 국내 증시 과열·시장폭·쏠림·최신거래일 상태를 점검하기 위한 보조 파일을 생성한다.
 
+v1.1 보완
+1) 첫 실행을 새 거래일로 착각하지 않도록 BOOTSTRAP_BASELINE 상태 추가
+2) 닷컴버블형 위험 신호를 자동 점수화하여 bubble_risk_latest.json 생성
+3) 위험 신호 상세표 bubble_risk_signals_latest.csv 생성
+
 생성 파일
 - latest/data_status_latest.json
 - latest/market_breadth_history_latest.csv
 - latest/market_index_history_latest.csv
 - latest/market_index_summary_latest.csv
+- latest/bubble_risk_latest.json
+- latest/bubble_risk_signals_latest.csv
+- latest/market_status_run_log_latest.txt
 
 주의
 - 이 스크립트는 기존 collect_universe.py를 수정하지 않는다.
@@ -26,7 +34,7 @@ import argparse
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -38,12 +46,26 @@ except Exception:
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "market_status.py v1.0_status_breadth_proxy_index"
+SCRIPT_VERSION = "market_status.py v1.1_bootstrap_bubble_risk"
 
 RAW_FILENAME = "universe_raw_history_latest.csv"
 
 SAMSUNG_ELECTRONICS = "005930"
 SK_HYNIX = "000660"
+
+
+RISK_THRESHOLDS = {
+    "kospi_1m_overheat_pct": 20.0,
+    "kospi_3m_overheat_pct": 35.0,
+    "kospi_3m_extreme_pct": 50.0,
+    "weak_breadth_up_ratio_pct": 35.0,
+    "weak_breadth_down_ratio_pct": 60.0,
+    "samsung_hynix_concentration_pct": 45.0,
+    "samsung_hynix_extreme_pct": 50.0,
+    "kospi_kosdaq_1m_gap_pct": 25.0,
+    "kosdaq_1m_weak_pct": -8.0,
+    "trading_value_spike_ratio": 1.5,
+}
 
 
 def now_kst() -> datetime:
@@ -81,29 +103,44 @@ def read_json_safely(path: Path) -> Dict[str, Any]:
         return {}
 
 
-def json_safe(value: Any) -> Any:
+def to_jsonable(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(k): to_jsonable(v) for k, v in value.items()}
+
+    if isinstance(value, (list, tuple)):
+        return [to_jsonable(v) for v in value]
+
     if isinstance(value, pd.Timestamp):
         if pd.isna(value):
             return None
-        return value.date().isoformat()
+        return value.isoformat()
+
     if isinstance(value, datetime):
         return value.isoformat(timespec="seconds")
+
     if isinstance(value, np.integer):
         return int(value)
+
     if isinstance(value, np.floating):
         if pd.isna(value):
             return None
         return float(value)
-    if isinstance(value, float) and pd.isna(value):
+
+    if isinstance(value, float):
+        if pd.isna(value):
+            return None
+        return value
+
+    if value is pd.NA:
         return None
+
     return value
 
 
 def write_json(path: Path, data: Dict[str, Any]) -> None:
     ensure_dir(path.parent)
-    safe = {k: json_safe(v) for k, v in data.items()}
     path.write_text(
-        json.dumps(safe, ensure_ascii=False, indent=2),
+        json.dumps(to_jsonable(data), ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
@@ -126,6 +163,15 @@ def clean_number_series(s: pd.Series) -> pd.Series:
         .replace({"": np.nan, "-": np.nan, "nan": np.nan, "None": np.nan}),
         errors="coerce",
     )
+
+
+def safe_float(value: Any) -> Optional[float]:
+    try:
+        if value is None or pd.isna(value):
+            return None
+        return float(value)
+    except Exception:
+        return None
 
 
 def normalize_raw_history(raw: pd.DataFrame) -> pd.DataFrame:
@@ -196,7 +242,6 @@ def build_breadth_history(hist: pd.DataFrame) -> pd.DataFrame:
         top2_cap = cap_sorted["market_cap"].head(2).sum(skipna=True)
         top10_cap = cap_sorted["market_cap"].head(10).sum(skipna=True)
 
-        samsung_hynix_cap = np.nan
         samsung_hynix_ratio = np.nan
 
         if market == "KOSPI":
@@ -281,6 +326,37 @@ def get_first_value_on_or_after(g: pd.DataFrame, date_col: str, value_col: str, 
     return part.iloc[0][value_col]
 
 
+def get_trading_value_20d_stats(breadth: pd.DataFrame, market: str, last_date: pd.Timestamp) -> Dict[str, Any]:
+    if breadth.empty:
+        return {
+            "total_trading_value_20d_avg": None,
+            "trading_value_vs_20d_avg": None,
+        }
+
+    b = breadth.copy()
+    b["date_dt"] = pd.to_datetime(b["date"], errors="coerce")
+    b = b[(b["market"].eq(market)) & (b["date_dt"] <= last_date)].sort_values("date_dt")
+
+    last_20 = b.tail(20)
+    if last_20.empty:
+        return {
+            "total_trading_value_20d_avg": None,
+            "trading_value_vs_20d_avg": None,
+        }
+
+    avg_20 = safe_float(last_20["total_trading_value"].mean())
+    latest = safe_float(last_20.iloc[-1]["total_trading_value"])
+
+    ratio = None
+    if avg_20 and avg_20 > 0 and latest is not None:
+        ratio = round(latest / avg_20, 3)
+
+    return {
+        "total_trading_value_20d_avg": int(avg_20) if avg_20 is not None else None,
+        "trading_value_vs_20d_avg": ratio,
+    }
+
+
 def build_market_index_summary(index_hist: pd.DataFrame, breadth_hist: pd.DataFrame) -> pd.DataFrame:
     if index_hist.empty:
         return pd.DataFrame()
@@ -317,6 +393,8 @@ def build_market_index_summary(index_hist: pd.DataFrame, breadth_hist: pd.DataFr
             if not b.empty:
                 b_row = b.iloc[0].to_dict()
 
+        value_stats = get_trading_value_20d_stats(breadth_hist, market, last_date)
+
         rows.append(
             {
                 "market": market,
@@ -332,6 +410,8 @@ def build_market_index_summary(index_hist: pd.DataFrame, breadth_hist: pd.DataFr
                 "down_ratio_pct": b_row.get("down_ratio_pct"),
                 "up_down_ratio": b_row.get("up_down_ratio"),
                 "total_trading_value": b_row.get("total_trading_value"),
+                "total_trading_value_20d_avg": value_stats.get("total_trading_value_20d_avg"),
+                "trading_value_vs_20d_avg": value_stats.get("trading_value_vs_20d_avg"),
                 "total_market_cap": b_row.get("total_market_cap"),
                 "top2_market_cap_ratio_pct": b_row.get("top2_market_cap_ratio_pct"),
                 "top10_market_cap_ratio_pct": b_row.get("top10_market_cap_ratio_pct"),
@@ -342,33 +422,290 @@ def build_market_index_summary(index_hist: pd.DataFrame, breadth_hist: pd.DataFr
     return pd.DataFrame(rows)
 
 
-def decide_status(actual_data_last_date: pd.Timestamp, previous_actual_date: str | None, run_date: datetime) -> Dict[str, Any]:
+def decide_status(actual_data_last_date: pd.Timestamp, previous_actual_date: Optional[str], run_date: datetime) -> Dict[str, Any]:
     if actual_data_last_date is None or pd.isna(actual_data_last_date):
         return {
             "status": "NO_VALID_DATA",
             "new_confirmed_trading_day": False,
             "freshness_days": None,
+            "status_reason": "유효한 원자료 날짜가 없습니다.",
         }
 
-    actual_str = actual_data_last_date.date().isoformat()
+    actual_day = pd.Timestamp(actual_data_last_date.date())
     run_date_only = pd.Timestamp(run_date.date())
-    freshness_days = int((run_date_only - pd.Timestamp(actual_data_last_date.date())).days)
+    freshness_days = int((run_date_only - actual_day).days)
 
-    if previous_actual_date:
-        new_confirmed = actual_str != str(previous_actual_date)
-    else:
-        new_confirmed = True
+    if not previous_actual_date:
+        return {
+            "status": "BOOTSTRAP_BASELINE",
+            "new_confirmed_trading_day": False,
+            "freshness_days": freshness_days,
+            "status_reason": "첫 실행 기준값을 세운 상태입니다. 새 거래일 알림 판단에는 사용하지 않습니다.",
+        }
 
-    if new_confirmed:
+    prev_day = pd.to_datetime(previous_actual_date, errors="coerce")
+
+    if pd.isna(prev_day):
+        return {
+            "status": "BOOTSTRAP_BASELINE",
+            "new_confirmed_trading_day": False,
+            "freshness_days": freshness_days,
+            "status_reason": "이전 기준일 형식을 읽지 못해 기준값을 다시 세웠습니다.",
+        }
+
+    prev_day = pd.Timestamp(prev_day.date())
+
+    if actual_day > prev_day:
         status = "OK_NEW_CONFIRMED_TRADING_DAY"
-    else:
+        new_confirmed = True
+        reason = "이전 실행보다 최신 확정 거래일이 새로 확인되었습니다."
+    elif actual_day == prev_day:
         status = "STALE_BUT_VALID"
+        new_confirmed = False
+        reason = "새 확정 거래일은 아니지만 기존 원자료는 유효합니다."
+    else:
+        status = "DATA_DATE_REGRESSION"
+        new_confirmed = False
+        reason = "현재 원자료 기준일이 이전 기록보다 과거입니다. 원자료 갱신 상태 점검이 필요합니다."
 
     return {
         "status": status,
         "new_confirmed_trading_day": bool(new_confirmed),
         "freshness_days": freshness_days,
+        "status_reason": reason,
     }
+
+
+def row_by_market(summary: pd.DataFrame, market: str) -> Dict[str, Any]:
+    if summary.empty:
+        return {}
+    part = summary[summary["market"].eq(market)]
+    if part.empty:
+        return {}
+    row = part.iloc[0].to_dict()
+    return {k: to_jsonable(v) for k, v in row.items()}
+
+
+def add_signal(
+    signals: List[Dict[str, Any]],
+    code: str,
+    title: str,
+    market: str,
+    value: Any,
+    threshold: Any,
+    severity: str,
+    detail: str,
+) -> None:
+    signals.append(
+        {
+            "code": code,
+            "title": title,
+            "market": market,
+            "value": to_jsonable(value),
+            "threshold": threshold,
+            "severity": severity,
+            "detail": detail,
+        }
+    )
+
+
+def classify_bubble_risk(summary: pd.DataFrame, data_status: Dict[str, Any]) -> Dict[str, Any]:
+    kospi = row_by_market(summary, "KOSPI")
+    kosdaq = row_by_market(summary, "KOSDAQ")
+
+    signals: List[Dict[str, Any]] = []
+
+    kospi_1m = safe_float(kospi.get("proxy_return_1m_pct"))
+    kospi_3m = safe_float(kospi.get("proxy_return_3m_pct"))
+    kospi_up = safe_float(kospi.get("up_ratio_pct"))
+    kospi_down = safe_float(kospi.get("down_ratio_pct"))
+    kospi_daily = safe_float(kospi.get("proxy_daily_return_pct"))
+    sh_ratio = safe_float(kospi.get("samsung_hynix_market_cap_ratio_pct"))
+    kospi_value_ratio = safe_float(kospi.get("trading_value_vs_20d_avg"))
+
+    kosdaq_1m = safe_float(kosdaq.get("proxy_return_1m_pct"))
+    kosdaq_up = safe_float(kosdaq.get("up_ratio_pct"))
+
+    if kospi_1m is not None and kospi_1m >= RISK_THRESHOLDS["kospi_1m_overheat_pct"]:
+        add_signal(
+            signals,
+            "KOSPI_1M_OVERHEAT",
+            "KOSPI 1개월 급등 과열",
+            "KOSPI",
+            kospi_1m,
+            f">= {RISK_THRESHOLDS['kospi_1m_overheat_pct']}%",
+            "주의",
+            "최근 1개월 프록시 지수 상승률이 과열 기준을 넘었습니다.",
+        )
+
+    if kospi_3m is not None and kospi_3m >= RISK_THRESHOLDS["kospi_3m_overheat_pct"]:
+        severity = "강함" if kospi_3m >= RISK_THRESHOLDS["kospi_3m_extreme_pct"] else "주의"
+        add_signal(
+            signals,
+            "KOSPI_3M_OVERHEAT",
+            "KOSPI 3개월 급등 과열",
+            "KOSPI",
+            kospi_3m,
+            f">= {RISK_THRESHOLDS['kospi_3m_overheat_pct']}%",
+            severity,
+            "최근 3개월 프록시 지수 상승률이 과열 기준을 넘었습니다.",
+        )
+
+    if kospi_up is not None and kospi_down is not None:
+        if kospi_up <= RISK_THRESHOLDS["weak_breadth_up_ratio_pct"] and kospi_down >= RISK_THRESHOLDS["weak_breadth_down_ratio_pct"]:
+            add_signal(
+                signals,
+                "KOSPI_BREADTH_WEAKNESS",
+                "KOSPI 시장폭 악화",
+                "KOSPI",
+                f"상승 {kospi_up}%, 하락 {kospi_down}%",
+                f"상승 <= {RISK_THRESHOLDS['weak_breadth_up_ratio_pct']}%, 하락 >= {RISK_THRESHOLDS['weak_breadth_down_ratio_pct']}%",
+                "주의",
+                "지수 흐름에 비해 상승 종목 비율이 낮고 하락 종목 비율이 높습니다.",
+            )
+
+    if kospi_daily is not None and kospi_up is not None:
+        if kospi_daily > 0 and kospi_up <= RISK_THRESHOLDS["weak_breadth_up_ratio_pct"]:
+            add_signal(
+                signals,
+                "KOSPI_DISTRIBUTION_STYLE_BREADTH",
+                "지수 상승 중 내부 종목 약세",
+                "KOSPI",
+                f"일간 {kospi_daily}%, 상승종목 {kospi_up}%",
+                f"일간 상승 & 상승종목 <= {RISK_THRESHOLDS['weak_breadth_up_ratio_pct']}%",
+                "주의",
+                "지수는 올랐지만 다수 종목이 따라오지 못하는 분배형 시장폭 신호입니다.",
+            )
+
+    if sh_ratio is not None and sh_ratio >= RISK_THRESHOLDS["samsung_hynix_concentration_pct"]:
+        severity = "강함" if sh_ratio >= RISK_THRESHOLDS["samsung_hynix_extreme_pct"] else "주의"
+        add_signal(
+            signals,
+            "SAMSUNG_HYNIX_CONCENTRATION",
+            "삼성전자·SK하이닉스 시총 쏠림",
+            "KOSPI",
+            sh_ratio,
+            f">= {RISK_THRESHOLDS['samsung_hynix_concentration_pct']}%",
+            severity,
+            "KOSPI 시가총액이 삼성전자·SK하이닉스에 과도하게 집중되어 있습니다.",
+        )
+
+    if kospi_1m is not None and kosdaq_1m is not None:
+        gap = round(kospi_1m - kosdaq_1m, 2)
+        if gap >= RISK_THRESHOLDS["kospi_kosdaq_1m_gap_pct"]:
+            add_signal(
+                signals,
+                "KOSPI_KOSDAQ_DIVERGENCE",
+                "KOSPI·KOSDAQ 1개월 괴리",
+                "ALL",
+                gap,
+                f">= {RISK_THRESHOLDS['kospi_kosdaq_1m_gap_pct']}%p",
+                "주의",
+                "대형주 중심 KOSPI와 성장주 중심 KOSDAQ 간 괴리가 확대되었습니다.",
+            )
+
+    if kosdaq_1m is not None and kosdaq_up is not None:
+        if kosdaq_1m <= RISK_THRESHOLDS["kosdaq_1m_weak_pct"] and kosdaq_up <= RISK_THRESHOLDS["weak_breadth_up_ratio_pct"]:
+            add_signal(
+                signals,
+                "KOSDAQ_WEAKNESS",
+                "KOSDAQ 약세와 시장폭 악화",
+                "KOSDAQ",
+                f"1개월 {kosdaq_1m}%, 상승종목 {kosdaq_up}%",
+                f"1개월 <= {RISK_THRESHOLDS['kosdaq_1m_weak_pct']}%, 상승종목 <= {RISK_THRESHOLDS['weak_breadth_up_ratio_pct']}%",
+                "주의",
+                "KOSDAQ이 이미 약세 흐름에 들어가 있고 내부 시장폭도 약합니다.",
+            )
+
+    if kospi_value_ratio is not None and kospi_value_ratio >= RISK_THRESHOLDS["trading_value_spike_ratio"]:
+        add_signal(
+            signals,
+            "KOSPI_TRADING_VALUE_SPIKE",
+            "KOSPI 거래대금 급증",
+            "KOSPI",
+            kospi_value_ratio,
+            f">= {RISK_THRESHOLDS['trading_value_spike_ratio']}배",
+            "주의",
+            "최근 거래대금이 20일 평균 대비 빠르게 증가했습니다.",
+        )
+
+    signal_count = len(signals)
+    strong_signal_count = sum(1 for s in signals if s.get("severity") == "강함")
+
+    if signal_count >= 5 or (strong_signal_count >= 1 and signal_count >= 4):
+        risk_level = "위험"
+    elif signal_count >= 3 or strong_signal_count >= 1:
+        risk_level = "경계"
+    elif signal_count >= 1:
+        risk_level = "관찰"
+    else:
+        risk_level = "정상"
+
+    alert_by_signals = risk_level in ["경계", "위험"]
+    alert_required = bool(alert_by_signals and data_status.get("status") == "OK_NEW_CONFIRMED_TRADING_DAY")
+
+    if alert_required:
+        action_hint = "신용추가매수 중단, 현금확보, 고비중 주도주 일부 이익보호 검토가 필요합니다."
+    elif alert_by_signals:
+        action_hint = "위험 신호는 기준을 충족하지만 새 확정 거래일이 아니므로 자동 경고 알림은 보류합니다."
+    else:
+        action_hint = "경고 기준 미충족입니다. 정규 경고 알림은 보내지 않습니다."
+
+    return {
+        "script": SCRIPT_VERSION,
+        "run_at": data_status.get("run_at"),
+        "actual_data_last_date": data_status.get("actual_data_last_date"),
+        "data_status": data_status.get("status"),
+        "new_confirmed_trading_day": data_status.get("new_confirmed_trading_day"),
+        "risk_level": risk_level,
+        "signal_count": signal_count,
+        "strong_signal_count": strong_signal_count,
+        "alert_by_signals": bool(alert_by_signals),
+        "alert_required": bool(alert_required),
+        "signals": signals,
+        "market_snapshot": {
+            "KOSPI": kospi,
+            "KOSDAQ": kosdaq,
+        },
+        "thresholds": RISK_THRESHOLDS,
+        "action_hint": action_hint,
+        "note": "위험등급은 KRX 전종목 원자료 기반 프록시 지수·시장폭·시총쏠림만으로 산출합니다. 신용융자, 환율, 금리, 외국인/기관 수급은 별도 확인이 필요합니다.",
+    }
+
+
+def empty_status(run_at: datetime, raw: pd.DataFrame, outdir: Path) -> None:
+    data_status = {
+        "script": SCRIPT_VERSION,
+        "run_at": run_at.isoformat(timespec="seconds"),
+        "requested_end_date": run_at.date().isoformat(),
+        "actual_data_last_date": None,
+        "previous_actual_data_last_date": None,
+        "new_confirmed_trading_day": False,
+        "freshness_days": None,
+        "raw_rows": int(len(raw)) if raw is not None else 0,
+        "normalized_rows": 0,
+        "status": "NO_VALID_DATA",
+        "status_reason": "universe_raw_history_latest.csv를 읽지 못했거나 필수 컬럼이 없습니다.",
+        "note": "원자료 생성 상태를 먼저 확인해야 합니다.",
+    }
+
+    bubble_risk = {
+        "script": SCRIPT_VERSION,
+        "run_at": data_status["run_at"],
+        "actual_data_last_date": None,
+        "data_status": "NO_VALID_DATA",
+        "risk_level": "판단불가",
+        "signal_count": 0,
+        "strong_signal_count": 0,
+        "alert_by_signals": False,
+        "alert_required": False,
+        "signals": [],
+        "action_hint": "원자료가 없어 위험 판단을 하지 않습니다.",
+    }
+
+    write_json(outdir / "data_status_latest.json", data_status)
+    write_json(outdir / "bubble_risk_latest.json", bubble_risk)
+    write_csv(pd.DataFrame(), outdir / "bubble_risk_signals_latest.csv")
 
 
 def main() -> None:
@@ -390,21 +727,12 @@ def main() -> None:
     hist = normalize_raw_history(raw)
 
     if hist.empty:
-        status = {
-            "script": SCRIPT_VERSION,
-            "run_at": run_at.isoformat(timespec="seconds"),
-            "requested_end_date": run_at.date().isoformat(),
-            "actual_data_last_date": None,
-            "previous_actual_data_last_date": None,
-            "new_confirmed_trading_day": False,
-            "freshness_days": None,
-            "raw_rows": int(len(raw)) if raw is not None else 0,
-            "normalized_rows": 0,
-            "status": "NO_VALID_DATA",
-            "note": "universe_raw_history_latest.csv를 읽지 못했거나 필수 컬럼이 없습니다.",
-        }
-        write_json(outdir / "data_status_latest.json", status)
-        print("NO_VALID_DATA")
+        empty_status(run_at, raw, outdir)
+        log_lines.append("status=NO_VALID_DATA")
+        log_path = outdir / "market_status_run_log_latest.txt"
+        ensure_dir(log_path.parent)
+        log_path.write_text("\n".join(log_lines), encoding="utf-8")
+        print("\n".join(log_lines))
         return
 
     max_date = hist["date"].max()
@@ -417,10 +745,6 @@ def main() -> None:
     breadth = build_breadth_history(hist)
     index_hist = build_proxy_index_history(hist)
     summary = build_market_index_summary(index_hist, breadth)
-
-    write_csv(breadth, outdir / "market_breadth_history_latest.csv")
-    write_csv(index_hist, outdir / "market_index_history_latest.csv")
-    write_csv(summary, outdir / "market_index_summary_latest.csv")
 
     status_decision = decide_status(max_date, previous_actual, run_at)
 
@@ -440,17 +764,32 @@ def main() -> None:
         "market_index_history_rows": int(len(index_hist)),
         "market_index_summary_rows": int(len(summary)),
         "status": status_decision["status"],
+        "status_reason": status_decision["status_reason"],
         "note": "market_index는 공식 지수가 아니라 KRX 전종목 원자료 기반 시가총액 가중 프록시 지수입니다.",
     }
 
+    bubble_risk = classify_bubble_risk(summary, data_status)
+    signals_df = pd.DataFrame(bubble_risk.get("signals", []))
+
+    write_csv(breadth, outdir / "market_breadth_history_latest.csv")
+    write_csv(index_hist, outdir / "market_index_history_latest.csv")
+    write_csv(summary, outdir / "market_index_summary_latest.csv")
+    write_csv(signals_df, outdir / "bubble_risk_signals_latest.csv")
+
     write_json(outdir / "data_status_latest.json", data_status)
+    write_json(outdir / "bubble_risk_latest.json", bubble_risk)
 
     log_lines.append(f"actual_data_last_date={data_status['actual_data_last_date']}")
     log_lines.append(f"previous_actual_data_last_date={data_status['previous_actual_data_last_date']}")
     log_lines.append(f"new_confirmed_trading_day={data_status['new_confirmed_trading_day']}")
     log_lines.append(f"status={data_status['status']}")
+    log_lines.append(f"freshness_days={data_status['freshness_days']}")
     log_lines.append(f"market_breadth_rows={data_status['market_breadth_rows']}")
     log_lines.append(f"market_index_summary_rows={data_status['market_index_summary_rows']}")
+    log_lines.append(f"bubble_risk_level={bubble_risk['risk_level']}")
+    log_lines.append(f"bubble_signal_count={bubble_risk['signal_count']}")
+    log_lines.append(f"bubble_alert_by_signals={bubble_risk['alert_by_signals']}")
+    log_lines.append(f"bubble_alert_required={bubble_risk['alert_required']}")
 
     log_path = outdir / "market_status_run_log_latest.txt"
     ensure_dir(log_path.parent)

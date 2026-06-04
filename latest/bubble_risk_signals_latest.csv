@@ -1,8 +1,8 @@
 ﻿code,title,market,value,threshold,severity,detail
-KOSPI_1M_OVERHEAT,KOSPI 1개월 급등 과열,KOSPI,27.45,>= 20.0%,주의,최근 1개월 프록시 지수 상승률이 과열 기준을 넘었습니다.
-KOSPI_3M_OVERHEAT,KOSPI 3개월 급등 과열,KOSPI,52.26,>= 35.0%,강함,최근 3개월 프록시 지수 상승률이 과열 기준을 넘었습니다.
+KOSPI_1M_OVERHEAT,KOSPI 1개월 급등 과열,KOSPI,26.88,>= 20.0%,주의,최근 1개월 공식 KRX 지수 상승률이 과열 기준을 넘었습니다.
+KOSPI_3M_OVERHEAT,KOSPI 3개월 급등 과열,KOSPI,51.96,>= 35.0%,강함,최근 3개월 공식 KRX 지수 상승률이 과열 기준을 넘었습니다.
 KOSPI_BREADTH_WEAKNESS,KOSPI 시장폭 악화,KOSPI,"상승 28.82%, 하락 66.74%","상승 <= 35.0%, 하락 >= 60.0%",주의,지수 흐름에 비해 상승 종목 비율이 낮고 하락 종목 비율이 높습니다.
-KOSPI_DISTRIBUTION_STYLE_BREADTH,지수 상승 중 내부 종목 약세,KOSPI,"일간 0.1592%, 상승종목 28.82%",일간 상승 & 상승종목 <= 35.0%,주의,지수는 올랐지만 다수 종목이 따라오지 못하는 분배형 시장폭 신호입니다.
+KOSPI_DISTRIBUTION_STYLE_BREADTH,지수 상승 중 내부 종목 약세,KOSPI,"일간 0.15%, 상승종목 28.82%",일간 상승 & 상승종목 <= 35.0%,주의,지수는 올랐지만 다수 종목이 따라오지 못하는 분배형 시장폭 신호입니다.
 SAMSUNG_HYNIX_CONCENTRATION,삼성전자·SK하이닉스 시총 쏠림,KOSPI,52.65,>= 45.0%,강함,KOSPI 시가총액이 삼성전자·SK하이닉스에 과도하게 집중되어 있습니다.
-KOSPI_KOSDAQ_DIVERGENCE,KOSPI·KOSDAQ 1개월 괴리,ALL,39.65,>= 25.0%p,주의,대형주 중심 KOSPI와 성장주 중심 KOSDAQ 간 괴리가 확대되었습니다.
-KOSDAQ_WEAKNESS,KOSDAQ 약세와 시장폭 악화,KOSDAQ,"1개월 -12.2%, 상승종목 25.03%","1개월 <= -8.0%, 상승종목 <= 35.0%",주의,KOSDAQ이 이미 약세 흐름에 들어가 있고 내부 시장폭도 약합니다.
+KOSPI_KOSDAQ_DIVERGENCE,KOSPI·KOSDAQ 1개월 괴리,ALL,42.35,>= 25.0%p,주의,"KOSPI는 공식 KRX 지수, KOSDAQ은 공식 KRX 지수 기준으로 대형주 중심 시장 괴리가 확대되었습니다."
+KOSDAQ_WEAKNESS,KOSDAQ 약세와 시장폭 악화,KOSDAQ,"1개월 -15.47%, 상승종목 25.03%","1개월 <= -8.0%, 상승종목 <= 35.0%",주의,KOSDAQ이 약세 흐름에 있고 내부 시장폭도 약합니다. 수익률 기준은 공식 KRX 지수입니다.

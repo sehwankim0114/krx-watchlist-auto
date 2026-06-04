@@ -1,6 +1,6 @@
 {
-  "script": "market_status.py v1.1_bootstrap_bubble_risk",
-  "run_at": "2026-06-04T15:29:23+09:00",
+  "script": "official_index_status.py v1.0_official_krx_index",
+  "run_at": "2026-06-04T15:59:31+09:00",
   "actual_data_last_date": "2026-06-02",
   "data_status": "STALE_BUT_VALID",
   "new_confirmed_trading_day": false,
@@ -14,19 +14,19 @@
       "code": "KOSPI_1M_OVERHEAT",
       "title": "KOSPI 1개월 급등 과열",
       "market": "KOSPI",
-      "value": 27.45,
+      "value": 26.88,
       "threshold": ">= 20.0%",
       "severity": "주의",
-      "detail": "최근 1개월 프록시 지수 상승률이 과열 기준을 넘었습니다."
+      "detail": "최근 1개월 공식 KRX 지수 상승률이 과열 기준을 넘었습니다."
     },
     {
       "code": "KOSPI_3M_OVERHEAT",
       "title": "KOSPI 3개월 급등 과열",
       "market": "KOSPI",
-      "value": 52.26,
+      "value": 51.96,
       "threshold": ">= 35.0%",
       "severity": "강함",
-      "detail": "최근 3개월 프록시 지수 상승률이 과열 기준을 넘었습니다."
+      "detail": "최근 3개월 공식 KRX 지수 상승률이 과열 기준을 넘었습니다."
     },
     {
       "code": "KOSPI_BREADTH_WEAKNESS",
@@ -41,7 +41,7 @@
       "code": "KOSPI_DISTRIBUTION_STYLE_BREADTH",
       "title": "지수 상승 중 내부 종목 약세",
       "market": "KOSPI",
-      "value": "일간 0.1592%, 상승종목 28.82%",
+      "value": "일간 0.15%, 상승종목 28.82%",
       "threshold": "일간 상승 & 상승종목 <= 35.0%",
       "severity": "주의",
       "detail": "지수는 올랐지만 다수 종목이 따라오지 못하는 분배형 시장폭 신호입니다."
@@ -59,26 +59,26 @@
       "code": "KOSPI_KOSDAQ_DIVERGENCE",
       "title": "KOSPI·KOSDAQ 1개월 괴리",
       "market": "ALL",
-      "value": 39.65,
+      "value": 42.35,
       "threshold": ">= 25.0%p",
       "severity": "주의",
-      "detail": "대형주 중심 KOSPI와 성장주 중심 KOSDAQ 간 괴리가 확대되었습니다."
+      "detail": "KOSPI는 공식 KRX 지수, KOSDAQ은 공식 KRX 지수 기준으로 대형주 중심 시장 괴리가 확대되었습니다."
     },
     {
       "code": "KOSDAQ_WEAKNESS",
       "title": "KOSDAQ 약세와 시장폭 악화",
       "market": "KOSDAQ",
-      "value": "1개월 -12.2%, 상승종목 25.03%",
+      "value": "1개월 -15.47%, 상승종목 25.03%",
       "threshold": "1개월 <= -8.0%, 상승종목 <= 35.0%",
       "severity": "주의",
-      "detail": "KOSDAQ이 이미 약세 흐름에 들어가 있고 내부 시장폭도 약합니다."
+      "detail": "KOSDAQ이 약세 흐름에 있고 내부 시장폭도 약합니다. 수익률 기준은 공식 KRX 지수입니다."
     }
   ],
   "market_snapshot": {
     "KOSPI": {
       "market": "KOSPI",
       "asof_date": "2026-06-02",
-      "index_source": "stock_market_cap_weighted_proxy",
+      "index_source": "official_krx_index_if_available_else_proxy",
       "proxy_index_close": 2117.38,
       "proxy_daily_return_pct": 0.1592,
       "proxy_return_1m_pct": 27.45,
@@ -94,12 +94,19 @@
       "total_market_cap": 7198198467824821,
       "top2_market_cap_ratio_pct": 52.65,
       "top10_market_cap_ratio_pct": 66.5,
-      "samsung_hynix_market_cap_ratio_pct": 52.65
+      "samsung_hynix_market_cap_ratio_pct": 52.65,
+      "official_asof_date": "2026-06-02",
+      "official_index_name": "코스피",
+      "official_index_close": 8801.49,
+      "official_daily_return_pct": 0.15,
+      "official_return_1m_pct": 26.88,
+      "official_return_3m_pct": 51.96,
+      "risk_return_source": "official"
     },
     "KOSDAQ": {
       "market": "KOSDAQ",
       "asof_date": "2026-06-02",
-      "index_source": "stock_market_cap_weighted_proxy",
+      "index_source": "official_krx_index_if_available_else_proxy",
       "proxy_index_close": 1213.09,
       "proxy_daily_return_pct": -2.0148,
       "proxy_return_1m_pct": -12.2,
@@ -115,7 +122,14 @@
       "total_market_cap": 569237531028045,
       "top2_market_cap_ratio_pct": 6.76,
       "top10_market_cap_ratio_pct": 20.44,
-      "samsung_hynix_market_cap_ratio_pct": null
+      "samsung_hynix_market_cap_ratio_pct": null,
+      "official_asof_date": "2026-06-02",
+      "official_index_name": "코스닥",
+      "official_index_close": 1026.03,
+      "official_daily_return_pct": -2.29,
+      "official_return_1m_pct": -15.47,
+      "official_return_3m_pct": -9.82,
+      "risk_return_source": "official"
     }
   },
   "thresholds": {
@@ -131,5 +145,5 @@
     "trading_value_spike_ratio": 1.5
   },
   "action_hint": "위험 신호는 기준을 충족하지만 새 확정 거래일이 아니므로 자동 경고 알림은 보류합니다.",
-  "note": "위험등급은 KRX 전종목 원자료 기반 프록시 지수·시장폭·시총쏠림만으로 산출합니다. 신용융자, 환율, 금리, 외국인/기관 수급은 별도 확인이 필요합니다."
+  "note": "공식 KRX 지수 수익률이 있으면 공식지수를 우선 사용하고, 없으면 기존 전종목 시총가중 프록시 지수를 사용합니다."
 }

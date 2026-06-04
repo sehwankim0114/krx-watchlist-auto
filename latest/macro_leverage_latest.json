@@ -1,0 +1,52 @@
+{
+  "script": "macro_leverage_status.py v1.0_credit_fx_rates",
+  "run_at": "2026-06-04T16:57:03+09:00",
+  "macro_history_rows": 8,
+  "macro_summary_rows": 1,
+  "macro_signal_count": 0,
+  "macro_strong_signal_count": 0,
+  "credit_deposit_ratio_pct": null,
+  "signals": [],
+  "snapshot": {
+    "USDKRW_FRED_DEXKOUS": {},
+    "US10Y_FRED_DGS10": {},
+    "FEDFUNDS_FRED_DFF": {},
+    "KOREA10Y_FRED_IRLTLT01KRM156N": {
+      "indicator_code": "KOREA10Y_FRED_IRLTLT01KRM156N",
+      "indicator_name": "한국 10년 국채금리",
+      "latest_date": "2026-04-01",
+      "latest_value": 3.737,
+      "unit": "percent",
+      "frequency": "monthly",
+      "source": "FRED/OECD",
+      "source_url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=IRLTLT01KRM156N",
+      "change_7d_pct": 0.24,
+      "change_1m_pct": 0.24,
+      "change_3m_pct": 7.23,
+      "diff_7d": 0.009,
+      "diff_1m": 0.009,
+      "diff_3m": 0.252
+    },
+    "KOFIA_CREDIT_FINANCING_MILLION_KRW": {},
+    "KOFIA_INVESTOR_DEPOSIT_MILLION_KRW": {},
+    "KOFIA_CMA_BALANCE_MILLION_KRW": {},
+    "KOFIA_KTB_3Y_PCT": {}
+  },
+  "thresholds": {
+    "usdk_rw_high": 1500.0,
+    "usdk_rw_extreme": 1550.0,
+    "usdk_rw_1m_rise_pct": 3.0,
+    "usdk_rw_1m_extreme_pct": 5.0,
+    "us10y_high_pct": 4.5,
+    "us10y_extreme_pct": 5.0,
+    "korea10y_high_pct": 3.8,
+    "korea10y_extreme_pct": 4.2,
+    "ktb3y_high_pct": 3.7,
+    "ktb3y_extreme_pct": 4.0,
+    "credit_balance_high_million_krw": 35000000.0,
+    "credit_balance_extreme_million_krw": 40000000.0,
+    "credit_deposit_ratio_high_pct": 25.0,
+    "credit_deposit_ratio_extreme_pct": 30.0
+  },
+  "note": "FRED 공개 CSV와 KOFIA FreeSIS 대시보드 스크래핑 기반 보조자료입니다."
+}

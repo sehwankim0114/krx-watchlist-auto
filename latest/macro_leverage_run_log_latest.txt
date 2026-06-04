@@ -1,0 +1,21 @@
+script=macro_leverage_status.py v1.0_credit_fx_rates
+run_at=2026-06-04T16:57:03+09:00
+FRED_FAIL DEXKOUS: HTTPError: HTTP Error 504: Gateway Time-out
+FRED_FAIL DGS10: HTTPError: HTTP Error 504: Gateway Time-out
+FRED_FAIL DFF: HTTPError: HTTP Error 504: Gateway Time-out
+FRED_OK IRLTLT01KRM156N: rows=307
+KOFIA_DASHBOARD_TRY https://freesis.kofia.or.kr/: found=0
+KOFIA_DASHBOARD_TRY https://freesis.kofia.or.kr/main/main.do: found=0
+KOFIA_DASHBOARD_TRY https://freesis.kofia.or.kr/stat/FreeSIS.do?parentDivId=MSIS10000000000000&serviceId=STATSCU0100000070: found=0
+KOFIA_DASHBOARD_STATUS=NO_DATA
+MACRO_COMBINE: existing=0, fresh=307, combined=8
+BUBBLE_MERGE: base_signals=7, macro_signals=0, merged=7
+bubble_risk_level=위험
+bubble_signal_count=7
+bubble_alert_required=False
+macro_history_rows=8
+macro_summary_rows=1
+macro_signal_count=0
+macro_strong_signal_count=0
+macro_credit_deposit_ratio_pct=None
+final_bubble_alert_required=False

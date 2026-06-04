@@ -45,11 +45,12 @@ jobs:
           python monthly_cycle.py --output-dir latest --lookback-months 6 --top-n 40
           python market_status.py --output-dir latest --lookback-months 7
           python official_index_status.py --output-dir latest --lookback-months 7
+          python macro_leverage_status.py --output-dir latest --lookback-days 240
 
       - name: Commit latest data
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git add latest/*.csv latest/*.txt latest/*.xlsx latest/*.json || true
-          git commit -m "Update watchlist universe monthly cycle market status and official index data" || echo "No changes to commit"
+          git commit -m "Update watchlist universe monthly cycle market status official index and macro leverage data" || echo "No changes to commit"
           git push

@@ -1,18 +1,40 @@
-script=macro_leverage_status.py v1.0_credit_fx_rates
-run_at=2026-06-04T16:57:03+09:00
-FRED_FAIL DEXKOUS: HTTPError: HTTP Error 504: Gateway Time-out
-FRED_FAIL DGS10: HTTPError: HTTP Error 504: Gateway Time-out
-FRED_FAIL DFF: HTTPError: HTTP Error 504: Gateway Time-out
-FRED_OK IRLTLT01KRM156N: rows=307
+script=macro_leverage_status.py v1.1_retry_fred_stable
+run_at=2026-06-04T17:59:12+09:00
+HTTP_RETRY_FAIL FRED DEXKOUS: attempt=1, TimeoutError: The read operation timed out
+HTTP_RETRY_FAIL FRED DEXKOUS: attempt=2, TimeoutError: The read operation timed out
+HTTP_RETRY_FAIL FRED DEXKOUS: attempt=3, TimeoutError: The read operation timed out
+HTTP_RETRY_FAIL FRED DEXKOUS: attempt=4, TimeoutError: The read operation timed out
+HTTP_FINAL_FAIL FRED DEXKOUS: TimeoutError: The read operation timed out
+FRED_FAIL DEXKOUS: no text after retry
+HTTP_RETRY_FAIL FRED DGS10: attempt=1, TimeoutError: The read operation timed out
+HTTP_RETRY_FAIL FRED DGS10: attempt=2, TimeoutError: The read operation timed out
+HTTP_RETRY_FAIL FRED DGS10: attempt=3, TimeoutError: The read operation timed out
+HTTP_RETRY_FAIL FRED DGS10: attempt=4, TimeoutError: The read operation timed out
+HTTP_FINAL_FAIL FRED DGS10: TimeoutError: The read operation timed out
+FRED_FAIL DGS10: no text after retry
+HTTP_RETRY_FAIL FRED DFF: attempt=1, TimeoutError: The read operation timed out
+HTTP_RETRY_FAIL FRED DFF: attempt=2, TimeoutError: The read operation timed out
+HTTP_RETRY_FAIL FRED DFF: attempt=3, TimeoutError: The read operation timed out
+HTTP_RETRY_FAIL FRED DFF: attempt=4, TimeoutError: The read operation timed out
+HTTP_FINAL_FAIL FRED DFF: TimeoutError: The read operation timed out
+FRED_FAIL DFF: no text after retry
+HTTP_RETRY_FAIL FRED IRLTLT01KRM156N: attempt=1, TimeoutError: The read operation timed out
+HTTP_RETRY_FAIL FRED IRLTLT01KRM156N: attempt=2, TimeoutError: The read operation timed out
+HTTP_RETRY_FAIL FRED IRLTLT01KRM156N: attempt=3, TimeoutError: The read operation timed out
+HTTP_RETRY_FAIL FRED IRLTLT01KRM156N: attempt=4, TimeoutError: The read operation timed out
+HTTP_FINAL_FAIL FRED IRLTLT01KRM156N: TimeoutError: The read operation timed out
+FRED_FAIL IRLTLT01KRM156N: no text after retry
 KOFIA_DASHBOARD_TRY https://freesis.kofia.or.kr/: found=0
 KOFIA_DASHBOARD_TRY https://freesis.kofia.or.kr/main/main.do: found=0
 KOFIA_DASHBOARD_TRY https://freesis.kofia.or.kr/stat/FreeSIS.do?parentDivId=MSIS10000000000000&serviceId=STATSCU0100000070: found=0
 KOFIA_DASHBOARD_STATUS=NO_DATA
-MACRO_COMBINE: existing=0, fresh=307, combined=8
+MACRO_COMBINE: existing=8, fresh=0, combined=8
 BUBBLE_MERGE: base_signals=7, macro_signals=0, merged=7
 bubble_risk_level=위험
 bubble_signal_count=7
 bubble_alert_required=False
+fred_success_count=1
+fred_success_codes=KOREA10Y_FRED_IRLTLT01KRM156N
 macro_history_rows=8
 macro_summary_rows=1
 macro_signal_count=0

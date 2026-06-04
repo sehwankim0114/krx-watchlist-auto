@@ -1,0 +1,135 @@
+{
+  "script": "market_status.py v1.1_bootstrap_bubble_risk",
+  "run_at": "2026-06-04T15:29:23+09:00",
+  "actual_data_last_date": "2026-06-02",
+  "data_status": "STALE_BUT_VALID",
+  "new_confirmed_trading_day": false,
+  "risk_level": "위험",
+  "signal_count": 7,
+  "strong_signal_count": 2,
+  "alert_by_signals": true,
+  "alert_required": false,
+  "signals": [
+    {
+      "code": "KOSPI_1M_OVERHEAT",
+      "title": "KOSPI 1개월 급등 과열",
+      "market": "KOSPI",
+      "value": 27.45,
+      "threshold": ">= 20.0%",
+      "severity": "주의",
+      "detail": "최근 1개월 프록시 지수 상승률이 과열 기준을 넘었습니다."
+    },
+    {
+      "code": "KOSPI_3M_OVERHEAT",
+      "title": "KOSPI 3개월 급등 과열",
+      "market": "KOSPI",
+      "value": 52.26,
+      "threshold": ">= 35.0%",
+      "severity": "강함",
+      "detail": "최근 3개월 프록시 지수 상승률이 과열 기준을 넘었습니다."
+    },
+    {
+      "code": "KOSPI_BREADTH_WEAKNESS",
+      "title": "KOSPI 시장폭 악화",
+      "market": "KOSPI",
+      "value": "상승 28.82%, 하락 66.74%",
+      "threshold": "상승 <= 35.0%, 하락 >= 60.0%",
+      "severity": "주의",
+      "detail": "지수 흐름에 비해 상승 종목 비율이 낮고 하락 종목 비율이 높습니다."
+    },
+    {
+      "code": "KOSPI_DISTRIBUTION_STYLE_BREADTH",
+      "title": "지수 상승 중 내부 종목 약세",
+      "market": "KOSPI",
+      "value": "일간 0.1592%, 상승종목 28.82%",
+      "threshold": "일간 상승 & 상승종목 <= 35.0%",
+      "severity": "주의",
+      "detail": "지수는 올랐지만 다수 종목이 따라오지 못하는 분배형 시장폭 신호입니다."
+    },
+    {
+      "code": "SAMSUNG_HYNIX_CONCENTRATION",
+      "title": "삼성전자·SK하이닉스 시총 쏠림",
+      "market": "KOSPI",
+      "value": 52.65,
+      "threshold": ">= 45.0%",
+      "severity": "강함",
+      "detail": "KOSPI 시가총액이 삼성전자·SK하이닉스에 과도하게 집중되어 있습니다."
+    },
+    {
+      "code": "KOSPI_KOSDAQ_DIVERGENCE",
+      "title": "KOSPI·KOSDAQ 1개월 괴리",
+      "market": "ALL",
+      "value": 39.65,
+      "threshold": ">= 25.0%p",
+      "severity": "주의",
+      "detail": "대형주 중심 KOSPI와 성장주 중심 KOSDAQ 간 괴리가 확대되었습니다."
+    },
+    {
+      "code": "KOSDAQ_WEAKNESS",
+      "title": "KOSDAQ 약세와 시장폭 악화",
+      "market": "KOSDAQ",
+      "value": "1개월 -12.2%, 상승종목 25.03%",
+      "threshold": "1개월 <= -8.0%, 상승종목 <= 35.0%",
+      "severity": "주의",
+      "detail": "KOSDAQ이 이미 약세 흐름에 들어가 있고 내부 시장폭도 약합니다."
+    }
+  ],
+  "market_snapshot": {
+    "KOSPI": {
+      "market": "KOSPI",
+      "asof_date": "2026-06-02",
+      "index_source": "stock_market_cap_weighted_proxy",
+      "proxy_index_close": 2117.38,
+      "proxy_daily_return_pct": 0.1592,
+      "proxy_return_1m_pct": 27.45,
+      "proxy_return_3m_pct": 52.26,
+      "up_count": 266,
+      "down_count": 616,
+      "up_ratio_pct": 28.82,
+      "down_ratio_pct": 66.74,
+      "up_down_ratio": 0.432,
+      "total_trading_value": 69062222067405,
+      "total_trading_value_20d_avg": 52292025628723,
+      "trading_value_vs_20d_avg": 1.321,
+      "total_market_cap": 7198198467824821,
+      "top2_market_cap_ratio_pct": 52.65,
+      "top10_market_cap_ratio_pct": 66.5,
+      "samsung_hynix_market_cap_ratio_pct": 52.65
+    },
+    "KOSDAQ": {
+      "market": "KOSDAQ",
+      "asof_date": "2026-06-02",
+      "index_source": "stock_market_cap_weighted_proxy",
+      "proxy_index_close": 1213.09,
+      "proxy_daily_return_pct": -2.0148,
+      "proxy_return_1m_pct": -12.2,
+      "proxy_return_3m_pct": -5.04,
+      "up_count": 445,
+      "down_count": 1194,
+      "up_ratio_pct": 25.03,
+      "down_ratio_pct": 67.15,
+      "up_down_ratio": 0.373,
+      "total_trading_value": 11177692841119,
+      "total_trading_value_20d_avg": 15040885779429,
+      "trading_value_vs_20d_avg": 0.743,
+      "total_market_cap": 569237531028045,
+      "top2_market_cap_ratio_pct": 6.76,
+      "top10_market_cap_ratio_pct": 20.44,
+      "samsung_hynix_market_cap_ratio_pct": null
+    }
+  },
+  "thresholds": {
+    "kospi_1m_overheat_pct": 20.0,
+    "kospi_3m_overheat_pct": 35.0,
+    "kospi_3m_extreme_pct": 50.0,
+    "weak_breadth_up_ratio_pct": 35.0,
+    "weak_breadth_down_ratio_pct": 60.0,
+    "samsung_hynix_concentration_pct": 45.0,
+    "samsung_hynix_extreme_pct": 50.0,
+    "kospi_kosdaq_1m_gap_pct": 25.0,
+    "kosdaq_1m_weak_pct": -8.0,
+    "trading_value_spike_ratio": 1.5
+  },
+  "action_hint": "위험 신호는 기준을 충족하지만 새 확정 거래일이 아니므로 자동 경고 알림은 보류합니다.",
+  "note": "위험등급은 KRX 전종목 원자료 기반 프록시 지수·시장폭·시총쏠림만으로 산출합니다. 신용융자, 환율, 금리, 외국인/기관 수급은 별도 확인이 필요합니다."
+}

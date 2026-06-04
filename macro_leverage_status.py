@@ -4,28 +4,36 @@
 """
 macro_leverage_status.py
 
-선택보완 2번:
-- 신용융자/투자자예탁금/CMA잔고/국고채 3년 등 KOFIA 대시보드 지표 수집 시도
-- FRED 공개 CSV 기반 USD/KRW, 미국 10년물, 미국 기준금리, 한국 10년물 지표 수집
-- macro_leverage_latest.json / macro_leverage_summary_latest.csv 생성
-- bubble_risk_latest.json에 macro/leverage 신호를 병합
+v1.1_retry_fred_stable
 
-주의:
-- FRED 데이터는 공개 CSV를 사용하므로 별도 API 키가 필요 없다.
-- KOFIA 대시보드 스크래핑은 사이트 구조 변경 시 실패할 수 있다.
-- KOFIA 공식 OpenAPI까지 완전 연결하려면 data.go.kr 활용신청 후 별도 서비스키가 필요할 수 있다.
+보완 내용
+1) FRED 504 Gateway Timeout 대응: urllib 기반 재시도 + 대기시간 증가
+2) FRED 일부 지표 실패 시에도 기존 저장 이력과 정상 병합
+3) KOFIA 대시보드 스크래핑 실패를 오류가 아니라 NO_DATA로 명확히 기록
+4) bubble_risk_latest.json에 macro/leverage 신호 병합 유지
+
+생성/갱신 파일
+- latest/macro_leverage_history_latest.csv
+- latest/macro_leverage_summary_latest.csv
+- latest/macro_leverage_signals_latest.csv
+- latest/macro_leverage_latest.json
+- latest/macro_leverage_run_log_latest.txt
+- latest/bubble_risk_latest.json
+- latest/bubble_risk_signals_latest.csv
 """
 
 from __future__ import annotations
 
 import argparse
 import html
+import io
 import json
 import re
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import numpy as np
@@ -37,7 +45,7 @@ except Exception:
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "macro_leverage_status.py v1.0_credit_fx_rates"
+SCRIPT_VERSION = "macro_leverage_status.py v1.1_retry_fred_stable"
 
 FRED_SERIES = [
     {
@@ -145,7 +153,10 @@ def read_json(path: Path) -> Dict[str, Any]:
 
 def write_json(path: Path, data: Dict[str, Any]) -> None:
     ensure_dir(path.parent)
-    path.write_text(json.dumps(to_jsonable(data), ensure_ascii=False, indent=2), encoding="utf-8")
+    path.write_text(
+        json.dumps(to_jsonable(data), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 def read_csv(path: Path) -> pd.DataFrame:
@@ -165,6 +176,15 @@ def write_csv(df: pd.DataFrame, path: Path) -> None:
     df.to_csv(path, index=False, encoding="utf-8-sig")
 
 
+def safe_float(value: Any) -> Optional[float]:
+    try:
+        if value is None or pd.isna(value):
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+
 def clean_number(value: Any) -> Optional[float]:
     if value is None:
         return None
@@ -178,31 +198,54 @@ def clean_number(value: Any) -> Optional[float]:
         return None
 
 
-def safe_float(value: Any) -> Optional[float]:
-    try:
-        if value is None or pd.isna(value):
-            return None
-        return float(value)
-    except Exception:
-        return None
-
-
-def http_text(url: str, timeout: int = 20) -> str:
+def http_text(url: str, timeout: int = 60) -> str:
     req = Request(
         url,
         headers={
-            "User-Agent": "Mozilla/5.0 (compatible; krx-watchlist-auto/1.0)",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+            "Accept": "text/csv,text/plain,text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Connection": "close",
         },
     )
     with urlopen(req, timeout=timeout) as resp:
         raw = resp.read()
+
     for enc in ["utf-8", "euc-kr", "cp949"]:
         try:
             return raw.decode(enc)
         except Exception:
             continue
+
     return raw.decode("utf-8", errors="ignore")
+
+
+def http_text_with_retry(url: str, log_lines: List[str], label: str, tries: int = 4) -> Optional[str]:
+    last_error = None
+
+    for attempt in range(1, tries + 1):
+        try:
+            text = http_text(url, timeout=70)
+            if text and len(text.strip()) > 20:
+                if attempt > 1:
+                    log_lines.append(f"HTTP_RETRY_OK {label}: attempt={attempt}")
+                return text
+            last_error = "empty text"
+            log_lines.append(f"HTTP_RETRY_EMPTY {label}: attempt={attempt}")
+        except HTTPError as e:
+            last_error = f"HTTPError {e.code}"
+            log_lines.append(f"HTTP_RETRY_FAIL {label}: attempt={attempt}, {last_error}")
+        except URLError as e:
+            last_error = f"URLError {e}"
+            log_lines.append(f"HTTP_RETRY_FAIL {label}: attempt={attempt}, {last_error}")
+        except Exception as e:
+            last_error = f"{type(e).__name__}: {e}"
+            log_lines.append(f"HTTP_RETRY_FAIL {label}: attempt={attempt}, {last_error}")
+
+        time.sleep(2 * attempt)
+
+    log_lines.append(f"HTTP_FINAL_FAIL {label}: {last_error}")
+    return None
 
 
 def textify_html(src: str) -> str:
@@ -220,10 +263,12 @@ def parse_metric_near_label(text: str, label: str) -> Optional[float]:
         rf"{escaped}\s*[:：]?\s*(?:[A-Za-z가-힣()%·/\s]*?)\s*([-+]?\d[\d,]*(?:\.\d+)?)",
         rf"{escaped}[^0-9\-+]{{0,120}}([-+]?\d[\d,]*(?:\.\d+)?)",
     ]
+
     for pat in patterns:
         m = re.search(pat, text)
         if m:
             return clean_number(m.group(1))
+
     return None
 
 
@@ -239,7 +284,10 @@ def fetch_kofia_dashboard(log_lines: List[str]) -> pd.DataFrame:
 
     for url in KOFIA_URLS:
         try:
-            raw = http_text(url)
+            raw = http_text_with_retry(url, log_lines, f"KOFIA {url}", tries=2)
+            if not raw:
+                continue
+
             text = textify_html(raw)
             found_count = 0
 
@@ -267,7 +315,6 @@ def fetch_kofia_dashboard(log_lines: List[str]) -> pd.DataFrame:
 
         except Exception as e:
             log_lines.append(f"KOFIA_DASHBOARD_FAIL {url}: {type(e).__name__}: {e}")
-            continue
 
     if not rows:
         log_lines.append("KOFIA_DASHBOARD_STATUS=NO_DATA")
@@ -293,10 +340,16 @@ def fetch_fred_series(meta: Dict[str, Any], log_lines: List[str]) -> pd.DataFram
     series_id = meta["series_id"]
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
 
+    text = http_text_with_retry(url, log_lines, f"FRED {series_id}", tries=4)
+
+    if not text:
+        log_lines.append(f"FRED_FAIL {series_id}: no text after retry")
+        return pd.DataFrame()
+
     try:
-        raw = pd.read_csv(url)
+        raw = pd.read_csv(io.StringIO(text))
     except Exception as e:
-        log_lines.append(f"FRED_FAIL {series_id}: {type(e).__name__}: {e}")
+        log_lines.append(f"FRED_PARSE_FAIL {series_id}: {type(e).__name__}: {e}")
         return pd.DataFrame()
 
     if raw.empty or len(raw.columns) < 2:
@@ -323,7 +376,7 @@ def fetch_fred_series(meta: Dict[str, Any], log_lines: List[str]) -> pd.DataFram
     out["date"] = out["date"].dt.date.astype(str)
 
     log_lines.append(f"FRED_OK {series_id}: rows={len(out)}")
-    return out
+    return out.reset_index(drop=True)
 
 
 def collect_macro_history(log_lines: List[str]) -> pd.DataFrame:
@@ -333,7 +386,7 @@ def collect_macro_history(log_lines: List[str]) -> pd.DataFrame:
         one = fetch_fred_series(meta, log_lines)
         if not one.empty:
             frames.append(one)
-        time.sleep(0.05)
+        time.sleep(1)
 
     kofia = fetch_kofia_dashboard(log_lines)
     if not kofia.empty:
@@ -355,10 +408,12 @@ def collect_macro_history(log_lines: List[str]) -> pd.DataFrame:
 
     out = pd.concat(frames, ignore_index=True)
     out["date_dt"] = pd.to_datetime(out["date"], errors="coerce")
+    out["value"] = pd.to_numeric(out["value"], errors="coerce")
     out = out.dropna(subset=["date_dt", "indicator_code", "value"])
     out = out.sort_values(["indicator_code", "date_dt"])
     out["date"] = out["date_dt"].dt.date.astype(str)
     out = out.drop(columns=["date_dt"])
+
     return out.reset_index(drop=True)
 
 
@@ -369,11 +424,11 @@ def combine_with_existing(
     log_lines: List[str],
 ) -> pd.DataFrame:
     existing = read_csv(existing_path)
-
     frames: List[pd.DataFrame] = []
 
     if not existing.empty:
         frames.append(existing)
+
     if fresh is not None and not fresh.empty:
         frames.append(fresh)
 
@@ -392,10 +447,30 @@ def combine_with_existing(
         )
 
     combined = pd.concat(frames, ignore_index=True)
+
+    for col in [
+        "date",
+        "indicator_code",
+        "indicator_name",
+        "value",
+        "unit",
+        "frequency",
+        "source",
+        "source_url",
+    ]:
+        if col not in combined.columns:
+            combined[col] = np.nan
+
     combined["date_dt"] = pd.to_datetime(combined["date"], errors="coerce")
     combined["value"] = pd.to_numeric(combined["value"], errors="coerce")
     combined = combined.dropna(subset=["date_dt", "indicator_code", "value"])
     combined = combined.drop_duplicates(subset=["date", "indicator_code"], keep="last")
+
+    if combined.empty:
+        log_lines.append(
+            f"MACRO_COMBINE: existing={len(existing)}, fresh={0 if fresh is None else len(fresh)}, combined=0"
+        )
+        return combined.drop(columns=["date_dt"], errors="ignore")
 
     max_date = combined["date_dt"].max()
     cutoff = max_date - pd.Timedelta(days=lookback_days)
@@ -426,7 +501,7 @@ def build_macro_summary(hist: pd.DataFrame) -> pd.DataFrame:
     df = hist.copy()
     df["date_dt"] = pd.to_datetime(df["date"], errors="coerce")
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
-    df = df.dropna(subset=["date_dt", "value"])
+    df = df.dropna(subset=["date_dt", "value", "indicator_code"])
 
     rows: List[Dict[str, Any]] = []
 
@@ -534,7 +609,7 @@ def classify_macro_leverage(summary: pd.DataFrame) -> Dict[str, Any]:
             round(usdk, 2),
             f">= {RISK_THRESHOLDS['usdk_rw_high']}",
             severity,
-            "원달러 환율이 높아 외국인 수급·할인율·위험자산 선호에 부담이 될 수 있습니다.",
+            "원달러 환율이 높아 외국인 수급과 위험자산 선호에 부담이 될 수 있습니다.",
         )
 
     if usdk_1m is not None and usdk_1m >= RISK_THRESHOLDS["usdk_rw_1m_rise_pct"]:
@@ -601,7 +676,7 @@ def classify_macro_leverage(summary: pd.DataFrame) -> Dict[str, Any]:
             f"{round(credit / 1_000_000, 2)}조원",
             f">= {RISK_THRESHOLDS['credit_balance_high_million_krw'] / 1_000_000:.1f}조원",
             severity,
-            "신용융자 잔고가 높으면 주도주 조정 시 반대매매·동반매도 압력이 커질 수 있습니다.",
+            "신용융자 잔고가 높으면 조정 시 반대매매·동반매도 압력이 커질 수 있습니다.",
         )
 
     if credit is not None and deposit is not None and deposit > 0:
@@ -693,7 +768,6 @@ def merge_into_bubble_risk(
     risk = recalc_risk_level(merged_signals)
 
     data_status = bubble.get("data_status")
-
     if not data_status:
         data_status_file = read_json(outdir / "data_status_latest.json")
         data_status = data_status_file.get("status")
@@ -789,6 +863,16 @@ def main() -> None:
 
     bubble = merge_into_bubble_risk(outdir, macro_result, run_at, log_lines)
 
+    fred_success_codes = []
+    if not summary.empty and "indicator_code" in summary.columns:
+        fred_success_codes = [
+            str(x)
+            for x in summary["indicator_code"].tolist()
+            if "FRED" in str(x)
+        ]
+
+    log_lines.append(f"fred_success_count={len(fred_success_codes)}")
+    log_lines.append(f"fred_success_codes={','.join(fred_success_codes)}")
     log_lines.append(f"macro_history_rows={len(hist)}")
     log_lines.append(f"macro_summary_rows={len(summary)}")
     log_lines.append(f"macro_signal_count={macro_result.get('signal_count', 0)}")

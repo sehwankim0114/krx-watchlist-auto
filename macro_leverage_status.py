@@ -4,13 +4,15 @@
 """
 macro_leverage_status.py
 
-v1.1_retry_fred_stable
+v1.2_yahoo_fallback
 
-보완 내용
-1) FRED 504 Gateway Timeout 대응: urllib 기반 재시도 + 대기시간 증가
-2) FRED 일부 지표 실패 시에도 기존 저장 이력과 정상 병합
-3) KOFIA 대시보드 스크래핑 실패를 오류가 아니라 NO_DATA로 명확히 기록
-4) bubble_risk_latest.json에 macro/leverage 신호 병합 유지
+목적
+- FRED가 GitHub Actions에서 504/timeout으로 실패할 때 Yahoo Finance chart API를 대체 경로로 사용
+- 원달러 환율: FRED DEXKOUS 실패 시 Yahoo KRW=X 사용
+- 미국 10년물: FRED DGS10 실패 시 Yahoo ^TNX 사용
+- 미국 기준금리 DFF, 한국 10년물은 FRED 또는 기존 저장 이력 사용
+- KOFIA 대시보드 스크래핑은 계속 시도하되 실패해도 전체 작업은 정상 완료
+- bubble_risk_latest.json에 macro/leverage 신호 병합
 
 생성/갱신 파일
 - latest/macro_leverage_history_latest.csv
@@ -34,6 +36,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 import numpy as np
@@ -45,7 +48,8 @@ except Exception:
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "macro_leverage_status.py v1.1_retry_fred_stable"
+SCRIPT_VERSION = "macro_leverage_status.py v1.2_yahoo_fallback"
+
 
 FRED_SERIES = [
     {
@@ -55,6 +59,7 @@ FRED_SERIES = [
         "unit": "KRW per USD",
         "frequency": "daily",
         "source": "FRED",
+        "fallback": {"type": "yahoo", "symbol": "KRW=X", "source": "Yahoo Finance fallback"},
     },
     {
         "indicator_code": "US10Y_FRED_DGS10",
@@ -63,6 +68,7 @@ FRED_SERIES = [
         "unit": "percent",
         "frequency": "daily",
         "source": "FRED",
+        "fallback": {"type": "yahoo", "symbol": "^TNX", "source": "Yahoo Finance fallback"},
     },
     {
         "indicator_code": "FEDFUNDS_FRED_DFF",
@@ -71,6 +77,7 @@ FRED_SERIES = [
         "unit": "percent",
         "frequency": "daily",
         "source": "FRED",
+        "fallback": None,
     },
     {
         "indicator_code": "KOREA10Y_FRED_IRLTLT01KRM156N",
@@ -79,14 +86,17 @@ FRED_SERIES = [
         "unit": "percent",
         "frequency": "monthly",
         "source": "FRED/OECD",
+        "fallback": None,
     },
 ]
+
 
 KOFIA_URLS = [
     "https://freesis.kofia.or.kr/",
     "https://freesis.kofia.or.kr/main/main.do",
     "https://freesis.kofia.or.kr/stat/FreeSIS.do?parentDivId=MSIS10000000000000&serviceId=STATSCU0100000070",
 ]
+
 
 RISK_THRESHOLDS = {
     "usdk_rw_high": 1500.0,
@@ -198,13 +208,13 @@ def clean_number(value: Any) -> Optional[float]:
         return None
 
 
-def http_text(url: str, timeout: int = 60) -> str:
+def http_text(url: str, timeout: int = 25) -> str:
     req = Request(
         url,
         headers={
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
             "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-            "Accept": "text/csv,text/plain,text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept": "application/json,text/csv,text/plain,text/html,*/*",
             "Connection": "close",
         },
     )
@@ -220,32 +230,136 @@ def http_text(url: str, timeout: int = 60) -> str:
     return raw.decode("utf-8", errors="ignore")
 
 
-def http_text_with_retry(url: str, log_lines: List[str], label: str, tries: int = 4) -> Optional[str]:
+def http_text_with_retry(url: str, log_lines: List[str], label: str, tries: int = 2, timeout: int = 25) -> Optional[str]:
     last_error = None
 
     for attempt in range(1, tries + 1):
         try:
-            text = http_text(url, timeout=70)
+            text = http_text(url, timeout=timeout)
             if text and len(text.strip()) > 20:
                 if attempt > 1:
                     log_lines.append(f"HTTP_RETRY_OK {label}: attempt={attempt}")
                 return text
             last_error = "empty text"
             log_lines.append(f"HTTP_RETRY_EMPTY {label}: attempt={attempt}")
+
         except HTTPError as e:
             last_error = f"HTTPError {e.code}"
             log_lines.append(f"HTTP_RETRY_FAIL {label}: attempt={attempt}, {last_error}")
+
         except URLError as e:
             last_error = f"URLError {e}"
             log_lines.append(f"HTTP_RETRY_FAIL {label}: attempt={attempt}, {last_error}")
+
         except Exception as e:
             last_error = f"{type(e).__name__}: {e}"
             log_lines.append(f"HTTP_RETRY_FAIL {label}: attempt={attempt}, {last_error}")
 
-        time.sleep(2 * attempt)
+        time.sleep(1.5 * attempt)
 
     log_lines.append(f"HTTP_FINAL_FAIL {label}: {last_error}")
     return None
+
+
+def fetch_yahoo_chart(meta: Dict[str, Any], fallback: Dict[str, Any], log_lines: List[str]) -> pd.DataFrame:
+    symbol = fallback["symbol"]
+    encoded = quote(symbol, safe="")
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{encoded}?range=1y&interval=1d"
+
+    text = http_text_with_retry(url, log_lines, f"YAHOO {symbol}", tries=3, timeout=25)
+
+    if not text:
+        log_lines.append(f"YAHOO_FAIL {symbol}: no text")
+        return pd.DataFrame()
+
+    try:
+        data = json.loads(text)
+        result = data.get("chart", {}).get("result", [])
+        if not result:
+            log_lines.append(f"YAHOO_EMPTY {symbol}: no result")
+            return pd.DataFrame()
+
+        item = result[0]
+        timestamps = item.get("timestamp", [])
+        quote_data = item.get("indicators", {}).get("quote", [{}])[0]
+        closes = quote_data.get("close", [])
+
+        if not timestamps or not closes:
+            log_lines.append(f"YAHOO_EMPTY {symbol}: no timestamp/close")
+            return pd.DataFrame()
+
+        out = pd.DataFrame(
+            {
+                "date": pd.to_datetime(timestamps, unit="s", errors="coerce"),
+                "indicator_code": meta["indicator_code"],
+                "indicator_name": meta["indicator_name"],
+                "value": pd.to_numeric(closes, errors="coerce"),
+                "unit": meta["unit"],
+                "frequency": meta["frequency"],
+                "source": fallback.get("source", "Yahoo Finance fallback"),
+                "source_url": url,
+            }
+        )
+
+        out = out.dropna(subset=["date", "value"]).sort_values("date")
+        out["date"] = out["date"].dt.date.astype(str)
+
+        log_lines.append(f"YAHOO_OK {symbol}: rows={len(out)}")
+        return out.reset_index(drop=True)
+
+    except Exception as e:
+        log_lines.append(f"YAHOO_PARSE_FAIL {symbol}: {type(e).__name__}: {e}")
+        return pd.DataFrame()
+
+
+def fetch_fred_series(meta: Dict[str, Any], log_lines: List[str]) -> pd.DataFrame:
+    series_id = meta["series_id"]
+    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
+
+    text = http_text_with_retry(url, log_lines, f"FRED {series_id}", tries=2, timeout=20)
+
+    if text:
+        try:
+            raw = pd.read_csv(io.StringIO(text))
+
+            if not raw.empty and len(raw.columns) >= 2:
+                date_col = raw.columns[0]
+                value_col = series_id if series_id in raw.columns else raw.columns[1]
+
+                out = pd.DataFrame(
+                    {
+                        "date": pd.to_datetime(raw[date_col], errors="coerce"),
+                        "indicator_code": meta["indicator_code"],
+                        "indicator_name": meta["indicator_name"],
+                        "value": pd.to_numeric(raw[value_col].replace(".", np.nan), errors="coerce"),
+                        "unit": meta["unit"],
+                        "frequency": meta["frequency"],
+                        "source": meta["source"],
+                        "source_url": url,
+                    }
+                )
+
+                out = out.dropna(subset=["date", "value"]).sort_values("date")
+                out["date"] = out["date"].dt.date.astype(str)
+
+                if not out.empty:
+                    log_lines.append(f"FRED_OK {series_id}: rows={len(out)}")
+                    return out.reset_index(drop=True)
+
+            log_lines.append(f"FRED_EMPTY {series_id}")
+
+        except Exception as e:
+            log_lines.append(f"FRED_PARSE_FAIL {series_id}: {type(e).__name__}: {e}")
+
+    else:
+        log_lines.append(f"FRED_FAIL {series_id}: no text after retry")
+
+    fallback = meta.get("fallback")
+    if fallback and fallback.get("type") == "yahoo":
+        log_lines.append(f"FRED_TO_YAHOO_FALLBACK {series_id} -> {fallback.get('symbol')}")
+        return fetch_yahoo_chart(meta, fallback, log_lines)
+
+    return pd.DataFrame()
 
 
 def textify_html(src: str) -> str:
@@ -283,38 +397,36 @@ def fetch_kofia_dashboard(log_lines: List[str]) -> pd.DataFrame:
     rows: List[Dict[str, Any]] = []
 
     for url in KOFIA_URLS:
-        try:
-            raw = http_text_with_retry(url, log_lines, f"KOFIA {url}", tries=2)
-            if not raw:
-                continue
+        raw = http_text_with_retry(url, log_lines, f"KOFIA {url}", tries=1, timeout=15)
 
-            text = textify_html(raw)
-            found_count = 0
+        if not raw:
+            continue
 
-            for code, label, unit in labels:
-                value = parse_metric_near_label(text, label)
-                if value is not None:
-                    found_count += 1
-                    rows.append(
-                        {
-                            "date": now_kst().date().isoformat(),
-                            "indicator_code": code,
-                            "indicator_name": label,
-                            "value": value,
-                            "unit": unit,
-                            "frequency": "dashboard",
-                            "source": "KOFIA FreeSIS dashboard",
-                            "source_url": url,
-                        }
-                    )
+        text = textify_html(raw)
+        found_count = 0
 
-            log_lines.append(f"KOFIA_DASHBOARD_TRY {url}: found={found_count}")
+        for code, label, unit in labels:
+            value = parse_metric_near_label(text, label)
 
-            if found_count > 0:
-                break
+            if value is not None:
+                found_count += 1
+                rows.append(
+                    {
+                        "date": now_kst().date().isoformat(),
+                        "indicator_code": code,
+                        "indicator_name": label,
+                        "value": value,
+                        "unit": unit,
+                        "frequency": "dashboard",
+                        "source": "KOFIA FreeSIS dashboard",
+                        "source_url": url,
+                    }
+                )
 
-        except Exception as e:
-            log_lines.append(f"KOFIA_DASHBOARD_FAIL {url}: {type(e).__name__}: {e}")
+        log_lines.append(f"KOFIA_DASHBOARD_TRY {url}: found={found_count}")
+
+        if found_count > 0:
+            break
 
     if not rows:
         log_lines.append("KOFIA_DASHBOARD_STATUS=NO_DATA")
@@ -336,49 +448,6 @@ def fetch_kofia_dashboard(log_lines: List[str]) -> pd.DataFrame:
     return out.reset_index(drop=True)
 
 
-def fetch_fred_series(meta: Dict[str, Any], log_lines: List[str]) -> pd.DataFrame:
-    series_id = meta["series_id"]
-    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
-
-    text = http_text_with_retry(url, log_lines, f"FRED {series_id}", tries=4)
-
-    if not text:
-        log_lines.append(f"FRED_FAIL {series_id}: no text after retry")
-        return pd.DataFrame()
-
-    try:
-        raw = pd.read_csv(io.StringIO(text))
-    except Exception as e:
-        log_lines.append(f"FRED_PARSE_FAIL {series_id}: {type(e).__name__}: {e}")
-        return pd.DataFrame()
-
-    if raw.empty or len(raw.columns) < 2:
-        log_lines.append(f"FRED_EMPTY {series_id}")
-        return pd.DataFrame()
-
-    date_col = raw.columns[0]
-    value_col = series_id if series_id in raw.columns else raw.columns[1]
-
-    out = pd.DataFrame(
-        {
-            "date": pd.to_datetime(raw[date_col], errors="coerce"),
-            "indicator_code": meta["indicator_code"],
-            "indicator_name": meta["indicator_name"],
-            "value": pd.to_numeric(raw[value_col].replace(".", np.nan), errors="coerce"),
-            "unit": meta["unit"],
-            "frequency": meta["frequency"],
-            "source": meta["source"],
-            "source_url": url,
-        }
-    )
-
-    out = out.dropna(subset=["date", "value"]).sort_values("date")
-    out["date"] = out["date"].dt.date.astype(str)
-
-    log_lines.append(f"FRED_OK {series_id}: rows={len(out)}")
-    return out.reset_index(drop=True)
-
-
 def collect_macro_history(log_lines: List[str]) -> pd.DataFrame:
     frames: List[pd.DataFrame] = []
 
@@ -386,7 +455,7 @@ def collect_macro_history(log_lines: List[str]) -> pd.DataFrame:
         one = fetch_fred_series(meta, log_lines)
         if not one.empty:
             frames.append(one)
-        time.sleep(1)
+        time.sleep(0.5)
 
     kofia = fetch_kofia_dashboard(log_lines)
     if not kofia.empty:
@@ -768,6 +837,7 @@ def merge_into_bubble_risk(
     risk = recalc_risk_level(merged_signals)
 
     data_status = bubble.get("data_status")
+
     if not data_status:
         data_status_file = read_json(outdir / "data_status_latest.json")
         data_status = data_status_file.get("status")
@@ -805,6 +875,7 @@ def merge_into_bubble_risk(
 
     bubble["note"] = (
         "가격·시장폭·쏠림 신호에 환율·금리·신용융자 보조 신호를 병합했습니다. "
+        "FRED 실패 시 일부 지표는 Yahoo Finance fallback을 사용합니다. "
         "KOFIA 대시보드 스크래핑은 사이트 구조 변경 시 비어 있을 수 있습니다."
     )
 
@@ -853,7 +924,7 @@ def main() -> None:
         "signals": macro_result.get("signals", []),
         "snapshot": macro_result.get("snapshot", {}),
         "thresholds": RISK_THRESHOLDS,
-        "note": "FRED 공개 CSV와 KOFIA FreeSIS 대시보드 스크래핑 기반 보조자료입니다.",
+        "note": "FRED 공개 CSV, Yahoo Finance fallback, KOFIA FreeSIS 대시보드 스크래핑 기반 보조자료입니다.",
     }
 
     write_csv(hist, hist_path)
@@ -863,16 +934,22 @@ def main() -> None:
 
     bubble = merge_into_bubble_risk(outdir, macro_result, run_at, log_lines)
 
-    fred_success_codes = []
-    if not summary.empty and "indicator_code" in summary.columns:
-        fred_success_codes = [
-            str(x)
-            for x in summary["indicator_code"].tolist()
-            if "FRED" in str(x)
-        ]
+    summary_codes = []
+    summary_sources = {}
 
-    log_lines.append(f"fred_success_count={len(fred_success_codes)}")
-    log_lines.append(f"fred_success_codes={','.join(fred_success_codes)}")
+    if not summary.empty and "indicator_code" in summary.columns:
+        summary_codes = [str(x) for x in summary["indicator_code"].tolist()]
+
+        for _, row in summary.iterrows():
+            summary_sources[str(row.get("indicator_code"))] = str(row.get("source"))
+
+    fred_or_fallback_success_codes = [
+        code for code in summary_codes if "FRED" in code or code.startswith("USDKRW") or code.startswith("US10Y")
+    ]
+
+    log_lines.append(f"macro_success_count={len(fred_or_fallback_success_codes)}")
+    log_lines.append(f"macro_success_codes={','.join(fred_or_fallback_success_codes)}")
+    log_lines.append(f"macro_summary_sources={summary_sources}")
     log_lines.append(f"macro_history_rows={len(hist)}")
     log_lines.append(f"macro_summary_rows={len(summary)}")
     log_lines.append(f"macro_signal_count={macro_result.get('signal_count', 0)}")

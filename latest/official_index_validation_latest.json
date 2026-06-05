@@ -1,0 +1,51 @@
+{
+  "script": "official_index_validation.py v1.0_return_cross_validation",
+  "run_at_kst": "2026-06-06T08:26:14+09:00",
+  "overall_status": "PASS_ALL",
+  "pass_count": 2,
+  "warn_count": 0,
+  "fail_count": 0,
+  "thresholds": {
+    "daily_gap_pctp": 2.0,
+    "return_1m_gap_pctp": 5.0,
+    "return_3m_gap_pctp": 10.0,
+    "max_date_gap_days": 0
+  },
+  "markets": [
+    {
+      "market": "KOSDAQ",
+      "status": "PASS",
+      "official_index_name": "코스닥",
+      "market_asof_date": "2026-06-05",
+      "official_asof_date": "2026-06-05",
+      "date_gap_days": 0,
+      "official_index_close": 1002.44,
+      "proxy_index_close": 1201.85,
+      "daily_return_gap_pctp": 0.1031,
+      "return_1m_gap_pctp": 2.89,
+      "return_3m_gap_pctp": 4.71,
+      "risk_return_source_before_validation": "official",
+      "failure_reasons": "",
+      "warnings": "",
+      "note": "공식지수와 프록시 지수는 기준점이 달라 종가 절대값은 비교하지 않음"
+    },
+    {
+      "market": "KOSPI",
+      "status": "PASS",
+      "official_index_name": "코스피",
+      "market_asof_date": "2026-06-05",
+      "official_asof_date": "2026-06-05",
+      "date_gap_days": 0,
+      "official_index_close": 8160.59,
+      "proxy_index_close": 2070.49,
+      "daily_return_gap_pctp": 0.0438,
+      "return_1m_gap_pctp": 0.25,
+      "return_3m_gap_pctp": 0.07,
+      "risk_return_source_before_validation": "official",
+      "failure_reasons": "",
+      "warnings": "",
+      "note": "공식지수와 프록시 지수는 기준점이 달라 종가 절대값은 비교하지 않음"
+    }
+  ],
+  "note": "프록시 지수와 공식지수의 종가 절대값은 기준점이 달라 비교 대상이 아닙니다."
+}

@@ -1,0 +1,90 @@
+{
+  "script": "kofia_market_status.py v1.0_three_api_collector",
+  "generated_at_kst": "2026-06-05T15:13:49+09:00",
+  "overall_status": "NO_API_URL_CONFIGURED",
+  "service_key_configured": true,
+  "configured_api_count": 0,
+  "fresh_success_count": 0,
+  "preserved_existing_count": 0,
+  "usable_history_count": 0,
+  "summary_rows": 0,
+  "apis": {
+    "cma": {
+      "api": "cma",
+      "label": "일자별 CMA 현황",
+      "configured": false,
+      "url": "",
+      "status": "URL_NOT_CONFIGURED",
+      "http_status": null,
+      "response_header": {},
+      "fresh_rows": 0,
+      "response_columns": [],
+      "required_fields": [
+        "basDt",
+        "mngInvTgt",
+        "invrCtg",
+        "scrtCmpyCnt",
+        "actCnt",
+        "actBal"
+      ],
+      "missing_required_fields": [
+        "basDt",
+        "mngInvTgt",
+        "invrCtg",
+        "scrtCmpyCnt",
+        "actCnt",
+        "actBal"
+      ],
+      "existing_rows_before": 0,
+      "preserved_existing": false,
+      "total_rows_after": 0,
+      "latest_date": null,
+      "stored_columns": []
+    },
+    "credit": {
+      "api": "credit",
+      "label": "신용공여 잔고 추이",
+      "configured": false,
+      "url": "",
+      "status": "URL_NOT_CONFIGURED",
+      "http_status": null,
+      "response_header": {},
+      "fresh_rows": 0,
+      "response_columns": [],
+      "required_fields": [
+        "basDt"
+      ],
+      "missing_required_fields": [
+        "basDt"
+      ],
+      "existing_rows_before": 0,
+      "preserved_existing": false,
+      "total_rows_after": 0,
+      "latest_date": null,
+      "stored_columns": []
+    },
+    "market_funds": {
+      "api": "market_funds",
+      "label": "증시자금 추이",
+      "configured": false,
+      "url": "",
+      "status": "URL_NOT_CONFIGURED",
+      "http_status": null,
+      "response_header": {},
+      "fresh_rows": 0,
+      "response_columns": [],
+      "required_fields": [
+        "basDt"
+      ],
+      "missing_required_fields": [
+        "basDt"
+      ],
+      "existing_rows_before": 0,
+      "preserved_existing": false,
+      "total_rows_after": 0,
+      "latest_date": null,
+      "stored_columns": []
+    }
+  },
+  "next_stage_note": "세 API 원자료 수집/검증 단계입니다. 위험 신호 결합은 별도 다음 단계에서 수행합니다."
+}

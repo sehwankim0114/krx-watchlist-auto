@@ -1,5 +1,5 @@
 script=collect_universe.py v4.6.1_kosdaq_candidates_gainer_filter_actual_date_log
-started_at=2026-06-05T07:09:26
+started_at=2026-06-05T16:45:32
 collection_period=2025-09-26~2026-06-05
 OPENAPI KOSPI 20250926: rows=935
 OPENAPI KOSDAQ 20250926: rows=1794
@@ -237,8 +237,7 @@ OPENAPI KOSPI 20260220: rows=925
 OPENAPI KOSDAQ 20260220: rows=1788
 OPENAPI KOSPI 20260223: rows=925
 OPENAPI KOSDAQ 20260223: rows=1787
-OPENAPI_REQUEST_FAIL KOSPI_stock 20260224: ReadTimeout(ReadTimeoutError("HTTPSConnectionPool(host='data-dbg.krx.co.kr', port=443): Read timed out. (read timeout=40)"))
-OPENAPI KOSPI 20260224: empty after normalize
+OPENAPI KOSPI 20260224: rows=925
 OPENAPI KOSDAQ 20260224: rows=1787
 OPENAPI KOSPI 20260225: rows=925
 OPENAPI KOSDAQ 20260225: rows=1787
@@ -398,9 +397,9 @@ OPENAPI_EMPTY KOSPI_stock 20260605: keys=['OutBlock_1']
 OPENAPI KOSPI 20260605: empty after normalize
 OPENAPI_EMPTY KOSDAQ_stock 20260605: keys=['OutBlock_1']
 OPENAPI KOSDAQ 20260605: empty after normalize
-HISTORY_COMBINE: fresh=444695, existing=174924, combined=384920
-raw_history=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/universe_raw_history_latest.csv, rows=384920
-SUMMARY KOSPI: input rows=131003
+HISTORY_COMBINE: fresh=445620, existing=174924, combined=385641
+raw_history=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/universe_raw_history_latest.csv, rows=385641
+SUMMARY KOSPI: input rows=131724
 SUMMARY KOSPI: 3m rows=58239, tickers=926
 SUMMARY KOSPI: output rows=926
 SUMMARY KOSDAQ: input rows=253917
@@ -422,4 +421,4 @@ KOSDAQ_CANDIDATES: candidates=10, recommend=5
 kosdaq_candidates_10=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kosdaq_candidates_10_latest.csv, rows=10
 kosdaq_recommend_5=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kosdaq_recommend_5_latest.csv, rows=5
 market_index_summary=kept_existing:/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/market_index_summary_latest.csv
-finished_at=2026-06-05T07:39:42
+finished_at=2026-06-05T16:57:56

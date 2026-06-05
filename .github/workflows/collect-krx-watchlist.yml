@@ -37,22 +37,6 @@ jobs:
         run: |
           python collect_watchlist.py --source auto --lookback-months 3 --output-dir latest
 
-      - name: Collect KOSPI/KOSDAQ universe data
-        env:
-          KRX_AUTH_KEY: ${{ secrets.KRX_AUTH_KEY }}
-          DART_API_KEY: ${{ secrets.DART_API_KEY }}
-          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
-          DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
-          KOFIA_CREDIT_API_URL: ${{ secrets.KOFIA_CREDIT_API_URL }}
-          KOFIA_MARKET_FUNDS_API_URL: ${{ secrets.KOFIA_MARKET_FUNDS_API_URL }}
-          KOFIA_CMA_API_URL: ${{ secrets.KOFIA_CMA_API_URL }}
-        run: |
-          python collect_universe.py --days 180 --keep-months 7 --output-dir latest
-          python monthly_cycle.py --output-dir latest --lookback-months 6 --top-n 40
-          python market_status.py --output-dir latest --lookback-months 7
-          python official_index_status.py --output-dir latest --lookback-months 7
-          python macro_leverage_status.py --output-dir latest --lookback-days 370
-
       - name: Collect KOFIA three API data
         env:
           DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
@@ -62,8 +46,31 @@ jobs:
         run: |
           python -m py_compile kofia_market_status.py
           python kofia_market_status.py --output-dir latest
+
           echo "----- KOFIA API 실행 결과 -----"
           cat latest/kofia_market_funds_run_log_latest.txt || true
+
+      - name: Collect universe and update market risk
+        env:
+          KRX_AUTH_KEY: ${{ secrets.KRX_AUTH_KEY }}
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
+        run: |
+          python collect_universe.py --days 180 --keep-months 7 --output-dir latest
+          python monthly_cycle.py --output-dir latest --lookback-months 6 --top-n 40
+          python market_status.py --output-dir latest --lookback-months 7
+          python official_index_status.py --output-dir latest --lookback-months 7
+
+          python -m py_compile kofia_macro_bridge.py
+          python kofia_macro_bridge.py --output-dir latest --lookback-days 370
+
+          python macro_leverage_status.py --output-dir latest --lookback-days 370
+
+          echo "----- KOFIA 연결 결과 -----"
+          cat latest/kofia_macro_bridge_run_log_latest.txt || true
+
+          echo "----- 거시·레버리지 위험분석 결과 -----"
+          cat latest/macro_leverage_run_log_latest.txt || true
 
       - name: Commit latest data
         run: |
@@ -72,6 +79,6 @@ jobs:
 
           git add latest/*.csv latest/*.txt latest/*.xlsx latest/*.json || true
 
-          git commit -m "Update watchlist universe monthly cycle market status official index macro leverage and KOFIA data" || echo "No changes to commit"
+          git commit -m "Update watchlist universe KOFIA bridge market risk and macro leverage data" || echo "No changes to commit"
 
           git push

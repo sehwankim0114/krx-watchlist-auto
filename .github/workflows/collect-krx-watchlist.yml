@@ -66,11 +66,17 @@ jobs:
 
           python macro_leverage_status.py --output-dir latest --lookback-days 370
 
+          python -m py_compile official_index_validation.py
+          python official_index_validation.py --output-dir latest
+
           echo "----- KOFIA 연결 결과 -----"
           cat latest/kofia_macro_bridge_run_log_latest.txt || true
 
           echo "----- 거시·레버리지 위험분석 결과 -----"
           cat latest/macro_leverage_run_log_latest.txt || true
+
+          echo "----- 공식지수 교차검증 결과 -----"
+          cat latest/official_index_validation_run_log_latest.txt || true
 
       - name: Commit latest data
         run: |
@@ -79,6 +85,6 @@ jobs:
 
           git add latest/*.csv latest/*.txt latest/*.xlsx latest/*.json || true
 
-          git commit -m "Update watchlist universe KOFIA bridge market risk and macro leverage data" || echo "No changes to commit"
+          git commit -m "Update market data KOFIA bridge macro risk and official index validation" || echo "No changes to commit"
 
           git push

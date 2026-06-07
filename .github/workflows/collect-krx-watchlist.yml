@@ -52,9 +52,14 @@ jobs:
 
       - name: Collect universe and update market risk
         env:
+          PYTHONWARNINGS: ignore::FutureWarning
           KRX_AUTH_KEY: ${{ secrets.KRX_AUTH_KEY }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
+          DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
+          KOFIA_CMA_API_URL: ${{ secrets.KOFIA_CMA_API_URL }}
+          KOFIA_CREDIT_API_URL: ${{ secrets.KOFIA_CREDIT_API_URL }}
+          KOFIA_MARKET_FUNDS_API_URL: ${{ secrets.KOFIA_MARKET_FUNDS_API_URL }}
         run: |
           python collect_universe.py --days 180 --keep-months 7 --output-dir latest
           python monthly_cycle.py --output-dir latest --lookback-months 6 --top-n 40

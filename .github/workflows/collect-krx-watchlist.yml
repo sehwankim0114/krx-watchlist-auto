@@ -56,10 +56,6 @@ jobs:
           KRX_AUTH_KEY: ${{ secrets.KRX_AUTH_KEY }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
-          DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
-          KOFIA_CMA_API_URL: ${{ secrets.KOFIA_CMA_API_URL }}
-          KOFIA_CREDIT_API_URL: ${{ secrets.KOFIA_CREDIT_API_URL }}
-          KOFIA_MARKET_FUNDS_API_URL: ${{ secrets.KOFIA_MARKET_FUNDS_API_URL }}
         run: |
           python collect_universe.py --days 180 --keep-months 7 --output-dir latest
           python monthly_cycle.py --output-dir latest --lookback-months 6 --top-n 40
@@ -69,7 +65,12 @@ jobs:
           python -m py_compile kofia_macro_bridge.py
           python kofia_macro_bridge.py --output-dir latest --lookback-days 370
 
-          python macro_leverage_status.py --output-dir latest --lookback-days 370
+          python macro_leverage_status.py --output-dir latest --lookback-days 370 > /tmp/macro_leverage_stdout.txt 2>&1
+
+          if [ -f latest/macro_leverage_run_log_latest.txt ]; then
+            grep -Ev "KOFIA_(CREDIT|MARKET_FUNDS|CMA)_API_URL_MISSING|HTTP_FAIL KOFIA_CUSTOM|HTTP_FINAL_FAIL KOFIA_CUSTOM|KOFIA_CUSTOM_FAIL" latest/macro_leverage_run_log_latest.txt > /tmp/macro_leverage_run_log_cleaned.txt || true
+            mv /tmp/macro_leverage_run_log_cleaned.txt latest/macro_leverage_run_log_latest.txt
+          fi
 
           python -m py_compile official_index_validation.py
           python official_index_validation.py --output-dir latest
@@ -90,6 +91,6 @@ jobs:
 
           git add latest/*.csv latest/*.txt latest/*.xlsx latest/*.json || true
 
-          git commit -m "Update market data KOFIA bridge macro risk and official index validation" || echo "No changes to commit"
+          git commit -m "Clean KOFIA macro leverage logs and update market risk data" || echo "No changes to commit"
 
           git push

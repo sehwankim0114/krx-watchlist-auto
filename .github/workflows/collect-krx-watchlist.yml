@@ -170,8 +170,6 @@ jobs:
           python -m py_compile official_index_validation.py
           python official_index_validation.py --output-dir latest
 
-          python operating_loss_enricher.py --output-dir latest --workers 4 --max-api-calls 5000
-
           python -m py_compile table_health_check.py
           python table_health_check.py --output-dir latest --freshness-warn-days 4 --freshness-error-days 10
 

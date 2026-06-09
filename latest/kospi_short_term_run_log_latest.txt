@@ -1,0 +1,14 @@
+script=short_term_kospi.py v1.0_kospi_short_term
+run_at=2026-06-09T05:21:27+00:00
+output_dir=latest
+input_path=latest/kospi_universe_summary_latest.csv
+input_rows=926
+input_columns=name,ticker,market,status,last_date,current_close,split_buy_low_ref,split_buy_high_ref,target1_ref,target2_ref,stop_ref,avg_daily_move_abs,avg_daily_move_pct,avg_wave_days,low_3m_intraday,high_3m_intraday,low_3m_close,high_3m_close,range_3m_pct,position_in_3m_range_pct,return_1m_pct,return_3m_pct,last_volume,last_trading_value,avg20_trading_value,low_liquidity,market_cap,listed_shares,data_rows,source_used
+short_term_actual_data_last_date=2026-06-08
+input_kospi_rows=926
+after_common_stock_filter_rows=812
+short_term_candidates_rows=30
+short_term_recommend_rows=7
+output_candidates=latest/kospi_short_term_candidates_30_latest.csv, rows=30
+output_recommends=latest/kospi_short_term_recommend_7_latest.csv, rows=7
+status=OK

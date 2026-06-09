@@ -58,6 +58,10 @@ jobs:
           ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
         run: |
           python collect_universe.py --days 180 --keep-months 7 --output-dir latest
+
+          python -m py_compile short_term_kospi.py
+          python short_term_kospi.py --output-dir latest --top-n 30 --recommend-n 7
+
           python monthly_cycle.py --output-dir latest --lookback-months 6 --top-n 40
           python market_status.py --output-dir latest --lookback-months 7
           python official_index_status.py --output-dir latest --lookback-months 7
@@ -83,6 +87,9 @@ jobs:
 
           echo "----- 공식지수 교차검증 결과 -----"
           cat latest/official_index_validation_run_log_latest.txt || true
+
+          echo "----- 단상표 자동산출 결과 -----"
+          cat latest/kospi_short_term_run_log_latest.txt || true
 
       - name: Commit latest data
         run: |

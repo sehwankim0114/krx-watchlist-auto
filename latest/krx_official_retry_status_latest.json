@@ -1,0 +1,20 @@
+{
+  "script": "run_universe_latest.py v1.2_official_fresh_gate",
+  "run_at_kst": "2026-06-10T04:17:16+09:00",
+  "expected_official_trading_date": "2026-06-09",
+  "status": "STALE_KRX_EMPTY_OR_DELAY",
+  "fresh": false,
+  "display_label": "KRX 공식자료 미확정/이전 기준일 사용",
+  "warning": "KRX 공식자료 미확정/이전 기준일 사용",
+  "reason": "Official KRX summary date is behind the expected previous trading day. This can happen because of KRX delay, empty response, public holiday, or market closure. Use actual summary last_date as the displayed basis date.",
+  "kospi_actual_date": "2026-06-08",
+  "kosdaq_actual_date": "2026-06-08",
+  "actual_min_date": "2026-06-08",
+  "actual_max_date": "2026-06-08",
+  "same_market_date": true,
+  "basis_date_for_display": "2026-06-08",
+  "kospi_summary_rows": 926,
+  "kosdaq_summary_rows": 1793,
+  "holiday_or_market_closure_possible": true,
+  "collector_return_code": 0
+}

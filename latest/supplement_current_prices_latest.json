@@ -1,0 +1,18 @@
+{
+  "script": "supplement_current_prices.py v1.1_aux_only_no_overwrite",
+  "run_at_kst": "2026-06-10T04:20:35+09:00",
+  "status": "OK",
+  "target_count": 93,
+  "ok_count": 93,
+  "fail_count": 0,
+  "data_type": "SUPPLEMENT_AUX_CURRENT_PRICE_NOT_OFFICIAL_KRX",
+  "display_label": "보조 현재가 참고판",
+  "source": "NAVER",
+  "supplemented_outputs": [
+    "latest/kospi_candidates_30_supplemented_latest.csv",
+    "latest/kosdaq_candidates_10_supplemented_latest.csv",
+    "latest/kospi_gainers_1m_supplemented_latest.csv",
+    "latest/watchlist_summary_supplemented_latest.csv"
+  ],
+  "notice": "보조 현재가이며 공식 KRX 일별매매정보를 대체하지 않습니다."
+}

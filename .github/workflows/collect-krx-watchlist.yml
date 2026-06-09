@@ -82,11 +82,17 @@ jobs:
           python -m py_compile official_index_validation.py
           python official_index_validation.py --output-dir latest
 
+          python -m py_compile table_health_check.py
+          python table_health_check.py --output-dir latest --freshness-warn-days 4 --freshness-error-days 10
+
           echo "----- 단상표 자동산출 결과 -----"
           cat latest/kospi_short_term_run_log_latest.txt || true
 
           echo "----- 환율약세표 자동산출 결과 -----"
           cat latest/kospi_fx_weakness_run_log_latest.txt || true
+
+          echo "----- 표 전체 통합점검 결과 -----"
+          cat latest/table_health_run_log_latest.txt || true
 
           echo "----- KOFIA 연결 결과 -----"
           cat latest/kofia_macro_bridge_run_log_latest.txt || true

@@ -59,6 +59,9 @@ jobs:
         run: |
           python collect_universe.py --days 180 --keep-months 7 --output-dir latest
 
+          python -m py_compile operating_loss_enricher.py
+          python operating_loss_enricher.py --output-dir latest --workers 4 --max-api-calls 5000
+
           python -m py_compile short_term_kospi.py
           python short_term_kospi.py --output-dir latest --top-n 30 --recommend-n 7
 
@@ -82,8 +85,13 @@ jobs:
           python -m py_compile official_index_validation.py
           python official_index_validation.py --output-dir latest
 
+          python operating_loss_enricher.py --output-dir latest --workers 4 --max-api-calls 5000
+
           python -m py_compile table_health_check.py
           python table_health_check.py --output-dir latest --freshness-warn-days 4 --freshness-error-days 10
+
+          echo "----- 영업손실 자동판별 결과 -----"
+          cat latest/operating_loss_run_log_latest.txt || true
 
           echo "----- 단상표 자동산출 결과 -----"
           cat latest/kospi_short_term_run_log_latest.txt || true

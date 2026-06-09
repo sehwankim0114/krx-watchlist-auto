@@ -1,0 +1,17 @@
+{
+  "script": "run_universe_latest.py v1.0_retry_until_latest_krx_official",
+  "run_at_kst": "2026-06-09T22:20:34+09:00",
+  "expected_trading_date": "2026-06-09",
+  "attempt": 4,
+  "attempts_requested": 4,
+  "collector_return_code": 0,
+  "status": "STALE_KRX_EMPTY_OR_DELAY",
+  "fresh": false,
+  "reason": "KRX OpenAPI appears not to have provided complete latest trading data yet, or one market summary is still behind the expected trading date.",
+  "kospi_actual_date": "2026-06-08",
+  "kosdaq_actual_date": "2026-06-08",
+  "actual_min_date": "2026-06-08",
+  "actual_max_date": "2026-06-08",
+  "kospi_summary_rows": 926,
+  "kosdaq_summary_rows": 1793
+}

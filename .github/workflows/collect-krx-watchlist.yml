@@ -62,6 +62,9 @@ jobs:
           python -m py_compile short_term_kospi.py
           python short_term_kospi.py --output-dir latest --top-n 30 --recommend-n 7
 
+          python -m py_compile currency_weakness_kospi.py
+          python currency_weakness_kospi.py --output-dir latest --top-n 30 --recommend-n 7
+
           python monthly_cycle.py --output-dir latest --lookback-months 6 --top-n 40
           python market_status.py --output-dir latest --lookback-months 7
           python official_index_status.py --output-dir latest --lookback-months 7
@@ -79,6 +82,12 @@ jobs:
           python -m py_compile official_index_validation.py
           python official_index_validation.py --output-dir latest
 
+          echo "----- 단상표 자동산출 결과 -----"
+          cat latest/kospi_short_term_run_log_latest.txt || true
+
+          echo "----- 환율약세표 자동산출 결과 -----"
+          cat latest/kospi_fx_weakness_run_log_latest.txt || true
+
           echo "----- KOFIA 연결 결과 -----"
           cat latest/kofia_macro_bridge_run_log_latest.txt || true
 
@@ -87,9 +96,6 @@ jobs:
 
           echo "----- 공식지수 교차검증 결과 -----"
           cat latest/official_index_validation_run_log_latest.txt || true
-
-          echo "----- 단상표 자동산출 결과 -----"
-          cat latest/kospi_short_term_run_log_latest.txt || true
 
       - name: Commit latest data
         run: |

@@ -2,20 +2,31 @@ name: collect-krx-watchlist
 
 on:
   workflow_dispatch:
-
   schedule:
     # 한국시간 16:10 = UTC 07:10
     - cron: "10 7 * * 1-5"
-
     # 한국시간 21:10 = UTC 12:10
     - cron: "10 12 * * 1-5"
+    # 한국시간 23:40 = UTC 14:40
+    # KRX 당일 전종목 데이터가 늦게 열리는 날을 보정
+    - cron: "40 14 * * 1-5"
+    # 한국시간 다음날 08:20 = UTC 23:20
+    # 전날 장마감 데이터가 밤늦게/익일 오전 확정되는 경우 보정
+    - cron: "20 23 * * 1-5"
 
 permissions:
   contents: write
 
+concurrency:
+  group: collect-krx-watchlist
+  cancel-in-progress: false
+
 jobs:
   collect:
     runs-on: ubuntu-latest
+
+    env:
+      TZ: Asia/Seoul
 
     steps:
       - name: Checkout repository
@@ -47,26 +58,22 @@ jobs:
         run: |
           python -m py_compile kofia_market_status.py
           python kofia_market_status.py --output-dir latest
+
           echo "----- KOFIA API 실행 결과 -----"
           cat latest/kofia_market_funds_run_log_latest.txt || true
 
-      - name: Collect universe and update market risk
+      - name: Collect universe with latest-data retry and update market risk
         env:
           PYTHONWARNINGS: ignore::FutureWarning
           KRX_AUTH_KEY: ${{ secrets.KRX_AUTH_KEY }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
         run: |
-          python collect_universe.py --days 180 --keep-months 7 --output-dir latest
+          python -m py_compile run_universe_latest.py
+          python run_universe_latest.py --days 180 --keep-months 7 --output-dir latest --attempts 4 --sleep-minutes 4
 
-          python -m py_compile operating_loss_enricher.py
-          python operating_loss_enricher.py --output-dir latest --workers 4 --max-api-calls 5000
-
-          python -m py_compile short_term_kospi.py
-          python short_term_kospi.py --output-dir latest --top-n 30 --recommend-n 7
-
-          python -m py_compile currency_weakness_kospi.py
-          python currency_weakness_kospi.py --output-dir latest --top-n 30 --recommend-n 7
+          echo "----- KRX 최신자료 재시도 상태 -----"
+          cat latest/krx_latest_retry_status_latest.txt || true
 
           python monthly_cycle.py --output-dir latest --lookback-months 6 --top-n 40
           python market_status.py --output-dir latest --lookback-months 7
@@ -85,23 +92,6 @@ jobs:
           python -m py_compile official_index_validation.py
           python official_index_validation.py --output-dir latest
 
-          python operating_loss_enricher.py --output-dir latest --workers 4 --max-api-calls 5000
-
-          python -m py_compile table_health_check.py
-          python table_health_check.py --output-dir latest --freshness-warn-days 4 --freshness-error-days 10
-
-          echo "----- 영업손실 자동판별 결과 -----"
-          cat latest/operating_loss_run_log_latest.txt || true
-
-          echo "----- 단상표 자동산출 결과 -----"
-          cat latest/kospi_short_term_run_log_latest.txt || true
-
-          echo "----- 환율약세표 자동산출 결과 -----"
-          cat latest/kospi_fx_weakness_run_log_latest.txt || true
-
-          echo "----- 표 전체 통합점검 결과 -----"
-          cat latest/table_health_run_log_latest.txt || true
-
           echo "----- KOFIA 연결 결과 -----"
           cat latest/kofia_macro_bridge_run_log_latest.txt || true
 
@@ -115,6 +105,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
+
           git add latest/*.csv latest/*.txt latest/*.xlsx latest/*.json || true
           git commit -m "Update latest KRX watchlist data" || echo "No changes to commit"
           git push

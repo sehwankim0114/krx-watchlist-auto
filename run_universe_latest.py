@@ -4,15 +4,13 @@
 """
 run_universe_latest.py
 
-KRX 전체시장 수집 보완 실행기
-- collect_universe.py를 실행한다.
-- KRX 당일 데이터가 아직 비어 있으면 지정 횟수만큼 재시도한다.
-- 그래도 최신 확정일이 안 잡히면 실패로 몰지 않고, 지연/빈응답 상태를 별도 파일로 남긴다.
+KRX 공식 전종목 확정자료 수집 실행기
 
-생성/갱신 파일
-- latest/krx_latest_retry_status_latest.json
-- latest/krx_latest_retry_status_latest.txt
-- latest/universe_run_log_latest.txt 뒤쪽에 보완 로그 추가
+핵심 원칙
+- 공식판은 KRX 공식 일별매매정보 기준이다.
+- KRX 공식자료가 fresh=True일 때만 "최신 공식판"으로 표시한다.
+- fresh=False이면 "KRX 공식자료 미확정/이전 기준일 사용"으로 표시한다.
+- 공휴일/휴장일 가능성이 있을 때도 실제 summary 파일의 last_date를 기준일로 기록한다.
 """
 
 from __future__ import annotations
@@ -21,8 +19,7 @@ import argparse
 import json
 import subprocess
 import sys
-import time as time_module
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
@@ -34,20 +31,13 @@ except Exception:
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "run_universe_latest.py v1.0_retry_until_latest_krx_official"
+SCRIPT_VERSION = "run_universe_latest.py v1.2_official_fresh_gate"
 
 
 def kst_now() -> datetime:
     if ZoneInfo is None:
         return datetime.utcnow() + timedelta(hours=9)
     return datetime.now(ZoneInfo("Asia/Seoul"))
-
-
-def previous_business_day(d: date) -> date:
-    cur = d
-    while cur.weekday() >= 5:
-        cur = cur - timedelta(days=1)
-    return cur
 
 
 def previous_weekday_before(d: date) -> date:
@@ -57,24 +47,15 @@ def previous_weekday_before(d: date) -> date:
     return cur
 
 
-def expected_trading_date(now_kst: datetime) -> date:
+def expected_official_trading_date(now_kst: datetime) -> date:
     """
-    기대 최신 거래일 산정.
-    - 평일 15:50 전: 아직 장마감 확정 전이므로 직전 영업일을 기대값으로 본다.
-    - 평일 15:50 이후: 당일을 기대값으로 본다.
-    - 토/일: 직전 금요일을 기대값으로 본다.
+    KRX OpenAPI 공식 일별매매정보는 당일 확정자료가 아니라
+    전 영업일 자료를 익일 오전에 확인하는 구조로 운용한다.
 
-    공휴일은 별도 달력이 없으므로, 공휴일에는 latest status에서 지연으로 표시될 수 있다.
+    공휴일/휴장일은 여기서 완전 판정하지 않고,
+    실제 summary 파일의 last_date를 함께 기록해 표시 단계에서 확인한다.
     """
-    today = now_kst.date()
-
-    if today.weekday() >= 5:
-        return previous_business_day(today)
-
-    if now_kst.time() < time(15, 50):
-        return previous_weekday_before(today)
-
-    return today
+    return previous_weekday_before(now_kst.date())
 
 
 def read_summary_date(path: Path) -> Tuple[Optional[date], int]:
@@ -88,17 +69,26 @@ def read_summary_date(path: Path) -> Tuple[Optional[date], int]:
     except Exception:
         return None, 0
 
-    if df.empty or "last_date" not in df.columns:
+    if df.empty:
+        return None, 0
+
+    date_col = None
+    for c in ["last_date", "date", "basDt", "trading_date"]:
+        if c in df.columns:
+            date_col = c
+            break
+
+    if date_col is None:
         return None, len(df)
 
-    dates = pd.to_datetime(df["last_date"], errors="coerce").dropna()
+    dates = pd.to_datetime(df[date_col], errors="coerce").dropna()
     if dates.empty:
         return None, len(df)
 
     return dates.max().date(), len(df)
 
 
-def build_status(output_dir: Path, expected: date, attempt: int, attempts: int, return_code: int) -> Dict[str, object]:
+def build_official_status(output_dir: Path, expected: date) -> Dict[str, object]:
     kospi_date, kospi_rows = read_summary_date(output_dir / "kospi_universe_summary_latest.csv")
     kosdaq_date, kosdaq_rows = read_summary_date(output_dir / "kosdaq_universe_summary_latest.csv")
 
@@ -110,43 +100,60 @@ def build_status(output_dir: Path, expected: date, attempt: int, attempts: int, 
     kosdaq_fresh = kosdaq_date is not None and kosdaq_date >= expected
     fresh = bool(kospi_fresh and kosdaq_fresh)
 
+    same_market_date = bool(
+        kospi_date is not None
+        and kosdaq_date is not None
+        and kospi_date == kosdaq_date
+    )
+
     if fresh:
         status = "FRESH"
-        reason = "KOSPI/KOSDAQ summary files are updated to the expected latest trading date."
+        display_label = "최신 공식판"
+        warning = ""
+        reason = "KOSPI/KOSDAQ official summaries are updated to the expected official trading date."
     elif actual_dates:
         status = "STALE_KRX_EMPTY_OR_DELAY"
+        display_label = "KRX 공식자료 미확정/이전 기준일 사용"
+        warning = "KRX 공식자료 미확정/이전 기준일 사용"
         reason = (
-            "KRX OpenAPI appears not to have provided complete latest trading data yet, "
-            "or one market summary is still behind the expected trading date."
+            "Official KRX summary date is behind the expected previous trading day. "
+            "This can happen because of KRX delay, empty response, public holiday, or market closure. "
+            "Use actual summary last_date as the displayed basis date."
         )
     else:
         status = "NO_VALID_OUTPUT"
-        reason = "No valid KOSPI/KOSDAQ summary date was found after collect_universe.py execution."
+        display_label = "KRX 공식자료 없음"
+        warning = "KRX 공식자료 미확정/이전 기준일 사용"
+        reason = "No valid KOSPI/KOSDAQ official summary date was found."
 
     return {
         "script": SCRIPT_VERSION,
         "run_at_kst": kst_now().isoformat(timespec="seconds"),
-        "expected_trading_date": expected.isoformat(),
-        "attempt": attempt,
-        "attempts_requested": attempts,
-        "collector_return_code": return_code,
+        "expected_official_trading_date": expected.isoformat(),
         "status": status,
         "fresh": fresh,
+        "display_label": display_label,
+        "warning": warning,
         "reason": reason,
         "kospi_actual_date": kospi_date.isoformat() if kospi_date else None,
         "kosdaq_actual_date": kosdaq_date.isoformat() if kosdaq_date else None,
         "actual_min_date": actual_min.isoformat() if actual_min else None,
         "actual_max_date": actual_max.isoformat() if actual_max else None,
+        "same_market_date": same_market_date,
+        "basis_date_for_display": actual_min.isoformat() if actual_min else None,
         "kospi_summary_rows": int(kospi_rows),
         "kosdaq_summary_rows": int(kosdaq_rows),
+        "holiday_or_market_closure_possible": bool(
+            actual_min is not None and actual_min < expected
+        ),
     }
 
 
 def write_status_files(output_dir: Path, status: Dict[str, object]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    json_path = output_dir / "krx_latest_retry_status_latest.json"
-    txt_path = output_dir / "krx_latest_retry_status_latest.txt"
+    json_path = output_dir / "krx_official_retry_status_latest.json"
+    txt_path = output_dir / "krx_official_retry_status_latest.txt"
 
     json_path.write_text(
         json.dumps(status, ensure_ascii=False, indent=2),
@@ -156,13 +163,18 @@ def write_status_files(output_dir: Path, status: Dict[str, object]) -> None:
     lines = [
         f"script={status.get('script')}",
         f"run_at_kst={status.get('run_at_kst')}",
-        f"expected_trading_date={status.get('expected_trading_date')}",
-        f"attempt={status.get('attempt')}/{status.get('attempts_requested')}",
-        f"collector_return_code={status.get('collector_return_code')}",
+        f"expected_official_trading_date={status.get('expected_official_trading_date')}",
         f"status={status.get('status')}",
         f"fresh={status.get('fresh')}",
+        f"display_label={status.get('display_label')}",
+        f"warning={status.get('warning')}",
         f"kospi_actual_date={status.get('kospi_actual_date')}",
         f"kosdaq_actual_date={status.get('kosdaq_actual_date')}",
+        f"actual_min_date={status.get('actual_min_date')}",
+        f"actual_max_date={status.get('actual_max_date')}",
+        f"basis_date_for_display={status.get('basis_date_for_display')}",
+        f"same_market_date={status.get('same_market_date')}",
+        f"holiday_or_market_closure_possible={status.get('holiday_or_market_closure_possible')}",
         f"kospi_summary_rows={status.get('kospi_summary_rows')}",
         f"kosdaq_summary_rows={status.get('kosdaq_summary_rows')}",
         f"reason={status.get('reason')}",
@@ -171,26 +183,28 @@ def write_status_files(output_dir: Path, status: Dict[str, object]) -> None:
     txt_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def append_universe_log(output_dir: Path, status: Dict[str, object]) -> None:
+def append_universe_log(output_dir: Path, status: Dict[str, object], stage: str) -> None:
     log_path = output_dir / "universe_run_log_latest.txt"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     block = [
         "",
-        "----- KRX_LATEST_RETRY_STATUS -----",
+        "----- KRX_OFFICIAL_FRESHNESS_STATUS -----",
+        f"stage={stage}",
         f"script={status.get('script')}",
         f"run_at_kst={status.get('run_at_kst')}",
-        f"expected_trading_date={status.get('expected_trading_date')}",
-        f"attempt={status.get('attempt')}/{status.get('attempts_requested')}",
-        f"collector_return_code={status.get('collector_return_code')}",
+        f"expected_official_trading_date={status.get('expected_official_trading_date')}",
         f"status={status.get('status')}",
         f"fresh={status.get('fresh')}",
+        f"display_label={status.get('display_label')}",
+        f"warning={status.get('warning')}",
         f"kospi_actual_date={status.get('kospi_actual_date')}",
         f"kosdaq_actual_date={status.get('kosdaq_actual_date')}",
-        f"kospi_summary_rows={status.get('kospi_summary_rows')}",
-        f"kosdaq_summary_rows={status.get('kosdaq_summary_rows')}",
+        f"basis_date_for_display={status.get('basis_date_for_display')}",
+        f"same_market_date={status.get('same_market_date')}",
+        f"holiday_or_market_closure_possible={status.get('holiday_or_market_closure_possible')}",
         f"reason={status.get('reason')}",
-        "-----------------------------------",
+        "-----------------------------------------",
         "",
     ]
 
@@ -220,8 +234,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--days", type=int, default=180)
     parser.add_argument("--keep-months", type=int, default=7)
     parser.add_argument("--output-dir", default="latest")
-    parser.add_argument("--attempts", type=int, default=4)
-    parser.add_argument("--sleep-minutes", type=float, default=4.0)
+    parser.add_argument("--force", action="store_true")
     return parser.parse_args()
 
 
@@ -230,65 +243,47 @@ def main() -> int:
 
     output_dir = Path(args.output_dir)
     now = kst_now()
-    expected = expected_trading_date(now)
+    expected = expected_official_trading_date(now)
 
     print(f"[KST] now={now.isoformat(timespec='seconds')}", flush=True)
-    print(f"[EXPECTED_TRADING_DATE] {expected.isoformat()}", flush=True)
+    print(f"[EXPECTED_OFFICIAL_TRADING_DATE] {expected.isoformat()}", flush=True)
 
-    final_status: Optional[Dict[str, object]] = None
-    last_return_code = 0
+    before = build_official_status(output_dir, expected)
+    write_status_files(output_dir, before)
+    append_universe_log(output_dir, before, stage="before_collect")
 
-    for attempt in range(1, max(args.attempts, 1) + 1):
-        print(f"[ATTEMPT] {attempt}/{args.attempts}", flush=True)
+    print(json.dumps(before, ensure_ascii=False, indent=2), flush=True)
 
-        last_return_code = run_collect_universe(
-            days=args.days,
-            keep_months=args.keep_months,
-            output_dir=output_dir,
-        )
+    if before["fresh"] and not args.force:
+        skipped = dict(before)
+        skipped["status"] = "SKIPPED_ALREADY_FRESH"
+        skipped["fresh"] = True
+        skipped["display_label"] = "최신 공식판"
+        skipped["warning"] = ""
+        skipped["reason"] = "Official previous trading day data already exists. Collection skipped."
+        skipped["run_at_kst"] = kst_now().isoformat(timespec="seconds")
+        write_status_files(output_dir, skipped)
+        append_universe_log(output_dir, skipped, stage="skip")
+        print("[SKIP] Official data is already fresh.", flush=True)
+        return 0
 
-        status = build_status(
-            output_dir=output_dir,
-            expected=expected,
-            attempt=attempt,
-            attempts=args.attempts,
-            return_code=last_return_code,
-        )
+    return_code = run_collect_universe(
+        days=args.days,
+        keep_months=args.keep_months,
+        output_dir=output_dir,
+    )
 
-        write_status_files(output_dir, status)
-        final_status = status
+    after = build_official_status(output_dir, expected)
+    after["collector_return_code"] = return_code
+    after["run_at_kst"] = kst_now().isoformat(timespec="seconds")
 
-        print(json.dumps(status, ensure_ascii=False, indent=2), flush=True)
+    write_status_files(output_dir, after)
+    append_universe_log(output_dir, after, stage="after_collect")
 
-        if status["fresh"]:
-            print("[FRESH] Latest official KRX universe data is available.", flush=True)
-            break
+    print(json.dumps(after, ensure_ascii=False, indent=2), flush=True)
 
-        if attempt < args.attempts:
-            sleep_seconds = max(float(args.sleep_minutes), 0.0) * 60
-            print(
-                f"[STALE] Latest KRX data not confirmed yet. "
-                f"Retry after {sleep_seconds:.0f} seconds.",
-                flush=True,
-            )
-            time_module.sleep(sleep_seconds)
-
-    if final_status is None:
-        final_status = build_status(
-            output_dir=output_dir,
-            expected=expected,
-            attempt=0,
-            attempts=args.attempts,
-            return_code=last_return_code,
-        )
-        write_status_files(output_dir, final_status)
-
-    append_universe_log(output_dir, final_status)
-
-    # KRX 당일 빈 응답/지연은 자동화 실패가 아니라 데이터 제공 지연이므로 exit 0.
-    # 단, collect_universe 자체가 계속 실패했고 출력 파일도 전혀 없으면 실패로 표시한다.
-    if final_status.get("status") == "NO_VALID_OUTPUT" and last_return_code != 0:
-        return last_return_code
+    if after.get("status") == "NO_VALID_OUTPUT" and return_code != 0:
+        return return_code
 
     return 0
 

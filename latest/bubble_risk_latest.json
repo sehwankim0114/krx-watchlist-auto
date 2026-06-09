@@ -1,6 +1,6 @@
 {
   "script": "official_index_status.py v1.0_official_krx_index",
-  "run_at": "2026-06-09T22:21:00+09:00",
+  "run_at": "2026-06-10T03:09:52+09:00",
   "actual_data_last_date": "2026-06-08",
   "data_status": "STALE_BUT_VALID",
   "new_confirmed_trading_day": false,
@@ -174,7 +174,7 @@
   "action_hint": "위험 신호는 기준을 충족하지만 새 확정 거래일이 아니므로 자동 경고 알림은 보류합니다.",
   "note": "가격·시장폭·쏠림 신호에 한국은행 ECOS 공식 API와 선택적 data.go.kr KOFIA 지표를 병합했습니다.",
   "updated_by_macro_leverage": "macro_leverage_status.py v2.0_ecos_datagokr_official",
-  "macro_leverage_run_at": "2026-06-09T22:24:49+09:00",
+  "macro_leverage_run_at": "2026-06-10T03:13:06+09:00",
   "macro_leverage_signal_count": 6,
   "macro_leverage_strong_signal_count": 2,
   "macro_leverage_snapshot": {
@@ -186,7 +186,7 @@
       "unit": "KRW per USD",
       "frequency": "daily",
       "source": "BOK ECOS official API",
-      "source_url": "https://ecos.bok.or.kr/api/StatisticSearch/ECOS_API_KEY/json/kr/1/10000/731Y001/D/20250604/20260609/0000001",
+      "source_url": "https://ecos.bok.or.kr/api/StatisticSearch/ECOS_API_KEY/json/kr/1/10000/731Y001/D/20250605/20260610/0000001",
       "change_7d_pct": 2.33,
       "change_1m_pct": 6.6,
       "change_3m_pct": 5.0,
@@ -202,7 +202,7 @@
       "unit": "percent",
       "frequency": "daily",
       "source": "BOK ECOS official API",
-      "source_url": "https://ecos.bok.or.kr/api/StatisticSearch/ECOS_API_KEY/json/kr/1/10000/817Y002/D/20250604/20260609/010200000",
+      "source_url": "https://ecos.bok.or.kr/api/StatisticSearch/ECOS_API_KEY/json/kr/1/10000/817Y002/D/20250605/20260610/010200000",
       "change_7d_pct": 2.2,
       "change_1m_pct": 8.04,
       "change_3m_pct": 18.54,
@@ -218,7 +218,7 @@
       "unit": "percent",
       "frequency": "daily",
       "source": "BOK ECOS official API",
-      "source_url": "https://ecos.bok.or.kr/api/StatisticSearch/ECOS_API_KEY/json/kr/1/10000/817Y002/D/20250604/20260609/010210000",
+      "source_url": "https://ecos.bok.or.kr/api/StatisticSearch/ECOS_API_KEY/json/kr/1/10000/817Y002/D/20250605/20260610/010210000",
       "change_7d_pct": 3.34,
       "change_1m_pct": 9.31,
       "change_3m_pct": 18.43,
@@ -292,7 +292,7 @@
   },
   "official_index_validation": {
     "script": "official_index_validation.py v1.0_return_cross_validation",
-    "run_at_kst": "2026-06-09T22:24:58+09:00",
+    "run_at_kst": "2026-06-10T03:13:16+09:00",
     "overall_status": "PASS_ALL",
     "thresholds": {
       "daily_gap_pctp": 2.0,

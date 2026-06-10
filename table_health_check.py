@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
 """
-주식표 전체 작동상태 통합점검표
-v1.0_table_health_check
+table_health_check.py
+v1.1_current_basis_and_supply_burden
 
 생성/갱신 파일
 - latest/table_health_latest.csv
@@ -14,6 +15,8 @@ v1.0_table_health_check
 - 코피표
 - 코닥표
 - 코급표
+- 현재가 기준 보정표
+- 수급부담/오버행 자동감지
 - 월사이클표
 - 단상표
 - 환율약세표
@@ -27,18 +30,16 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import re
-from datetime import datetime, date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 import pandas as pd
 
-SCRIPT_NAME = "table_health_check.py v1.0_table_health_check"
+SCRIPT_NAME = "table_health_check.py v1.1_current_basis_and_supply_burden"
 KST = ZoneInfo("Asia/Seoul")
-
 
 TABLE_CHECKS: List[Dict[str, Any]] = [
     {
@@ -94,6 +95,37 @@ TABLE_CHECKS: List[Dict[str, Any]] = [
                 "file": "universe_run_log_latest.txt",
                 "ok_patterns": ["status=OK", "gainers", "kospi_gainers_1m"],
                 "date_keys": ["actual_data_last_date", "universe_actual_data_last_date", "latest_actual_data_last_date"],
+            }
+        ],
+    },
+    {
+        "table_name": "현재가 기준 보정표",
+        "csv_checks": [
+            {"file": "kospi_candidates_30_current_basis_latest.csv", "min_rows": 30},
+            {"file": "kosdaq_candidates_10_current_basis_latest.csv", "min_rows": 10},
+            {"file": "kospi_gainers_1m_current_basis_latest.csv", "min_rows": 20},
+            {"file": "watchlist_summary_current_basis_latest.csv", "min_rows": 40},
+        ],
+        "log_checks": [
+            {
+                "file": "current_price_basis_run_log_latest.txt",
+                "ok_patterns": ["status=OK", "ok_files=4", "display_rule=기존 열 구조 유지"],
+                "date_keys": [],
+            }
+        ],
+    },
+    {
+        "table_name": "수급부담/오버행 자동감지",
+        "csv_checks": [
+            {"file": "supply_burden_summary_latest.csv", "min_rows": 40},
+            {"file": "supply_burden_hits_latest.csv", "min_rows": 0},
+        ],
+        "log_checks": [
+            {
+                "file": "supply_burden_run_log_latest.txt",
+                "ok_patterns": ["status=OK", "status=WARN_NO_DART_API_KEY", "summary_rows=", "flagged_tickers="],
+                "date_keys": [],
+                "allow_warn_patterns": ["status=WARN_NO_DART_API_KEY", "status=WARN_DART_PARTIAL_ERROR"],
             }
         ],
     },
@@ -248,16 +280,13 @@ def extract_date_from_text(text: str, keys: Iterable[str]) -> str:
 def latest_date_from_csv(path: Path) -> str:
     if not path.exists():
         return ""
-
     try:
         df = pd.read_csv(path, encoding="utf-8-sig")
     except Exception:
         return ""
-
     if df.empty:
         return ""
-
-    for col in ["asof_date", "last_date", "date", "기준일"]:
+    for col in ["asof_date", "last_date", "date", "기준일", "actual_data_last_date"]:
         if col in df.columns:
             values = []
             for value in df[col].dropna().astype(str).tolist():
@@ -266,14 +295,12 @@ def latest_date_from_csv(path: Path) -> str:
                     values.append(parsed)
             if values:
                 return max(values).isoformat()
-
     return ""
 
 
 def count_csv_rows(path: Path) -> Tuple[Optional[int], str]:
     if not path.exists():
         return None, "missing"
-
     try:
         df = pd.read_csv(path, encoding="utf-8-sig")
         return int(len(df)), "ok"
@@ -300,28 +327,22 @@ def check_freshness(date_text: str, warn_days: int, error_days: int) -> Tuple[st
     parsed = parse_date(date_text)
     if not parsed:
         return "WARN", "latest_date 확인 제한", None
-
-    today = now_kst().date()
-    gap = (today - parsed).days
-
+    gap = (now_kst().date() - parsed).days
     if gap < 0:
         return "WARN", f"latest_date가 미래 날짜로 보임: {date_text}", gap
     if gap > error_days:
         return "ERROR", f"최신 거래일 기준 {gap}일 경과", gap
     if gap > warn_days:
         return "WARN", f"최신 거래일 기준 {gap}일 경과", gap
-
     return "OK", f"최신성 양호: {date_text}, {gap}일 경과", gap
 
 
 def evaluate_csv_check(output_dir: Path, check: Dict[str, Any]) -> Dict[str, Any]:
     rel = check["file"]
     path = output_dir / rel
-
     rows, read_status = count_csv_rows(path)
     min_rows = check.get("min_rows")
     max_rows = check.get("max_rows")
-
     notes: List[str] = []
     status = "OK"
 
@@ -333,7 +354,6 @@ def evaluate_csv_check(output_dir: Path, check: Dict[str, Any]) -> Dict[str, Any
         notes.append(f"{rel}: {read_status}")
     else:
         notes.append(f"{rel}: rows={rows}")
-
         if min_rows is not None and rows < int(min_rows):
             status = "ERROR"
             notes.append(f"필요 최소 행수 {min_rows} 미만")
@@ -342,7 +362,6 @@ def evaluate_csv_check(output_dir: Path, check: Dict[str, Any]) -> Dict[str, Any
             notes.append(f"기대 최대 행수 {max_rows} 초과")
 
     latest_date = latest_date_from_csv(path)
-
     return {
         "file": rel,
         "status": status,
@@ -356,116 +375,65 @@ def evaluate_log_check(output_dir: Path, check: Dict[str, Any]) -> Dict[str, Any
     rel = check["file"]
     path = output_dir / rel
     text = read_text(path)
-
     status = "OK"
     notes: List[str] = []
 
     if not path.exists():
-        return {
-            "file": rel,
-            "status": "ERROR",
-            "latest_date": "",
-            "notes": f"{rel}: missing",
-        }
-
+        return {"file": rel, "status": "ERROR", "latest_date": "", "notes": f"{rel}: missing"}
     if not text.strip():
-        return {
-            "file": rel,
-            "status": "ERROR",
-            "latest_date": "",
-            "notes": f"{rel}: empty",
-        }
+        return {"file": rel, "status": "ERROR", "latest_date": "", "notes": f"{rel}: empty"}
 
     ok_patterns = check.get("ok_patterns", [])
+    allow_warn_patterns = check.get("allow_warn_patterns", [])
     matched = [pattern for pattern in ok_patterns if pattern in text]
+    warn_matched = [pattern for pattern in allow_warn_patterns if pattern in text]
 
     if matched:
         notes.append("OK pattern: " + ", ".join(matched[:3]))
+        if warn_matched:
+            status = "WARN"
+            notes.append("WARN pattern: " + ", ".join(warn_matched[:3]))
     else:
         lowered = text.lower()
-        if "error" in lowered or "fail" in lowered or "traceback" in lowered:
+        if "traceback" in lowered or "syntaxerror" in lowered or "status=error" in lowered:
             status = "ERROR"
             notes.append("오류/실패 문구 감지")
+        elif "error" in lowered and not warn_matched:
+            status = "ERROR"
+            notes.append("오류 문구 감지")
         else:
             status = "WARN"
             notes.append("명시적 OK pattern 확인 제한")
 
     latest_date = extract_date_from_text(text, check.get("date_keys", []))
-
-    return {
-        "file": rel,
-        "status": status,
-        "latest_date": latest_date,
-        "notes": "; ".join(notes),
-    }
+    return {"file": rel, "status": status, "latest_date": latest_date, "notes": "; ".join(notes)}
 
 
-def evaluate_table(
-    output_dir: Path,
-    table_check: Dict[str, Any],
-    freshness_warn_days: int,
-    freshness_error_days: int,
-) -> Dict[str, Any]:
+def evaluate_table(output_dir: Path, table_check: Dict[str, Any], freshness_warn_days: int, freshness_error_days: int) -> Dict[str, Any]:
     table_name = table_check["table_name"]
+    csv_results = [evaluate_csv_check(output_dir, check) for check in table_check.get("csv_checks", [])]
+    log_results = [evaluate_log_check(output_dir, check) for check in table_check.get("log_checks", [])]
 
-    csv_results = [
-        evaluate_csv_check(output_dir, check)
-        for check in table_check.get("csv_checks", [])
-    ]
-
-    log_results = [
-        evaluate_log_check(output_dir, check)
-        for check in table_check.get("log_checks", [])
-    ]
-
-    statuses = [item["status"] for item in csv_results + log_results]
-    if not statuses:
-        statuses = ["WARN"]
-
-    latest_dates = [
-        item.get("latest_date", "")
-        for item in csv_results + log_results
-        if item.get("latest_date", "")
-    ]
+    statuses = [item["status"] for item in csv_results + log_results] or ["WARN"]
+    latest_dates = [item.get("latest_date", "") for item in csv_results + log_results if item.get("latest_date", "")]
 
     latest_date = ""
-
-    parsed_dates = []
-    for value in latest_dates:
-        parsed = parse_date(value)
-        if parsed:
-            parsed_dates.append(parsed)
-
+    parsed_dates = [parse_date(value) for value in latest_dates]
+    parsed_dates = [value for value in parsed_dates if value]
     if parsed_dates:
         latest_date = max(parsed_dates).isoformat()
 
     freshness_status = "OK"
     freshness_note = "최신성 날짜 점검 대상 아님"
     freshness_days: Any = ""
-
     if latest_date:
-        freshness_status, freshness_note, freshness_days = check_freshness(
-            latest_date,
-            freshness_warn_days,
-            freshness_error_days,
-        )
+        freshness_status, freshness_note, freshness_days = check_freshness(latest_date, freshness_warn_days, freshness_error_days)
 
     final_status = worst_status(statuses + [freshness_status])
+    csv_summary = " | ".join(f"{item['file']}({item['status']}, rows={item['rows']})" for item in csv_results)
+    log_summary = " | ".join(f"{item['file']}({item['status']})" for item in log_results)
 
-    csv_summary = " | ".join(
-        f"{item['file']}({item['status']}, rows={item['rows']})"
-        for item in csv_results
-    )
-
-    log_summary = " | ".join(
-        f"{item['file']}({item['status']})"
-        for item in log_results
-    )
-
-    notes = []
-    for item in csv_results + log_results:
-        if item.get("notes"):
-            notes.append(item["notes"])
+    notes = [item["notes"] for item in csv_results + log_results if item.get("notes")]
     notes.append(freshness_note)
 
     return {
@@ -489,7 +457,6 @@ def main() -> None:
 
     output_dir = Path(args.output_dir)
     ensure_dir(output_dir)
-
     checked_at = now_kst().isoformat(timespec="seconds")
 
     log_lines: List[str] = [
@@ -500,16 +467,12 @@ def main() -> None:
         f"freshness_error_days={args.freshness_error_days}",
     ]
 
-    rows = []
+    rows = [
+        evaluate_table(output_dir, table_check, args.freshness_warn_days, args.freshness_error_days)
+        for table_check in TABLE_CHECKS
+    ]
 
-    for table_check in TABLE_CHECKS:
-        result = evaluate_table(
-            output_dir,
-            table_check,
-            args.freshness_warn_days,
-            args.freshness_error_days,
-        )
-        rows.append(result)
+    for result in rows:
         log_lines.append(
             f"TABLE_HEALTH {result['table_name']}: "
             f"status={result['status']}, "
@@ -518,13 +481,11 @@ def main() -> None:
         )
 
     df = pd.DataFrame(rows)
-
     csv_path = output_dir / "table_health_latest.csv"
     json_path = output_dir / "table_health_latest.json"
     log_path = output_dir / "table_health_run_log_latest.txt"
 
     df.to_csv(csv_path, index=False, encoding="utf-8-sig")
-
     payload = {
         "script": SCRIPT_NAME,
         "checked_at_kst": checked_at,
@@ -532,17 +493,12 @@ def main() -> None:
         "status_counts": df["status"].value_counts().to_dict() if not df.empty else {},
         "tables": rows,
     }
-
-    json_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     overall_status = payload["overall_status"]
     log_lines.append(f"table_health_rows={len(df)}")
     log_lines.append(f"status_counts={payload['status_counts']}")
     log_lines.append(f"overall_status={overall_status}")
-
     log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
 
     if overall_status == "ERROR":

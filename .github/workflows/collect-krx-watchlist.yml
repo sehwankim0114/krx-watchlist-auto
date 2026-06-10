@@ -98,11 +98,17 @@ jobs:
           python -m py_compile supplement_current_prices.py
           python supplement_current_prices.py --output-dir latest --sleep-seconds 0.08
 
+          python -m py_compile apply_current_price_basis.py
+          python apply_current_price_basis.py --output-dir latest
+
           python -m py_compile render_data_freshness_notice.py
           python render_data_freshness_notice.py --output-dir latest --mode aux
 
           echo "----- 보조 현재가 참고판 생성 결과 -----"
           cat latest/supplement_current_prices_run_log_latest.txt || true
+
+          echo "----- 현재가 기준 보정 결과 -----"
+          cat latest/current_price_basis_run_log_latest.txt || true
 
           echo "----- 데이터 최신성 색상 안내 -----"
           cat latest/data_freshness_notice_latest.txt || true
@@ -137,34 +143,11 @@ jobs:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
         run: |
-          mkdir -p /tmp/latest_universe_backup
-
-          cp -f latest/universe_raw_history_latest.csv /tmp/latest_universe_backup/ || true
-          cp -f latest/kospi_universe_summary_latest.csv /tmp/latest_universe_backup/ || true
-          cp -f latest/kosdaq_universe_summary_latest.csv /tmp/latest_universe_backup/ || true
-          cp -f latest/kospi_candidates_30_latest.csv /tmp/latest_universe_backup/ || true
-          cp -f latest/kospi_recommend_7_latest.csv /tmp/latest_universe_backup/ || true
-          cp -f latest/kosdaq_candidates_10_latest.csv /tmp/latest_universe_backup/ || true
-          cp -f latest/kosdaq_recommend_5_latest.csv /tmp/latest_universe_backup/ || true
-          cp -f latest/kospi_gainers_1m_latest.csv /tmp/latest_universe_backup/ || true
-
           python -m py_compile run_universe_latest.py
           python run_universe_latest.py --days 180 --keep-months 7 --output-dir latest
 
-          python -m py_compile universe_output_guard.py
-          python universe_output_guard.py \
-            --output-dir latest \
-            --backup-dir /tmp/latest_universe_backup \
-            --kospi-min-rows 800 \
-            --kosdaq-min-rows 1500 \
-            --gainers-min-rows 15 \
-            --restore-on-fail
-
           echo "----- KRX 공식자료 확정판 상태 -----"
           cat latest/krx_official_retry_status_latest.txt || true
-
-          echo "----- KRX universe 산출물 보호 결과 -----"
-          cat latest/universe_output_guard_latest.txt || true
 
           python -m py_compile operating_loss_enricher.py
           python operating_loss_enricher.py --output-dir latest --workers 4 --max-api-calls 5000
@@ -176,6 +159,7 @@ jobs:
           python currency_weakness_kospi.py --output-dir latest --top-n 30 --recommend-n 7
 
           python monthly_cycle.py --output-dir latest --lookback-months 6 --top-n 40
+
           python market_status.py --output-dir latest --lookback-months 7
           python official_index_status.py --output-dir latest --lookback-months 7
 
@@ -198,6 +182,9 @@ jobs:
           python -m py_compile supplement_current_prices.py
           python supplement_current_prices.py --output-dir latest --sleep-seconds 0.08
 
+          python -m py_compile apply_current_price_basis.py
+          python apply_current_price_basis.py --output-dir latest
+
           python -m py_compile render_data_freshness_notice.py
           python render_data_freshness_notice.py --output-dir latest --mode official
 
@@ -212,6 +199,9 @@ jobs:
 
           echo "----- 보조 현재가 참고판 생성 결과 -----"
           cat latest/supplement_current_prices_run_log_latest.txt || true
+
+          echo "----- 현재가 기준 보정 결과 -----"
+          cat latest/current_price_basis_run_log_latest.txt || true
 
           echo "----- 데이터 최신성 색상 안내 -----"
           cat latest/data_freshness_notice_latest.txt || true
@@ -232,6 +222,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
+
           git add latest/*.csv latest/*.txt latest/*.xlsx latest/*.json latest/*.md || true
           git commit -m "Update latest KRX watchlist data" || echo "No changes to commit"
           git push

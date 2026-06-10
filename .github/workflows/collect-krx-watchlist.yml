@@ -63,17 +63,10 @@ jobs:
               now = datetime.now(ZoneInfo("Asia/Seoul"))
               hhmm = now.hour * 100 + now.minute
 
-              # 공식판 시간대:
-              # 08:10, 08:35 예약 실행이 GitHub 지연으로 조금 늦어져도 공식판으로 처리
               if 750 <= hhmm <= 930:
                   mode = "official"
-
-              # 보조판 시간대:
-              # 15:35, 18:10 예약 실행이 조금 늦어져도 보조판으로 처리
               elif 1500 <= hhmm <= 1830:
                   mode = "aux"
-
-              # 수동실행 또는 애매한 시간대는 공식판으로 처리
               else:
                   mode = "official"
 
@@ -143,11 +136,34 @@ jobs:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
         run: |
+          mkdir -p /tmp/latest_universe_backup
+
+          cp -f latest/universe_raw_history_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kospi_universe_summary_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kosdaq_universe_summary_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kospi_candidates_30_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kospi_recommend_7_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kosdaq_candidates_10_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kosdaq_recommend_5_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kospi_gainers_1m_latest.csv /tmp/latest_universe_backup/ || true
+
           python -m py_compile run_universe_latest.py
           python run_universe_latest.py --days 180 --keep-months 7 --output-dir latest
 
+          python -m py_compile universe_output_guard.py
+          python universe_output_guard.py \
+            --output-dir latest \
+            --backup-dir /tmp/latest_universe_backup \
+            --kospi-min-rows 800 \
+            --kosdaq-min-rows 1500 \
+            --gainers-min-rows 15 \
+            --restore-on-fail
+
           echo "----- KRX 공식자료 확정판 상태 -----"
           cat latest/krx_official_retry_status_latest.txt || true
+
+          echo "----- KRX universe 산출물 보호 결과 -----"
+          cat latest/universe_output_guard_latest.txt || true
 
           python -m py_compile operating_loss_enricher.py
           python operating_loss_enricher.py --output-dir latest --workers 4 --max-api-calls 5000
@@ -159,6 +175,9 @@ jobs:
           python currency_weakness_kospi.py --output-dir latest --top-n 30 --recommend-n 7
 
           python monthly_cycle.py --output-dir latest --lookback-months 6 --top-n 40
+
+          python -m py_compile supply_burden_enricher.py
+          python supply_burden_enricher.py --output-dir latest --lookback-days 180 --sleep-seconds 0.12
 
           python market_status.py --output-dir latest --lookback-months 7
           python official_index_status.py --output-dir latest --lookback-months 7
@@ -191,6 +210,9 @@ jobs:
           echo "----- 영업손실 자동판별 결과 -----"
           cat latest/operating_loss_run_log_latest.txt || true
 
+          echo "----- 수급부담 자동감지 결과 -----"
+          cat latest/supply_burden_run_log_latest.txt || true
+
           echo "----- 단상표 자동산출 결과 -----"
           cat latest/kospi_short_term_run_log_latest.txt || true
 
@@ -222,7 +244,6 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-
           git add latest/*.csv latest/*.txt latest/*.xlsx latest/*.json latest/*.md || true
           git commit -m "Update latest KRX watchlist data" || echo "No changes to commit"
           git push

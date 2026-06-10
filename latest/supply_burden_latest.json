@@ -1,39 +1,40 @@
 {
-  "script": "supply_burden_enricher.py v1.1_log_safe_title_scan",
-  "run_at_kst": "2026-06-11T04:11:55+09:00",
-  "status": "WARN_DART_PARTIAL_ERROR",
+  "script": "supply_burden_enricher.py v1.2_dart_whole_market_90d_cap",
+  "run_at_kst": "2026-06-11T04:41:41+09:00",
+  "status": "OK",
   "output_dir": "latest",
-  "lookback_days": 180,
+  "original_lookback_days": 180,
+  "effective_lookback_days": 90,
+  "dart_whole_market_max_days": 90,
+  "lookback_capped": true,
   "target_tickers": 2719,
-  "hit_reports": 0,
+  "hit_reports": 11699,
   "flagged_tickers": 0,
   "danger_tickers": 0,
   "warning_tickers": 0,
   "caution_tickers": 0,
   "dart_status": {
-    "bgn_de": "20251213",
+    "bgn_de": "20260313",
     "end_de": "20260611",
+    "lookback_days": 90,
     "corp_cls": {
       "Y": {
-        "pages_requested": 1,
-        "total_page": null,
-        "raw_reports": 0,
-        "target_reports": 0,
-        "matched_reports": 0
+        "pages_requested": 195,
+        "total_page": 195,
+        "raw_reports": 19409,
+        "target_reports": 19409,
+        "matched_reports": 4509
       },
       "K": {
-        "pages_requested": 1,
-        "total_page": null,
-        "raw_reports": 0,
-        "target_reports": 0,
-        "matched_reports": 0
+        "pages_requested": 250,
+        "total_page": 250,
+        "raw_reports": 24953,
+        "target_reports": 24744,
+        "matched_reports": 7190
       }
     },
-    "api_calls": 2,
-    "api_errors": [
-      "corp_cls=Y, page=1, dart_status=100, message=corp_code가 없는 경우 검색기간은 3개월만 가능합니다.",
-      "corp_cls=K, page=1, dart_status=100, message=corp_code가 없는 경우 검색기간은 3개월만 가능합니다."
-    ]
+    "api_calls": 445,
+    "api_errors": []
   },
   "enrich_results": [
     {

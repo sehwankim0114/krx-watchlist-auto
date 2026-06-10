@@ -1,5 +1,5 @@
 script=supply_burden_enricher.py v1.0_dart_title_supply_burden
-run_at_kst=2026-06-10T20:57:51+09:00
+run_at_kst=2026-06-10T21:38:05+09:00
 output_dir=latest
 lookback_days=180
 method=opendart_list_title_keyword_scan
@@ -7,17 +7,16 @@ note=공시 제목 기반 1차 탐지이며 본문 수량/비율 정밀 판독�
 target_tickers=2719
 dart_lookback_days=180
 dart_date_windows=20251213-20260312,20260313-20260610
-DART_HTTP_ERROR corp_cls=Y window=20260313-20260610 page=143: TimeoutError: The read operation timed out
-dart_disclosure_rows=74042
-dart_status_counts={'000': 741, 'HTTP_ERROR:TimeoutError': 1}
-matched_disclosure_count=73718
-risk_disclosure_count=26321
+dart_disclosure_rows=79251
+dart_status_counts={'000': 794}
+matched_disclosure_count=78927
+risk_disclosure_count=27029
 cache_output_rows=2719
-supply_burden_count=1983
-source_status_counts={'OK': 2155, 'NO_RECENT_RISK_DISCLOSURE': 564}
-flag_counts={'cb_bw_eb_flag': 576, 'rights_issue_flag': 462, 'treasury_disposal_flag': 564, 'major_holder_sale_flag': 1997, 'lockup_release_flag': 26, 'block_deal_flag': 0, 'overhang_flag': 1238}
+supply_burden_count=1999
+source_status_counts={'OK': 2164, 'NO_RECENT_RISK_DISCLOSURE': 555}
+flag_counts={'cb_bw_eb_flag': 581, 'rights_issue_flag': 465, 'treasury_disposal_flag': 574, 'major_holder_sale_flag': 2006, 'lockup_release_flag': 26, 'block_deal_flag': 0, 'overhang_flag': 1250}
 ENRICH_FILE watchlist_summary_latest.csv: status=ok, rows=47, matched=44, supply_burden_true=38
-ENRICH_FILE kospi_universe_summary_latest.csv: status=ok, rows=926, matched=926, supply_burden_true=634
+ENRICH_FILE kospi_universe_summary_latest.csv: status=ok, rows=926, matched=926, supply_burden_true=650
 ENRICH_FILE kosdaq_universe_summary_latest.csv: status=ok, rows=1793, matched=1793, supply_burden_true=1349
 ENRICH_FILE kospi_candidates_30_latest.csv: status=skip_no_ticker, rows=30, matched=0, supply_burden_true=0
 ENRICH_FILE kospi_recommend_7_latest.csv: status=skip_no_ticker, rows=7, matched=0, supply_burden_true=0

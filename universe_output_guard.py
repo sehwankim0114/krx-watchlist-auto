@@ -2,11 +2,12 @@
 # -*- coding: utf-8 -*-
 """
 KRX universe 산출물 보호 장치
-v1.0_universe_output_guard
+v1.1_row_count_first_log_warn
 
 목적
 - KRX OpenAPI 403, empty, 행 수 급감 발생 시 축소된 최신 파일이 그대로 사용되는 것을 막는다.
-- collect_universe/run_universe 실행 전 백업해둔 파일을 이용해 정상 파일을 복구한다.
+- 단, 현재 산출물의 핵심 행 수가 정상 기준을 통과하면 로그의 empty/403 문구는 ERROR가 아니라 WARN으로만 기록한다.
+- collect_universe/run_universe 실행 전 백업해둔 파일을 이용해 비정상 파일을 복구한다.
 
 생성/갱신 파일
 - latest/universe_output_guard_latest.txt
@@ -25,7 +26,7 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
-SCRIPT_NAME = "universe_output_guard.py v1.0_universe_output_guard"
+SCRIPT_NAME = "universe_output_guard.py v1.1_row_count_first_log_warn"
 KST = ZoneInfo("Asia/Seoul")
 
 PROTECTED_FILES = [
@@ -70,12 +71,16 @@ def read_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8-sig", errors="replace")
     except Exception:
-        return path.read_text(encoding="utf-8", errors="replace")
+        try:
+            return path.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            return ""
 
 
 def count_rows(path: Path) -> Optional[int]:
     if not path.exists():
         return None
+
     try:
         df = pd.read_csv(path, encoding="utf-8-sig")
         return int(len(df))
@@ -86,9 +91,33 @@ def count_rows(path: Path) -> Optional[int]:
 def copy_file(src: Path, dst: Path) -> bool:
     if not src.exists():
         return False
+
     ensure_dir(dst.parent)
     shutil.copy2(src, dst)
     return True
+
+
+def scan_bad_patterns(output_dir: Path, log_lines: List[str]) -> List[str]:
+    hits: List[str] = []
+
+    for log_name in LOG_FILES_TO_SCAN:
+        text = read_text(output_dir / log_name)
+
+        if not text:
+            continue
+
+        for pattern in BAD_PATTERNS:
+            if pattern in text:
+                hit = f"{log_name}:{pattern}"
+                hits.append(hit)
+
+    for hit in hits[:50]:
+        log_lines.append(f"LOG_WARN_PATTERN_HIT {hit}")
+
+    if len(hits) > 50:
+        log_lines.append(f"LOG_WARN_PATTERN_HIT_MORE count={len(hits) - 50}")
+
+    return hits
 
 
 def validate_current_outputs(
@@ -98,26 +127,89 @@ def validate_current_outputs(
     gainers_min_rows: int,
     log_lines: List[str],
 ) -> Dict[str, Any]:
-    kospi_path = output_dir / "kospi_universe_summary_latest.csv"
-    kosdaq_path = output_dir / "kosdaq_universe_summary_latest.csv"
-    gainers_path = output_dir / "kospi_gainers_1m_latest.csv"
-    kospi_candidates_path = output_dir / "kospi_candidates_30_latest.csv"
-    kospi_recommend_path = output_dir / "kospi_recommend_7_latest.csv"
-    kosdaq_candidates_path = output_dir / "kosdaq_candidates_10_latest.csv"
-    kosdaq_recommend_path = output_dir / "kosdaq_recommend_5_latest.csv"
-
     row_counts = {
-        "kospi_universe_summary_latest.csv": count_rows(kospi_path),
-        "kosdaq_universe_summary_latest.csv": count_rows(kosdaq_path),
-        "kospi_gainers_1m_latest.csv": count_rows(gainers_path),
-        "kospi_candidates_30_latest.csv": count_rows(kospi_candidates_path),
-        "kospi_recommend_7_latest.csv": count_rows(kospi_recommend_path),
-        "kosdaq_candidates_10_latest.csv": count_rows(kosdaq_candidates_path),
-        "kosdaq_recommend_5_latest.csv": count_rows(kosdaq_recommend_path),
+        "kospi_universe_summary_latest.csv": count_rows(output_dir / "kospi_universe_summary_latest.csv"),
+        "kosdaq_universe_summary_latest.csv": count_rows(output_dir / "kosdaq_universe_summary_latest.csv"),
+        "kospi_gainers_1m_latest.csv": count_rows(output_dir / "kospi_gainers_1m_latest.csv"),
+        "kospi_candidates_30_latest.csv": count_rows(output_dir / "kospi_candidates_30_latest.csv"),
+        "kospi_recommend_7_latest.csv": count_rows(output_dir / "kospi_recommend_7_latest.csv"),
+        "kosdaq_candidates_10_latest.csv": count_rows(output_dir / "kosdaq_candidates_10_latest.csv"),
+        "kosdaq_recommend_5_latest.csv": count_rows(output_dir / "kosdaq_recommend_5_latest.csv"),
     }
 
     for name, rows in row_counts.items():
         log_lines.append(f"CURRENT_ROWS {name}: {rows}")
+
+    row_failures: List[str] = []
+
+    kospi_rows = row_counts["kospi_universe_summary_latest.csv"]
+    kosdaq_rows = row_counts["kosdaq_universe_summary_latest.csv"]
+    gainers_rows = row_counts["kospi_gainers_1m_latest.csv"]
+    kospi_candidates_rows = row_counts["kospi_candidates_30_latest.csv"]
+    kospi_recommend_rows = row_counts["kospi_recommend_7_latest.csv"]
+    kosdaq_candidates_rows = row_counts["kosdaq_candidates_10_latest.csv"]
+    kosdaq_recommend_rows = row_counts["kosdaq_recommend_5_latest.csv"]
+
+    if kospi_rows is None:
+        row_failures.append("KOSPI summary missing_or_unreadable")
+    elif kospi_rows < kospi_min_rows:
+        row_failures.append(f"KOSPI summary rows too low: {kospi_rows} < {kospi_min_rows}")
+
+    if kosdaq_rows is None:
+        row_failures.append("KOSDAQ summary missing_or_unreadable")
+    elif kosdaq_rows < kosdaq_min_rows:
+        row_failures.append(f"KOSDAQ summary rows too low: {kosdaq_rows} < {kosdaq_min_rows}")
+
+    if gainers_rows is None:
+        row_failures.append("KOSPI gainers missing_or_unreadable")
+    elif gainers_rows < gainers_min_rows:
+        row_failures.append(f"KOSPI gainers rows too low: {gainers_rows} < {gainers_min_rows}")
+
+    if kospi_candidates_rows is None or kospi_candidates_rows < 30:
+        row_failures.append(f"KOSPI candidates rows invalid: {kospi_candidates_rows}")
+
+    if kospi_recommend_rows is None or kospi_recommend_rows < 7:
+        row_failures.append(f"KOSPI recommend rows invalid: {kospi_recommend_rows}")
+
+    if kosdaq_candidates_rows is None or kosdaq_candidates_rows < 10:
+        row_failures.append(f"KOSDAQ candidates rows invalid: {kosdaq_candidates_rows}")
+
+    if kosdaq_recommend_rows is None or kosdaq_recommend_rows < 5:
+        row_failures.append(f"KOSDAQ recommend rows invalid: {kosdaq_recommend_rows}")
+
+    log_warn_hits = scan_bad_patterns(output_dir, log_lines)
+
+    rows_valid = len(row_failures) == 0
+
+    return {
+        "rows_valid": rows_valid,
+        "is_valid": rows_valid,
+        "row_counts": row_counts,
+        "row_failures": row_failures,
+        "log_warn_hits": log_warn_hits,
+        "log_warn_hit_count": len(log_warn_hits),
+    }
+
+
+def validate_backup(
+    backup_dir: Path,
+    kospi_min_rows: int,
+    kosdaq_min_rows: int,
+    gainers_min_rows: int,
+    log_lines: List[str],
+) -> Dict[str, Any]:
+    row_counts = {
+        "kospi_universe_summary_latest.csv": count_rows(backup_dir / "kospi_universe_summary_latest.csv"),
+        "kosdaq_universe_summary_latest.csv": count_rows(backup_dir / "kosdaq_universe_summary_latest.csv"),
+        "kospi_gainers_1m_latest.csv": count_rows(backup_dir / "kospi_gainers_1m_latest.csv"),
+        "kospi_candidates_30_latest.csv": count_rows(backup_dir / "kospi_candidates_30_latest.csv"),
+        "kospi_recommend_7_latest.csv": count_rows(backup_dir / "kospi_recommend_7_latest.csv"),
+        "kosdaq_candidates_10_latest.csv": count_rows(backup_dir / "kosdaq_candidates_10_latest.csv"),
+        "kosdaq_recommend_5_latest.csv": count_rows(backup_dir / "kosdaq_recommend_5_latest.csv"),
+    }
+
+    for name, rows in row_counts.items():
+        log_lines.append(f"BACKUP_ROWS {name}: {rows}")
 
     failures: List[str] = []
 
@@ -129,73 +221,6 @@ def validate_current_outputs(
     kosdaq_candidates_rows = row_counts["kosdaq_candidates_10_latest.csv"]
     kosdaq_recommend_rows = row_counts["kosdaq_recommend_5_latest.csv"]
 
-    if kospi_rows is None:
-        failures.append("KOSPI summary missing_or_unreadable")
-    elif kospi_rows < kospi_min_rows:
-        failures.append(f"KOSPI summary rows too low: {kospi_rows} < {kospi_min_rows}")
-
-    if kosdaq_rows is None:
-        failures.append("KOSDAQ summary missing_or_unreadable")
-    elif kosdaq_rows < kosdaq_min_rows:
-        failures.append(f"KOSDAQ summary rows too low: {kosdaq_rows} < {kosdaq_min_rows}")
-
-    if gainers_rows is None:
-        failures.append("KOSPI gainers missing_or_unreadable")
-    elif gainers_rows < gainers_min_rows:
-        failures.append(f"KOSPI gainers rows too low: {gainers_rows} < {gainers_min_rows}")
-
-    if kospi_candidates_rows is None or kospi_candidates_rows < 30:
-        failures.append(f"KOSPI candidates rows invalid: {kospi_candidates_rows}")
-
-    if kospi_recommend_rows is None or kospi_recommend_rows < 7:
-        failures.append(f"KOSPI recommend rows invalid: {kospi_recommend_rows}")
-
-    if kosdaq_candidates_rows is None or kosdaq_candidates_rows < 10:
-        failures.append(f"KOSDAQ candidates rows invalid: {kosdaq_candidates_rows}")
-
-    if kosdaq_recommend_rows is None or kosdaq_recommend_rows < 5:
-        failures.append(f"KOSDAQ recommend rows invalid: {kosdaq_recommend_rows}")
-
-    log_bad_hits: List[str] = []
-
-    for log_name in LOG_FILES_TO_SCAN:
-        text = read_text(output_dir / log_name)
-        if not text:
-            continue
-        for pattern in BAD_PATTERNS:
-            if pattern in text:
-                log_bad_hits.append(f"{log_name}:{pattern}")
-
-    for hit in log_bad_hits[:30]:
-        log_lines.append(f"BAD_PATTERN_HIT {hit}")
-
-    is_valid = len(failures) == 0 and len(log_bad_hits) == 0
-
-    return {
-        "is_valid": is_valid,
-        "row_counts": row_counts,
-        "failures": failures,
-        "bad_pattern_hits": log_bad_hits,
-    }
-
-
-def validate_backup(
-    backup_dir: Path,
-    kospi_min_rows: int,
-    kosdaq_min_rows: int,
-    gainers_min_rows: int,
-    log_lines: List[str],
-) -> Dict[str, Any]:
-    kospi_rows = count_rows(backup_dir / "kospi_universe_summary_latest.csv")
-    kosdaq_rows = count_rows(backup_dir / "kosdaq_universe_summary_latest.csv")
-    gainers_rows = count_rows(backup_dir / "kospi_gainers_1m_latest.csv")
-
-    log_lines.append(f"BACKUP_ROWS kospi_universe_summary_latest.csv: {kospi_rows}")
-    log_lines.append(f"BACKUP_ROWS kosdaq_universe_summary_latest.csv: {kosdaq_rows}")
-    log_lines.append(f"BACKUP_ROWS kospi_gainers_1m_latest.csv: {gainers_rows}")
-
-    failures: List[str] = []
-
     if kospi_rows is None or kospi_rows < kospi_min_rows:
         failures.append(f"backup KOSPI invalid: {kospi_rows}")
 
@@ -205,14 +230,22 @@ def validate_backup(
     if gainers_rows is None or gainers_rows < gainers_min_rows:
         failures.append(f"backup gainers invalid: {gainers_rows}")
 
+    if kospi_candidates_rows is None or kospi_candidates_rows < 30:
+        failures.append(f"backup KOSPI candidates invalid: {kospi_candidates_rows}")
+
+    if kospi_recommend_rows is None or kospi_recommend_rows < 7:
+        failures.append(f"backup KOSPI recommend invalid: {kospi_recommend_rows}")
+
+    if kosdaq_candidates_rows is None or kosdaq_candidates_rows < 10:
+        failures.append(f"backup KOSDAQ candidates invalid: {kosdaq_candidates_rows}")
+
+    if kosdaq_recommend_rows is None or kosdaq_recommend_rows < 5:
+        failures.append(f"backup KOSDAQ recommend invalid: {kosdaq_recommend_rows}")
+
     return {
         "is_valid": len(failures) == 0,
         "failures": failures,
-        "row_counts": {
-            "kospi_universe_summary_latest.csv": kospi_rows,
-            "kosdaq_universe_summary_latest.csv": kosdaq_rows,
-            "kospi_gainers_1m_latest.csv": gainers_rows,
-        },
+        "row_counts": row_counts,
     }
 
 
@@ -242,7 +275,10 @@ def write_outputs(output_dir: Path, log_lines: List[str], payload: Dict[str, Any
     json_path = output_dir / "universe_output_guard_latest.json"
 
     log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
-    json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    json_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 def main() -> None:
@@ -268,6 +304,7 @@ def main() -> None:
         f"kosdaq_min_rows={args.kosdaq_min_rows}",
         f"gainers_min_rows={args.gainers_min_rows}",
         f"restore_on_fail={args.restore_on_fail}",
+        "decision_rule=row_count_first_log_patterns_are_warn_only_when_rows_valid",
     ]
 
     current = validate_current_outputs(
@@ -282,16 +319,26 @@ def main() -> None:
     restore_result: Dict[str, Any] = {"restored": [], "missing": []}
     backup_status: Dict[str, Any] = {}
 
-    if current["is_valid"]:
-        status = "OK"
-        log_lines.append("guard_decision=ACCEPT_CURRENT")
-    else:
-        log_lines.append("guard_decision=CURRENT_INVALID")
-        for failure in current["failures"]:
-            log_lines.append(f"CURRENT_FAILURE {failure}")
+    if current["rows_valid"]:
+        if current["log_warn_hit_count"] > 0:
+            status = "OK_WITH_LOG_WARN"
+            log_lines.append("guard_decision=ACCEPT_CURRENT_WITH_LOG_WARN")
+            log_lines.append(
+                f"log_warn_hit_count={current['log_warn_hit_count']}"
+            )
+        else:
+            status = "OK"
+            log_lines.append("guard_decision=ACCEPT_CURRENT")
 
-        if current["bad_pattern_hits"]:
-            log_lines.append(f"bad_pattern_hit_count={len(current['bad_pattern_hits'])}")
+        action = "ACCEPT_CURRENT"
+
+    else:
+        status = "CURRENT_INVALID"
+        action = "CURRENT_INVALID"
+        log_lines.append("guard_decision=CURRENT_INVALID")
+
+        for failure in current["row_failures"]:
+            log_lines.append(f"CURRENT_FAILURE {failure}")
 
         if args.restore_on_fail:
             backup_status = validate_backup(
@@ -311,6 +358,7 @@ def main() -> None:
                 action = "BACKUP_INVALID_KEEP_CURRENT"
                 status = "ERROR_BACKUP_INVALID"
                 log_lines.append("guard_decision=BACKUP_INVALID_KEEP_CURRENT")
+
                 for failure in backup_status.get("failures", []):
                     log_lines.append(f"BACKUP_FAILURE {failure}")
         else:

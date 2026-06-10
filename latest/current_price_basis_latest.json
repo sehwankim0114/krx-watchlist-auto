@@ -1,0 +1,78 @@
+{
+  "script": "apply_current_price_basis.py v1.0_compact_icon_in_price_cell",
+  "run_at_kst": "2026-06-10T17:26:32+09:00",
+  "output_dir": "latest",
+  "source_files": [
+    "kospi_candidates_30_latest.csv",
+    "kosdaq_candidates_10_latest.csv",
+    "kospi_gainers_1m_latest.csv",
+    "watchlist_summary_latest.csv"
+  ],
+  "aux_price_count": 95,
+  "ok_files": 3,
+  "results": [
+    {
+      "source_file": "kospi_candidates_30_latest.csv",
+      "output_file": "kospi_candidates_30_current_basis_latest.csv",
+      "status": "OK",
+      "rows": 30,
+      "matched": 30,
+      "marked_blue": 8,
+      "marked_orange": 8,
+      "marked_red": 12,
+      "marked_fail": 0,
+      "changed_price_cells": 29
+    },
+    {
+      "source_file": "kosdaq_candidates_10_latest.csv",
+      "output_file": "kosdaq_candidates_10_current_basis_latest.csv",
+      "status": "OK",
+      "rows": 10,
+      "matched": 10,
+      "marked_blue": 0,
+      "marked_orange": 2,
+      "marked_red": 7,
+      "marked_fail": 0,
+      "changed_price_cells": 10
+    },
+    {
+      "source_file": "kospi_gainers_1m_latest.csv",
+      "output_file": "kospi_gainers_1m_current_basis_latest.csv",
+      "status": "OK",
+      "rows": 20,
+      "matched": 20,
+      "marked_blue": 3,
+      "marked_orange": 2,
+      "marked_red": 13,
+      "marked_fail": 0,
+      "changed_price_cells": 19
+    },
+    {
+      "source_file": "watchlist_summary_latest.csv",
+      "output_file": "watchlist_summary_current_basis_latest.csv",
+      "status": "NO_PRICE_COLUMN",
+      "rows": 0,
+      "matched": 0,
+      "marked_blue": 0,
+      "marked_orange": 0,
+      "marked_red": 0,
+      "marked_fail": 0,
+      "changed_price_cells": 0
+    }
+  ],
+  "display_rule": "기존 열 구조 유지. 현재가 기준 칸 오른쪽에 아이콘만 표시.",
+  "marker_rule": {
+    "none": "±0.5% 미만",
+    "🟦": "±0.5% 이상 ~ ±1.5% 미만",
+    "🟠": "±1.5% 이상 ~ ±3% 미만",
+    "🔴": "±3% 이상",
+    "⚪": "보조 현재가 확인 실패"
+  },
+  "summary": {
+    "blue": 11,
+    "orange": 12,
+    "red": 32,
+    "fail": 0
+  },
+  "status": "OK"
+}

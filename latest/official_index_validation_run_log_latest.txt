@@ -1,10 +1,11 @@
 script=official_index_validation.py v1.0_return_cross_validation
-run_at_kst=2026-06-10T06:56:56+09:00
-VALIDATION KOSDAQ: status=PASS, date_gap=0, daily_gap=0.0258, gap_1m=2.06, gap_3m=4.32
-VALIDATION KOSPI: status=PASS, date_gap=0, daily_gap=0.0039, gap_1m=0.3, gap_3m=0.02
-BUBBLE_RISK_UPDATED alert_blocked=False
-overall_status=PASS_ALL
-pass_count=2
+run_at_kst=2026-06-10T15:49:45+09:00
+VALIDATION KOSDAQ: status=PASS, date_gap=0, daily_gap=0.1431, gap_1m=0.02, gap_3m=0.1
+VALIDATION KOSPI: status=FAIL, date_gap=0, daily_gap=0.4404, gap_1m=12.88, gap_3m=33.31
+FAIL_REASON KOSPI: 1개월 수익률 괴리 12.88%p | 3개월 수익률 괴리 33.31%p
+BUBBLE_RISK_UPDATED alert_blocked=True
+overall_status=FAIL_ALERT_BLOCKED
+pass_count=1
 warn_count=0
-fail_count=0
-alert_blocked=False
+fail_count=1
+alert_blocked=True

@@ -1,12 +1,12 @@
 script=table_health_check.py v1.0_table_health_check
-run_at_kst=2026-06-10T06:56:56+09:00
+run_at_kst=2026-06-10T15:49:45+09:00
 output_dir=latest
 freshness_warn_days=4
 freshness_error_days=10
-TABLE_HEALTH 관종표/분석표: status=OK, latest_date=2026-06-09, freshness_days=1
-TABLE_HEALTH 코피표: status=OK, latest_date=2026-06-08, freshness_days=2
+TABLE_HEALTH 관종표/분석표: status=OK, latest_date=2026-06-10, freshness_days=0
+TABLE_HEALTH 코피표: status=ERROR, latest_date=2026-06-08, freshness_days=2
 TABLE_HEALTH 코닥표: status=OK, latest_date=2026-06-08, freshness_days=2
-TABLE_HEALTH 코급표: status=OK, latest_date=2026-06-08, freshness_days=2
+TABLE_HEALTH 코급표: status=ERROR, latest_date=2026-06-08, freshness_days=2
 TABLE_HEALTH 월사이클표/사이클표/파동표: status=OK, latest_date=2026-06-08, freshness_days=2
 TABLE_HEALTH 단상표: status=OK, latest_date=2026-06-08, freshness_days=2
 TABLE_HEALTH 환율약세표: status=OK, latest_date=2026-06-08, freshness_days=2
@@ -15,5 +15,5 @@ TABLE_HEALTH 거시·레버리지 위험자료: status=OK, latest_date=2026-06-0
 TABLE_HEALTH KOFIA bridge: status=OK, latest_date=, freshness_days=
 TABLE_HEALTH 공식지수 교차검증: status=OK, latest_date=, freshness_days=
 table_health_rows=11
-status_counts={'OK': 11}
-overall_status=OK
+status_counts={'OK': 9, 'ERROR': 2}
+overall_status=ERROR

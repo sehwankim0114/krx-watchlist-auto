@@ -1,6 +1,6 @@
 {
-  "script": "apply_current_price_basis.py v1.0_compact_icon_in_price_cell",
-  "run_at_kst": "2026-06-10T17:26:32+09:00",
+  "script": "apply_current_price_basis.py v1.1_current_close_support",
+  "run_at_kst": "2026-06-10T17:39:04+09:00",
   "output_dir": "latest",
   "source_files": [
     "kospi_candidates_30_latest.csv",
@@ -9,7 +9,7 @@
     "watchlist_summary_latest.csv"
   ],
   "aux_price_count": 95,
-  "ok_files": 3,
+  "ok_files": 4,
   "results": [
     {
       "source_file": "kospi_candidates_30_latest.csv",
@@ -21,7 +21,8 @@
       "marked_orange": 8,
       "marked_red": 12,
       "marked_fail": 0,
-      "changed_price_cells": 29
+      "changed_price_cells": 29,
+      "price_column": "close"
     },
     {
       "source_file": "kosdaq_candidates_10_latest.csv",
@@ -33,7 +34,8 @@
       "marked_orange": 2,
       "marked_red": 7,
       "marked_fail": 0,
-      "changed_price_cells": 10
+      "changed_price_cells": 10,
+      "price_column": "close"
     },
     {
       "source_file": "kospi_gainers_1m_latest.csv",
@@ -45,19 +47,21 @@
       "marked_orange": 2,
       "marked_red": 13,
       "marked_fail": 0,
-      "changed_price_cells": 19
+      "changed_price_cells": 19,
+      "price_column": "close"
     },
     {
       "source_file": "watchlist_summary_latest.csv",
       "output_file": "watchlist_summary_current_basis_latest.csv",
-      "status": "NO_PRICE_COLUMN",
-      "rows": 0,
-      "matched": 0,
+      "status": "OK",
+      "rows": 47,
+      "matched": 44,
       "marked_blue": 0,
       "marked_orange": 0,
       "marked_red": 0,
       "marked_fail": 0,
-      "changed_price_cells": 0
+      "changed_price_cells": 0,
+      "price_column": "current_close"
     }
   ],
   "display_rule": "기존 열 구조 유지. 현재가 기준 칸 오른쪽에 아이콘만 표시.",

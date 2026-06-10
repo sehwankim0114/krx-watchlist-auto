@@ -1,8 +1,8 @@
-script=apply_current_price_basis.py v1.0_compact_icon_in_price_cell
-run_at_kst=2026-06-10T17:26:32+09:00
+script=apply_current_price_basis.py v1.1_current_close_support
+run_at_kst=2026-06-10T17:39:04+09:00
 output_dir=latest
 aux_price_count=95
-ok_files=3
+ok_files=4
 status=OK
 display_rule=기존 열 구조 유지. 현재가 기준 칸 오른쪽에 아이콘만 표시.
 marker_none=±0.5% 미만
@@ -10,7 +10,7 @@ marker_blue=🟦 ±0.5% 이상 ~ ±1.5% 미만
 marker_orange=🟠 ±1.5% 이상 ~ ±3% 미만
 marker_red=🔴 ±3% 이상
 marker_fail=⚪ 보조 현재가 확인 실패
-CURRENT_BASIS_FILE kospi_candidates_30_latest.csv: status=OK, output=kospi_candidates_30_current_basis_latest.csv, rows=30, matched=30, blue=8, orange=8, red=12, fail=0, changed_price_cells=29
-CURRENT_BASIS_FILE kosdaq_candidates_10_latest.csv: status=OK, output=kosdaq_candidates_10_current_basis_latest.csv, rows=10, matched=10, blue=0, orange=2, red=7, fail=0, changed_price_cells=10
-CURRENT_BASIS_FILE kospi_gainers_1m_latest.csv: status=OK, output=kospi_gainers_1m_current_basis_latest.csv, rows=20, matched=20, blue=3, orange=2, red=13, fail=0, changed_price_cells=19
-CURRENT_BASIS_FILE watchlist_summary_latest.csv: status=NO_PRICE_COLUMN, output=watchlist_summary_current_basis_latest.csv, rows=0, matched=0, blue=0, orange=0, red=0, fail=0, changed_price_cells=0
+CURRENT_BASIS_FILE kospi_candidates_30_latest.csv: status=OK, output=kospi_candidates_30_current_basis_latest.csv, rows=30, matched=30, blue=8, orange=8, red=12, fail=0, changed_price_cells=29, price_column=close
+CURRENT_BASIS_FILE kosdaq_candidates_10_latest.csv: status=OK, output=kosdaq_candidates_10_current_basis_latest.csv, rows=10, matched=10, blue=0, orange=2, red=7, fail=0, changed_price_cells=10, price_column=close
+CURRENT_BASIS_FILE kospi_gainers_1m_latest.csv: status=OK, output=kospi_gainers_1m_current_basis_latest.csv, rows=20, matched=20, blue=3, orange=2, red=13, fail=0, changed_price_cells=19, price_column=close
+CURRENT_BASIS_FILE watchlist_summary_latest.csv: status=OK, output=watchlist_summary_current_basis_latest.csv, rows=47, matched=44, blue=0, orange=0, red=0, fail=0, changed_price_cells=0, price_column=current_close

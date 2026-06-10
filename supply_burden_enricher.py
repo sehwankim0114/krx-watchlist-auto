@@ -1,23 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
 """
 supply_burden_enricher.py
-v1.0_dart_title_supply_burden
+v1.1_log_safe_title_scan
 
 목적
-- OpenDART 공시검색 API의 최근 공시 제목을 기준으로
-  CB/BW/EB, 유상증자, 전환청구, 자기주식처분, 대량보유, 보호예수, 블록딜 등
-  수급부담 가능성을 자동 탐지한다.
-- 기존 latest CSV 파일들에 수급부담 관련 컬럼을 추가한다.
+- OpenDART 공시검색 API의 최근 공시 제목을 기준으로 CB/BW/EB, 유상증자,
+  전환청구, 자기주식처분, 대량보유, 보호예수, 블록딜 등 수급부담 가능성을 자동 탐지한다.
+- 기존 latest CSV 파일들에 수급부담 관련 기술 컬럼을 추가한다.
+- 실행 성공/실패와 무관하게 latest/supply_burden_run_log_latest.txt,
+  latest/supply_burden_latest.json 파일을 항상 생성한다.
 
 주의
-- v1.0은 "공시 제목 기반 1차 탐지"이다.
+- v1.1은 공시 제목 기반 1차 탐지다.
 - 공시 본문 세부 수량, 발행가, 행사비율, 보호예수 해제 물량까지 정밀 판독하는 단계는 아니다.
-- 따라서 supply_burden_flag=TRUE는 "수급부담 가능성/주의 신호"로 해석한다.
-
-생성/갱신 파일
-- latest/supply_burden_cache_latest.csv
-- latest/supply_burden_run_log_latest.txt
+- supply_burden_flag=TRUE는 "수급부담 가능성/주의 신호"로 해석한다.
 """
 
 from __future__ import annotations
@@ -25,765 +23,585 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import time
 import urllib.parse
 import urllib.request
-from collections import Counter, defaultdict
+from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
-from zoneinfo import ZoneInfo
 
 import pandas as pd
 
-SCRIPT_NAME = "supply_burden_enricher.py v1.0_dart_title_supply_burden"
-KST = ZoneInfo("Asia/Seoul")
+try:
+    from zoneinfo import ZoneInfo
+except Exception:
+    ZoneInfo = None
 
-DART_LIST_URL = "https://opendart.fss.or.kr/api/list.json"
+SCRIPT_NAME = "supply_burden_enricher.py v1.1_log_safe_title_scan"
 
 TARGET_FILES = [
     "watchlist_summary_latest.csv",
-    "kospi_universe_summary_latest.csv",
-    "kosdaq_universe_summary_latest.csv",
     "kospi_candidates_30_latest.csv",
     "kospi_recommend_7_latest.csv",
     "kosdaq_candidates_10_latest.csv",
     "kosdaq_recommend_5_latest.csv",
     "kospi_gainers_1m_latest.csv",
-    "kospi_monthly_cycle_latest.csv",
     "kospi_short_term_candidates_30_latest.csv",
     "kospi_short_term_recommend_7_latest.csv",
     "kospi_fx_weakness_candidates_30_latest.csv",
     "kospi_fx_weakness_recommend_7_latest.csv",
+    "kospi_monthly_cycle_latest.csv",
+    "kospi_universe_summary_latest.csv",
+    "kosdaq_universe_summary_latest.csv",
+]
+
+CODE_COLUMNS = [
+    "ticker",
+    "code",
+    "종목코드",
+    "단축코드",
+    "stock_code",
+    "isuCd",
+    "isu_cd",
+    "symbol",
+]
+
+NAME_COLUMNS = [
+    "name",
+    "corp_name",
+    "종목명",
+    "company",
+    "회사명",
 ]
 
 SUPPLY_COLUMNS = [
     "supply_burden_flag",
     "supply_burden_level",
-    "supply_burden_score",
-    "supply_burden_types",
-    "supply_burden_last_date",
-    "supply_burden_recent_reports",
-    "supply_burden_basis",
-    "supply_burden_source_status",
-    "cb_bw_eb_flag",
-    "rights_issue_flag",
-    "treasury_disposal_flag",
-    "major_holder_sale_flag",
-    "lockup_release_flag",
-    "block_deal_flag",
-    "overhang_flag",
+    "supply_burden_keywords",
+    "supply_burden_latest_report_date",
+    "supply_burden_latest_report_name",
+    "supply_burden_report_count",
+    "supply_burden_checked_at_kst",
 ]
 
-RISK_RULES = {
-    "cb_bw_eb": {
-        "weight": 4,
-        "keywords": [
-            "전환사채",
-            "전환사채권발행결정",
-            "전환청구권행사",
-            "전환가액",
-            "전환가액의조정",
-            "신주인수권부사채",
-            "신주인수권부사채권발행결정",
-            "신주인수권행사",
-            "교환사채",
-            "교환사채권발행결정",
-            "교환청구권행사",
-            "CB",
-            "BW",
-            "EB",
-        ],
-    },
-    "rights_issue": {
-        "weight": 4,
-        "keywords": [
-            "유상증자",
-            "유상증자결정",
-            "증자결정",
-            "제3자배정",
-            "주주배정",
-            "일반공모",
-            "소액공모",
-            "신주발행",
-            "증권신고서",
-            "투자설명서",
-        ],
-    },
-    "treasury_disposal": {
-        "weight": 3,
-        "keywords": [
-            "자기주식처분",
-            "자기주식 처분",
-            "자기주식처분결정",
-            "자기주식처분결과보고서",
-            "자기주식",
-        ],
-    },
-    "major_holder_sale": {
-        "weight": 2,
-        "keywords": [
-            "주식등의대량보유상황보고서",
-            "대량보유상황보고서",
-            "임원ㆍ주요주주특정증권등소유상황보고서",
-            "임원·주요주주특정증권등소유상황보고서",
-            "소유상황보고서",
-            "주요주주",
-            "최대주주변경",
-            "최대주주 변경",
-        ],
-    },
-    "lockup_release": {
-        "weight": 3,
-        "keywords": [
-            "보호예수",
-            "의무보유",
-            "의무보유해제",
-            "의무보유 해제",
-            "매각제한",
-            "매각제한해제",
-            "락업",
-            "Lock-up",
-            "lockup",
-        ],
-    },
-    "block_deal": {
-        "weight": 4,
-        "keywords": [
-            "블록딜",
-            "시간외대량매매",
-            "시간외 대량매매",
-            "대량매매",
-            "대량매도",
-            "장외매도",
-        ],
-    },
-    "additional_listing": {
-        "weight": 3,
-        "keywords": [
-            "추가상장",
-            "상장예정",
-            "전환주식",
-            "전환우선주",
-            "보통주전환",
-            "신주인수권증권",
-        ],
-    },
-}
+# severity: 3 위험, 2 경계, 1 주의
+KEYWORD_RULES: List[Tuple[str, str, int]] = [
+    ("유상증자", "유상증자", 3),
+    ("전환청구권행사", "전환청구", 3),
+    ("전환청구", "전환청구", 3),
+    ("신주인수권행사", "신주인수권행사", 3),
+    ("신주인수권", "신주인수권", 2),
+    ("교환청구권행사", "교환청구", 3),
+    ("전환사채권발행결정", "CB발행", 2),
+    ("전환사채", "CB", 2),
+    ("신주인수권부사채권발행결정", "BW발행", 2),
+    ("신주인수권부사채", "BW", 2),
+    ("교환사채권발행결정", "EB발행", 2),
+    ("교환사채", "EB", 2),
+    ("자기주식처분결정", "자사주처분", 2),
+    ("자기주식처분", "자사주처분", 2),
+    ("자기주식 처분", "자사주처분", 2),
+    ("보호예수", "보호예수", 2),
+    ("의무보유", "의무보유", 2),
+    ("의무보유등록", "의무보유", 2),
+    ("블록딜", "블록딜", 2),
+    ("시간외매매", "블록딜/시간외매매", 2),
+    ("대량보유", "대량보유", 1),
+    ("주식등의대량보유상황보고서", "대량보유", 1),
+    ("임원ㆍ주요주주특정증권등소유상황보고서", "주요주주변동", 1),
+    ("임원·주요주주특정증권등소유상황보고서", "주요주주변동", 1),
+    ("최대주주 변경", "최대주주변경", 2),
+    ("최대주주변경", "최대주주변경", 2),
+    ("감자", "감자", 3),
+    ("상장폐지", "상장폐지위험", 3),
+    ("관리종목", "관리종목", 2),
+    ("투자경고", "투자경고", 2),
+    ("투자위험", "투자위험", 3),
+]
+
+RELIEF_KEYWORDS = [
+    "자기주식취득결정",
+    "자기주식 취득",
+    "자기주식취득 신탁계약",
+    "자기주식취득신탁계약",
+]
 
 
 def now_kst() -> datetime:
-    return datetime.now(KST)
+    if ZoneInfo is None:
+        return datetime.utcnow() + timedelta(hours=9)
+    return datetime.now(ZoneInfo("Asia/Seoul"))
 
 
-def ymd(dt: datetime) -> str:
-    return dt.strftime("%Y%m%d")
+def ensure_dir(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
 
 
-def normalize_ticker(value: Any) -> str:
+def normalize_code(value: object) -> Optional[str]:
     if value is None:
-        return ""
-
+        return None
     text = str(value).strip()
-
-    if text == "" or text.lower() == "nan":
-        return ""
-
-    if text.endswith(".0"):
-        text = text[:-2]
-
-    text = "".join(ch for ch in text if ch.isdigit())
-
-    if text == "":
-        return ""
-
-    return text.zfill(6)
+    if not text or text.lower() == "nan":
+        return None
+    digits = re.sub(r"[^0-9]", "", text)
+    if len(digits) == 6:
+        return digits
+    if 0 < len(digits) < 6:
+        return digits.zfill(6)
+    return None
 
 
-def normalize_text(value: Any) -> str:
-    if value is None:
-        return ""
-
-    text = str(value)
-    text = text.replace(" ", "")
-    text = text.replace("\u3000", "")
-    text = text.replace("ㆍ", "·")
-
-    return text
-
-
-def http_get_json(params: Dict[str, Any], timeout: int = 25) -> Dict[str, Any]:
-    query = urllib.parse.urlencode(params)
-    url = f"{DART_LIST_URL}?{query}"
-
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": "Mozilla/5.0 krx-watchlist-auto supply-burden-enricher",
-            "Accept": "application/json,text/plain,*/*",
-        },
-    )
-
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        body = resp.read().decode("utf-8", errors="replace")
-
-    return json.loads(body)
-
-
-def make_date_windows(end_dt: datetime, lookback_days: int, max_window_days: int = 90) -> List[Tuple[str, str]]:
-    start_dt = end_dt - timedelta(days=lookback_days - 1)
-    windows: List[Tuple[str, str]] = []
-
-    cur = start_dt
-
-    while cur <= end_dt:
-        win_end = min(cur + timedelta(days=max_window_days - 1), end_dt)
-        windows.append((ymd(cur), ymd(win_end)))
-        cur = win_end + timedelta(days=1)
-
-    return windows
-
-
-def collect_target_tickers(output_dir: Path) -> List[str]:
-    tickers: set[str] = set()
-
-    for filename in TARGET_FILES:
-        path = output_dir / filename
-
-        if not path.exists():
-            continue
-
+def read_csv_safe(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame()
+    try:
+        return pd.read_csv(path, encoding="utf-8-sig", dtype=str).fillna("")
+    except UnicodeDecodeError:
         try:
-            df = pd.read_csv(path, encoding="utf-8-sig", dtype={"ticker": str})
+            return pd.read_csv(path, dtype=str).fillna("")
         except Exception:
+            return pd.DataFrame()
+    except Exception:
+        return pd.DataFrame()
+
+
+def find_col(df: pd.DataFrame, candidates: Iterable[str]) -> Optional[str]:
+    for col in candidates:
+        if col in df.columns:
+            return col
+    return None
+
+
+def collect_target_tickers(output_dir: Path, target_files: List[str]) -> Tuple[Dict[str, str], Dict[str, List[str]], Dict[str, int]]:
+    name_map: Dict[str, str] = {}
+    file_map: Dict[str, List[str]] = defaultdict(list)
+    file_rows: Dict[str, int] = {}
+
+    for filename in target_files:
+        path = output_dir / filename
+        df = read_csv_safe(path)
+        file_rows[filename] = int(len(df)) if not df.empty else 0
+        if df.empty:
             continue
 
-        if "ticker" not in df.columns:
+        code_col = find_col(df, CODE_COLUMNS)
+        name_col = find_col(df, NAME_COLUMNS)
+        if code_col is None:
             continue
 
-        for value in df["ticker"].tolist():
-            ticker = normalize_ticker(value)
+        for _, row in df.iterrows():
+            code = normalize_code(row.get(code_col, ""))
+            if not code:
+                continue
+            file_map[code].append(filename)
+            if name_col:
+                name = str(row.get(name_col, "")).strip()
+                if name and code not in name_map:
+                    name_map[code] = name
 
-            if ticker:
-                tickers.add(ticker)
-
-    return sorted(tickers)
+    return name_map, dict(file_map), file_rows
 
 
-def fetch_dart_disclosures(
+def dart_get_json(params: Dict[str, Any], timeout: int = 25) -> Dict[str, Any]:
+    url = "https://opendart.fss.or.kr/api/list.json?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as response:
+        data = response.read().decode("utf-8", errors="replace")
+    return json.loads(data)
+
+
+def classify_report(report_name: str) -> Tuple[bool, List[str], int, bool]:
+    title = str(report_name or "")
+    matched: List[str] = []
+    severity = 0
+
+    for keyword, label, sev in KEYWORD_RULES:
+        if keyword in title:
+            matched.append(label)
+            severity = max(severity, sev)
+
+    relief = any(keyword in title for keyword in RELIEF_KEYWORDS)
+    return bool(matched), sorted(set(matched)), severity, relief
+
+
+def severity_to_level(severity: int, count: int) -> str:
+    if severity >= 3:
+        return "위험"
+    if severity == 2:
+        if count >= 3:
+            return "위험"
+        return "경계"
+    if severity == 1:
+        if count >= 3:
+            return "경계"
+        return "주의"
+    return "없음"
+
+
+def fetch_dart_reports(
     api_key: str,
+    target_codes: set[str],
     lookback_days: int,
+    max_pages: int,
     sleep_seconds: float,
-    max_pages_per_query: int,
-    log_lines: List[str],
-) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
-    end_dt = now_kst()
-    windows = make_date_windows(end_dt, lookback_days, max_window_days=90)
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    end_dt = now_kst().date()
+    begin_dt = end_dt - timedelta(days=lookback_days)
+    bgn_de = begin_dt.strftime("%Y%m%d")
+    end_de = end_dt.strftime("%Y%m%d")
 
-    all_items: List[Dict[str, Any]] = []
-    seen_rcept_no: set[str] = set()
-    status_counter: Counter[str] = Counter()
-
-    log_lines.append(f"dart_lookback_days={lookback_days}")
-    log_lines.append(
-        "dart_date_windows="
-        + ",".join([f"{bgn}-{end}" for bgn, end in windows])
-    )
+    all_hits: List[Dict[str, Any]] = []
+    status = {
+        "bgn_de": bgn_de,
+        "end_de": end_de,
+        "corp_cls": {},
+        "api_calls": 0,
+        "api_errors": [],
+    }
 
     for corp_cls in ["Y", "K"]:
-        for bgn_de, end_de in windows:
-            page_no = 1
-
-            while page_no <= max_pages_per_query:
-                params = {
-                    "crtfc_key": api_key,
-                    "bgn_de": bgn_de,
-                    "end_de": end_de,
-                    "last_reprt_at": "N",
-                    "corp_cls": corp_cls,
-                    "sort": "date",
-                    "sort_mth": "desc",
-                    "page_no": page_no,
-                    "page_count": 100,
-                }
-
-                try:
-                    data = http_get_json(params)
-                except Exception as exc:
-                    status_counter[f"HTTP_ERROR:{type(exc).__name__}"] += 1
-                    log_lines.append(
-                        f"DART_HTTP_ERROR corp_cls={corp_cls} window={bgn_de}-{end_de} page={page_no}: {type(exc).__name__}: {exc}"
-                    )
-                    break
-
-                status = str(data.get("status", "")).strip()
-                message = str(data.get("message", "")).strip()
-
-                if status and status != "000":
-                    status_counter[f"{status}:{message}"] += 1
-                else:
-                    status_counter["000"] += 1
-
-                if status == "013":
-                    log_lines.append(
-                        f"DART_NO_DATA corp_cls={corp_cls} window={bgn_de}-{end_de} page={page_no}"
-                    )
-                    break
-
-                if status != "000":
-                    log_lines.append(
-                        f"DART_STATUS_NOT_OK corp_cls={corp_cls} window={bgn_de}-{end_de} page={page_no}: status={status}, message={message}"
-                    )
-                    break
-
-                items = data.get("list") or []
-
-                if not isinstance(items, list) or len(items) == 0:
-                    log_lines.append(
-                        f"DART_EMPTY_LIST corp_cls={corp_cls} window={bgn_de}-{end_de} page={page_no}"
-                    )
-                    break
-
-                for item in items:
-                    rcept_no = str(item.get("rcept_no", "")).strip()
-
-                    if rcept_no and rcept_no in seen_rcept_no:
-                        continue
-
-                    if rcept_no:
-                        seen_rcept_no.add(rcept_no)
-
-                    all_items.append(item)
-
-                try:
-                    total_page = int(data.get("total_page") or 1)
-                except Exception:
-                    total_page = 1
-
-                if page_no >= total_page:
-                    break
-
-                page_no += 1
-                time.sleep(sleep_seconds)
-
-            time.sleep(sleep_seconds)
-
-    return all_items, dict(status_counter)
-
-
-def classify_report(report_nm: str) -> Tuple[Dict[str, bool], int, List[str]]:
-    normalized = normalize_text(report_nm)
-
-    type_flags: Dict[str, bool] = {}
-    score = 0
-    matched_types: List[str] = []
-
-    for risk_type, rule in RISK_RULES.items():
-        keywords = rule["keywords"]
-        matched = False
-
-        for keyword in keywords:
-            if normalize_text(keyword) in normalized:
-                matched = True
-                break
-
-        type_flags[risk_type] = matched
-
-        if matched:
-            score += int(rule["weight"])
-            matched_types.append(risk_type)
-
-    return type_flags, score, matched_types
-
-
-def aggregate_by_ticker(
-    disclosures: List[Dict[str, Any]],
-    target_tickers: Iterable[str],
-    log_lines: List[str],
-) -> Dict[str, Dict[str, Any]]:
-    target_set = set(target_tickers)
-    agg: Dict[str, Dict[str, Any]] = {}
-
-    matched_disclosure_count = 0
-    risk_disclosure_count = 0
-
-    for item in disclosures:
-        ticker = normalize_ticker(item.get("stock_code"))
-
-        if not ticker or ticker not in target_set:
-            continue
-
-        matched_disclosure_count += 1
-
-        report_nm = str(item.get("report_nm", "")).strip()
-        rcept_dt = str(item.get("rcept_dt", "")).strip()
-        rcept_no = str(item.get("rcept_no", "")).strip()
-        corp_name = str(item.get("corp_name", "")).strip()
-
-        type_flags, report_score, matched_types = classify_report(report_nm)
-
-        if report_score <= 0:
-            continue
-
-        risk_disclosure_count += 1
-
-        if ticker not in agg:
-            agg[ticker] = {
-                "ticker": ticker,
-                "name": corp_name,
-                "score": 0,
-                "types": set(),
-                "reports": [],
-                "last_date": "",
-                "flags": defaultdict(bool),
-            }
-
-        row = agg[ticker]
-        row["score"] += report_score
-        row["types"].update(matched_types)
-
-        for key, value in type_flags.items():
-            if value:
-                row["flags"][key] = True
-
-        if rcept_dt and rcept_dt > row["last_date"]:
-            row["last_date"] = rcept_dt
-
-        report_label = f"{rcept_dt}:{report_nm}"
-
-        if rcept_no:
-            report_label += f":{rcept_no}"
-
-        row["reports"].append(report_label)
-
-    log_lines.append(f"matched_disclosure_count={matched_disclosure_count}")
-    log_lines.append(f"risk_disclosure_count={risk_disclosure_count}")
-
-    result: Dict[str, Dict[str, Any]] = {}
-
-    for ticker, row in agg.items():
-        score = int(row["score"])
-        types = sorted(list(row["types"]))
-        flags = row["flags"]
-
-        cb_bw_eb_flag = bool(flags.get("cb_bw_eb"))
-        rights_issue_flag = bool(flags.get("rights_issue"))
-        treasury_disposal_flag = bool(flags.get("treasury_disposal"))
-        major_holder_sale_flag = bool(flags.get("major_holder_sale"))
-        lockup_release_flag = bool(flags.get("lockup_release"))
-        block_deal_flag = bool(flags.get("block_deal"))
-        additional_listing_flag = bool(flags.get("additional_listing"))
-
-        overhang_flag = any(
-            [
-                cb_bw_eb_flag,
-                rights_issue_flag,
-                treasury_disposal_flag,
-                lockup_release_flag,
-                block_deal_flag,
-                additional_listing_flag,
-            ]
-        )
-
-        if score >= 7 or overhang_flag:
-            level = "HIGH"
-        elif score >= 3:
-            level = "WATCH"
-        elif score > 0:
-            level = "LOW"
-        else:
-            level = ""
-
-        supply_burden_flag = level in {"WATCH", "HIGH"}
-
-        reports = row["reports"]
-        reports = sorted(reports, reverse=True)
-        recent_reports = " | ".join(reports[:5])
-
-        basis_parts = []
-
-        if types:
-            basis_parts.append("types=" + ",".join(types))
-
-        if recent_reports:
-            basis_parts.append("recent=" + recent_reports[:500])
-
-        basis = "; ".join(basis_parts)
-
-        result[ticker] = {
-            "ticker": ticker,
-            "name": row.get("name", ""),
-            "supply_burden_flag": supply_burden_flag,
-            "supply_burden_level": level,
-            "supply_burden_score": score,
-            "supply_burden_types": ",".join(types),
-            "supply_burden_last_date": row["last_date"],
-            "supply_burden_recent_reports": recent_reports,
-            "supply_burden_basis": basis,
-            "supply_burden_source_status": "OK",
-            "cb_bw_eb_flag": cb_bw_eb_flag,
-            "rights_issue_flag": rights_issue_flag,
-            "treasury_disposal_flag": treasury_disposal_flag,
-            "major_holder_sale_flag": major_holder_sale_flag,
-            "lockup_release_flag": lockup_release_flag,
-            "block_deal_flag": block_deal_flag,
-            "overhang_flag": overhang_flag,
+        page_no = 1
+        total_page = None
+        corp_stats = {
+            "pages_requested": 0,
+            "total_page": None,
+            "raw_reports": 0,
+            "target_reports": 0,
+            "matched_reports": 0,
         }
 
-    return result
+        while page_no <= max_pages:
+            params = {
+                "crtfc_key": api_key,
+                "bgn_de": bgn_de,
+                "end_de": end_de,
+                "corp_cls": corp_cls,
+                "page_no": page_no,
+                "page_count": 100,
+            }
+            try:
+                payload = dart_get_json(params)
+                status["api_calls"] += 1
+                corp_stats["pages_requested"] += 1
+            except Exception as exc:
+                status["api_errors"].append(f"corp_cls={corp_cls}, page={page_no}, error={type(exc).__name__}: {exc}")
+                break
+
+            dart_status = str(payload.get("status", ""))
+            if dart_status == "013":
+                # 조회된 데이터 없음
+                break
+            if dart_status != "000":
+                message = payload.get("message", "")
+                status["api_errors"].append(f"corp_cls={corp_cls}, page={page_no}, dart_status={dart_status}, message={message}")
+                break
+
+            try:
+                total_page = int(payload.get("total_page", 1))
+            except Exception:
+                total_page = 1
+            corp_stats["total_page"] = total_page
+
+            reports = payload.get("list", []) or []
+            corp_stats["raw_reports"] += len(reports)
+
+            for item in reports:
+                stock_code = normalize_code(item.get("stock_code", ""))
+                if not stock_code or stock_code not in target_codes:
+                    continue
+
+                corp_stats["target_reports"] += 1
+                report_name = str(item.get("report_nm", ""))
+                is_risk, labels, severity, relief = classify_report(report_name)
+                if not is_risk:
+                    continue
+
+                corp_stats["matched_reports"] += 1
+                all_hits.append(
+                    {
+                        "stock_code": stock_code,
+                        "corp_name": str(item.get("corp_name", "")),
+                        "report_name": report_name,
+                        "rcept_dt": str(item.get("rcept_dt", "")),
+                        "rcept_no": str(item.get("rcept_no", "")),
+                        "corp_cls": corp_cls,
+                        "keywords": ",".join(labels),
+                        "severity": severity,
+                        "relief_flag": relief,
+                    }
+                )
+
+            if total_page is not None and page_no >= total_page:
+                break
+            page_no += 1
+            if sleep_seconds > 0:
+                time.sleep(sleep_seconds)
+
+        status["corp_cls"][corp_cls] = corp_stats
+
+    return all_hits, status
 
 
-def make_cache_df(target_tickers: List[str], burden_map: Dict[str, Dict[str, Any]], no_key: bool = False) -> pd.DataFrame:
+def build_summary(
+    target_codes: List[str],
+    name_map: Dict[str, str],
+    file_map: Dict[str, List[str]],
+    hits: List[Dict[str, Any]],
+    checked_at: str,
+    limited_reason: str = "",
+) -> pd.DataFrame:
+    hits_by_code: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for hit in hits:
+        code = normalize_code(hit.get("stock_code", ""))
+        if code:
+            hits_by_code[code].append(hit)
+
     rows: List[Dict[str, Any]] = []
+    for code in sorted(target_codes):
+        code_hits = sorted(hits_by_code.get(code, []), key=lambda x: str(x.get("rcept_dt", "")), reverse=True)
+        count = len(code_hits)
+        max_severity = max([int(item.get("severity", 0) or 0) for item in code_hits], default=0)
+        level = severity_to_level(max_severity, count)
+        keywords = sorted(set(
+            label.strip()
+            for item in code_hits
+            for label in str(item.get("keywords", "")).split(",")
+            if label.strip()
+        ))
+        latest = code_hits[0] if code_hits else {}
 
-    for ticker in target_tickers:
-        if no_key:
-            rows.append(
-                {
-                    "ticker": ticker,
-                    "supply_burden_flag": "",
-                    "supply_burden_level": "",
-                    "supply_burden_score": "",
-                    "supply_burden_types": "",
-                    "supply_burden_last_date": "",
-                    "supply_burden_recent_reports": "",
-                    "supply_burden_basis": "",
-                    "supply_burden_source_status": "NO_DART_API_KEY",
-                    "cb_bw_eb_flag": "",
-                    "rights_issue_flag": "",
-                    "treasury_disposal_flag": "",
-                    "major_holder_sale_flag": "",
-                    "lockup_release_flag": "",
-                    "block_deal_flag": "",
-                    "overhang_flag": "",
-                }
-            )
-            continue
-
-        if ticker in burden_map:
-            rows.append(burden_map[ticker])
+        if limited_reason:
+            flag = "CHECK_LIMITED"
+            level_out = "확인제한"
         else:
-            rows.append(
-                {
-                    "ticker": ticker,
-                    "supply_burden_flag": False,
-                    "supply_burden_level": "",
-                    "supply_burden_score": 0,
-                    "supply_burden_types": "",
-                    "supply_burden_last_date": "",
-                    "supply_burden_recent_reports": "",
-                    "supply_burden_basis": "",
-                    "supply_burden_source_status": "NO_RECENT_RISK_DISCLOSURE",
-                    "cb_bw_eb_flag": False,
-                    "rights_issue_flag": False,
-                    "treasury_disposal_flag": False,
-                    "major_holder_sale_flag": False,
-                    "lockup_release_flag": False,
-                    "block_deal_flag": False,
-                    "overhang_flag": False,
-                }
-            )
+            flag = "TRUE" if count > 0 else "FALSE"
+            level_out = level
+
+        rows.append(
+            {
+                "ticker": code,
+                "name": name_map.get(code, ""),
+                "supply_burden_flag": flag,
+                "supply_burden_level": level_out,
+                "supply_burden_keywords": ",".join(keywords),
+                "supply_burden_latest_report_date": str(latest.get("rcept_dt", "")),
+                "supply_burden_latest_report_name": str(latest.get("report_name", "")),
+                "supply_burden_report_count": count,
+                "source_files": ",".join(sorted(set(file_map.get(code, [])))),
+                "supply_burden_checked_at_kst": checked_at,
+                "limited_reason": limited_reason,
+            }
+        )
 
     return pd.DataFrame(rows)
 
 
-def enrich_file(path: Path, cache_df: pd.DataFrame) -> Dict[str, Any]:
+def enrich_file(output_dir: Path, filename: str, summary_map: Dict[str, Dict[str, Any]], checked_at: str) -> Dict[str, Any]:
+    path = output_dir / filename
+    df = read_csv_safe(path)
     result = {
-        "file": path.name,
-        "status": "skip_missing",
+        "file": filename,
+        "status": "UNKNOWN",
         "rows": 0,
-        "matched": 0,
-        "supply_burden_true": 0,
+        "matched_rows": 0,
+        "flagged_rows": 0,
+        "note": "",
     }
 
-    if not path.exists():
+    if df.empty:
+        result.update({"status": "EMPTY_OR_MISSING", "note": "file missing or empty"})
         return result
 
-    try:
-        df = pd.read_csv(path, encoding="utf-8-sig", dtype={"ticker": str})
-    except Exception as exc:
-        result["status"] = f"read_error:{type(exc).__name__}"
+    code_col = find_col(df, CODE_COLUMNS)
+    if code_col is None:
+        result.update({"status": "NO_CODE_COLUMN", "rows": len(df)})
         return result
 
-    result["rows"] = int(len(df))
-
-    if "ticker" not in df.columns:
-        result["status"] = "skip_no_ticker"
-        return result
-
+    out = df.copy()
     for col in SUPPLY_COLUMNS:
-        if col in df.columns:
-            df = df.drop(columns=[col])
+        if col not in out.columns:
+            out[col] = ""
 
-    df["_ticker_norm_for_supply"] = df["ticker"].map(normalize_ticker)
+    matched_rows = 0
+    flagged_rows = 0
+    for idx, row in out.iterrows():
+        code = normalize_code(row.get(code_col, ""))
+        if not code:
+            continue
+        info = summary_map.get(code)
+        if not info:
+            continue
+        matched_rows += 1
+        flag = str(info.get("supply_burden_flag", ""))
+        if flag == "TRUE":
+            flagged_rows += 1
+        for col in SUPPLY_COLUMNS:
+            out.at[idx, col] = str(info.get(col, "")) if col != "supply_burden_checked_at_kst" else checked_at
 
-    merge_cols = ["ticker"] + SUPPLY_COLUMNS
-    cache_small = cache_df[merge_cols].copy()
-    cache_small["_ticker_norm_for_supply"] = cache_small["ticker"].map(normalize_ticker)
-    cache_small = cache_small.drop(columns=["ticker"])
-
-    merged = df.merge(
-        cache_small,
-        on="_ticker_norm_for_supply",
-        how="left",
-        validate="many_to_one",
+    out.to_csv(path, index=False, encoding="utf-8-sig")
+    result.update(
+        {
+            "status": "OK",
+            "rows": len(out),
+            "matched_rows": matched_rows,
+            "flagged_rows": flagged_rows,
+        }
     )
-
-    matched_mask = merged["supply_burden_source_status"].notna()
-    result["matched"] = int(matched_mask.sum())
-
-    for col in SUPPLY_COLUMNS:
-        if col not in merged.columns:
-            merged[col] = ""
-
-    merged["supply_burden_source_status"] = merged["supply_burden_source_status"].fillna("NOT_IN_CACHE")
-
-    for col in [
-        "supply_burden_flag",
-        "cb_bw_eb_flag",
-        "rights_issue_flag",
-        "treasury_disposal_flag",
-        "major_holder_sale_flag",
-        "lockup_release_flag",
-        "block_deal_flag",
-        "overhang_flag",
-    ]:
-        merged[col] = merged[col].fillna(False)
-
-    merged["supply_burden_score"] = merged["supply_burden_score"].fillna(0)
-
-    for col in [
-        "supply_burden_level",
-        "supply_burden_types",
-        "supply_burden_last_date",
-        "supply_burden_recent_reports",
-        "supply_burden_basis",
-    ]:
-        merged[col] = merged[col].fillna("")
-
-    result["supply_burden_true"] = int(
-        merged["supply_burden_flag"].astype(str).str.upper().isin(["TRUE", "1"]).sum()
-    )
-
-    merged = merged.drop(columns=["_ticker_norm_for_supply"])
-
-    merged.to_csv(path, index=False, encoding="utf-8-sig")
-
-    result["status"] = "ok"
     return result
 
 
-def write_log(output_dir: Path, log_lines: List[str]) -> None:
-    path = output_dir / "supply_burden_run_log_latest.txt"
-    path.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
-
-
-def main() -> None:
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-dir", default="latest")
     parser.add_argument("--lookback-days", type=int, default=180)
     parser.add_argument("--sleep-seconds", type=float, default=0.12)
-    parser.add_argument("--max-pages-per-query", type=int, default=200)
-    args = parser.parse_args()
+    parser.add_argument("--max-pages", type=int, default=500)
+    parser.add_argument("--target-files", nargs="*", default=TARGET_FILES)
+    return parser.parse_args()
 
+
+def main() -> int:
+    args = parse_args()
     output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(output_dir)
 
+    checked_at = now_kst().isoformat(timespec="seconds")
     log_lines: List[str] = [
         f"script={SCRIPT_NAME}",
-        f"run_at_kst={now_kst().isoformat(timespec='seconds')}",
+        f"run_at_kst={checked_at}",
         f"output_dir={output_dir}",
         f"lookback_days={args.lookback_days}",
-        f"method=opendart_list_title_keyword_scan",
-        f"note=공시 제목 기반 1차 탐지이며 본문 수량/비율 정밀 판독은 아님",
+        f"max_pages={args.max_pages}",
+        f"sleep_seconds={args.sleep_seconds}",
     ]
 
-    target_tickers = collect_target_tickers(output_dir)
-    log_lines.append(f"target_tickers={len(target_tickers)}")
-
     api_key = os.environ.get("DART_API_KEY", "").strip()
+    name_map, file_map, file_rows = collect_target_tickers(output_dir, args.target_files)
+    target_codes = sorted(file_map.keys())
+
+    log_lines.append(f"target_tickers={len(target_codes)}")
+    log_lines.append(f"target_files={','.join(args.target_files)}")
+    for filename, rows in file_rows.items():
+        log_lines.append(f"TARGET_FILE {filename}: rows={rows}")
+
+    hits: List[Dict[str, Any]] = []
+    dart_status: Dict[str, Any] = {}
+    limited_reason = ""
 
     if not api_key:
+        status = "WARN_NO_DART_API_KEY"
+        limited_reason = "NO_DART_API_KEY"
         log_lines.append("status=WARN_NO_DART_API_KEY")
-        log_lines.append("message=DART_API_KEY가 없어 빈 수급부담 컬럼만 추가합니다.")
+    elif not target_codes:
+        status = "WARN_NO_TARGET_TICKERS"
+        limited_reason = "NO_TARGET_TICKERS"
+        log_lines.append("status=WARN_NO_TARGET_TICKERS")
+    else:
+        hits, dart_status = fetch_dart_reports(
+            api_key=api_key,
+            target_codes=set(target_codes),
+            lookback_days=args.lookback_days,
+            max_pages=args.max_pages,
+            sleep_seconds=args.sleep_seconds,
+        )
+        if dart_status.get("api_errors"):
+            status = "WARN_DART_PARTIAL_ERROR"
+        else:
+            status = "OK"
+        log_lines.append(f"dart_api_calls={dart_status.get('api_calls', 0)}")
+        log_lines.append(f"dart_api_error_count={len(dart_status.get('api_errors', []))}")
+        for error in dart_status.get("api_errors", [])[:20]:
+            log_lines.append(f"DART_ERROR {error}")
 
-        cache_df = make_cache_df(target_tickers, {}, no_key=True)
-
-        cache_path = output_dir / "supply_burden_cache_latest.csv"
-        cache_df.to_csv(cache_path, index=False, encoding="utf-8-sig")
-
-        for filename in TARGET_FILES:
-            result = enrich_file(output_dir / filename, cache_df)
-            log_lines.append(
-                f"ENRICH_FILE {filename}: status={result['status']}, rows={result['rows']}, matched={result['matched']}, supply_burden_true={result['supply_burden_true']}"
-            )
-
-        log_lines.append(f"cache_output_rows={len(cache_df)}")
-        log_lines.append("supply_burden_count=0")
-        log_lines.append("status=OK")
-        write_log(output_dir, log_lines)
-        print("SUPPLY_BURDEN_STATUS=OK")
-        return
-
-    disclosures, dart_status_counts = fetch_dart_disclosures(
-        api_key=api_key,
-        lookback_days=args.lookback_days,
-        sleep_seconds=args.sleep_seconds,
-        max_pages_per_query=args.max_pages_per_query,
-        log_lines=log_lines,
+    summary_df = build_summary(
+        target_codes=target_codes,
+        name_map=name_map,
+        file_map=file_map,
+        hits=hits,
+        checked_at=checked_at,
+        limited_reason=limited_reason,
     )
 
-    log_lines.append(f"dart_disclosure_rows={len(disclosures)}")
-    log_lines.append(f"dart_status_counts={dart_status_counts}")
+    summary_map = {
+        str(row["ticker"]): row.to_dict()
+        for _, row in summary_df.iterrows()
+    } if not summary_df.empty else {}
 
-    burden_map = aggregate_by_ticker(disclosures, target_tickers, log_lines)
+    enrich_results = [enrich_file(output_dir, filename, summary_map, checked_at) for filename in args.target_files]
 
-    cache_df = make_cache_df(target_tickers, burden_map, no_key=False)
+    hits_df = pd.DataFrame(hits)
+    summary_csv = output_dir / "supply_burden_summary_latest.csv"
+    hits_csv = output_dir / "supply_burden_hits_latest.csv"
+    json_path = output_dir / "supply_burden_latest.json"
+    log_path = output_dir / "supply_burden_run_log_latest.txt"
 
-    cache_path = output_dir / "supply_burden_cache_latest.csv"
-    cache_df.to_csv(cache_path, index=False, encoding="utf-8-sig")
+    summary_df.to_csv(summary_csv, index=False, encoding="utf-8-sig")
+    if hits_df.empty:
+        hits_df = pd.DataFrame(columns=["stock_code", "corp_name", "report_name", "rcept_dt", "rcept_no", "corp_cls", "keywords", "severity", "relief_flag"])
+    hits_df.to_csv(hits_csv, index=False, encoding="utf-8-sig")
 
-    supply_burden_count = int(
-        cache_df["supply_burden_flag"].astype(str).str.upper().isin(["TRUE", "1"]).sum()
-    )
+    flagged_count = int((summary_df.get("supply_burden_flag") == "TRUE").sum()) if not summary_df.empty else 0
+    danger_count = int((summary_df.get("supply_burden_level") == "위험").sum()) if not summary_df.empty else 0
+    warning_count = int((summary_df.get("supply_burden_level") == "경계").sum()) if not summary_df.empty else 0
+    caution_count = int((summary_df.get("supply_burden_level") == "주의").sum()) if not summary_df.empty else 0
 
-    source_status_counts = dict(Counter(cache_df["supply_burden_source_status"].fillna("").astype(str)))
-
-    flag_counts = {
-        "cb_bw_eb_flag": int(cache_df["cb_bw_eb_flag"].astype(str).str.upper().isin(["TRUE", "1"]).sum()),
-        "rights_issue_flag": int(cache_df["rights_issue_flag"].astype(str).str.upper().isin(["TRUE", "1"]).sum()),
-        "treasury_disposal_flag": int(cache_df["treasury_disposal_flag"].astype(str).str.upper().isin(["TRUE", "1"]).sum()),
-        "major_holder_sale_flag": int(cache_df["major_holder_sale_flag"].astype(str).str.upper().isin(["TRUE", "1"]).sum()),
-        "lockup_release_flag": int(cache_df["lockup_release_flag"].astype(str).str.upper().isin(["TRUE", "1"]).sum()),
-        "block_deal_flag": int(cache_df["block_deal_flag"].astype(str).str.upper().isin(["TRUE", "1"]).sum()),
-        "overhang_flag": int(cache_df["overhang_flag"].astype(str).str.upper().isin(["TRUE", "1"]).sum()),
+    payload = {
+        "script": SCRIPT_NAME,
+        "run_at_kst": checked_at,
+        "status": status,
+        "output_dir": str(output_dir),
+        "lookback_days": args.lookback_days,
+        "target_tickers": len(target_codes),
+        "hit_reports": len(hits),
+        "flagged_tickers": flagged_count,
+        "danger_tickers": danger_count,
+        "warning_tickers": warning_count,
+        "caution_tickers": caution_count,
+        "dart_status": dart_status,
+        "enrich_results": enrich_results,
+        "outputs": {
+            "summary_csv": str(summary_csv),
+            "hits_csv": str(hits_csv),
+            "json": str(json_path),
+            "log": str(log_path),
+        },
+        "note": "공시 제목 기반 1차 수급부담 탐지. 본문 수량/발행가/행사비율 정밀판독 아님.",
     }
 
-    log_lines.append(f"cache_output_rows={len(cache_df)}")
-    log_lines.append(f"supply_burden_count={supply_burden_count}")
-    log_lines.append(f"source_status_counts={source_status_counts}")
-    log_lines.append(f"flag_counts={flag_counts}")
+    json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    enriched_files = 0
+    log_lines.extend(
+        [
+            f"status={status}",
+            f"summary_rows={len(summary_df)}",
+            f"hit_reports={len(hits)}",
+            f"flagged_tickers={flagged_count}",
+            f"danger_tickers={danger_count}",
+            f"warning_tickers={warning_count}",
+            f"caution_tickers={caution_count}",
+            f"output_summary={summary_csv}",
+            f"output_hits={hits_csv}",
+            f"output_json={json_path}",
+        ]
+    )
 
-    for filename in TARGET_FILES:
-        result = enrich_file(output_dir / filename, cache_df)
-
-        if result["status"] == "ok":
-            enriched_files += 1
-
+    for result in enrich_results:
         log_lines.append(
-            f"ENRICH_FILE {filename}: status={result['status']}, rows={result['rows']}, matched={result['matched']}, supply_burden_true={result['supply_burden_true']}"
+            "ENRICH_FILE "
+            f"{result.get('file')}: "
+            f"status={result.get('status')}, "
+            f"rows={result.get('rows')}, "
+            f"matched_rows={result.get('matched_rows')}, "
+            f"flagged_rows={result.get('flagged_rows')}, "
+            f"note={result.get('note', '')}"
         )
 
-    log_lines.append(f"enriched_files={enriched_files}")
-    log_lines.append("status=OK")
-
-    write_log(output_dir, log_lines)
-
-    print("SUPPLY_BURDEN_STATUS=OK")
-    print(f"SUPPLY_BURDEN_COUNT={supply_burden_count}")
+    log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
+    print(json.dumps(payload, ensure_ascii=False, indent=2), flush=True)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

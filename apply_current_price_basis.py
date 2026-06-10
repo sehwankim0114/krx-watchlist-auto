@@ -10,7 +10,7 @@ apply_current_price_basis.py
 - 공식 KRX 산출 파일은 절대 덮어쓰지 않는다.
 - 보조 현재가를 이용해 별도 current_basis 파일만 만든다.
 - 사용자에게 보여줄 표는 열을 늘리지 않는다.
-- 현재가 기준 칸, 즉 close 값 오른쪽에 아이콘만 붙인다.
+- 현재가 기준 칸, 즉 close/current_close 값 오른쪽에 아이콘만 붙인다.
 
 예:
   101,200 -> 101,900 🟦
@@ -44,7 +44,7 @@ except Exception:
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "apply_current_price_basis.py v1.0_compact_icon_in_price_cell"
+SCRIPT_VERSION = "apply_current_price_basis.py v1.1_current_close_support"
 
 DEFAULT_SOURCE_FILES = [
     "kospi_candidates_30_latest.csv",
@@ -138,14 +138,35 @@ def format_price(value: Optional[float]) -> str:
 
 
 def find_code_col(df: pd.DataFrame) -> Optional[str]:
-    for col in ["ticker", "code", "종목코드", "단축코드", "isuCd", "isu_cd", "symbol"]:
+    for col in [
+        "ticker",
+        "code",
+        "종목코드",
+        "단축코드",
+        "isuCd",
+        "isu_cd",
+        "symbol",
+    ]:
         if col in df.columns:
             return col
     return None
 
 
 def find_price_col(df: pd.DataFrame) -> Optional[str]:
-    for col in ["close", "current_price", "price", "현재가", "현재가 기준"]:
+    """
+    현재가 열 탐색.
+
+    코피표/코닥표/급등표 계열은 close를 쓰고,
+    관종표 watchlist_summary_latest.csv는 current_close를 쓴다.
+    """
+    for col in [
+        "close",
+        "current_close",
+        "current_price",
+        "price",
+        "현재가",
+        "현재가 기준",
+    ]:
         if col in df.columns:
             return col
     return None
@@ -155,12 +176,24 @@ def find_low_high_cols(df: pd.DataFrame) -> Tuple[Optional[str], Optional[str]]:
     low_col = None
     high_col = None
 
-    for col in ["low_3m", "recent_3m_low", "저점_3m", "최근3개월저점"]:
+    for col in [
+        "low_3m",
+        "recent_3m_low",
+        "range_low_3m",
+        "저점_3m",
+        "최근3개월저점",
+    ]:
         if col in df.columns:
             low_col = col
             break
 
-    for col in ["high_3m", "recent_3m_high", "고점_3m", "최근3개월고점"]:
+    for col in [
+        "high_3m",
+        "recent_3m_high",
+        "range_high_3m",
+        "고점_3m",
+        "최근3개월고점",
+    ]:
         if col in df.columns:
             high_col = col
             break
@@ -169,14 +202,26 @@ def find_low_high_cols(df: pd.DataFrame) -> Tuple[Optional[str], Optional[str]]:
 
 
 def find_position_col(df: pd.DataFrame) -> Optional[str]:
-    for col in ["position_in_3m_range_pct", "현재 위치", "position_pct"]:
+    for col in [
+        "position_in_3m_range_pct",
+        "current_position",
+        "현재 위치",
+        "position_pct",
+    ]:
         if col in df.columns:
             return col
     return None
 
 
 def find_reason_col(df: pd.DataFrame) -> Optional[str]:
-    for col in ["reason", "추천·주의사유", "주의사유", "추천사유"]:
+    for col in [
+        "reason",
+        "note",
+        "comment",
+        "추천·주의사유",
+        "주의사유",
+        "추천사유",
+    ]:
         if col in df.columns:
             return col
     return None
@@ -194,7 +239,7 @@ def load_aux_prices(output_dir: Path) -> Dict[str, Dict[str, object]]:
         return {}
 
     price_col = None
-    for col in ["aux_current_price", "current_price", "close"]:
+    for col in ["aux_current_price", "current_price", "close", "current_close"]:
         if col in aux.columns:
             price_col = col
             break
@@ -246,7 +291,11 @@ def marker_for_gap(gap_pct: Optional[float], aux_ok: bool) -> str:
     return "🔴"
 
 
-def calc_position_pct(price: Optional[float], low: Optional[float], high: Optional[float]) -> Optional[float]:
+def calc_position_pct(
+    price: Optional[float],
+    low: Optional[float],
+    high: Optional[float],
+) -> Optional[float]:
     if price is None or low is None or high is None:
         return None
 
@@ -318,7 +367,11 @@ def output_filename(source_filename: str) -> str:
     return source_filename + "_current_basis_latest.csv"
 
 
-def apply_to_file(output_dir: Path, source_filename: str, aux_map: Dict[str, Dict[str, object]]) -> Dict[str, object]:
+def apply_to_file(
+    output_dir: Path,
+    source_filename: str,
+    aux_map: Dict[str, Dict[str, object]],
+) -> Dict[str, object]:
     source_path = output_dir / source_filename
     df = read_csv_safe(source_path)
 
@@ -333,6 +386,7 @@ def apply_to_file(output_dir: Path, source_filename: str, aux_map: Dict[str, Dic
         "marked_red": 0,
         "marked_fail": 0,
         "changed_price_cells": 0,
+        "price_column": "",
     }
 
     if df.empty:
@@ -349,6 +403,8 @@ def apply_to_file(output_dir: Path, source_filename: str, aux_map: Dict[str, Dic
     if price_col is None:
         result["status"] = "NO_PRICE_COLUMN"
         return result
+
+    result["price_column"] = price_col
 
     low_col, high_col = find_low_high_cols(df)
     position_col = find_position_col(df)
@@ -534,7 +590,8 @@ def main() -> int:
             f"orange={r.get('marked_orange')}, "
             f"red={r.get('marked_red')}, "
             f"fail={r.get('marked_fail')}, "
-            f"changed_price_cells={r.get('changed_price_cells')}"
+            f"changed_price_cells={r.get('changed_price_cells')}, "
+            f"price_column={r.get('price_column')}"
         )
 
     txt_path.write_text("\n".join(lines) + "\n", encoding="utf-8")

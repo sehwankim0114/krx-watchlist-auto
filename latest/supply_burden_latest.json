@@ -1,0 +1,151 @@
+{
+  "script": "supply_burden_enricher.py v1.1_log_safe_title_scan",
+  "run_at_kst": "2026-06-11T04:11:55+09:00",
+  "status": "WARN_DART_PARTIAL_ERROR",
+  "output_dir": "latest",
+  "lookback_days": 180,
+  "target_tickers": 2719,
+  "hit_reports": 0,
+  "flagged_tickers": 0,
+  "danger_tickers": 0,
+  "warning_tickers": 0,
+  "caution_tickers": 0,
+  "dart_status": {
+    "bgn_de": "20251213",
+    "end_de": "20260611",
+    "corp_cls": {
+      "Y": {
+        "pages_requested": 1,
+        "total_page": null,
+        "raw_reports": 0,
+        "target_reports": 0,
+        "matched_reports": 0
+      },
+      "K": {
+        "pages_requested": 1,
+        "total_page": null,
+        "raw_reports": 0,
+        "target_reports": 0,
+        "matched_reports": 0
+      }
+    },
+    "api_calls": 2,
+    "api_errors": [
+      "corp_cls=Y, page=1, dart_status=100, message=corp_code가 없는 경우 검색기간은 3개월만 가능합니다.",
+      "corp_cls=K, page=1, dart_status=100, message=corp_code가 없는 경우 검색기간은 3개월만 가능합니다."
+    ]
+  },
+  "enrich_results": [
+    {
+      "file": "watchlist_summary_latest.csv",
+      "status": "OK",
+      "rows": 47,
+      "matched_rows": 44,
+      "flagged_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kospi_candidates_30_latest.csv",
+      "status": "OK",
+      "rows": 30,
+      "matched_rows": 30,
+      "flagged_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kospi_recommend_7_latest.csv",
+      "status": "OK",
+      "rows": 7,
+      "matched_rows": 7,
+      "flagged_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kosdaq_candidates_10_latest.csv",
+      "status": "OK",
+      "rows": 10,
+      "matched_rows": 10,
+      "flagged_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kosdaq_recommend_5_latest.csv",
+      "status": "OK",
+      "rows": 5,
+      "matched_rows": 5,
+      "flagged_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kospi_gainers_1m_latest.csv",
+      "status": "OK",
+      "rows": 20,
+      "matched_rows": 20,
+      "flagged_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kospi_short_term_candidates_30_latest.csv",
+      "status": "OK",
+      "rows": 30,
+      "matched_rows": 30,
+      "flagged_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kospi_short_term_recommend_7_latest.csv",
+      "status": "OK",
+      "rows": 7,
+      "matched_rows": 7,
+      "flagged_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kospi_fx_weakness_candidates_30_latest.csv",
+      "status": "OK",
+      "rows": 30,
+      "matched_rows": 30,
+      "flagged_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kospi_fx_weakness_recommend_7_latest.csv",
+      "status": "OK",
+      "rows": 7,
+      "matched_rows": 7,
+      "flagged_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kospi_monthly_cycle_latest.csv",
+      "status": "OK",
+      "rows": 40,
+      "matched_rows": 40,
+      "flagged_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kospi_universe_summary_latest.csv",
+      "status": "OK",
+      "rows": 926,
+      "matched_rows": 926,
+      "flagged_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kosdaq_universe_summary_latest.csv",
+      "status": "OK",
+      "rows": 1793,
+      "matched_rows": 1793,
+      "flagged_rows": 0,
+      "note": ""
+    }
+  ],
+  "outputs": {
+    "summary_csv": "latest/supply_burden_summary_latest.csv",
+    "hits_csv": "latest/supply_burden_hits_latest.csv",
+    "json": "latest/supply_burden_latest.json",
+    "log": "latest/supply_burden_run_log_latest.txt"
+  },
+  "note": "공시 제목 기반 1차 수급부담 탐지. 본문 수량/발행가/행사비율 정밀판독 아님."
+}

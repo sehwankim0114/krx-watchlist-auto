@@ -3,7 +3,7 @@
 
 """
 supply_burden_enricher.py
-v1.1_log_safe_title_scan
+v1.2_dart_whole_market_90d_cap
 
 목적
 - OpenDART 공시검색 API의 최근 공시 제목을 기준으로 CB/BW/EB, 유상증자,
@@ -13,7 +13,7 @@ v1.1_log_safe_title_scan
   latest/supply_burden_latest.json 파일을 항상 생성한다.
 
 주의
-- v1.1은 공시 제목 기반 1차 탐지다.
+- v1.2는 공시 제목 기반 1차 탐지이며, corp_code 없는 전체시장 검색은 DART 제한에 맞춰 90일 이하로 자동 제한한다.
 - 공시 본문 세부 수량, 발행가, 행사비율, 보호예수 해제 물량까지 정밀 판독하는 단계는 아니다.
 - supply_burden_flag=TRUE는 "수급부담 가능성/주의 신호"로 해석한다.
 """
@@ -39,7 +39,7 @@ try:
 except Exception:
     ZoneInfo = None
 
-SCRIPT_NAME = "supply_burden_enricher.py v1.1_log_safe_title_scan"
+SCRIPT_NAME = "supply_burden_enricher.py v1.2_dart_whole_market_90d_cap"
 
 TARGET_FILES = [
     "watchlist_summary_latest.csv",
@@ -56,6 +56,10 @@ TARGET_FILES = [
     "kospi_universe_summary_latest.csv",
     "kosdaq_universe_summary_latest.csv",
 ]
+
+# OpenDART 공시검색 API는 corp_code 없이 전체시장 검색 시 검색기간을 3개월 이내로 제한한다.
+# 이 스크립트는 corp_code 없는 코스피/코스닥 전체검색 방식이므로 기본 90일로 자동 제한한다.
+DART_WHOLE_MARKET_MAX_LOOKBACK_DAYS = 90
 
 CODE_COLUMNS = [
     "ticker",
@@ -133,6 +137,29 @@ def now_kst() -> datetime:
     if ZoneInfo is None:
         return datetime.utcnow() + timedelta(hours=9)
     return datetime.now(ZoneInfo("Asia/Seoul"))
+
+
+def effective_whole_market_lookback_days(requested_days: int, max_days: int = DART_WHOLE_MARKET_MAX_LOOKBACK_DAYS) -> int:
+    """
+    OpenDART 공시검색 API는 corp_code 없이 전체시장 검색할 때 검색기간을 3개월 이내로 제한한다.
+    사용자가 180일처럼 긴 기간을 넣어도 전체검색에서는 자동으로 90일 이하로 줄인다.
+    """
+    try:
+        requested = int(requested_days)
+    except Exception:
+        requested = max_days
+
+    try:
+        max_allowed = int(max_days)
+    except Exception:
+        max_allowed = DART_WHOLE_MARKET_MAX_LOOKBACK_DAYS
+
+    if requested < 1:
+        requested = 1
+    if max_allowed < 1:
+        max_allowed = DART_WHOLE_MARKET_MAX_LOOKBACK_DAYS
+
+    return min(requested, max_allowed)
 
 
 def ensure_dir(path: Path) -> None:
@@ -256,6 +283,7 @@ def fetch_dart_reports(
     status = {
         "bgn_de": bgn_de,
         "end_de": end_de,
+        "lookback_days": lookback_days,
         "corp_cls": {},
         "api_calls": 0,
         "api_errors": [],
@@ -456,6 +484,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-dir", default="latest")
     parser.add_argument("--lookback-days", type=int, default=180)
+    parser.add_argument(
+        "--dart-whole-market-max-days",
+        type=int,
+        default=DART_WHOLE_MARKET_MAX_LOOKBACK_DAYS,
+        help="corp_code 없는 DART 전체시장 검색의 최대 조회일수. 기본 90일.",
+    )
     parser.add_argument("--sleep-seconds", type=float, default=0.12)
     parser.add_argument("--max-pages", type=int, default=500)
     parser.add_argument("--target-files", nargs="*", default=TARGET_FILES)
@@ -468,11 +502,21 @@ def main() -> int:
     ensure_dir(output_dir)
 
     checked_at = now_kst().isoformat(timespec="seconds")
+    original_lookback_days = int(args.lookback_days)
+    effective_lookback_days = effective_whole_market_lookback_days(
+        original_lookback_days,
+        args.dart_whole_market_max_days,
+    )
+    lookback_capped = effective_lookback_days != original_lookback_days
+
     log_lines: List[str] = [
         f"script={SCRIPT_NAME}",
         f"run_at_kst={checked_at}",
         f"output_dir={output_dir}",
-        f"lookback_days={args.lookback_days}",
+        f"original_lookback_days={original_lookback_days}",
+        f"effective_lookback_days={effective_lookback_days}",
+        f"dart_whole_market_max_days={args.dart_whole_market_max_days}",
+        f"lookback_capped={lookback_capped}",
         f"max_pages={args.max_pages}",
         f"sleep_seconds={args.sleep_seconds}",
     ]
@@ -490,6 +534,10 @@ def main() -> int:
     dart_status: Dict[str, Any] = {}
     limited_reason = ""
 
+    if lookback_capped:
+        limited_reason = f"DART_WHOLE_MARKET_LOOKBACK_CAPPED_{effective_lookback_days}D_FROM_{original_lookback_days}D"
+        log_lines.append(f"LOOKBACK_CAP_APPLIED original={original_lookback_days}, effective={effective_lookback_days}")
+
     if not api_key:
         status = "WARN_NO_DART_API_KEY"
         limited_reason = "NO_DART_API_KEY"
@@ -502,7 +550,7 @@ def main() -> int:
         hits, dart_status = fetch_dart_reports(
             api_key=api_key,
             target_codes=set(target_codes),
-            lookback_days=args.lookback_days,
+            lookback_days=effective_lookback_days,
             max_pages=args.max_pages,
             sleep_seconds=args.sleep_seconds,
         )
@@ -552,7 +600,10 @@ def main() -> int:
         "run_at_kst": checked_at,
         "status": status,
         "output_dir": str(output_dir),
-        "lookback_days": args.lookback_days,
+        "original_lookback_days": original_lookback_days,
+        "effective_lookback_days": effective_lookback_days,
+        "dart_whole_market_max_days": args.dart_whole_market_max_days,
+        "lookback_capped": lookback_capped,
         "target_tickers": len(target_codes),
         "hit_reports": len(hits),
         "flagged_tickers": flagged_count,

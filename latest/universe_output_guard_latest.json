@@ -1,10 +1,11 @@
 {
-  "script": "universe_output_guard.py v1.0_universe_output_guard",
-  "run_at_kst": "2026-06-10T16:19:42+09:00",
-  "status": "ERROR_BACKUP_INVALID",
-  "action": "BACKUP_INVALID_KEEP_CURRENT",
+  "script": "universe_output_guard.py v1.1_row_count_first_log_warn",
+  "run_at_kst": "2026-06-10T16:42:40+09:00",
+  "status": "OK_WITH_LOG_WARN",
+  "action": "ACCEPT_CURRENT",
   "current": {
-    "is_valid": false,
+    "rows_valid": true,
+    "is_valid": true,
     "row_counts": {
       "kospi_universe_summary_latest.csv": 926,
       "kosdaq_universe_summary_latest.csv": 1793,
@@ -14,25 +15,14 @@
       "kosdaq_candidates_10_latest.csv": 10,
       "kosdaq_recommend_5_latest.csv": 5
     },
-    "failures": [],
-    "bad_pattern_hits": [
+    "row_failures": [],
+    "log_warn_hits": [
       "universe_run_log_latest.txt:empty after normalize",
       "universe_run_log_latest.txt:EMPTY"
-    ]
-  },
-  "backup_status": {
-    "is_valid": false,
-    "failures": [
-      "backup KOSPI invalid: 205",
-      "backup KOSDAQ invalid: 1033",
-      "backup gainers invalid: 6"
     ],
-    "row_counts": {
-      "kospi_universe_summary_latest.csv": 205,
-      "kosdaq_universe_summary_latest.csv": 1033,
-      "kospi_gainers_1m_latest.csv": 6
-    }
+    "log_warn_hit_count": 2
   },
+  "backup_status": {},
   "restore_result": {
     "restored": [],
     "missing": []

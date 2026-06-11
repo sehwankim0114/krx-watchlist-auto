@@ -1,5 +1,5 @@
 script=dart_fx_exposure_kospi.py v1.0_dart_fx_exposure_precision
-run_at_kst=2026-06-11T19:07:09+0900
+run_at_kst=2026-06-12T04:15:27+0900
 output_dir=latest
 universe=latest/kospi_universe_summary_latest.csv
 lookback_days=900
@@ -9,6 +9,6 @@ raw_rows=926
 precision_rows=926
 candidate_rows=30
 recommend_rows=7
-status_counts={"OK": 833, "NO_CORP_CODE": 88, "DART_LIST_013_조회된 데이타가 없습니다.": 5}
-confidence_counts={"B": 527, "A": 232, "D": 115, "C": 52}
+status_counts={"DART_LIST_013_등록된 종목코드 또는 고유번호가 아닙니다.": 722, "DART_LIST_100_corp_code가 필드의 부적절한 값입니다.": 114, "NO_CORP_CODE": 88, "OK": 1, "DART_LIST_013_조회된 데이타가 없습니다.": 1}
+confidence_counts={"D": 925, "B": 1}
 outputs=kospi_fx_exposure_raw_latest.csv,kospi_fx_exposure_precision_latest.csv,kospi_fx_weakness_candidates_30_latest.csv,kospi_fx_weakness_recommend_7_latest.csv

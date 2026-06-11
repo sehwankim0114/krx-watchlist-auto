@@ -1,8 +1,6 @@
 script=collect_universe.py v4.6.1_kosdaq_candidates_gainer_filter_actual_date_log
-started_at=2026-06-11T18:36:56
-collection_period=2025-10-02~2026-06-11
-OPENAPI KOSPI 20251002: rows=935
-OPENAPI KOSDAQ 20251002: rows=1794
+started_at=2026-06-12T03:30:38
+collection_period=2025-10-03~2026-06-12
 OPENAPI_EMPTY KOSPI_stock 20251003: keys=['OutBlock_1']
 OPENAPI KOSPI 20251003: empty after normalize
 OPENAPI_EMPTY KOSDAQ_stock 20251003: keys=['OutBlock_1']
@@ -397,7 +395,11 @@ OPENAPI_EMPTY KOSPI_stock 20260611: keys=['OutBlock_1']
 OPENAPI KOSPI 20260611: empty after normalize
 OPENAPI_EMPTY KOSDAQ_stock 20260611: keys=['OutBlock_1']
 OPENAPI KOSDAQ 20260611: empty after normalize
-HISTORY_COMBINE: fresh=445501, existing=173649, combined=385536
+OPENAPI_EMPTY KOSPI_stock 20260612: keys=['OutBlock_1']
+OPENAPI KOSPI 20260612: empty after normalize
+OPENAPI_EMPTY KOSDAQ_stock 20260612: keys=['OutBlock_1']
+OPENAPI KOSDAQ 20260612: empty after normalize
+HISTORY_COMBINE: fresh=442772, existing=174867, combined=385536
 raw_history=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/universe_raw_history_latest.csv, rows=385536
 SUMMARY KOSPI: input rows=131679
 SUMMARY KOSPI: 3m rows=58227, tickers=926
@@ -421,21 +423,21 @@ KOSDAQ_CANDIDATES: candidates=10, recommend=5
 kosdaq_candidates_10=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kosdaq_candidates_10_latest.csv, rows=10
 kosdaq_recommend_5=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kosdaq_recommend_5_latest.csv, rows=5
 market_index_summary=kept_existing:/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/market_index_summary_latest.csv
-finished_at=2026-06-11T18:55:10
+finished_at=2026-06-12T03:42:27
 
 ----- KRX_OFFICIAL_FRESHNESS_STATUS -----
 stage=after_collect
 script=run_universe_latest.py v1.2_official_fresh_gate
-run_at_kst=2026-06-11T18:55:10+09:00
-expected_official_trading_date=2026-06-10
-status=FRESH
-fresh=True
-display_label=최신 공식판
-warning=
+run_at_kst=2026-06-12T03:42:27+09:00
+expected_official_trading_date=2026-06-11
+status=STALE_KRX_EMPTY_OR_DELAY
+fresh=False
+display_label=KRX 공식자료 미확정/이전 기준일 사용
+warning=KRX 공식자료 미확정/이전 기준일 사용
 kospi_actual_date=2026-06-10
 kosdaq_actual_date=2026-06-10
 basis_date_for_display=2026-06-10
 same_market_date=True
-holiday_or_market_closure_possible=False
-reason=KOSPI/KOSDAQ official summaries are updated to the expected official trading date.
+holiday_or_market_closure_possible=True
+reason=Official KRX summary date is behind the expected previous trading day. This can happen because of KRX delay, empty response, public holiday, or market closure. Use actual summary last_date as the displayed basis date.
 -----------------------------------------

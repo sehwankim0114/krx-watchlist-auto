@@ -2,17 +2,29 @@ name: collect-krx-watchlist
 
 on:
   workflow_dispatch:
+    inputs:
+      run_mode:
+        description: "실행 모드: auto / official / aux"
+        required: false
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - official
+          - aux
+
   schedule:
-    # 한국시간 16:10 = UTC 07:10
-    - cron: "10 7 * * 1-5"
-    # 한국시간 21:10 = UTC 12:10
-    - cron: "10 12 * * 1-5"
-    # 한국시간 23:40 = UTC 14:40
-    # KRX 당일 전종목 데이터가 늦게 열리는 날을 보정
-    - cron: "40 14 * * 1-5"
-    # 한국시간 다음날 08:20 = UTC 23:20
-    # 전날 장마감 데이터가 밤늦게/익일 오전 확정되는 경우 보정
-    - cron: "20 23 * * 1-5"
+    # KST 08:10 = UTC 전날 23:10
+    - cron: "10 23 * * 0-4"
+
+    # KST 08:35 = UTC 전날 23:35
+    - cron: "35 23 * * 0-4"
+
+    # KST 15:35 = UTC 06:35
+    - cron: "35 6 * * 1-5"
+
+    # KST 18:10 = UTC 09:10
+    - cron: "10 9 * * 1-5"
 
 permissions:
   contents: write
@@ -32,6 +44,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Determine run mode
+        id: mode
+        run: |
+          python - <<'PY' >> "$GITHUB_ENV"
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+
+          manual_mode = "${{ github.event.inputs.run_mode }}"
+
+          if manual_mode and manual_mode != "auto":
+              mode = manual_mode
+          else:
+              now = datetime.now(ZoneInfo("Asia/Seoul"))
+              hhmm = now.hour * 100 + now.minute
+
+              if 750 <= hhmm <= 930:
+                  mode = "official"
+              elif 1500 <= hhmm <= 1830:
+                  mode = "aux"
+              else:
+                  mode = "official"
+
+          print(f"RUN_MODE={mode}")
+          PY
+
+          echo "RUN_MODE=$RUN_MODE"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -42,7 +81,29 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Auxiliary current price update
+        if: env.RUN_MODE == 'aux'
+        run: |
+          python -m py_compile supplement_current_prices.py
+          python supplement_current_prices.py --output-dir latest --sleep-seconds 0.08
+
+          python -m py_compile apply_current_price_basis.py
+          python apply_current_price_basis.py --output-dir latest
+
+          python -m py_compile render_data_freshness_notice.py
+          python render_data_freshness_notice.py --output-dir latest --mode aux
+
+          echo "----- 보조 현재가 참고판 생성 결과 -----"
+          cat latest/supplement_current_prices_run_log_latest.txt || true
+
+          echo "----- 현재가 기준 보정 결과 -----"
+          cat latest/current_price_basis_run_log_latest.txt || true
+
+          echo "----- 데이터 최신성 색상 안내 -----"
+          cat latest/data_freshness_notice_latest.txt || true
+
       - name: Collect watchlist data
+        if: env.RUN_MODE == 'official'
         env:
           KRX_AUTH_KEY: ${{ secrets.KRX_AUTH_KEY }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
@@ -50,6 +111,7 @@ jobs:
           python collect_watchlist.py --source auto --lookback-months 3 --output-dir latest
 
       - name: Collect KOFIA three API data
+        if: env.RUN_MODE == 'official'
         env:
           DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
           KOFIA_CMA_API_URL: ${{ secrets.KOFIA_CMA_API_URL }}
@@ -58,23 +120,61 @@ jobs:
         run: |
           python -m py_compile kofia_market_status.py
           python kofia_market_status.py --output-dir latest
+
           echo "----- KOFIA API 실행 결과 -----"
           cat latest/kofia_market_funds_run_log_latest.txt || true
 
-      - name: Collect universe with latest-data retry and update market risk
+      - name: Collect official KRX universe and update all official tables
+        if: env.RUN_MODE == 'official'
         env:
           PYTHONWARNINGS: ignore::FutureWarning
           KRX_AUTH_KEY: ${{ secrets.KRX_AUTH_KEY }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
         run: |
-          python -m py_compile run_universe_latest.py
-          python run_universe_latest.py --days 180 --keep-months 7 --output-dir latest --attempts 4 --sleep-minutes 4
+          mkdir -p /tmp/latest_universe_backup
 
-          echo "----- KRX 최신자료 재시도 상태 -----"
-          cat latest/krx_latest_retry_status_latest.txt || true
+          cp -f latest/universe_raw_history_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kospi_universe_summary_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kosdaq_universe_summary_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kospi_candidates_30_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kospi_recommend_7_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kosdaq_candidates_10_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kosdaq_recommend_5_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kospi_gainers_1m_latest.csv /tmp/latest_universe_backup/ || true
+
+          python -m py_compile run_universe_latest.py
+          python run_universe_latest.py --days 180 --keep-months 7 --output-dir latest
+
+          python -m py_compile universe_output_guard.py
+          python universe_output_guard.py \
+            --output-dir latest \
+            --backup-dir /tmp/latest_universe_backup \
+            --kospi-min-rows 800 \
+            --kosdaq-min-rows 1500 \
+            --gainers-min-rows 15 \
+            --restore-on-fail
+
+          echo "----- KRX 공식자료 확정판 상태 -----"
+          cat latest/krx_official_retry_status_latest.txt || true
+
+          echo "----- KRX universe 산출물 보호 결과 -----"
+          cat latest/universe_output_guard_latest.txt || true
+
+          python -m py_compile operating_loss_enricher.py
+          python operating_loss_enricher.py --output-dir latest --workers 4 --max-api-calls 5000
+
+          python -m py_compile short_term_kospi.py
+          python short_term_kospi.py --output-dir latest --top-n 30 --recommend-n 7
+
+          python -m py_compile currency_weakness_kospi.py
+          python currency_weakness_kospi.py --output-dir latest --top-n 30 --recommend-n 7
 
           python monthly_cycle.py --output-dir latest --lookback-months 6 --top-n 40
+
+          python -m py_compile supply_burden_enricher.py
+          python supply_burden_enricher.py --output-dir latest --lookback-days 180 --sleep-seconds 0.12
+
           python market_status.py --output-dir latest --lookback-months 7
           python official_index_status.py --output-dir latest --lookback-months 7
 
@@ -91,6 +191,58 @@ jobs:
           python -m py_compile official_index_validation.py
           python official_index_validation.py --output-dir latest
 
+          python -m py_compile table_health_check.py
+          python table_health_check.py --output-dir latest --freshness-warn-days 4 --freshness-error-days 10
+
+          python -m py_compile supplement_current_prices.py
+          python supplement_current_prices.py --output-dir latest --sleep-seconds 0.08
+
+          python -m py_compile apply_current_price_basis.py
+          python apply_current_price_basis.py --output-dir latest
+
+          python -m py_compile render_data_freshness_notice.py
+          python render_data_freshness_notice.py --output-dir latest --mode official
+
+          python -m py_compile dart_fx_exposure_kospi.py
+
+          FX_UNIVERSE="latest/kospi_universe_summary_current_basis_latest.csv"
+          if [ ! -f "$FX_UNIVERSE" ]; then
+            FX_UNIVERSE="latest/kospi_universe_summary_latest.csv"
+          fi
+
+          python dart_fx_exposure_kospi.py \
+            --output-dir latest \
+            --universe "$FX_UNIVERSE" \
+            --lookback-days 900 \
+            --sleep 0.12
+
+          echo "----- 영업손실 자동판별 결과 -----"
+          cat latest/operating_loss_run_log_latest.txt || true
+
+          echo "----- 수급부담 자동감지 결과 -----"
+          cat latest/supply_burden_run_log_latest.txt || true
+
+          echo "----- 단상표 자동산출 결과 -----"
+          cat latest/kospi_short_term_run_log_latest.txt || true
+
+          echo "----- 환율약세표 자동산출 결과 -----"
+          cat latest/kospi_fx_weakness_run_log_latest.txt || true
+
+          echo "----- DART 환율노출 정밀분석 결과 -----"
+          cat latest/kospi_fx_exposure_run_log_latest.txt || true
+
+          echo "----- 보조 현재가 참고판 생성 결과 -----"
+          cat latest/supplement_current_prices_run_log_latest.txt || true
+
+          echo "----- 현재가 기준 보정 결과 -----"
+          cat latest/current_price_basis_run_log_latest.txt || true
+
+          echo "----- 데이터 최신성 색상 안내 -----"
+          cat latest/data_freshness_notice_latest.txt || true
+
+          echo "----- 표 전체 통합점검 결과 -----"
+          cat latest/table_health_run_log_latest.txt || true
+
           echo "----- KOFIA 연결 결과 -----"
           cat latest/kofia_macro_bridge_run_log_latest.txt || true
 
@@ -100,24 +252,10 @@ jobs:
           echo "----- 공식지수 교차검증 결과 -----"
           cat latest/official_index_validation_run_log_latest.txt || true
 
-      - name: Build precise DART FX exposure table
-        env:
-          DART_API_KEY: ${{ secrets.DART_API_KEY }}
-        run: |
-          python -m py_compile dart_fx_exposure_kospi.py
-          python dart_fx_exposure_kospi.py \
-            --output-dir latest \
-            --universe latest/kospi_universe_summary_latest.csv \
-            --lookback-days 900 \
-            --sleep 0.12
-
-          echo "----- DART 환율노출 정밀분석 결과 -----"
-          cat latest/kospi_fx_exposure_run_log_latest.txt || true
-
       - name: Commit latest data
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add latest/*.csv latest/*.txt latest/*.xlsx latest/*.json || true
+          git add latest/*.csv latest/*.txt latest/*.xlsx latest/*.json latest/*.md || true
           git commit -m "Update latest KRX watchlist data" || echo "No changes to commit"
           git push

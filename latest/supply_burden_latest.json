@@ -1,14 +1,14 @@
 {
   "script": "supply_burden_enricher.py v1.2_dart_whole_market_90d_cap",
-  "run_at_kst": "2026-06-11T04:41:41+09:00",
-  "status": "OK",
+  "run_at_kst": "2026-06-11T18:55:51+09:00",
+  "status": "WARN_DART_PARTIAL_ERROR",
   "output_dir": "latest",
   "original_lookback_days": 180,
   "effective_lookback_days": 90,
   "dart_whole_market_max_days": 90,
   "lookback_capped": true,
   "target_tickers": 2719,
-  "hit_reports": 11699,
+  "hit_reports": 3077,
   "flagged_tickers": 0,
   "danger_tickers": 0,
   "warning_tickers": 0,
@@ -19,22 +19,25 @@
     "lookback_days": 90,
     "corp_cls": {
       "Y": {
-        "pages_requested": 195,
-        "total_page": 195,
-        "raw_reports": 19409,
-        "target_reports": 19409,
-        "matched_reports": 4509
+        "pages_requested": 97,
+        "total_page": 196,
+        "raw_reports": 9700,
+        "target_reports": 9700,
+        "matched_reports": 2185
       },
       "K": {
-        "pages_requested": 250,
-        "total_page": 250,
-        "raw_reports": 24953,
-        "target_reports": 24744,
-        "matched_reports": 7190
+        "pages_requested": 17,
+        "total_page": 252,
+        "raw_reports": 1700,
+        "target_reports": 1691,
+        "matched_reports": 892
       }
     },
-    "api_calls": 445,
-    "api_errors": []
+    "api_calls": 114,
+    "api_errors": [
+      "corp_cls=Y, page=98, error=TimeoutError: The read operation timed out",
+      "corp_cls=K, page=18, error=TimeoutError: The read operation timed out"
+    ]
   },
   "enrich_results": [
     {

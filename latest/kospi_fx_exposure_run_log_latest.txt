@@ -1,0 +1,14 @@
+script=dart_fx_exposure_kospi.py v1.0_dart_fx_exposure_precision
+run_at_kst=2026-06-11T19:07:09+0900
+output_dir=latest
+universe=latest/kospi_universe_summary_latest.csv
+lookback_days=900
+status=OK
+universe_rows=926
+raw_rows=926
+precision_rows=926
+candidate_rows=30
+recommend_rows=7
+status_counts={"OK": 833, "NO_CORP_CODE": 88, "DART_LIST_013_조회된 데이타가 없습니다.": 5}
+confidence_counts={"B": 527, "A": 232, "D": 115, "C": 52}
+outputs=kospi_fx_exposure_raw_latest.csv,kospi_fx_exposure_precision_latest.csv,kospi_fx_weakness_candidates_30_latest.csv,kospi_fx_weakness_recommend_7_latest.csv

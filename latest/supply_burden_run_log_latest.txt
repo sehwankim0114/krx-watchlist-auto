@@ -1,5 +1,5 @@
 script=supply_burden_enricher.py v1.2_dart_whole_market_90d_cap
-run_at_kst=2026-06-12T03:43:09+09:00
+run_at_kst=2026-06-12T16:50:41+09:00
 output_dir=latest
 original_lookback_days=180
 effective_lookback_days=90
@@ -23,11 +23,11 @@ TARGET_FILE kospi_monthly_cycle_latest.csv: rows=40
 TARGET_FILE kospi_universe_summary_latest.csv: rows=926
 TARGET_FILE kosdaq_universe_summary_latest.csv: rows=1793
 LOOKBACK_CAP_APPLIED original=180, effective=90
-dart_api_calls=434
+dart_api_calls=438
 dart_api_error_count=0
 status=OK
 summary_rows=2719
-hit_reports=11652
+hit_reports=11806
 flagged_tickers=0
 danger_tickers=0
 warning_tickers=0

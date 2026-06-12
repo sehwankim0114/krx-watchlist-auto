@@ -1,12 +1,12 @@
 {
   "script": "run_universe_latest.py v1.2_official_fresh_gate",
-  "run_at_kst": "2026-06-12T16:50:01+09:00",
+  "run_at_kst": "2026-06-12T21:04:22+09:00",
   "expected_official_trading_date": "2026-06-11",
-  "status": "FRESH",
+  "status": "SKIPPED_ALREADY_FRESH",
   "fresh": true,
   "display_label": "최신 공식판",
   "warning": "",
-  "reason": "KOSPI/KOSDAQ official summaries are updated to the expected official trading date.",
+  "reason": "Official previous trading day data already exists. Collection skipped.",
   "kospi_actual_date": "2026-06-11",
   "kosdaq_actual_date": "2026-06-11",
   "actual_min_date": "2026-06-11",
@@ -15,6 +15,5 @@
   "basis_date_for_display": "2026-06-11",
   "kospi_summary_rows": 926,
   "kosdaq_summary_rows": 1793,
-  "holiday_or_market_closure_possible": false,
-  "collector_return_code": 0
+  "holiday_or_market_closure_possible": false
 }

@@ -1,7 +1,7 @@
 script=run_universe_latest.py v1.2_official_fresh_gate
-run_at_kst=2026-06-12T16:50:01+09:00
+run_at_kst=2026-06-12T21:04:22+09:00
 expected_official_trading_date=2026-06-11
-status=FRESH
+status=SKIPPED_ALREADY_FRESH
 fresh=True
 display_label=최신 공식판
 warning=
@@ -14,4 +14,4 @@ same_market_date=True
 holiday_or_market_closure_possible=False
 kospi_summary_rows=926
 kosdaq_summary_rows=1793
-reason=KOSPI/KOSDAQ official summaries are updated to the expected official trading date.
+reason=Official previous trading day data already exists. Collection skipped.

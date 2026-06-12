@@ -16,13 +16,10 @@ on:
   schedule:
     # KST 08:10 = UTC 전날 23:10
     - cron: "10 23 * * 0-4"
-
     # KST 08:35 = UTC 전날 23:35
     - cron: "35 23 * * 0-4"
-
     # KST 15:35 = UTC 06:35
     - cron: "35 6 * * 1-5"
-
     # KST 18:10 = UTC 09:10
     - cron: "10 9 * * 1-5"
 
@@ -44,32 +41,105 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Determine run mode
+      - name: Determine run mode with stale official fallback
         id: mode
         run: |
           python - <<'PY' >> "$GITHUB_ENV"
+          import json
           from datetime import datetime
+          from pathlib import Path
           from zoneinfo import ZoneInfo
 
-          manual_mode = "${{ github.event.inputs.run_mode }}"
+          manual_mode = "${{ github.event.inputs.run_mode }}".strip()
 
-          if manual_mode and manual_mode != "auto":
-              mode = manual_mode
+          # 사용자가 수동으로 official 또는 aux를 명시 선택한 경우는 그 의도를 우선합니다.
+          # 단, schedule 실행 또는 수동 auto 실행에서는 stale 여부를 검사해 aux → official 자동 전환을 허용합니다.
+          explicit_manual_mode = manual_mode in {"official", "aux"}
+
+          if explicit_manual_mode:
+              desired_mode = manual_mode
+              mode_source = "manual_explicit"
           else:
               now = datetime.now(ZoneInfo("Asia/Seoul"))
               hhmm = now.hour * 100 + now.minute
 
               if 750 <= hhmm <= 930:
-                  mode = "official"
+                  desired_mode = "official"
               elif 1500 <= hhmm <= 1830:
-                  mode = "aux"
+                  desired_mode = "aux"
               else:
-                  mode = "official"
+                  desired_mode = "official"
 
-          print(f"RUN_MODE={mode}")
+              if manual_mode == "auto":
+                  mode_source = "manual_auto"
+              else:
+                  mode_source = "schedule_or_default"
+
+          final_mode = desired_mode
+          stale_upgrade = "false"
+          stale_reason = "not_checked"
+
+          if desired_mode == "aux" and not explicit_manual_mode:
+              notice_path = Path("latest/data_freshness_notice_latest.json")
+
+              official_fresh = None
+              expected_date = None
+              kospi_actual_date = None
+              kosdaq_actual_date = None
+
+              if notice_path.exists():
+                  try:
+                      notice = json.loads(notice_path.read_text(encoding="utf-8"))
+                      official_fresh = notice.get("official_fresh")
+                      expected_date = notice.get("expected_official_trading_date")
+                      kospi_actual_date = notice.get("kospi_actual_date")
+                      kosdaq_actual_date = notice.get("kosdaq_actual_date")
+
+                      stale = False
+                      reasons = []
+
+                      if official_fresh is not True:
+                          stale = True
+                          reasons.append("official_fresh_not_true")
+
+                      if expected_date and kospi_actual_date and kospi_actual_date != expected_date:
+                          stale = True
+                          reasons.append(f"kospi_actual_{kospi_actual_date}_expected_{expected_date}")
+
+                      if expected_date and kosdaq_actual_date and kosdaq_actual_date != expected_date:
+                          stale = True
+                          reasons.append(f"kosdaq_actual_{kosdaq_actual_date}_expected_{expected_date}")
+
+                      if stale:
+                          final_mode = "official"
+                          stale_upgrade = "true"
+                          stale_reason = ",".join(reasons) if reasons else "stale_detected"
+                      else:
+                          stale_reason = "fresh_aux_allowed"
+
+                  except Exception as e:
+                      # freshness 파일 파싱 실패 시에는 정확도 우선으로 official 재수집
+                      final_mode = "official"
+                      stale_upgrade = "true"
+                      stale_reason = f"freshness_parse_error:{type(e).__name__}"
+              else:
+                  # freshness 파일이 없으면 최신성 판단이 불가능하므로 정확도 우선으로 official 재수집
+                  final_mode = "official"
+                  stale_upgrade = "true"
+                  stale_reason = "freshness_notice_missing"
+
+          print(f"RUN_MODE={final_mode}")
+          print(f"DESIRED_RUN_MODE={desired_mode}")
+          print(f"RUN_MODE_SOURCE={mode_source}")
+          print(f"STALE_UPGRADE={stale_upgrade}")
+          print(f"STALE_REASON={stale_reason}")
           PY
 
           echo "RUN_MODE=$RUN_MODE"
+          echo "DESIRED_RUN_MODE=$DESIRED_RUN_MODE"
+          echo "RUN_MODE_SOURCE=$RUN_MODE_SOURCE"
+          echo "STALE_UPGRADE=$STALE_UPGRADE"
+          echo "STALE_REASON=$STALE_REASON"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -176,13 +246,13 @@ jobs:
           python supply_burden_enricher.py --output-dir latest --lookback-days 180 --sleep-seconds 0.12
 
           python market_status.py --output-dir latest --lookback-months 7
+
           python official_index_status.py --output-dir latest --lookback-months 7
 
           python -m py_compile kofia_macro_bridge.py
           python kofia_macro_bridge.py --output-dir latest --lookback-days 370
 
           python macro_leverage_status.py --output-dir latest --lookback-days 370 > /tmp/macro_leverage_stdout.txt 2>&1
-
           if [ -f latest/macro_leverage_run_log_latest.txt ]; then
             grep -Ev "KOFIA_(CREDIT|MARKET_FUNDS|CMA)_API_URL_MISSING|HTTP_FAIL KOFIA_CUSTOM|HTTP_FINAL_FAIL KOFIA_CUSTOM|KOFIA_CUSTOM_FAIL" latest/macro_leverage_run_log_latest.txt > /tmp/macro_leverage_run_log_cleaned.txt || true
             mv /tmp/macro_leverage_run_log_cleaned.txt latest/macro_leverage_run_log_latest.txt
@@ -204,7 +274,6 @@ jobs:
           python render_data_freshness_notice.py --output-dir latest --mode official
 
           python -m py_compile dart_fx_exposure_kospi.py
-
           FX_UNIVERSE="latest/kospi_universe_summary_current_basis_latest.csv"
           if [ ! -f "$FX_UNIVERSE" ]; then
             FX_UNIVERSE="latest/kospi_universe_summary_latest.csv"
@@ -256,6 +325,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
+
           git add latest/*.csv latest/*.txt latest/*.xlsx latest/*.json latest/*.md || true
           git commit -m "Update latest KRX watchlist data" || echo "No changes to commit"
           git push

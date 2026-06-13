@@ -14,14 +14,21 @@ on:
           - aux
 
   schedule:
-    # KST 08:10 = UTC 전날 23:10
-    - cron: "10 23 * * 0-5"
-    # KST 08:35 = UTC 전날 23:35
+    # KST 월~금 08:10 = UTC 전날 23:10
+    # 공식 KRX 자료 1차 수집
+    - cron: "10 23 * * 0-4"
+
+    # KST 월~토 08:40 = UTC 전날 23:40
+    # 공식 KRX 자료 해당일자 미갱신 시 재시도, 아니면 보조 현재가 갱신
     - cron: "40 23 * * 0-5"
-    # KST 15:35 = UTC 06:35
-    - cron: "35 6 * * 1-5"
-    # KST 18:10 = UTC 09:10
-    - cron: "10 9 * * 1-5"
+
+    # KST 월~토 15:35 = UTC 당일 06:35
+    # 공식 KRX 자료 해당일자 미갱신 시 재시도, 아니면 보조 현재가 갱신
+    - cron: "35 6 * * 1-6"
+
+    # KST 월~일 18:10 = UTC 당일 09:10
+    # 공식 KRX 자료 해당일자 미갱신 시 재시도, 아니면 보조 현재가 갱신
+    - cron: "10 9 * * *"
 
 permissions:
   contents: write
@@ -63,9 +70,12 @@ jobs:
               now = datetime.now(ZoneInfo("Asia/Seoul"))
               hhmm = now.hour * 100 + now.minute
 
-              if 750 <= hhmm <= 930:
+              if 800 <= hhmm <= 825:
+                  # 08:10 공식 KRX 자료 1차 수집
                   desired_mode = "official"
-              elif 1500 <= hhmm <= 1830:
+              elif 830 <= hhmm <= 1900:
+                  # 08:40, 15:35, 18:10은 기본 aux.
+                  # 단, 공식자료가 stale이면 아래 stale_upgrade 로직에 의해 official로 자동 전환됩니다.
                   desired_mode = "aux"
               else:
                   desired_mode = "official"
@@ -81,7 +91,6 @@ jobs:
 
           if desired_mode == "aux" and not explicit_manual_mode:
               notice_path = Path("latest/data_freshness_notice_latest.json")
-
               official_fresh = None
               expected_date = None
               kospi_actual_date = None
@@ -253,6 +262,7 @@ jobs:
           python kofia_macro_bridge.py --output-dir latest --lookback-days 370
 
           python macro_leverage_status.py --output-dir latest --lookback-days 370 > /tmp/macro_leverage_stdout.txt 2>&1
+
           if [ -f latest/macro_leverage_run_log_latest.txt ]; then
             grep -Ev "KOFIA_(CREDIT|MARKET_FUNDS|CMA)_API_URL_MISSING|HTTP_FAIL KOFIA_CUSTOM|HTTP_FINAL_FAIL KOFIA_CUSTOM|KOFIA_CUSTOM_FAIL" latest/macro_leverage_run_log_latest.txt > /tmp/macro_leverage_run_log_cleaned.txt || true
             mv /tmp/macro_leverage_run_log_cleaned.txt latest/macro_leverage_run_log_latest.txt
@@ -274,6 +284,7 @@ jobs:
           python render_data_freshness_notice.py --output-dir latest --mode official
 
           python -m py_compile dart_fx_exposure_kospi.py
+
           FX_UNIVERSE="latest/kospi_universe_summary_current_basis_latest.csv"
           if [ ! -f "$FX_UNIVERSE" ]; then
             FX_UNIVERSE="latest/kospi_universe_summary_latest.csv"

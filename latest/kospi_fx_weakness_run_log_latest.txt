@@ -1,14 +1,16 @@
-script=dart_fx_exposure_kospi.py v1.0_dart_fx_exposure_precision
-run_at_kst=2026-06-13T10:13:41+0900
+script=currency_weakness_kospi.py v1.0_kospi_currency_weakness
+run_at=2026-06-13T18:33:02+09:00
 output_dir=latest
-universe=latest/kospi_universe_summary_latest.csv
-lookback_days=900
+method=sector_name_proxy_plus_price_liquidity_position
+note=환헤지비율/달러매출비중/외화부채 재무주석 직접 추출은 아님
+input_path=latest/kospi_universe_summary_latest.csv
+input_rows=926
+input_columns=name,ticker,market,status,last_date,current_close,split_buy_low_ref,split_buy_high_ref,target1_ref,target2_ref,stop_ref,avg_daily_move_abs,avg_daily_move_pct,avg_wave_days,low_3m_intraday,high_3m_intraday,low_3m_close,high_3m_close,range_3m_pct,position_in_3m_range_pct,return_1m_pct,return_3m_pct,last_volume,last_trading_value,avg20_trading_value,low_liquidity,market_cap,listed_shares,data_rows,source_used,operating_profit,operating_profit_unit,operating_loss_flag,operating_loss_basis,operating_loss_source_status,supply_burden_flag,supply_burden_level,supply_burden_keywords,supply_burden_latest_report_date,supply_burden_latest_report_name,supply_burden_report_count,supply_burden_checked_at_kst
+fx_weakness_actual_data_last_date=2026-06-12
+input_kospi_rows=926
+after_common_stock_filter_rows=812
+fx_weakness_candidates_rows=30
+fx_weakness_recommend_rows=7
+output_candidates=latest/kospi_fx_weakness_candidates_30_latest.csv, rows=30
+output_recommends=latest/kospi_fx_weakness_recommend_7_latest.csv, rows=7
 status=OK
-universe_rows=926
-raw_rows=926
-precision_rows=926
-candidate_rows=30
-recommend_rows=7
-status_counts={"DART_LIST_013_등록된 종목코드 또는 고유번호가 아닙니다.": 722, "DART_LIST_100_corp_code가 필드의 부적절한 값입니다.": 114, "NO_CORP_CODE": 88, "OK": 1, "DART_LIST_013_조회된 데이타가 없습니다.": 1}
-confidence_counts={"D": 925, "B": 1}
-outputs=kospi_fx_exposure_raw_latest.csv,kospi_fx_exposure_precision_latest.csv,kospi_fx_weakness_candidates_30_latest.csv,kospi_fx_weakness_recommend_7_latest.csv

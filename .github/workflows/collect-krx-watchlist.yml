@@ -59,8 +59,6 @@ jobs:
 
           manual_mode = "${{ github.event.inputs.run_mode }}".strip()
 
-          # 사용자가 수동으로 official 또는 aux를 명시 선택한 경우는 그 의도를 우선합니다.
-          # 단, schedule 실행 또는 수동 auto 실행에서는 stale 여부를 검사해 aux → official 자동 전환을 허용합니다.
           explicit_manual_mode = manual_mode in {"official", "aux"}
 
           if explicit_manual_mode:
@@ -71,11 +69,8 @@ jobs:
               hhmm = now.hour * 100 + now.minute
 
               if 800 <= hhmm <= 825:
-                  # 08:10 공식 KRX 자료 1차 수집
                   desired_mode = "official"
               elif 830 <= hhmm <= 1900:
-                  # 08:40, 15:35, 18:10은 기본 aux.
-                  # 단, 공식자료가 stale이면 아래 stale_upgrade 로직에 의해 official로 자동 전환됩니다.
                   desired_mode = "aux"
               else:
                   desired_mode = "official"
@@ -91,10 +86,6 @@ jobs:
 
           if desired_mode == "aux" and not explicit_manual_mode:
               notice_path = Path("latest/data_freshness_notice_latest.json")
-              official_fresh = None
-              expected_date = None
-              kospi_actual_date = None
-              kosdaq_actual_date = None
 
               if notice_path.exists():
                   try:
@@ -127,12 +118,10 @@ jobs:
                           stale_reason = "fresh_aux_allowed"
 
                   except Exception as e:
-                      # freshness 파일 파싱 실패 시에는 정확도 우선으로 official 재수집
                       final_mode = "official"
                       stale_upgrade = "true"
                       stale_reason = f"freshness_parse_error:{type(e).__name__}"
               else:
-                  # freshness 파일이 없으면 최신성 판단이 불가능하므로 정확도 우선으로 official 재수집
                   final_mode = "official"
                   stale_upgrade = "true"
                   stale_reason = "freshness_notice_missing"
@@ -289,19 +278,6 @@ jobs:
           echo "----- DART 기업코드 캐시 생성 결과 -----"
           cat latest/dart_corp_code_cache_run_log_latest.txt || true
 
-          python -m py_compile dart_fx_exposure_kospi.py
-
-          FX_UNIVERSE="latest/kospi_universe_summary_current_basis_latest.csv"
-          if [ ! -f "$FX_UNIVERSE" ]; then
-            FX_UNIVERSE="latest/kospi_universe_summary_latest.csv"
-          fi
-
-          python dart_fx_exposure_kospi.py \
-            --output-dir latest \
-            --universe "$FX_UNIVERSE" \
-            --lookback-days 900 \
-            --sleep 0.12
-
           echo "----- 영업손실 자동판별 결과 -----"
           cat latest/operating_loss_run_log_latest.txt || true
 
@@ -316,9 +292,6 @@ jobs:
 
           echo "----- DART 기업코드 캐시 생성 결과 -----"
           cat latest/dart_corp_code_cache_run_log_latest.txt || true
-
-          echo "----- DART 환율노출 정밀분석 결과 -----"
-          cat latest/kospi_fx_exposure_run_log_latest.txt || true
 
           echo "----- 보조 현재가 참고판 생성 결과 -----"
           cat latest/supplement_current_prices_run_log_latest.txt || true

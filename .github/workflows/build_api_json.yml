@@ -1,0 +1,45 @@
+name: Build API JSON
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "20 8 * * 1-5"
+
+permissions:
+  contents: write
+
+jobs:
+  build-api-json:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas
+
+      - name: Build API JSON files
+        run: |
+          python build_api_json.py
+
+      - name: Show generated API files
+        run: |
+          echo "Generated files in api/"
+          ls -al api || true
+
+      - name: Commit API JSON files
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add api/*.json
+          git commit -m "update api json files" || echo "No API JSON changes"
+          git push

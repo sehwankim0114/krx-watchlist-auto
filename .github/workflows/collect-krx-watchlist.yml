@@ -283,6 +283,12 @@ jobs:
           python -m py_compile render_data_freshness_notice.py
           python render_data_freshness_notice.py --output-dir latest --mode official
 
+          python -m py_compile dart_corp_code_cache.py
+          python dart_corp_code_cache.py --output-dir latest --sleep-seconds 1.0 || true
+
+          echo "----- DART 기업코드 캐시 생성 결과 -----"
+          cat latest/dart_corp_code_cache_run_log_latest.txt || true
+
           python -m py_compile dart_fx_exposure_kospi.py
 
           FX_UNIVERSE="latest/kospi_universe_summary_current_basis_latest.csv"
@@ -307,6 +313,9 @@ jobs:
 
           echo "----- 환율약세표 자동산출 결과 -----"
           cat latest/kospi_fx_weakness_run_log_latest.txt || true
+
+          echo "----- DART 기업코드 캐시 생성 결과 -----"
+          cat latest/dart_corp_code_cache_run_log_latest.txt || true
 
           echo "----- DART 환율노출 정밀분석 결과 -----"
           cat latest/kospi_fx_exposure_run_log_latest.txt || true

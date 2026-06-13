@@ -3,6 +3,10 @@ name: dart-fx-exposure-safe
 on:
   workflow_dispatch:
     inputs:
+      max_symbols:
+        description: "처리할 최대 종목 수: 200/500/0(전체)"
+        required: false
+        default: "200"
       lookback_days:
         description: "DART 보고서 조회 기간"
         required: false
@@ -15,6 +19,10 @@ on:
         description: "최대 실행 시간"
         required: false
         default: "45"
+      script_runtime_minutes:
+        description: "스크립트 내부 안전 종료 시간"
+        required: false
+        default: "42"
 
 permissions:
   contents: write
@@ -26,7 +34,7 @@ concurrency:
 jobs:
   dart_fx_exposure:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 240
 
     env:
       TZ: Asia/Seoul
@@ -64,16 +72,20 @@ jobs:
           fi
 
           echo "FX_UNIVERSE=$FX_UNIVERSE"
+          echo "max_symbols=${{ github.event.inputs.max_symbols }}"
           echo "lookback_days=${{ github.event.inputs.lookback_days }}"
           echo "sleep_seconds=${{ github.event.inputs.sleep_seconds }}"
           echo "timeout_minutes=${{ github.event.inputs.timeout_minutes }}"
+          echo "script_runtime_minutes=${{ github.event.inputs.script_runtime_minutes }}"
 
           set +e
           timeout "${{ github.event.inputs.timeout_minutes }}m" python dart_fx_exposure_kospi.py \
             --output-dir latest \
             --universe "$FX_UNIVERSE" \
+            --max-symbols "${{ github.event.inputs.max_symbols }}" \
             --lookback-days "${{ github.event.inputs.lookback_days }}" \
-            --sleep "${{ github.event.inputs.sleep_seconds }}"
+            --sleep "${{ github.event.inputs.sleep_seconds }}" \
+            --max-runtime-minutes "${{ github.event.inputs.script_runtime_minutes }}"
           EXIT_CODE=$?
           set -e
 
@@ -87,7 +99,7 @@ jobs:
             echo "DART FX exposure exited with error code $EXIT_CODE."
           else
             echo "status=OK" > latest/kospi_fx_exposure_timeout_latest.txt
-            echo "message=DART FX exposure completed." >> latest/kospi_fx_exposure_timeout_latest.txt
+            echo "message=DART FX exposure completed or safely saved partial results." >> latest/kospi_fx_exposure_timeout_latest.txt
           fi
 
           echo "----- DART 환율노출 정밀분석 결과 -----"

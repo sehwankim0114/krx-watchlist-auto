@@ -51,14 +51,14 @@ jobs:
       - name: Determine run mode with stale official fallback
         id: mode
         run: |
-          python - <<'PY' >> "$GITHUB_ENV"
+          python - <<'PY' | tee /tmp/run_mode_env
           import json
+          import re
           from datetime import datetime
           from pathlib import Path
           from zoneinfo import ZoneInfo
 
           manual_mode = "${{ github.event.inputs.run_mode }}".strip()
-
           explicit_manual_mode = manual_mode in {"official", "aux"}
 
           if explicit_manual_mode:
@@ -84,47 +84,163 @@ jobs:
           stale_upgrade = "false"
           stale_reason = "not_checked"
 
-          if desired_mode == "aux" and not explicit_manual_mode:
-              notice_path = Path("latest/data_freshness_notice_latest.json")
+          def read_json(path: Path):
+              if not path.exists():
+                  return None
+              try:
+                  return json.loads(path.read_text(encoding="utf-8"))
+              except Exception as e:
+                  return {
+                      "_parse_error": type(e).__name__,
+                      "_path": str(path),
+                  }
 
-              if notice_path.exists():
-                  try:
-                      notice = json.loads(notice_path.read_text(encoding="utf-8"))
-                      official_fresh = notice.get("official_fresh")
-                      expected_date = notice.get("expected_official_trading_date")
-                      kospi_actual_date = notice.get("kospi_actual_date")
-                      kosdaq_actual_date = notice.get("kosdaq_actual_date")
+          def read_key_value_txt(path: Path):
+              if not path.exists():
+                  return None
 
-                      stale = False
-                      reasons = []
+              try:
+                  text = path.read_text(encoding="utf-8").strip()
+                  matches = list(re.finditer(r"([A-Za-z_][A-Za-z0-9_]*)=", text))
 
-                      if official_fresh is not True:
-                          stale = True
-                          reasons.append("official_fresh_not_true")
+                  if not matches:
+                      return {
+                          "_parse_error": "NO_KEY_VALUE_PAIRS",
+                          "_path": str(path),
+                      }
 
-                      if expected_date and kospi_actual_date and kospi_actual_date != expected_date:
-                          stale = True
-                          reasons.append(f"kospi_actual_{kospi_actual_date}_expected_{expected_date}")
+                  data = {}
+                  for idx, match in enumerate(matches):
+                      key = match.group(1)
+                      value_start = match.end()
+                      value_end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
+                      value = text[value_start:value_end].strip()
 
-                      if expected_date and kosdaq_actual_date and kosdaq_actual_date != expected_date:
-                          stale = True
-                          reasons.append(f"kosdaq_actual_{kosdaq_actual_date}_expected_{expected_date}")
-
-                      if stale:
-                          final_mode = "official"
-                          stale_upgrade = "true"
-                          stale_reason = ",".join(reasons) if reasons else "stale_detected"
+                      if value in {"True", "true"}:
+                          data[key] = True
+                      elif value in {"False", "false"}:
+                          data[key] = False
                       else:
-                          stale_reason = "fresh_aux_allowed"
+                          data[key] = value
 
-                  except Exception as e:
-                      final_mode = "official"
-                      stale_upgrade = "true"
-                      stale_reason = f"freshness_parse_error:{type(e).__name__}"
-              else:
+                  return data
+
+              except Exception as e:
+                  return {
+                      "_parse_error": type(e).__name__,
+                      "_path": str(path),
+                  }
+
+          def parse_dt(value):
+              if not value:
+                  return None
+
+              try:
+                  dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+                  if dt.tzinfo is None:
+                      dt = dt.replace(tzinfo=ZoneInfo("Asia/Seoul"))
+                  return dt
+              except Exception:
+                  return None
+
+          def sort_key(candidate: dict):
+              dt = parse_dt(candidate.get("run_at"))
+              if not dt:
+                  return 0
+              return dt.timestamp()
+
+          def normalize_candidate(raw: dict, source: str, official_fresh_key: str):
+              if not raw:
+                  return None
+
+              return {
+                  "source": source,
+                  "run_at": raw.get("run_at_kst"),
+                  "official_fresh": raw.get(official_fresh_key),
+                  "expected_date": raw.get("expected_official_trading_date"),
+                  "kospi_actual_date": raw.get("kospi_actual_date"),
+                  "kosdaq_actual_date": raw.get("kosdaq_actual_date"),
+                  "parse_error": raw.get("_parse_error"),
+              }
+
+          def choose_freshness_candidate():
+              notice_json = read_json(Path("latest/data_freshness_notice_latest.json"))
+              official_json = read_json(Path("latest/krx_official_retry_status_latest.json"))
+              official_txt = read_key_value_txt(Path("latest/krx_official_retry_status_latest.txt"))
+
+              candidates = [
+                  normalize_candidate(
+                      notice_json,
+                      "data_freshness_notice_latest.json",
+                      "official_fresh",
+                  ),
+                  normalize_candidate(
+                      official_json,
+                      "krx_official_retry_status_latest.json",
+                      "fresh",
+                  ),
+                  normalize_candidate(
+                      official_txt,
+                      "krx_official_retry_status_latest.txt",
+                      "fresh",
+                  ),
+              ]
+
+              candidates = [c for c in candidates if c is not None]
+
+              if not candidates:
+                  return None
+
+              # 핵심 보완:
+              # freshness notice json만 오래되었거나,
+              # official status json이 오래되어도,
+              # official status txt가 더 최신이면 txt 기준으로 판단한다.
+              candidates.sort(key=sort_key, reverse=True)
+              return candidates[0]
+
+          def is_stale(candidate: dict):
+              if not candidate:
+                  return True, ["freshness_status_missing"]
+
+              if candidate.get("parse_error"):
+                  return True, [f"freshness_parse_error:{candidate.get('parse_error')}"]
+
+              official_fresh = candidate.get("official_fresh")
+              expected_date = candidate.get("expected_date")
+              kospi_actual_date = candidate.get("kospi_actual_date")
+              kosdaq_actual_date = candidate.get("kosdaq_actual_date")
+
+              stale = False
+              reasons = []
+
+              if official_fresh is not True:
+                  stale = True
+                  reasons.append("official_fresh_not_true")
+
+              if expected_date and kospi_actual_date and kospi_actual_date != expected_date:
+                  stale = True
+                  reasons.append(f"kospi_actual_{kospi_actual_date}_expected_{expected_date}")
+
+              if expected_date and kosdaq_actual_date and kosdaq_actual_date != expected_date:
+                  stale = True
+                  reasons.append(f"kosdaq_actual_{kosdaq_actual_date}_expected_{expected_date}")
+
+              return stale, reasons
+
+          if desired_mode == "aux" and not explicit_manual_mode:
+              candidate = choose_freshness_candidate()
+              stale, reasons = is_stale(candidate)
+
+              if stale:
                   final_mode = "official"
                   stale_upgrade = "true"
-                  stale_reason = "freshness_notice_missing"
+                  stale_reason = ",".join(reasons) if reasons else "stale_detected"
+              else:
+                  stale_reason = (
+                      "fresh_aux_allowed"
+                      f":source={candidate.get('source')}"
+                      f":run_at={candidate.get('run_at')}"
+                  )
 
           print(f"RUN_MODE={final_mode}")
           print(f"DESIRED_RUN_MODE={desired_mode}")
@@ -133,11 +249,7 @@ jobs:
           print(f"STALE_REASON={stale_reason}")
           PY
 
-          echo "RUN_MODE=$RUN_MODE"
-          echo "DESIRED_RUN_MODE=$DESIRED_RUN_MODE"
-          echo "RUN_MODE_SOURCE=$RUN_MODE_SOURCE"
-          echo "STALE_UPGRADE=$STALE_UPGRADE"
-          echo "STALE_REASON=$STALE_REASON"
+          cat /tmp/run_mode_env >> "$GITHUB_ENV"
 
       - name: Set up Python
         uses: actions/setup-python@v5

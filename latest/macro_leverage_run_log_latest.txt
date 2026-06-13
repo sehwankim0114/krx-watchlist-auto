@@ -1,5 +1,5 @@
 script=macro_leverage_status.py v2.0_ecos_datagokr_official
-run_at=2026-06-13T03:13:18+09:00
+run_at=2026-06-13T10:12:31+09:00
 ECOS_ITEM_OK 731Y001: rows=53
 ECOS_ITEM_SELECT USDKRW_ECOS_731Y001: code=0000001, name=3.1.1.1. 주요국 통화의 대원화환율 계정항목 원/미국달러(매매기준율) None 원
 ECOS_STAT_OK USDKRW_ECOS_731Y001: rows=249
@@ -12,7 +12,7 @@ MACRO_COMBINE: existing=1338, fresh=747, combined=1338
 BUBBLE_MERGE: base_signals=2, macro_signals=5, merged=7
 bubble_risk_level=위험
 bubble_signal_count=7
-bubble_alert_required=False
+bubble_alert_required=True
 macro_success_count=7
 macro_success_codes=KOFIA_CMA_BALANCE_MILLION_KRW,KOFIA_CREDIT_FINANCING_MILLION_KRW,KOFIA_INVESTOR_DEPOSIT_MILLION_KRW,KOREA10Y_ECOS_817Y002,KOREA10Y_FRED_IRLTLT01KRM156N,KOREA3Y_ECOS_817Y002,USDKRW_ECOS_731Y001
 macro_summary_sources={'KOFIA_CMA_BALANCE_MILLION_KRW': 'data.go.kr KOFIA local normalized CSV', 'KOFIA_CREDIT_FINANCING_MILLION_KRW': 'data.go.kr KOFIA local normalized CSV', 'KOFIA_INVESTOR_DEPOSIT_MILLION_KRW': 'data.go.kr KOFIA local normalized CSV', 'KOREA10Y_ECOS_817Y002': 'BOK ECOS official API', 'KOREA10Y_FRED_IRLTLT01KRM156N': 'FRED/OECD', 'KOREA3Y_ECOS_817Y002': 'BOK ECOS official API', 'USDKRW_ECOS_731Y001': 'BOK ECOS official API'}
@@ -21,4 +21,4 @@ macro_summary_rows=7
 macro_signal_count=5
 macro_strong_signal_count=0
 macro_credit_deposit_ratio_pct=28.82
-final_bubble_alert_required=False
+final_bubble_alert_required=True

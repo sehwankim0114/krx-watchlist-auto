@@ -1,40 +1,43 @@
 {
   "script": "supply_burden_enricher.py v1.2_dart_whole_market_90d_cap",
-  "run_at_kst": "2026-06-15T00:32:19+09:00",
-  "status": "OK",
+  "run_at_kst": "2026-06-16T03:21:10+09:00",
+  "status": "WARN_DART_PARTIAL_ERROR",
   "output_dir": "latest",
   "original_lookback_days": 180,
   "effective_lookback_days": 90,
   "dart_whole_market_max_days": 90,
   "lookback_capped": true,
   "target_tickers": 2719,
-  "hit_reports": 11720,
+  "hit_reports": 0,
   "flagged_tickers": 0,
   "danger_tickers": 0,
   "warning_tickers": 0,
   "caution_tickers": 0,
   "dart_status": {
-    "bgn_de": "20260317",
-    "end_de": "20260615",
+    "bgn_de": "20260318",
+    "end_de": "20260616",
     "lookback_days": 90,
     "corp_cls": {
       "Y": {
-        "pages_requested": 189,
-        "total_page": 189,
-        "raw_reports": 18814,
-        "target_reports": 18814,
-        "matched_reports": 4565
+        "pages_requested": 0,
+        "total_page": null,
+        "raw_reports": 0,
+        "target_reports": 0,
+        "matched_reports": 0
       },
       "K": {
-        "pages_requested": 231,
-        "total_page": 231,
-        "raw_reports": 23048,
-        "target_reports": 22852,
-        "matched_reports": 7155
+        "pages_requested": 0,
+        "total_page": null,
+        "raw_reports": 0,
+        "target_reports": 0,
+        "matched_reports": 0
       }
     },
-    "api_calls": 420,
-    "api_errors": []
+    "api_calls": 0,
+    "api_errors": [
+      "corp_cls=Y, page=1, error=URLError: <urlopen error timed out>",
+      "corp_cls=K, page=1, error=URLError: <urlopen error timed out>"
+    ]
   },
   "enrich_results": [
     {

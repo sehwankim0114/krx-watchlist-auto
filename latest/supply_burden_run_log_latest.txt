@@ -1,5 +1,5 @@
 script=supply_burden_enricher.py v1.2_dart_whole_market_90d_cap
-run_at_kst=2026-06-16T06:10:28+09:00
+run_at_kst=2026-06-17T01:29:41+09:00
 output_dir=latest
 original_lookback_days=180
 effective_lookback_days=90
@@ -7,7 +7,7 @@ dart_whole_market_max_days=90
 lookback_capped=True
 max_pages=500
 sleep_seconds=0.12
-target_tickers=2719
+target_tickers=2717
 target_files=watchlist_summary_latest.csv,kospi_candidates_30_latest.csv,kospi_recommend_7_latest.csv,kosdaq_candidates_10_latest.csv,kosdaq_recommend_5_latest.csv,kospi_gainers_1m_latest.csv,kospi_short_term_candidates_30_latest.csv,kospi_short_term_recommend_7_latest.csv,kospi_fx_weakness_candidates_30_latest.csv,kospi_fx_weakness_recommend_7_latest.csv,kospi_monthly_cycle_latest.csv,kospi_universe_summary_latest.csv,kosdaq_universe_summary_latest.csv
 TARGET_FILE watchlist_summary_latest.csv: rows=47
 TARGET_FILE kospi_candidates_30_latest.csv: rows=30
@@ -21,12 +21,12 @@ TARGET_FILE kospi_fx_weakness_candidates_30_latest.csv: rows=30
 TARGET_FILE kospi_fx_weakness_recommend_7_latest.csv: rows=7
 TARGET_FILE kospi_monthly_cycle_latest.csv: rows=40
 TARGET_FILE kospi_universe_summary_latest.csv: rows=926
-TARGET_FILE kosdaq_universe_summary_latest.csv: rows=1793
+TARGET_FILE kosdaq_universe_summary_latest.csv: rows=1791
 LOOKBACK_CAP_APPLIED original=180, effective=90
-dart_api_calls=417
+dart_api_calls=402
 dart_api_error_count=0
 status=OK
-summary_rows=2719
+summary_rows=2717
 hit_reports=11717
 flagged_tickers=0
 danger_tickers=0
@@ -47,4 +47,4 @@ ENRICH_FILE kospi_fx_weakness_candidates_30_latest.csv: status=OK, rows=30, matc
 ENRICH_FILE kospi_fx_weakness_recommend_7_latest.csv: status=OK, rows=7, matched_rows=7, flagged_rows=0, note=
 ENRICH_FILE kospi_monthly_cycle_latest.csv: status=OK, rows=40, matched_rows=40, flagged_rows=0, note=
 ENRICH_FILE kospi_universe_summary_latest.csv: status=OK, rows=926, matched_rows=926, flagged_rows=0, note=
-ENRICH_FILE kosdaq_universe_summary_latest.csv: status=OK, rows=1793, matched_rows=1793, flagged_rows=0, note=
+ENRICH_FILE kosdaq_universe_summary_latest.csv: status=OK, rows=1791, matched_rows=1791, flagged_rows=0, note=

@@ -1,24 +1,24 @@
 script=macro_leverage_status.py v2.0_ecos_datagokr_official
-run_at=2026-06-18T04:02:02+09:00
+run_at=2026-06-18T21:50:43+09:00
 ECOS_ITEM_OK 731Y001: rows=53
 ECOS_ITEM_SELECT USDKRW_ECOS_731Y001: code=0000001, name=3.1.1.1. 주요국 통화의 대원화환율 계정항목 원/미국달러(매매기준율) None 원
-ECOS_STAT_OK USDKRW_ECOS_731Y001: rows=248
+ECOS_STAT_OK USDKRW_ECOS_731Y001: rows=249
 ECOS_ITEM_OK 817Y002: rows=27
 ECOS_ITEM_SELECT KOREA3Y_ECOS_817Y002: code=010200000, name=1.3.2.1. 시장금리(일별) 계정항목 국고채(3년) None 연%
-ECOS_STAT_OK KOREA3Y_ECOS_817Y002: rows=248
+ECOS_STAT_OK KOREA3Y_ECOS_817Y002: rows=249
 ECOS_ITEM_SELECT KOREA10Y_ECOS_817Y002: code=010210000, name=1.3.2.1. 시장금리(일별) 계정항목 국고채(10년) None 연%
-ECOS_STAT_OK KOREA10Y_ECOS_817Y002: rows=248
-MACRO_COMBINE: existing=1341, fresh=744, combined=1341
-BUBBLE_MERGE: base_signals=2, macro_signals=5, merged=7
+ECOS_STAT_OK KOREA10Y_ECOS_817Y002: rows=249
+MACRO_COMBINE: existing=1344, fresh=747, combined=1342
+BUBBLE_MERGE: base_signals=3, macro_signals=5, merged=8
 bubble_risk_level=위험
-bubble_signal_count=7
-bubble_alert_required=False
+bubble_signal_count=8
+bubble_alert_required=True
 macro_success_count=7
 macro_success_codes=KOFIA_CMA_BALANCE_MILLION_KRW,KOFIA_CREDIT_FINANCING_MILLION_KRW,KOFIA_INVESTOR_DEPOSIT_MILLION_KRW,KOREA10Y_ECOS_817Y002,KOREA10Y_FRED_IRLTLT01KRM156N,KOREA3Y_ECOS_817Y002,USDKRW_ECOS_731Y001
 macro_summary_sources={'KOFIA_CMA_BALANCE_MILLION_KRW': 'data.go.kr KOFIA local normalized CSV', 'KOFIA_CREDIT_FINANCING_MILLION_KRW': 'data.go.kr KOFIA local normalized CSV', 'KOFIA_INVESTOR_DEPOSIT_MILLION_KRW': 'data.go.kr KOFIA local normalized CSV', 'KOREA10Y_ECOS_817Y002': 'BOK ECOS official API', 'KOREA10Y_FRED_IRLTLT01KRM156N': 'FRED/OECD', 'KOREA3Y_ECOS_817Y002': 'BOK ECOS official API', 'USDKRW_ECOS_731Y001': 'BOK ECOS official API'}
-macro_history_rows=1341
+macro_history_rows=1342
 macro_summary_rows=7
 macro_signal_count=5
 macro_strong_signal_count=1
-macro_credit_deposit_ratio_pct=30.75
-final_bubble_alert_required=False
+macro_credit_deposit_ratio_pct=30.02
+final_bubble_alert_required=True

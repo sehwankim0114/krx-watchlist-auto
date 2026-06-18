@@ -1,6 +1,6 @@
 {
   "script": "universe_output_guard.py v1.1_row_count_first_log_warn",
-  "run_at_kst": "2026-06-18T03:41:12+09:00",
+  "run_at_kst": "2026-06-18T21:28:09+09:00",
   "status": "OK_WITH_LOG_WARN",
   "action": "ACCEPT_CURRENT",
   "current": {
@@ -8,7 +8,7 @@
     "is_valid": true,
     "row_counts": {
       "kospi_universe_summary_latest.csv": 926,
-      "kosdaq_universe_summary_latest.csv": 1791,
+      "kosdaq_universe_summary_latest.csv": 1790,
       "kospi_gainers_1m_latest.csv": 20,
       "kospi_candidates_30_latest.csv": 30,
       "kospi_recommend_7_latest.csv": 7,
@@ -18,10 +18,9 @@
     "row_failures": [],
     "log_warn_hits": [
       "universe_run_log_latest.txt:empty after normalize",
-      "universe_run_log_latest.txt:EMPTY",
-      "krx_official_retry_status_latest.txt:EMPTY"
+      "universe_run_log_latest.txt:EMPTY"
     ],
-    "log_warn_hit_count": 3
+    "log_warn_hit_count": 2
   },
   "backup_status": {},
   "restore_result": {

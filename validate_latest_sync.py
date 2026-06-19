@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
-SCRIPT_VERSION = "validate_latest_sync.py v1.0"
+SCRIPT_VERSION = "validate_latest_sync.py v1.1_status_alias"
 
 STATUS_JSON_FILES = (
     "official_data_status_latest.json",
@@ -83,9 +83,24 @@ def normalize_bool(value: Any) -> Any:
     return value
 
 
+def normalize_status(value: Any) -> Any:
+    """같은 의미의 공식 상태 표현을 하나의 값으로 정규화한다."""
+    if value is None:
+        return None
+
+    text = str(value).strip().upper()
+    aliases = {
+        "SKIPPED_ALREADY_FRESH": "FRESH",
+        "ALREADY_FRESH": "FRESH",
+    }
+    return aliases.get(text, text)
+
+
 def normalize_value(field: str, value: Any) -> Any:
     if field in {"fresh", "official_fresh"}:
         return normalize_bool(value)
+    if field in {"status", "official_status"}:
+        return normalize_status(value)
     if value is None:
         return None
     return str(value).strip()

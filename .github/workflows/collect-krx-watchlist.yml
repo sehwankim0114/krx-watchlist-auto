@@ -93,6 +93,9 @@ jobs:
                           result.add(str(holiday_date)[:10])
               return result
 
+          OFFICIAL_PUBLICATION_CUTOFF_HOUR = 8
+          OFFICIAL_PUBLICATION_CUTOFF_MINUTE = 30
+
           def previous_trading_day(base_date: date) -> str:
               holidays = load_holidays()
               cursor = base_date - timedelta(days=1)
@@ -100,7 +103,19 @@ jobs:
                   cursor -= timedelta(days=1)
               return cursor.isoformat()
 
-          current_expected_date = previous_trading_day(now.date())
+          cutoff_reached = (
+              now.hour,
+              now.minute,
+          ) >= (
+              OFFICIAL_PUBLICATION_CUTOFF_HOUR,
+              OFFICIAL_PUBLICATION_CUTOFF_MINUTE,
+          )
+
+          expected_base_date = now.date()
+          if not cutoff_reached:
+              expected_base_date -= timedelta(days=1)
+
+          current_expected_date = previous_trading_day(expected_base_date)
 
           def read_json(path: Path):
               if not path.exists():
@@ -270,6 +285,8 @@ jobs:
           print(f"RUN_MODE={final_mode}")
           print(f"RUN_MODE_SOURCE={mode_source}")
           print(f"CURRENT_EXPECTED_OFFICIAL_DATE={current_expected_date}")
+          print("OFFICIAL_PUBLICATION_CUTOFF_KST=08:30")
+          print(f"PUBLICATION_CUTOFF_REACHED={str(cutoff_reached).lower()}")
           print(f"STALE_UPGRADE={str(stale_upgrade).lower()}")
           print(f"STALE_UPGRADE_REASON={stale_reason}")
           PY
@@ -282,6 +299,8 @@ jobs:
           echo "FINAL_RUN_MODE=$FINAL_RUN_MODE"
           echo "RUN_MODE_SOURCE=$RUN_MODE_SOURCE"
           echo "CURRENT_EXPECTED_OFFICIAL_DATE=$CURRENT_EXPECTED_OFFICIAL_DATE"
+          echo "OFFICIAL_PUBLICATION_CUTOFF_KST=$OFFICIAL_PUBLICATION_CUTOFF_KST"
+          echo "PUBLICATION_CUTOFF_REACHED=$PUBLICATION_CUTOFF_REACHED"
           echo "STALE_UPGRADE=$STALE_UPGRADE"
           echo "STALE_UPGRADE_REASON=$STALE_UPGRADE_REASON"
 

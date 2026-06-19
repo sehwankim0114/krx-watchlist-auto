@@ -1,10 +1,10 @@
 {
   "script": "market_status.py v1.1_bootstrap_bubble_risk",
-  "run_at": "2026-06-19T09:21:03+09:00",
+  "run_at": "2026-06-19T19:58:42+09:00",
   "requested_end_date": "2026-06-19",
   "actual_data_last_date": "2026-06-18",
-  "previous_actual_data_last_date": "2026-06-17",
-  "new_confirmed_trading_day": true,
+  "previous_actual_data_last_date": "2026-06-18",
+  "new_confirmed_trading_day": false,
   "freshness_days": 1,
   "raw_rows": 385354,
   "normalized_rows": 385354,
@@ -13,7 +13,7 @@
   "market_breadth_rows": 284,
   "market_index_history_rows": 284,
   "market_index_summary_rows": 2,
-  "status": "OK_NEW_CONFIRMED_TRADING_DAY",
-  "status_reason": "이전 실행보다 최신 확정 거래일이 새로 확인되었습니다.",
+  "status": "STALE_BUT_VALID",
+  "status_reason": "새 확정 거래일은 아니지만 기존 원자료는 유효합니다.",
   "note": "market_index는 공식 지수가 아니라 KRX 전종목 원자료 기반 시가총액 가중 프록시 지수입니다."
 }

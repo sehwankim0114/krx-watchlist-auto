@@ -33,8 +33,10 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "run_universe_latest.py v1.3_retry_holiday_sync"
+SCRIPT_VERSION = "run_universe_latest.py v1.4_publication_cutoff_sync"
 HOLIDAY_FILE = Path("config/krx_market_holidays.json")
+OFFICIAL_PUBLICATION_CUTOFF_HOUR = 8
+OFFICIAL_PUBLICATION_CUTOFF_MINUTE = 30
 
 
 def kst_now() -> datetime:
@@ -94,9 +96,27 @@ def previous_trading_day_before(
 
 
 def expected_official_trading_date(now_kst: datetime) -> date:
-    """현재 KST 날짜를 기준으로 직전 실제 거래일을 계산한다."""
+    """
+    KRX 공식자료 공개 시각을 고려해 기대 기준일을 계산한다.
+
+    - KST 08:30 이전: 직전 거래일 자료가 아직 미공개일 수 있으므로
+      전전 거래일을 기대 기준일로 사용한다.
+    - KST 08:30 이후: 직전 실제 거래일을 기대 기준일로 사용한다.
+    """
     holidays = load_market_holidays()
-    return previous_trading_day_before(now_kst.date(), holidays)
+    cutoff_reached = (
+        now_kst.hour,
+        now_kst.minute,
+    ) >= (
+        OFFICIAL_PUBLICATION_CUTOFF_HOUR,
+        OFFICIAL_PUBLICATION_CUTOFF_MINUTE,
+    )
+
+    base_date = now_kst.date()
+    if not cutoff_reached:
+        base_date -= timedelta(days=1)
+
+    return previous_trading_day_before(base_date, holidays)
 
 
 def read_summary_date(path: Path) -> Tuple[Optional[date], int]:
@@ -208,6 +228,10 @@ def build_official_status(
         "kosdaq_summary_rows": int(kosdaq_rows),
         "holiday_file": str(HOLIDAY_FILE),
         "holiday_file_exists": HOLIDAY_FILE.exists(),
+        "official_publication_cutoff_kst": (
+            f"{OFFICIAL_PUBLICATION_CUTOFF_HOUR:02d}:"
+            f"{OFFICIAL_PUBLICATION_CUTOFF_MINUTE:02d}"
+        ),
     }
 
 
@@ -234,6 +258,7 @@ def status_to_text(status: Dict[str, object]) -> str:
         "kosdaq_summary_rows",
         "holiday_file",
         "holiday_file_exists",
+        "official_publication_cutoff_kst",
         "reason",
     )
     return "\n".join(f"{key}={status.get(key)}" for key in keys) + "\n"

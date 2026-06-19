@@ -1,5 +1,5 @@
 script=collect_universe.py v4.6.1_kosdaq_candidates_gainer_filter_actual_date_log
-started_at=2026-06-19T04:04:06
+started_at=2026-06-19T08:58:06
 collection_period=2025-10-10~2026-06-19
 OPENAPI KOSPI 20251010: rows=935
 OPENAPI KOSDAQ 20251010: rows=1793
@@ -381,53 +381,51 @@ OPENAPI KOSPI 20260616: rows=921
 OPENAPI KOSDAQ 20260616: rows=1775
 OPENAPI KOSPI 20260617: rows=921
 OPENAPI KOSDAQ 20260617: rows=1775
-OPENAPI_EMPTY KOSPI_stock 20260618: keys=['OutBlock_1']
-OPENAPI KOSPI 20260618: empty after normalize
-OPENAPI_EMPTY KOSDAQ_stock 20260618: keys=['OutBlock_1']
-OPENAPI KOSDAQ 20260618: empty after normalize
+OPENAPI KOSPI 20260618: rows=921
+OPENAPI KOSDAQ 20260618: rows=1774
 OPENAPI_EMPTY KOSPI_stock 20260619: keys=['OutBlock_1']
 OPENAPI KOSPI 20260619: empty after normalize
 OPENAPI_EMPTY KOSDAQ_stock 20260619: keys=['OutBlock_1']
 OPENAPI KOSDAQ 20260619: empty after normalize
-HISTORY_COMBINE: fresh=456253, existing=174778, combined=385386
-raw_history=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/universe_raw_history_latest.csv, rows=385386
-SUMMARY KOSPI: input rows=131615
-SUMMARY KOSPI: 3m rows=58203, tickers=926
+HISTORY_COMBINE: fresh=458948, existing=174778, combined=385354
+raw_history=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/universe_raw_history_latest.csv, rows=385354
+SUMMARY KOSPI: input rows=131602
+SUMMARY KOSPI: 3m rows=58198, tickers=926
 SUMMARY KOSPI: output rows=926
-SUMMARY KOSDAQ: input rows=253771
-SUMMARY KOSDAQ: 3m rows=112110, tickers=1790
-SUMMARY KOSDAQ: output rows=1790
-actual_data_last_date=2026-06-17
+SUMMARY KOSDAQ: input rows=253752
+SUMMARY KOSDAQ: 3m rows=112101, tickers=1789
+SUMMARY KOSDAQ: output rows=1789
+actual_data_last_date=2026-06-18
 KOSPI_summary=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kospi_universe_summary_latest.csv, rows=926
-KOSDAQ_summary=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kosdaq_universe_summary_latest.csv, rows=1790
-KOSPI_GAINERS_ANOMALY_EXCLUDED: rows=3, examples=SH에너지화학, 서울식품, 엔케이
-KOSPI_GAINERS_FILTER: before=783, after_valid=101
+KOSDAQ_summary=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kosdaq_universe_summary_latest.csv, rows=1789
+KOSPI_GAINERS_ANOMALY_EXCLUDED: rows=4, examples=SH에너지화학, 대원화성, 서울식품, 엔케이
+KOSPI_GAINERS_FILTER: before=783, after_valid=79
 KOSPI_GAINERS: rows=20
 KOSPI_CANDIDATES: after exclusion rows=783
 KOSPI_CANDIDATES: candidates=30, recommend=7
 kospi_gainers_1m=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kospi_gainers_1m_latest.csv, rows=20
 kospi_candidates_30=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kospi_candidates_30_latest.csv, rows=30
 kospi_recommend_7=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kospi_recommend_7_latest.csv, rows=7
-KOSDAQ_CANDIDATES: after exclusion rows=1644
+KOSDAQ_CANDIDATES: after exclusion rows=1643
 KOSDAQ_CANDIDATES: candidates=10, recommend=5
 kosdaq_candidates_10=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kosdaq_candidates_10_latest.csv, rows=10
 kosdaq_recommend_5=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kosdaq_recommend_5_latest.csv, rows=5
 market_index_summary=kept_existing:/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/market_index_summary_latest.csv
-finished_at=2026-06-19T04:14:41
+finished_at=2026-06-19T09:15:37
 
 ----- KRX_OFFICIAL_FRESHNESS_STATUS -----
 stage=after_collect
 script=run_universe_latest.py v1.2_official_fresh_gate
-run_at_kst=2026-06-19T04:14:41+09:00
+run_at_kst=2026-06-19T09:15:37+09:00
 expected_official_trading_date=2026-06-18
-status=STALE_KRX_EMPTY_OR_DELAY
-fresh=False
-display_label=KRX 공식자료 미확정/이전 기준일 사용
-warning=KRX 공식자료 미확정/이전 기준일 사용
-kospi_actual_date=2026-06-17
-kosdaq_actual_date=2026-06-17
-basis_date_for_display=2026-06-17
+status=FRESH
+fresh=True
+display_label=최신 공식판
+warning=
+kospi_actual_date=2026-06-18
+kosdaq_actual_date=2026-06-18
+basis_date_for_display=2026-06-18
 same_market_date=True
-holiday_or_market_closure_possible=True
-reason=Official KRX summary date is behind the expected previous trading day. This can happen because of KRX delay, empty response, public holiday, or market closure. Use actual summary last_date as the displayed basis date.
+holiday_or_market_closure_possible=False
+reason=KOSPI/KOSDAQ official summaries are updated to the expected official trading date.
 -----------------------------------------

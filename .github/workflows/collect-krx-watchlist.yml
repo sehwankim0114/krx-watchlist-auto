@@ -1,743 +1,512 @@
 name: collect-krx-watchlist
 
 on:
-workflow_dispatch:
-inputs:
-run_mode:
-description: "실행 모드: auto / official / aux"
-required: false
-default: "auto"
-type: choice
-options:
-- auto
-- official
-- aux
+  workflow_dispatch:
+    inputs:
+      run_mode:
+        description: "실행 모드: auto / official / aux"
+        required: false
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - official
+          - aux
 
-schedule:
-# KST 월~금 08:10 = UTC 전날 23:10
-- cron: "10 23 * * 0-4"
+  schedule:
+    # KST 월~금 08:10 = UTC 전날 23:10
+    - cron: "10 23 * * 0-4"
 
-```
-# KST 월~토 08:40 = UTC 전날 23:40
-- cron: "40 23 * * 0-5"
+    # KST 월~토 08:40 = UTC 전날 23:40
+    - cron: "40 23 * * 0-5"
 
-# KST 월~토 09:10 = UTC 당일 00:10
-- cron: "10 0 * * 1-6"
+    # KST 월~토 09:10 = UTC 당일 00:10
+    - cron: "10 0 * * 1-6"
 
-# KST 월~토 09:40 = UTC 당일 00:40
-- cron: "40 0 * * 1-6"
+    # KST 월~토 09:40 = UTC 당일 00:40
+    - cron: "40 0 * * 1-6"
 
-# KST 월~토 15:35 = UTC 당일 06:35
-- cron: "35 6 * * 1-6"
+    # KST 월~토 15:35 = UTC 당일 06:35
+    - cron: "35 6 * * 1-6"
 
-# KST 매일 18:10 = UTC 당일 09:10
-- cron: "10 9 * * *"
-```
+    # KST 매일 18:10 = UTC 당일 09:10
+    - cron: "10 9 * * *"
 
 permissions:
-contents: write
+  contents: write
 
 concurrency:
-group: collect-krx-watchlist-latest
-cancel-in-progress: false
+  group: collect-krx-watchlist-latest
+  cancel-in-progress: false
 
 jobs:
-collect:
-runs-on: ubuntu-latest
+  collect:
+    runs-on: ubuntu-latest
 
-```
-env:
-  TZ: Asia/Seoul
+    env:
+      TZ: Asia/Seoul
 
-steps:
-  - name: Checkout repository
-    uses: actions/checkout@v4
-    with:
-      fetch-depth: 0
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-  - name: Determine run mode with official freshness fallback
-    id: mode
-    shell: bash
-    run: |
-      python - <<'PY' | tee /tmp/run_mode_env
-      import json
-      import re
-      from datetime import date, datetime, timedelta
-      from pathlib import Path
-      from zoneinfo import ZoneInfo
+      - name: Determine run mode with official freshness fallback
+        id: mode
+        shell: bash
+        run: |
+          python - <<'PY' | tee /tmp/run_mode_env
+          import json
+          import re
+          from datetime import date, datetime, timedelta
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
 
-      requested_mode = "${{ github.event.inputs.run_mode }}".strip() or "auto"
-      explicit_manual_mode = requested_mode in {"official", "aux"}
-      now = datetime.now(ZoneInfo("Asia/Seoul"))
+          requested_mode = "${{ github.event.inputs.run_mode }}".strip() or "auto"
+          explicit_manual_mode = requested_mode in {"official", "aux"}
+          now = datetime.now(ZoneInfo("Asia/Seoul"))
 
-      def load_holidays() -> set[str]:
-          path = Path("config/krx_market_holidays.json")
-          if not path.exists():
-              return set()
+          def load_holidays() -> set[str]:
+              path = Path("config/krx_market_holidays.json")
+              if not path.exists():
+                  return set()
+              try:
+                  raw = json.loads(path.read_text(encoding="utf-8"))
+              except Exception:
+                  return set()
+              values = []
+              if isinstance(raw, list):
+                  values = raw
+              elif isinstance(raw, dict):
+                  for key in ("holidays", "dates", "market_holidays"):
+                      if isinstance(raw.get(key), list):
+                          values = raw[key]
+                          break
+              result = set()
+              for value in values:
+                  if isinstance(value, str):
+                      result.add(value[:10])
+                  elif isinstance(value, dict):
+                      holiday_date = value.get("date") or value.get("day")
+                      if holiday_date:
+                          result.add(str(holiday_date)[:10])
+              return result
 
-          try:
-              raw = json.loads(path.read_text(encoding="utf-8"))
-          except Exception:
-              return set()
+          def previous_trading_day(base_date: date) -> str:
+              holidays = load_holidays()
+              cursor = base_date - timedelta(days=1)
+              while cursor.weekday() >= 5 or cursor.isoformat() in holidays:
+                  cursor -= timedelta(days=1)
+              return cursor.isoformat()
 
-          values = []
+          current_expected_date = previous_trading_day(now.date())
 
-          if isinstance(raw, list):
-              values = raw
-          elif isinstance(raw, dict):
-              for key in ("holidays", "dates", "market_holidays"):
-                  if isinstance(raw.get(key), list):
-                      values = raw[key]
+          def read_json(path: Path):
+              if not path.exists():
+                  return None
+              try:
+                  data = json.loads(path.read_text(encoding="utf-8"))
+                  if isinstance(data, dict):
+                      return data
+                  return {"_parse_error": "JSON_NOT_OBJECT", "_path": str(path)}
+              except Exception as exc:
+                  return {"_parse_error": type(exc).__name__, "_path": str(path)}
+
+          def read_key_value_txt(path: Path):
+              if not path.exists():
+                  return None
+              try:
+                  text = path.read_text(encoding="utf-8").strip()
+                  data = {}
+                  for line in text.splitlines():
+                      line = line.strip()
+                      if not line or "=" not in line:
+                          continue
+                      key, value = line.split("=", 1)
+                      key = key.strip()
+                      value = value.strip()
+                      if value.lower() == "true":
+                          data[key] = True
+                      elif value.lower() == "false":
+                          data[key] = False
+                      else:
+                          data[key] = value
+                  if data:
+                      return data
+                  matches = list(re.finditer(r"([A-Za-z_][A-Za-z0-9_]*)=", text))
+                  if not matches:
+                      return {"_parse_error": "NO_KEY_VALUE_PAIRS", "_path": str(path)}
+                  for index, match in enumerate(matches):
+                      key = match.group(1)
+                      value_start = match.end()
+                      value_end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+                      value = text[value_start:value_end].strip()
+                      if value.lower() == "true":
+                          data[key] = True
+                      elif value.lower() == "false":
+                          data[key] = False
+                      else:
+                          data[key] = value
+                  return data
+              except Exception as exc:
+                  return {"_parse_error": type(exc).__name__, "_path": str(path)}
+
+          def parse_run_at(value):
+              if not value:
+                  return None
+              try:
+                  parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+                  if parsed.tzinfo is None:
+                      parsed = parsed.replace(tzinfo=ZoneInfo("Asia/Seoul"))
+                  return parsed
+              except Exception:
+                  return None
+
+          def normalize(raw, source, fresh_keys):
+              if not raw:
+                  return None
+              fresh_value = None
+              for key in fresh_keys:
+                  if key in raw:
+                      fresh_value = raw.get(key)
                       break
-
-          result = set()
-
-          for value in values:
-              if isinstance(value, str):
-                  result.add(value[:10])
-              elif isinstance(value, dict):
-                  holiday_date = value.get("date") or value.get("day")
-                  if holiday_date:
-                      result.add(str(holiday_date)[:10])
-
-          return result
-
-      def previous_trading_day(base_date: date) -> str:
-          holidays = load_holidays()
-          cursor = base_date - timedelta(days=1)
-
-          while cursor.weekday() >= 5 or cursor.isoformat() in holidays:
-              cursor -= timedelta(days=1)
-
-          return cursor.isoformat()
-
-      current_expected_date = previous_trading_day(now.date())
-
-      def read_json(path: Path):
-          if not path.exists():
-              return None
-
-          try:
-              data = json.loads(path.read_text(encoding="utf-8"))
-
-              if isinstance(data, dict):
-                  return data
-
               return {
-                  "_parse_error": "JSON_NOT_OBJECT",
-                  "_path": str(path),
+                  "source": source,
+                  "run_at": raw.get("run_at_kst") or raw.get("run_at"),
+                  "official_fresh": fresh_value,
+                  "stored_expected_date": raw.get("expected_official_trading_date"),
+                  "kospi_actual_date": raw.get("kospi_actual_date"),
+                  "kosdaq_actual_date": raw.get("kosdaq_actual_date"),
+                  "parse_error": raw.get("_parse_error"),
               }
 
-          except Exception as exc:
-              return {
-                  "_parse_error": type(exc).__name__,
-                  "_path": str(path),
-              }
-
-      def read_key_value_txt(path: Path):
-          if not path.exists():
-              return None
-
-          try:
-              text = path.read_text(encoding="utf-8").strip()
-              data = {}
-
-              for line in text.splitlines():
-                  line = line.strip()
-
-                  if not line or "=" not in line:
-                      continue
-
-                  key, value = line.split("=", 1)
-                  key = key.strip()
-                  value = value.strip()
-
-                  if value.lower() == "true":
-                      data[key] = True
-                  elif value.lower() == "false":
-                      data[key] = False
-                  else:
-                      data[key] = value
-
-              if data:
-                  return data
-
-              matches = list(
-                  re.finditer(
-                      r"([A-Za-z_][A-Za-z0-9_]*)=",
-                      text,
-                  )
-              )
-
-              if not matches:
-                  return {
-                      "_parse_error": "NO_KEY_VALUE_PAIRS",
-                      "_path": str(path),
-                  }
-
-              for index, match in enumerate(matches):
-                  key = match.group(1)
-                  value_start = match.end()
-                  value_end = (
-                      matches[index + 1].start()
-                      if index + 1 < len(matches)
-                      else len(text)
-                  )
-
-                  value = text[value_start:value_end].strip()
-
-                  if value.lower() == "true":
-                      data[key] = True
-                  elif value.lower() == "false":
-                      data[key] = False
-                  else:
-                      data[key] = value
-
-              return data
-
-          except Exception as exc:
-              return {
-                  "_parse_error": type(exc).__name__,
-                  "_path": str(path),
-              }
-
-      def parse_run_at(value):
-          if not value:
-              return None
-
-          try:
-              parsed = datetime.fromisoformat(
-                  str(value).replace("Z", "+00:00")
-              )
-
-              if parsed.tzinfo is None:
-                  parsed = parsed.replace(
-                      tzinfo=ZoneInfo("Asia/Seoul")
-                  )
-
-              return parsed
-
-          except Exception:
-              return None
-
-      def normalize(raw, source, fresh_keys):
-          if not raw:
-              return None
-
-          fresh_value = None
-
-          for key in fresh_keys:
-              if key in raw:
-                  fresh_value = raw.get(key)
-                  break
-
-          return {
-              "source": source,
-              "run_at": (
-                  raw.get("run_at_kst")
-                  or raw.get("run_at")
-              ),
-              "official_fresh": fresh_value,
-              "stored_expected_date": raw.get(
-                  "expected_official_trading_date"
-              ),
-              "kospi_actual_date": raw.get(
-                  "kospi_actual_date"
-              ),
-              "kosdaq_actual_date": raw.get(
-                  "kosdaq_actual_date"
-              ),
-              "parse_error": raw.get("_parse_error"),
-          }
-
-      def choose_latest_status():
-          candidates = [
-              normalize(
-                  read_json(
-                      Path(
-                          "latest/"
-                          "official_data_status_latest.json"
-                      )
+          def choose_latest_status():
+              candidates = [
+                  normalize(
+                      read_json(Path("latest/official_data_status_latest.json")),
+                      "official_data_status_latest.json",
+                      ("official_fresh", "fresh"),
                   ),
-                  "official_data_status_latest.json",
-                  ("official_fresh", "fresh"),
-              ),
-              normalize(
-                  read_json(
-                      Path(
-                          "latest/"
-                          "data_freshness_notice_latest.json"
-                      )
+                  normalize(
+                      read_json(Path("latest/data_freshness_notice_latest.json")),
+                      "data_freshness_notice_latest.json",
+                      ("official_fresh", "fresh"),
                   ),
-                  "data_freshness_notice_latest.json",
-                  ("official_fresh", "fresh"),
-              ),
-              normalize(
-                  read_json(
-                      Path(
-                          "latest/"
-                          "krx_official_retry_status_latest.json"
-                      )
+                  normalize(
+                      read_json(Path("latest/krx_official_retry_status_latest.json")),
+                      "krx_official_retry_status_latest.json",
+                      ("fresh", "official_fresh"),
                   ),
-                  "krx_official_retry_status_latest.json",
-                  ("fresh", "official_fresh"),
-              ),
-              normalize(
-                  read_key_value_txt(
-                      Path(
-                          "latest/"
-                          "krx_official_retry_status_latest.txt"
-                      )
+                  normalize(
+                      read_key_value_txt(Path("latest/krx_official_retry_status_latest.txt")),
+                      "krx_official_retry_status_latest.txt",
+                      ("fresh", "official_fresh"),
                   ),
-                  "krx_official_retry_status_latest.txt",
-                  ("fresh", "official_fresh"),
-              ),
-          ]
+              ]
+              candidates = [candidate for candidate in candidates if candidate]
+              if not candidates:
+                  return None
+              candidates.sort(
+                  key=lambda candidate: (
+                      parse_run_at(candidate.get("run_at")).timestamp()
+                      if parse_run_at(candidate.get("run_at"))
+                      else 0
+                  ),
+                  reverse=True,
+              )
+              return candidates[0]
 
-          candidates = [
-              candidate
-              for candidate in candidates
-              if candidate
-          ]
-
-          if not candidates:
-              return None
-
-          candidates.sort(
-              key=lambda candidate: (
-                  parse_run_at(
-                      candidate.get("run_at")
-                  ).timestamp()
-                  if parse_run_at(
-                      candidate.get("run_at")
+          def evaluate_status(candidate):
+              reasons = []
+              if candidate is None:
+                  return True, ["freshness_status_missing"]
+              if candidate.get("parse_error"):
+                  reasons.append(f"freshness_parse_error:{candidate['parse_error']}")
+              if candidate.get("official_fresh") is not True:
+                  reasons.append("official_fresh_not_true")
+              stored_expected = candidate.get("stored_expected_date")
+              if stored_expected != current_expected_date:
+                  reasons.append(
+                      f"stored_expected_{stored_expected}_current_expected_{current_expected_date}"
                   )
-                  else 0
-              ),
-              reverse=True,
-          )
+              kospi_actual = candidate.get("kospi_actual_date")
+              if kospi_actual != current_expected_date:
+                  reasons.append(
+                      f"kospi_actual_{kospi_actual}_expected_{current_expected_date}"
+                  )
+              kosdaq_actual = candidate.get("kosdaq_actual_date")
+              if kosdaq_actual != current_expected_date:
+                  reasons.append(
+                      f"kosdaq_actual_{kosdaq_actual}_expected_{current_expected_date}"
+                  )
+              return bool(reasons), reasons
 
-          return candidates[0]
+          candidate = choose_latest_status()
+          stale, stale_reasons = evaluate_status(candidate)
 
-      def evaluate_status(candidate):
-          reasons = []
-
-          if candidate is None:
-              return True, ["freshness_status_missing"]
-
-          if candidate.get("parse_error"):
-              reasons.append(
-                  "freshness_parse_error:"
-                  f"{candidate['parse_error']}"
-              )
-
-          if candidate.get("official_fresh") is not True:
-              reasons.append(
-                  "official_fresh_not_true"
-              )
-
-          stored_expected = candidate.get(
-              "stored_expected_date"
-          )
-
-          if stored_expected != current_expected_date:
-              reasons.append(
-                  f"stored_expected_{stored_expected}"
-                  f"_current_expected_"
-                  f"{current_expected_date}"
-              )
-
-          kospi_actual = candidate.get(
-              "kospi_actual_date"
-          )
-
-          if kospi_actual != current_expected_date:
-              reasons.append(
-                  f"kospi_actual_{kospi_actual}"
-                  f"_expected_{current_expected_date}"
-              )
-
-          kosdaq_actual = candidate.get(
-              "kosdaq_actual_date"
-          )
-
-          if kosdaq_actual != current_expected_date:
-              reasons.append(
-                  f"kosdaq_actual_{kosdaq_actual}"
-                  f"_expected_{current_expected_date}"
-              )
-
-          return bool(reasons), reasons
-
-      candidate = choose_latest_status()
-      stale, stale_reasons = evaluate_status(candidate)
-
-      if explicit_manual_mode:
-          final_mode = requested_mode
-          mode_source = "manual_explicit"
-          stale_upgrade = False
-          stale_reason = "manual_explicit_mode"
-
-      else:
-          mode_source = (
-              "manual_auto"
-              if requested_mode == "auto"
-              else "schedule_or_default"
-          )
-
-          if stale:
-              final_mode = "official"
-              stale_upgrade = True
-              stale_reason = ",".join(
-                  stale_reasons
-              )
-
-          else:
-              final_mode = "aux"
+          if explicit_manual_mode:
+              final_mode = requested_mode
+              mode_source = "manual_explicit"
               stale_upgrade = False
-              stale_reason = (
-                  "fresh_aux_allowed"
-                  f":source={candidate.get('source')}"
-                  f":run_at={candidate.get('run_at')}"
-              )
-
-      print(
-          f"REQUESTED_RUN_MODE={requested_mode}"
-      )
-      print(
-          f"FINAL_RUN_MODE={final_mode}"
-      )
-      print(
-          f"RUN_MODE={final_mode}"
-      )
-      print(
-          f"RUN_MODE_SOURCE={mode_source}"
-      )
-      print(
-          "CURRENT_EXPECTED_OFFICIAL_DATE="
-          f"{current_expected_date}"
-      )
-      print(
-          "STALE_UPGRADE="
-          f"{str(stale_upgrade).lower()}"
-      )
-      print(
-          "STALE_UPGRADE_REASON="
-          f"{stale_reason}"
-      )
-      PY
-
-      cat /tmp/run_mode_env >> "$GITHUB_ENV"
-
-  - name: Show selected run mode
-    run: |
-      echo "REQUESTED_RUN_MODE=$REQUESTED_RUN_MODE"
-      echo "FINAL_RUN_MODE=$FINAL_RUN_MODE"
-      echo "RUN_MODE_SOURCE=$RUN_MODE_SOURCE"
-      echo "CURRENT_EXPECTED_OFFICIAL_DATE=$CURRENT_EXPECTED_OFFICIAL_DATE"
-      echo "STALE_UPGRADE=$STALE_UPGRADE"
-      echo "STALE_UPGRADE_REASON=$STALE_UPGRADE_REASON"
-
-  - name: Set up Python
-    uses: actions/setup-python@v5
-    with:
-      python-version: "3.11"
-
-  - name: Install dependencies
-    run: |
-      python -m pip install --upgrade pip
-      pip install -r requirements.txt
-
-  - name: Auxiliary current price update
-    if: env.RUN_MODE == 'aux'
-    run: |
-      python -m py_compile supplement_current_prices.py
-      python supplement_current_prices.py \
-        --output-dir latest \
-        --sleep-seconds 0.08
-
-      python -m py_compile apply_current_price_basis.py
-      python apply_current_price_basis.py \
-        --output-dir latest
-
-      python -m py_compile render_data_freshness_notice.py
-      python render_data_freshness_notice.py \
-        --output-dir latest \
-        --mode aux
-
-      echo "----- 보조 현재가 참고판 생성 결과 -----"
-      cat latest/supplement_current_prices_run_log_latest.txt || true
-
-      echo "----- 현재가 기준 보정 결과 -----"
-      cat latest/current_price_basis_run_log_latest.txt || true
-
-      echo "----- 데이터 최신성 색상 안내 -----"
-      cat latest/data_freshness_notice_latest.txt || true
-
-  - name: Collect watchlist data
-    if: env.RUN_MODE == 'official'
-    env:
-      KRX_AUTH_KEY: ${{ secrets.KRX_AUTH_KEY }}
-      DART_API_KEY: ${{ secrets.DART_API_KEY }}
-    run: |
-      python collect_watchlist.py \
-        --source auto \
-        --lookback-months 3 \
-        --output-dir latest
-
-  - name: Collect KOFIA three API data
-    if: env.RUN_MODE == 'official'
-    env:
-      DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
-      KOFIA_CMA_API_URL: ${{ secrets.KOFIA_CMA_API_URL }}
-      KOFIA_CREDIT_API_URL: ${{ secrets.KOFIA_CREDIT_API_URL }}
-      KOFIA_MARKET_FUNDS_API_URL: ${{ secrets.KOFIA_MARKET_FUNDS_API_URL }}
-    run: |
-      python -m py_compile kofia_market_status.py
-      python kofia_market_status.py \
-        --output-dir latest
-
-      echo "----- KOFIA API 실행 결과 -----"
-      cat latest/kofia_market_funds_run_log_latest.txt || true
-
-  - name: Collect official KRX universe and update all official tables
-    if: env.RUN_MODE == 'official'
-    env:
-      PYTHONWARNINGS: ignore::FutureWarning
-      KRX_AUTH_KEY: ${{ secrets.KRX_AUTH_KEY }}
-      DART_API_KEY: ${{ secrets.DART_API_KEY }}
-      ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
-    run: |
-      mkdir -p /tmp/latest_universe_backup
-
-      cp -f \
-        latest/universe_raw_history_latest.csv \
-        /tmp/latest_universe_backup/ || true
-
-      cp -f \
-        latest/kospi_universe_summary_latest.csv \
-        /tmp/latest_universe_backup/ || true
-
-      cp -f \
-        latest/kosdaq_universe_summary_latest.csv \
-        /tmp/latest_universe_backup/ || true
-
-      cp -f \
-        latest/kospi_candidates_30_latest.csv \
-        /tmp/latest_universe_backup/ || true
-
-      cp -f \
-        latest/kospi_recommend_7_latest.csv \
-        /tmp/latest_universe_backup/ || true
-
-      cp -f \
-        latest/kosdaq_candidates_10_latest.csv \
-        /tmp/latest_universe_backup/ || true
-
-      cp -f \
-        latest/kosdaq_recommend_5_latest.csv \
-        /tmp/latest_universe_backup/ || true
-
-      cp -f \
-        latest/kospi_gainers_1m_latest.csv \
-        /tmp/latest_universe_backup/ || true
-
-      python -m py_compile run_universe_latest.py
-      python run_universe_latest.py \
-        --days 180 \
-        --keep-months 7 \
-        --output-dir latest
-
-      python -m py_compile universe_output_guard.py
-      python universe_output_guard.py \
-        --output-dir latest \
-        --backup-dir /tmp/latest_universe_backup \
-        --kospi-min-rows 800 \
-        --kosdaq-min-rows 1500 \
-        --gainers-min-rows 15 \
-        --restore-on-fail
-
-      echo "----- KRX 공식자료 확정판 상태 -----"
-      cat latest/krx_official_retry_status_latest.txt || true
-
-      echo "----- KRX universe 산출물 보호 결과 -----"
-      cat latest/universe_output_guard_latest.txt || true
-
-      python -m py_compile operating_loss_enricher.py
-      python operating_loss_enricher.py \
-        --output-dir latest \
-        --workers 4 \
-        --max-api-calls 5000
-
-      python -m py_compile short_term_kospi.py
-      python short_term_kospi.py \
-        --output-dir latest \
-        --top-n 30 \
-        --recommend-n 7
-
-      python -m py_compile currency_weakness_kospi.py
-      python currency_weakness_kospi.py \
-        --output-dir latest \
-        --top-n 30 \
-        --recommend-n 7
-
-      python monthly_cycle.py \
-        --output-dir latest \
-        --lookback-months 6 \
-        --top-n 40
-
-      python -m py_compile supply_burden_enricher.py
-      python supply_burden_enricher.py \
-        --output-dir latest \
-        --lookback-days 180 \
-        --sleep-seconds 0.12
-
-      python market_status.py \
-        --output-dir latest \
-        --lookback-months 7
-
-      python official_index_status.py \
-        --output-dir latest \
-        --lookback-months 7
-
-      python -m py_compile kofia_macro_bridge.py
-      python kofia_macro_bridge.py \
-        --output-dir latest \
-        --lookback-days 370
-
-      python macro_leverage_status.py \
-        --output-dir latest \
-        --lookback-days 370 \
-        > /tmp/macro_leverage_stdout.txt 2>&1
-
-      if [ -f latest/macro_leverage_run_log_latest.txt ]; then
-        grep -Ev \
-          "KOFIA_(CREDIT|MARKET_FUNDS|CMA)_API_URL_MISSING|HTTP_FAIL KOFIA_CUSTOM|HTTP_FINAL_FAIL KOFIA_CUSTOM|KOFIA_CUSTOM_FAIL" \
-          latest/macro_leverage_run_log_latest.txt \
-          > /tmp/macro_leverage_run_log_cleaned.txt || true
-
-        mv \
-          /tmp/macro_leverage_run_log_cleaned.txt \
-          latest/macro_leverage_run_log_latest.txt
-      fi
-
-      python -m py_compile official_index_validation.py
-      python official_index_validation.py \
-        --output-dir latest
-
-      python -m py_compile table_health_check.py
-      python table_health_check.py \
-        --output-dir latest \
-        --freshness-warn-days 4 \
-        --freshness-error-days 10
-
-      python -m py_compile supplement_current_prices.py
-      python supplement_current_prices.py \
-        --output-dir latest \
-        --sleep-seconds 0.08
-
-      python -m py_compile apply_current_price_basis.py
-      python apply_current_price_basis.py \
-        --output-dir latest
-
-      python -m py_compile render_data_freshness_notice.py
-      python render_data_freshness_notice.py \
-        --output-dir latest \
-        --mode official
-
-      python -m py_compile dart_corp_code_cache.py
-      python dart_corp_code_cache.py \
-        --output-dir latest \
-        --sleep-seconds 1.0 || true
-
-      echo "----- DART 기업코드 캐시 생성 결과 -----"
-      cat latest/dart_corp_code_cache_run_log_latest.txt || true
-
-      echo "----- 영업손실 자동판별 결과 -----"
-      cat latest/operating_loss_run_log_latest.txt || true
-
-      echo "----- 수급부담 자동감지 결과 -----"
-      cat latest/supply_burden_run_log_latest.txt || true
-
-      echo "----- 단상표 자동산출 결과 -----"
-      cat latest/kospi_short_term_run_log_latest.txt || true
-
-      echo "----- 환율약세표 자동산출 결과 -----"
-      cat latest/kospi_fx_weakness_run_log_latest.txt || true
-
-      echo "----- 보조 현재가 참고판 생성 결과 -----"
-      cat latest/supplement_current_prices_run_log_latest.txt || true
-
-      echo "----- 현재가 기준 보정 결과 -----"
-      cat latest/current_price_basis_run_log_latest.txt || true
-
-      echo "----- 데이터 최신성 색상 안내 -----"
-      cat latest/data_freshness_notice_latest.txt || true
-
-      echo "----- 표 전체 통합점검 결과 -----"
-      cat latest/table_health_run_log_latest.txt || true
-
-      echo "----- KOFIA 연결 결과 -----"
-      cat latest/kofia_macro_bridge_run_log_latest.txt || true
-
-      echo "----- 거시·레버리지 위험분석 결과 -----"
-      cat latest/macro_leverage_run_log_latest.txt || true
-
-      echo "----- 공식지수 교차검증 결과 -----"
-      cat latest/official_index_validation_run_log_latest.txt || true
-
-  - name: Validate latest synchronization
-    run: |
-      if [ -f validate_latest_sync.py ]; then
-        python -m py_compile validate_latest_sync.py
-        python validate_latest_sync.py \
-          --output-dir latest
-      else
-        echo "VALIDATION_SCRIPT_STATUS=NOT_INSTALLED_YET"
-      fi
-
-  - name: Commit and push latest data
-    shell: bash
-    run: |
-      set -euo pipefail
-
-      git config user.name "github-actions"
-      git config user.email \
-        "github-actions@users.noreply.github.com"
-
-      git add -A latest
-
-      if git diff --cached --quiet; then
-        echo "NO_CHANGES_TO_COMMIT=true"
-        echo "PUSH_SUCCESS=true"
-        exit 0
-      fi
-
-      echo "CHANGED_FILES_BEGIN"
-      git diff --cached --name-only
-      echo "CHANGED_FILES_END"
-
-      git commit \
-        -m "Update latest KRX watchlist data"
-
-      git fetch origin main
-
-      if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
-        echo "REMOTE_MAIN_CHANGED=true"
-        git rebase origin/main
-      else
-        echo "REMOTE_MAIN_CHANGED=false"
-      fi
-
-      git push origin HEAD:main
-
-      echo "COMMIT_SHA=$(git rev-parse HEAD)"
-      echo "PUSH_SUCCESS=true"
-      echo "FINAL_RUN_MODE=$FINAL_RUN_MODE"
-      echo "CURRENT_EXPECTED_OFFICIAL_DATE=$CURRENT_EXPECTED_OFFICIAL_DATE"
-
-      if [ -f latest/krx_official_retry_status_latest.txt ]; then
-        echo "OFFICIAL_STATUS_BEGIN"
-        cat latest/krx_official_retry_status_latest.txt
-        echo "OFFICIAL_STATUS_END"
-      fi
-```
+              stale_reason = "manual_explicit_mode"
+          else:
+              mode_source = "manual_auto" if requested_mode == "auto" else "schedule_or_default"
+              if stale:
+                  final_mode = "official"
+                  stale_upgrade = True
+                  stale_reason = ",".join(stale_reasons)
+              else:
+                  final_mode = "aux"
+                  stale_upgrade = False
+                  stale_reason = (
+                      "fresh_aux_allowed"
+                      f":source={candidate.get('source')}"
+                      f":run_at={candidate.get('run_at')}"
+                  )
+
+          print(f"REQUESTED_RUN_MODE={requested_mode}")
+          print(f"FINAL_RUN_MODE={final_mode}")
+          print(f"RUN_MODE={final_mode}")
+          print(f"RUN_MODE_SOURCE={mode_source}")
+          print(f"CURRENT_EXPECTED_OFFICIAL_DATE={current_expected_date}")
+          print(f"STALE_UPGRADE={str(stale_upgrade).lower()}")
+          print(f"STALE_UPGRADE_REASON={stale_reason}")
+          PY
+
+          cat /tmp/run_mode_env >> "$GITHUB_ENV"
+
+      - name: Show selected run mode
+        run: |
+          echo "REQUESTED_RUN_MODE=$REQUESTED_RUN_MODE"
+          echo "FINAL_RUN_MODE=$FINAL_RUN_MODE"
+          echo "RUN_MODE_SOURCE=$RUN_MODE_SOURCE"
+          echo "CURRENT_EXPECTED_OFFICIAL_DATE=$CURRENT_EXPECTED_OFFICIAL_DATE"
+          echo "STALE_UPGRADE=$STALE_UPGRADE"
+          echo "STALE_UPGRADE_REASON=$STALE_UPGRADE_REASON"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Auxiliary current price update
+        if: env.RUN_MODE == 'aux'
+        run: |
+          python -m py_compile supplement_current_prices.py
+          python supplement_current_prices.py --output-dir latest --sleep-seconds 0.08
+
+          python -m py_compile apply_current_price_basis.py
+          python apply_current_price_basis.py --output-dir latest
+
+          python -m py_compile render_data_freshness_notice.py
+          python render_data_freshness_notice.py --output-dir latest --mode aux
+
+          echo "----- 보조 현재가 참고판 생성 결과 -----"
+          cat latest/supplement_current_prices_run_log_latest.txt || true
+
+          echo "----- 현재가 기준 보정 결과 -----"
+          cat latest/current_price_basis_run_log_latest.txt || true
+
+          echo "----- 데이터 최신성 색상 안내 -----"
+          cat latest/data_freshness_notice_latest.txt || true
+
+      - name: Collect watchlist data
+        if: env.RUN_MODE == 'official'
+        env:
+          KRX_AUTH_KEY: ${{ secrets.KRX_AUTH_KEY }}
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: |
+          python collect_watchlist.py --source auto --lookback-months 3 --output-dir latest
+
+      - name: Collect KOFIA three API data
+        if: env.RUN_MODE == 'official'
+        env:
+          DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
+          KOFIA_CMA_API_URL: ${{ secrets.KOFIA_CMA_API_URL }}
+          KOFIA_CREDIT_API_URL: ${{ secrets.KOFIA_CREDIT_API_URL }}
+          KOFIA_MARKET_FUNDS_API_URL: ${{ secrets.KOFIA_MARKET_FUNDS_API_URL }}
+        run: |
+          python -m py_compile kofia_market_status.py
+          python kofia_market_status.py --output-dir latest
+
+          echo "----- KOFIA API 실행 결과 -----"
+          cat latest/kofia_market_funds_run_log_latest.txt || true
+
+      - name: Collect official KRX universe and update all official tables
+        if: env.RUN_MODE == 'official'
+        env:
+          PYTHONWARNINGS: ignore::FutureWarning
+          KRX_AUTH_KEY: ${{ secrets.KRX_AUTH_KEY }}
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
+        run: |
+          mkdir -p /tmp/latest_universe_backup
+
+          cp -f latest/universe_raw_history_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kospi_universe_summary_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kosdaq_universe_summary_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kospi_candidates_30_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kospi_recommend_7_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kosdaq_candidates_10_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kosdaq_recommend_5_latest.csv /tmp/latest_universe_backup/ || true
+          cp -f latest/kospi_gainers_1m_latest.csv /tmp/latest_universe_backup/ || true
+
+          python -m py_compile run_collect_universe_retry.py
+          python -m py_compile run_universe_latest.py
+          python run_universe_latest.py --days 180 --keep-months 7 --output-dir latest
+
+          python -m py_compile universe_output_guard.py
+          python universe_output_guard.py \
+            --output-dir latest \
+            --backup-dir /tmp/latest_universe_backup \
+            --kospi-min-rows 800 \
+            --kosdaq-min-rows 1500 \
+            --gainers-min-rows 15 \
+            --restore-on-fail
+
+          echo "----- KRX 공식자료 확정판 상태 -----"
+          cat latest/krx_official_retry_status_latest.txt || true
+
+          echo "----- KRX universe 산출물 보호 결과 -----"
+          cat latest/universe_output_guard_latest.txt || true
+
+          python -m py_compile operating_loss_enricher.py
+          python operating_loss_enricher.py --output-dir latest --workers 4 --max-api-calls 5000
+
+          python -m py_compile short_term_kospi.py
+          python short_term_kospi.py --output-dir latest --top-n 30 --recommend-n 7
+
+          python -m py_compile currency_weakness_kospi.py
+          python currency_weakness_kospi.py --output-dir latest --top-n 30 --recommend-n 7
+
+          python monthly_cycle.py --output-dir latest --lookback-months 6 --top-n 40
+
+          python -m py_compile supply_burden_enricher.py
+          python supply_burden_enricher.py --output-dir latest --lookback-days 180 --sleep-seconds 0.12
+
+          python market_status.py --output-dir latest --lookback-months 7
+          python official_index_status.py --output-dir latest --lookback-months 7
+
+          python -m py_compile kofia_macro_bridge.py
+          python kofia_macro_bridge.py --output-dir latest --lookback-days 370
+
+          python macro_leverage_status.py --output-dir latest --lookback-days 370 > /tmp/macro_leverage_stdout.txt 2>&1
+
+          if [ -f latest/macro_leverage_run_log_latest.txt ]; then
+            grep -Ev "KOFIA_(CREDIT|MARKET_FUNDS|CMA)_API_URL_MISSING|HTTP_FAIL KOFIA_CUSTOM|HTTP_FINAL_FAIL KOFIA_CUSTOM|KOFIA_CUSTOM_FAIL" \
+              latest/macro_leverage_run_log_latest.txt \
+              > /tmp/macro_leverage_run_log_cleaned.txt || true
+            mv /tmp/macro_leverage_run_log_cleaned.txt latest/macro_leverage_run_log_latest.txt
+          fi
+
+          python -m py_compile official_index_validation.py
+          python official_index_validation.py --output-dir latest
+
+          python -m py_compile table_health_check.py
+          python table_health_check.py --output-dir latest --freshness-warn-days 4 --freshness-error-days 10
+
+          python -m py_compile supplement_current_prices.py
+          python supplement_current_prices.py --output-dir latest --sleep-seconds 0.08
+
+          python -m py_compile apply_current_price_basis.py
+          python apply_current_price_basis.py --output-dir latest
+
+          python -m py_compile render_data_freshness_notice.py
+          python render_data_freshness_notice.py --output-dir latest --mode official
+
+          python -m py_compile dart_corp_code_cache.py
+          python dart_corp_code_cache.py --output-dir latest --sleep-seconds 1.0 || true
+
+          echo "----- DART 기업코드 캐시 생성 결과 -----"
+          cat latest/dart_corp_code_cache_run_log_latest.txt || true
+
+          echo "----- 영업손실 자동판별 결과 -----"
+          cat latest/operating_loss_run_log_latest.txt || true
+
+          echo "----- 수급부담 자동감지 결과 -----"
+          cat latest/supply_burden_run_log_latest.txt || true
+
+          echo "----- 단상표 자동산출 결과 -----"
+          cat latest/kospi_short_term_run_log_latest.txt || true
+
+          echo "----- 환율약세표 자동산출 결과 -----"
+          cat latest/kospi_fx_weakness_run_log_latest.txt || true
+
+          echo "----- 보조 현재가 참고판 생성 결과 -----"
+          cat latest/supplement_current_prices_run_log_latest.txt || true
+
+          echo "----- 현재가 기준 보정 결과 -----"
+          cat latest/current_price_basis_run_log_latest.txt || true
+
+          echo "----- 데이터 최신성 색상 안내 -----"
+          cat latest/data_freshness_notice_latest.txt || true
+
+          echo "----- 표 전체 통합점검 결과 -----"
+          cat latest/table_health_run_log_latest.txt || true
+
+          echo "----- KOFIA 연결 결과 -----"
+          cat latest/kofia_macro_bridge_run_log_latest.txt || true
+
+          echo "----- 거시·레버리지 위험분석 결과 -----"
+          cat latest/macro_leverage_run_log_latest.txt || true
+
+          echo "----- 공식지수 교차검증 결과 -----"
+          cat latest/official_index_validation_run_log_latest.txt || true
+
+      - name: Validate latest synchronization
+        run: |
+          if [ -f validate_latest_sync.py ]; then
+            python -m py_compile validate_latest_sync.py
+            python validate_latest_sync.py --output-dir latest
+          else
+            echo "VALIDATION_SCRIPT_STATUS=NOT_INSTALLED_YET"
+          fi
+
+      - name: Commit and push latest data
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add -A latest
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            exit 0
+          fi
+
+          echo "CHANGED_FILES_BEGIN"
+          git diff --cached --name-only
+          echo "CHANGED_FILES_END"
+
+          git commit -m "Update latest KRX watchlist data"
+          git fetch origin main
+
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            echo "REMOTE_MAIN_CHANGED=true"
+            git rebase origin/main
+          else
+            echo "REMOTE_MAIN_CHANGED=false"
+          fi
+
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "FINAL_RUN_MODE=$FINAL_RUN_MODE"
+          echo "CURRENT_EXPECTED_OFFICIAL_DATE=$CURRENT_EXPECTED_OFFICIAL_DATE"
+
+          if [ -f latest/krx_official_retry_status_latest.txt ]; then
+            echo "OFFICIAL_STATUS_BEGIN"
+            cat latest/krx_official_retry_status_latest.txt
+            echo "OFFICIAL_STATUS_END"
+          fi

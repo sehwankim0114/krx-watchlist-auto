@@ -1,0 +1,321 @@
+name: KRX repository maintenance repair
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-krx-watchlist-latest
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Apply repository maintenance
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import re
+          import shutil
+          import textwrap
+          from pathlib import Path
+
+          ROOT = Path(".")
+          WORKFLOW_DIR = ROOT / ".github" / "workflows"
+          LATEST_DIR = ROOT / "latest"
+          DEPRECATED_DIR = LATEST_DIR / "deprecated"
+          DOCS_DIR = ROOT / "docs"
+
+          changed: list[str] = []
+
+          def write_if_changed(path: Path, content: str) -> None:
+              path.parent.mkdir(parents=True, exist_ok=True)
+              normalized = content.rstrip() + "\n"
+              old = path.read_text(encoding="utf-8") if path.exists() else None
+              if old != normalized:
+                  path.write_text(normalized, encoding="utf-8")
+                  changed.append(str(path))
+
+          # 1) GitHub Actions의 Node.js 20 기반 구형 액션을 최신 안정 메이저로 교체
+          for path in sorted(WORKFLOW_DIR.glob("*.y*ml")):
+              text = path.read_text(encoding="utf-8")
+              updated = re.sub(
+                  r"actions/checkout@v\d+",
+                  "actions/checkout@v6",
+                  text,
+              )
+              updated = re.sub(
+                  r"actions/setup-python@v\d+",
+                  "actions/setup-python@v6",
+                  updated,
+              )
+              if updated != text:
+                  path.write_text(updated, encoding="utf-8")
+                  changed.append(str(path))
+
+          # 2) 오래된 상태파일은 latest 루트에서 격리
+          DEPRECATED_DIR.mkdir(parents=True, exist_ok=True)
+          legacy_names = (
+              "krx_latest_retry_status_latest.json",
+              "krx_latest_retry_status_latest.txt",
+          )
+          for name in legacy_names:
+              src = LATEST_DIR / name
+              dst = DEPRECATED_DIR / name
+              if src.exists():
+                  if dst.exists():
+                      dst.unlink()
+                  shutil.move(str(src), str(dst))
+                  changed.extend([str(src), str(dst)])
+
+          deprecated_readme = """
+          # Deprecated KRX status files
+
+          이 폴더의 파일은 과거 자동화에서 생성된 기록 보존용 파일입니다.
+
+          ## 사용 금지 파일
+
+          - `krx_latest_retry_status_latest.json`
+          - `krx_latest_retry_status_latest.txt`
+
+          위 파일은 2026년 6월 10일 이전 구조의 구형 상태파일이며,
+          현재 데이터 최신성 판정에 사용하면 안 됩니다.
+
+          ## 현재 사용해야 할 파일
+
+          1. 기계 판정의 최우선 기준: `../official_data_status_latest.json`
+          2. 공식 수집 재시도 결과: `../krx_official_retry_status_latest.json`
+          3. 사람이 읽는 최신성 안내: `../data_freshness_notice_latest.md`
+          4. 시장·버블 위험 상태: `../data_status_latest.json`
+             - 이 파일은 공식 시세 최신성의 최우선 판정 파일이 아닙니다.
+
+          자동화와 커스텀 GPT는 이 폴더의 파일을 검색·판정 근거에서 제외해야 합니다.
+          """
+          write_if_changed(DEPRECATED_DIR / "README.md", textwrap.dedent(deprecated_readme))
+
+          official_sync_doc = """
+          # KRX 공식 데이터 최신성 판정 기준
+
+          이 문서는 `krx-watchlist-auto` 저장소에서 어떤 상태파일을 우선 확인해야 하는지 정리한 운영 기준입니다.
+
+          ## 1. 판정 우선순위
+
+          | 우선순위 | 파일 | 용도 |
+          |---:|---|---|
+          | 1 | `latest/official_data_status_latest.json` | 공식 KRX 시세의 기대 거래일·실제 거래일·FRESH 여부를 판정하는 최우선 파일 |
+          | 2 | `latest/krx_official_retry_status_latest.json` | 공식 수집 재시도 횟수와 최종 결과 확인 |
+          | 3 | `latest/data_freshness_notice_latest.md` | 사람이 읽기 쉬운 최신성 요약 |
+          | 4 | `latest/run_log_latest.txt` | 관종표 원자료 수집 결과와 종목별 상태 확인 |
+          | 5 | `latest/data_status_latest.json` | 시장폭·지수·버블 위험 상태 확인. 공식 시세 최신성의 최우선 파일은 아님 |
+
+          `latest/deprecated/` 아래 파일은 과거 기록 보존용이며 판정에 사용하지 않습니다.
+
+          ## 2. 주요 상태의 의미
+
+          - `FRESH`: 기대 공식 거래일과 실제 공식 데이터 기준일이 일치합니다.
+          - `STALE_KRX_EMPTY_OR_DELAY`: KRX 공식 데이터가 아직 비어 있거나 기대 거래일까지 올라오지 않았습니다.
+          - `OK_NEW_CONFIRMED_TRADING_DAY`: 시장 상태 분석기가 새 거래일 자료를 확인했습니다.
+          - `aux`: 공식 데이터 전체 재수집 없이 보조 현재가와 표시용 파일을 갱신한 실행입니다.
+
+          ## 3. 자동 실행 시각(KST)
+
+          - 월~금 08:10
+          - 월~토 08:40
+          - 월~토 09:10
+          - 월~토 09:40
+          - 월~토 15:35
+          - 매일 18:10
+
+          오전 08:30 이전에는 공식 데이터 게시가 끝나지 않을 수 있으므로,
+          08:40·09:10·09:40 실행이 지연 게시를 재확인합니다.
+
+          ## 4. 정상 여부 확인 순서
+
+          1. `official_data_status_latest.json`의 `expected_official_trading_date`와 실제 KOSPI·KOSDAQ 날짜를 비교합니다.
+          2. `official_fresh`가 `true`인지 확인합니다.
+          3. `collector_return_code`가 `0`인지 확인합니다.
+          4. `krx_official_retry_status_latest.json`에서 최종 시도 결과를 확인합니다.
+          5. `run_log_latest.txt`에서 종목 수와 실패 종목을 확인합니다.
+          6. 보조 현재가는 `supplement_current_prices_run_log_latest.txt`에서 별도로 확인합니다.
+
+          ## 5. 구형 파일 방지 규칙
+
+          다음 파일이 `latest/` 루트에 다시 생기면 자동 검증을 실패시켜야 합니다.
+
+          - `latest/krx_latest_retry_status_latest.json`
+          - `latest/krx_latest_retry_status_latest.txt`
+
+          해당 파일은 반드시 `latest/deprecated/` 아래에만 보관합니다.
+
+          ## 6. GitHub Actions 런타임
+
+          워크플로는 다음 메이저 버전을 사용합니다.
+
+          - `actions/checkout@v6`
+          - `actions/setup-python@v6`
+
+          Python 버전은 재현성을 위해 각 워크플로에서 명시적으로 고정합니다.
+          """
+          write_if_changed(DOCS_DIR / "official_data_sync.md", textwrap.dedent(official_sync_doc))
+
+          # 3) 구형 파일이 다시 생성되면 본 수집 워크플로가 즉시 실패하도록 방지장치 추가
+          collect_path = WORKFLOW_DIR / "collect-krx-watchlist.yml"
+          if collect_path.exists():
+              text = collect_path.read_text(encoding="utf-8")
+              guard_marker = "LEGACY_STATUS_ROOT_GUARD=v1"
+              if guard_marker not in text:
+                  pattern = re.compile(
+                      r"(?m)^(?P<step_indent>\s*)- name: Validate latest synchronization\s*\n"
+                      r"(?P<run_indent>\s*)run:\s*\|\s*\n"
+                  )
+                  match = pattern.search(text)
+                  if not match:
+                      raise RuntimeError(
+                          "collect-krx-watchlist.yml에서 "
+                          "'Validate latest synchronization' 단계를 찾지 못했습니다."
+                      )
+
+                  body_indent = match.group("run_indent") + "  "
+                  guard_lines = [
+                      f'{body_indent}echo "{guard_marker}"',
+                      f"{body_indent}for legacy in \\",
+                      f"{body_indent}  latest/krx_latest_retry_status_latest.json \\",
+                      f"{body_indent}  latest/krx_latest_retry_status_latest.txt; do",
+                      f'{body_indent}  if [ -e "$legacy" ]; then',
+                      f'{body_indent}    echo "::error file=$legacy::Legacy status file must stay under latest/deprecated/"',
+                      f"{body_indent}    exit 1",
+                      f"{body_indent}  fi",
+                      f"{body_indent}done",
+                  ]
+                  insertion = match.group(0) + "\n".join(guard_lines) + "\n"
+                  text = text[:match.start()] + insertion + text[match.end():]
+                  collect_path.write_text(text, encoding="utf-8")
+                  changed.append(str(collect_path))
+
+          print("MAINTENANCE_CHANGED_FILES_BEGIN")
+          for item in sorted(set(changed)):
+              print(item)
+          print("MAINTENANCE_CHANGED_FILES_END")
+          PY
+
+      - name: Validate maintenance result
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m pip install --quiet pyyaml
+
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          import yaml
+
+          root = Path(".")
+          workflows = sorted((root / ".github" / "workflows").glob("*.y*ml"))
+          errors = []
+
+          for path in workflows:
+              text = path.read_text(encoding="utf-8")
+
+              if re.search(r"actions/checkout@v(1|2|3|4|5)\b", text):
+                  errors.append(f"{path}: checkout 액션이 v6이 아닙니다.")
+              if re.search(r"actions/setup-python@v(1|2|3|4|5)\b", text):
+                  errors.append(f"{path}: setup-python 액션이 v6이 아닙니다.")
+
+              try:
+                  yaml.safe_load(text)
+              except Exception as exc:
+                  errors.append(f"{path}: YAML 구문 오류: {exc}")
+
+          collect_path = root / ".github" / "workflows" / "collect-krx-watchlist.yml"
+          collect = collect_path.read_text(encoding="utf-8")
+          required_crons = (
+              '10 23 * * 0-4',
+              '40 23 * * 0-5',
+              '10 0 * * 1-6',
+              '40 0 * * 1-6',
+              '35 6 * * 1-6',
+              '10 9 * * *',
+          )
+          for cron in required_crons:
+              if cron not in collect:
+                  errors.append(f"collect-krx-watchlist.yml: 필수 일정 누락: {cron}")
+
+          if "LEGACY_STATUS_ROOT_GUARD=v1" not in collect:
+              errors.append("collect-krx-watchlist.yml: 구형 상태파일 재생성 방지장치 누락")
+
+          for legacy in (
+              root / "latest" / "krx_latest_retry_status_latest.json",
+              root / "latest" / "krx_latest_retry_status_latest.txt",
+          ):
+              if legacy.exists():
+                  errors.append(f"{legacy}: latest 루트에 남아 있습니다.")
+
+          required_files = (
+              root / "docs" / "official_data_sync.md",
+              root / "latest" / "deprecated" / "README.md",
+          )
+          for path in required_files:
+              if not path.exists():
+                  errors.append(f"{path}: 필수 문서가 없습니다.")
+
+          if errors:
+              print("MAINTENANCE_VALIDATION=FAIL")
+              for error in errors:
+                  print(f"- {error}")
+              raise SystemExit(1)
+
+          print("MAINTENANCE_VALIDATION=PASS")
+          print(f"WORKFLOW_COUNT={len(workflows)}")
+          print("CHECKOUT_VERSION=v6")
+          print("SETUP_PYTHON_VERSION=v6")
+          print("LEGACY_STATUS_LOCATION=latest/deprecated")
+          print("OFFICIAL_STATUS_GUIDE=docs/official_data_sync.md")
+          PY
+
+      - name: Commit and push maintenance
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add -A .github/workflows docs latest
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            exit 0
+          fi
+
+          echo "CHANGED_FILES_BEGIN"
+          git diff --cached --name-status
+          echo "CHANGED_FILES_END"
+
+          git commit -m "Fix KRX automation status maintenance"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+
+          echo "MAINTENANCE_COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "MAINTENANCE_PUSH_SUCCESS=true"

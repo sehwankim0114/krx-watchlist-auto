@@ -48,7 +48,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -305,7 +305,7 @@ jobs:
           echo "STALE_UPGRADE_REASON=$STALE_UPGRADE_REASON"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -480,6 +480,15 @@ jobs:
 
       - name: Validate latest synchronization
         run: |
+          echo "LEGACY_STATUS_ROOT_GUARD=v1"
+          for legacy in \
+            latest/krx_latest_retry_status_latest.json \
+            latest/krx_latest_retry_status_latest.txt; do
+            if [ -e "$legacy" ]; then
+              echo "::error file=$legacy::Legacy status file must stay under latest/deprecated/"
+              exit 1
+            fi
+          done
           if [ -f validate_latest_sync.py ]; then
             python -m py_compile validate_latest_sync.py
             python validate_latest_sync.py --output-dir latest

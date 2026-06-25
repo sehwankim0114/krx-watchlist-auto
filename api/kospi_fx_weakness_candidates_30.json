@@ -1,7 +1,57 @@
 {
+  "schema_version": "3.0",
+  "build_id": "20260626T065625+0900-80cac06636",
+  "script": "build_api_json.py v3.0_sync_gate",
+  "table_id": "kospi_fx_weakness_candidates_30",
+  "display_name": "환율약세표 후보 30",
+  "generated_at_kst": "2026-06-26T06:56:25+09:00",
+  "source_commit_sha": "80cac0663639d1511eac16b7c931dae363f3669a",
+  "required": false,
+  "expected_rows": {
+    "exact": 30,
+    "minimum": null
+  },
+  "official_data": {
+    "source_file": "official_data_status_latest.json",
+    "source_run_at_kst": "2026-06-25T17:13:38+09:00",
+    "source_expected_official_trading_date": "2026-06-24",
+    "computed_expected_official_trading_date": "2026-06-24",
+    "kospi_actual_date": "2026-06-24",
+    "kosdaq_actual_date": "2026-06-24",
+    "basis_date_for_display": "2026-06-24",
+    "same_market_date": true,
+    "official_fresh_at_source": true,
+    "official_fresh_now": true,
+    "collector_return_code": 0,
+    "source_status": "FRESH",
+    "source_display_label": "최신 공식판",
+    "source_warning": "",
+    "kospi_summary_rows": 926,
+    "kosdaq_summary_rows": 1789
+  },
+  "current_price_basis": {
+    "current_price_asof_kst": "2026-06-26T02:24:53+09:00",
+    "current_price_basis_status": "OK",
+    "aux_price_count": 94,
+    "current_basis_ok_files": 4,
+    "time_after_hours_reflected": null,
+    "freshness_mode": "official"
+  },
+  "rules": {
+    "source_file": "docs/stock_table_rules_latest.md",
+    "version": "2026-06-25-v3-sync-gate",
+    "sha256": "5d06eb9414b27dfe36cc0cfcb045ad67c90c60fcaceb99fb30b6130484c60a07"
+  },
   "status": "OK",
-  "source": "kospi_fx_weakness_candidates_30_latest.csv",
+  "source_file": "latest/kospi_fx_weakness_candidates_30_latest.csv",
+  "source_priority": [
+    "kospi_fx_weakness_candidates_30_latest.csv"
+  ],
+  "current_basis_selected": false,
+  "overlay_source_file": null,
   "row_count": 30,
+  "row_count_ok": true,
+  "validation_message": "OK",
   "columns": [
     "rank",
     "recommend_flag",
@@ -40,11 +90,16 @@
     "supply_burden_report_count",
     "supply_burden_checked_at_kst"
   ],
+  "data_date_min": "2026-06-24",
+  "data_date_max": "2026-06-24",
+  "date_columns": [
+    "asof_date"
+  ],
   "rows": [
     {
       "rank": 1,
       "recommend_flag": "✅",
-      "code": 329180,
+      "code": "329180",
       "name": "HD현대중공업",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -82,7 +137,7 @@
     {
       "rank": 2,
       "recommend_flag": "✅",
-      "code": 64350,
+      "code": "064350",
       "name": "현대로템",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -120,7 +175,7 @@
     {
       "rank": 3,
       "recommend_flag": "✅",
-      "code": 5930,
+      "code": "005930",
       "name": "삼성전자",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -158,7 +213,7 @@
     {
       "rank": 4,
       "recommend_flag": "✅",
-      "code": 12450,
+      "code": "012450",
       "name": "한화에어로스페이스",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -196,7 +251,7 @@
     {
       "rank": 5,
       "recommend_flag": "✅",
-      "code": 9540,
+      "code": "009540",
       "name": "HD한국조선해양",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -234,7 +289,7 @@
     {
       "rank": 6,
       "recommend_flag": "✅",
-      "code": 79550,
+      "code": "079550",
       "name": "LIG디펜스앤에어로스페이스",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -272,7 +327,7 @@
     {
       "rank": 7,
       "recommend_flag": "✅",
-      "code": 42660,
+      "code": "042660",
       "name": "한화오션",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -310,7 +365,7 @@
     {
       "rank": 8,
       "recommend_flag": "🟡",
-      "code": 10140,
+      "code": "010140",
       "name": "삼성중공업",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -348,7 +403,7 @@
     {
       "rank": 9,
       "recommend_flag": "🟡",
-      "code": 298040,
+      "code": "298040",
       "name": "효성중공업",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -386,7 +441,7 @@
     {
       "rank": 10,
       "recommend_flag": "🟡",
-      "code": 161390,
+      "code": "161390",
       "name": "한국타이어앤테크놀로지",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -424,7 +479,7 @@
     {
       "rank": 11,
       "recommend_flag": "🟡",
-      "code": 12330,
+      "code": "012330",
       "name": "현대모비스",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -462,7 +517,7 @@
     {
       "rank": 12,
       "recommend_flag": "🟡",
-      "code": 5380,
+      "code": "005380",
       "name": "현대차",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -500,7 +555,7 @@
     {
       "rank": 13,
       "recommend_flag": "🟡",
-      "code": 42700,
+      "code": "042700",
       "name": "한미반도체",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -538,7 +593,7 @@
     {
       "rank": 14,
       "recommend_flag": "🟡",
-      "code": 810,
+      "code": "000810",
       "name": "삼성화재",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -576,7 +631,7 @@
     {
       "rank": 15,
       "recommend_flag": "-🟡",
-      "code": 6400,
+      "code": "006400",
       "name": "삼성SDI",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -614,7 +669,7 @@
     {
       "rank": 16,
       "recommend_flag": "🟡",
-      "code": 270,
+      "code": "000270",
       "name": "기아",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -652,7 +707,7 @@
     {
       "rank": 17,
       "recommend_flag": "🟡",
-      "code": 7660,
+      "code": "007660",
       "name": "이수페타시스",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -690,7 +745,7 @@
     {
       "rank": 18,
       "recommend_flag": "⚠️̲",
-      "code": 660,
+      "code": "000660",
       "name": "SK하이닉스",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -728,7 +783,7 @@
     {
       "rank": 19,
       "recommend_flag": "🟡",
-      "code": 34220,
+      "code": "034220",
       "name": "LG디스플레이",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -766,7 +821,7 @@
     {
       "rank": 20,
       "recommend_flag": "⚠️̲",
-      "code": 307950,
+      "code": "307950",
       "name": "현대오토에버",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -804,7 +859,7 @@
     {
       "rank": 21,
       "recommend_flag": "🟡",
-      "code": 97230,
+      "code": "097230",
       "name": "HJ중공업",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -833,16 +888,16 @@
       "reason": "중공업·수출 수혜; 거래대금 보통; 변동성 적정 3.88%",
       "supply_burden_flag": "CHECK_LIMITED",
       "supply_burden_level": "확인제한",
-      "supply_burden_keywords": NaN,
-      "supply_burden_latest_report_date": NaN,
-      "supply_burden_latest_report_name": NaN,
+      "supply_burden_keywords": null,
+      "supply_burden_latest_report_date": null,
+      "supply_burden_latest_report_name": null,
       "supply_burden_report_count": 0,
       "supply_burden_checked_at_kst": "2026-06-25T17:14:11+09:00"
     },
     {
       "rank": 22,
       "recommend_flag": "⚠️̲",
-      "code": 9150,
+      "code": "009150",
       "name": "삼성전기",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -880,7 +935,7 @@
     {
       "rank": 23,
       "recommend_flag": "🟡",
-      "code": 11200,
+      "code": "011200",
       "name": "HMM",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -918,7 +973,7 @@
     {
       "rank": 24,
       "recommend_flag": "-🟡",
-      "code": 373220,
+      "code": "373220",
       "name": "LG에너지솔루션",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -956,7 +1011,7 @@
     {
       "rank": 25,
       "recommend_flag": "🟡",
-      "code": 105560,
+      "code": "105560",
       "name": "KB금융",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -994,7 +1049,7 @@
     {
       "rank": 26,
       "recommend_flag": "🟡",
-      "code": 55550,
+      "code": "055550",
       "name": "신한지주",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -1032,7 +1087,7 @@
     {
       "rank": 27,
       "recommend_flag": "🟡",
-      "code": 278470,
+      "code": "278470",
       "name": "에이피알",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -1070,7 +1125,7 @@
     {
       "rank": 28,
       "recommend_flag": "🟡",
-      "code": 86790,
+      "code": "086790",
       "name": "하나금융지주",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -1108,7 +1163,7 @@
     {
       "rank": 29,
       "recommend_flag": "🟡",
-      "code": 82740,
+      "code": "082740",
       "name": "한화엔진",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -1146,7 +1201,7 @@
     {
       "rank": 30,
       "recommend_flag": "🟡",
-      "code": 462870,
+      "code": "462870",
       "name": "시프트업",
       "market": "KOSPI",
       "asof_date": "2026-06-24",
@@ -1175,9 +1230,9 @@
       "reason": "환율수혜 구조 확인 제한; 1개월 흐름 양호 16.9%; 3개월 추세 양호 13.9%; 현재 위치 양호 69.1%; 변동성 적정 2.31%",
       "supply_burden_flag": "CHECK_LIMITED",
       "supply_burden_level": "확인제한",
-      "supply_burden_keywords": NaN,
-      "supply_burden_latest_report_date": NaN,
-      "supply_burden_latest_report_name": NaN,
+      "supply_burden_keywords": null,
+      "supply_burden_latest_report_date": null,
+      "supply_burden_latest_report_name": null,
       "supply_burden_report_count": 0,
       "supply_burden_checked_at_kst": "2026-06-25T17:14:11+09:00"
     }

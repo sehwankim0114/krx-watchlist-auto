@@ -1,0 +1,219 @@
+{
+  "schema_version": "3.0",
+  "build_id": "20260626T065625+0900-80cac06636",
+  "generated_at_kst": "2026-06-26T06:56:25+09:00",
+  "source_commit_sha": "80cac0663639d1511eac16b7c931dae363f3669a",
+  "status": "READY",
+  "api_sync_ok": true,
+  "safe_to_analyze_as_latest": true,
+  "rules": {
+    "source_file": "docs/stock_table_rules_latest.md",
+    "version": "2026-06-25-v3-sync-gate",
+    "sha256": "5d06eb9414b27dfe36cc0cfcb045ad67c90c60fcaceb99fb30b6130484c60a07"
+  },
+  "tables": [
+    {
+      "table_id": "watchlist",
+      "display_name": "관종표",
+      "api_file": "api/watchlist.json",
+      "source_file": "latest/watchlist_summary_current_basis_latest.csv",
+      "overlay_source_file": null,
+      "status": "OK",
+      "row_count": 47,
+      "required": true,
+      "current_basis_selected": true
+    },
+    {
+      "table_id": "kospi_candidates_30",
+      "display_name": "코피표 후보 30",
+      "api_file": "api/kospi_candidates_30.json",
+      "source_file": "latest/kospi_candidates_30_current_basis_latest.csv",
+      "overlay_source_file": null,
+      "status": "OK",
+      "row_count": 30,
+      "required": true,
+      "current_basis_selected": true
+    },
+    {
+      "table_id": "kospi_recommend_7",
+      "display_name": "코피표 추천 7",
+      "api_file": "api/kospi_recommend_7.json",
+      "source_file": "latest/kospi_recommend_7_latest.csv",
+      "overlay_source_file": "latest/kospi_candidates_30_current_basis_latest.csv",
+      "status": "OK",
+      "row_count": 7,
+      "required": true,
+      "current_basis_selected": false
+    },
+    {
+      "table_id": "kosdaq_candidates_10",
+      "display_name": "코닥표 후보 10",
+      "api_file": "api/kosdaq_candidates_10.json",
+      "source_file": "latest/kosdaq_candidates_10_current_basis_latest.csv",
+      "overlay_source_file": null,
+      "status": "OK",
+      "row_count": 10,
+      "required": true,
+      "current_basis_selected": true
+    },
+    {
+      "table_id": "kosdaq_recommend_5",
+      "display_name": "코닥표 추천 5",
+      "api_file": "api/kosdaq_recommend_5.json",
+      "source_file": "latest/kosdaq_recommend_5_latest.csv",
+      "overlay_source_file": "latest/kosdaq_candidates_10_current_basis_latest.csv",
+      "status": "OK",
+      "row_count": 5,
+      "required": true,
+      "current_basis_selected": false
+    },
+    {
+      "table_id": "kospi_gainers_1m",
+      "display_name": "코급표 후보",
+      "api_file": "api/kospi_gainers_1m.json",
+      "source_file": "latest/kospi_gainers_1m_current_basis_latest.csv",
+      "overlay_source_file": null,
+      "status": "OK",
+      "row_count": 20,
+      "required": true,
+      "current_basis_selected": true
+    },
+    {
+      "table_id": "kospi_monthly_cycle",
+      "display_name": "월사이클표 핵심 후보",
+      "api_file": "api/kospi_monthly_cycle.json",
+      "source_file": "latest/kospi_monthly_cycle_latest.csv",
+      "overlay_source_file": null,
+      "status": "OK",
+      "row_count": 40,
+      "required": false,
+      "current_basis_selected": false
+    },
+    {
+      "table_id": "kospi_monthly_cycle_candidates",
+      "display_name": "월사이클표 전체 후보",
+      "api_file": "api/kospi_monthly_cycle_candidates.json",
+      "source_file": "latest/kospi_monthly_cycle_candidates_latest.csv",
+      "overlay_source_file": null,
+      "status": "OK",
+      "row_count": 507,
+      "required": false,
+      "current_basis_selected": false
+    },
+    {
+      "table_id": "kospi_fx_weakness_candidates_30",
+      "display_name": "환율약세표 후보 30",
+      "api_file": "api/kospi_fx_weakness_candidates_30.json",
+      "source_file": "latest/kospi_fx_weakness_candidates_30_latest.csv",
+      "overlay_source_file": null,
+      "status": "OK",
+      "row_count": 30,
+      "required": false,
+      "current_basis_selected": false
+    },
+    {
+      "table_id": "kospi_fx_weakness_recommend_7",
+      "display_name": "환율약세표 추천 7",
+      "api_file": "api/kospi_fx_weakness_recommend_7.json",
+      "source_file": "latest/kospi_fx_weakness_recommend_7_latest.csv",
+      "overlay_source_file": null,
+      "status": "OK",
+      "row_count": 7,
+      "required": false,
+      "current_basis_selected": false
+    },
+    {
+      "table_id": "kospi_short_term_candidates_30",
+      "display_name": "단상표 후보 30",
+      "api_file": "api/kospi_short_term_candidates_30.json",
+      "source_file": "latest/kospi_short_term_candidates_30_latest.csv",
+      "overlay_source_file": null,
+      "status": "OK",
+      "row_count": 30,
+      "required": false,
+      "current_basis_selected": false
+    },
+    {
+      "table_id": "kospi_short_term_recommend_7",
+      "display_name": "단상표 추천 7",
+      "api_file": "api/kospi_short_term_recommend_7.json",
+      "source_file": "latest/kospi_short_term_recommend_7_latest.csv",
+      "overlay_source_file": null,
+      "status": "OK",
+      "row_count": 7,
+      "required": false,
+      "current_basis_selected": false
+    }
+  ],
+  "snapshots": [
+    {
+      "snapshot_id": "official_data_status",
+      "display_name": "공식 KRX 최신성 상태",
+      "api_file": "api/official_data_status.json",
+      "source_file": "latest/official_data_status_latest.json",
+      "status": "OK"
+    },
+    {
+      "snapshot_id": "krx_official_retry_status",
+      "display_name": "공식 KRX 재시도 상태",
+      "api_file": "api/krx_official_retry_status.json",
+      "source_file": "latest/krx_official_retry_status_latest.json",
+      "status": "OK"
+    },
+    {
+      "snapshot_id": "current_price_basis",
+      "display_name": "현재가 보정 상태",
+      "api_file": "api/current_price_basis.json",
+      "source_file": "latest/current_price_basis_latest.json",
+      "status": "OK"
+    },
+    {
+      "snapshot_id": "data_freshness_notice",
+      "display_name": "자료 최신성 안내",
+      "api_file": "api/data_freshness_notice.json",
+      "source_file": "latest/data_freshness_notice_latest.json",
+      "status": "OK"
+    },
+    {
+      "snapshot_id": "table_health",
+      "display_name": "전체 표 통합 점검",
+      "api_file": "api/table_health.json",
+      "source_file": "latest/table_health_latest.json",
+      "status": "OK"
+    },
+    {
+      "snapshot_id": "market_status",
+      "display_name": "시장 상태",
+      "api_file": "api/market_status.json",
+      "source_file": "latest/data_status_latest.json",
+      "status": "OK"
+    },
+    {
+      "snapshot_id": "macro_leverage",
+      "display_name": "거시·레버리지 위험",
+      "api_file": "api/macro_leverage.json",
+      "source_file": "latest/macro_leverage_latest.json",
+      "status": "OK"
+    },
+    {
+      "snapshot_id": "kofia_macro_bridge_status",
+      "display_name": "KOFIA 연결 상태",
+      "api_file": "api/kofia_macro_bridge_status.json",
+      "source_file": "latest/kofia_macro_bridge_status_latest.json",
+      "status": "OK"
+    },
+    {
+      "snapshot_id": "bubble_risk",
+      "display_name": "버블 위험 상태",
+      "api_file": "api/bubble_risk.json",
+      "source_file": "latest/bubble_risk_latest.json",
+      "status": "OK"
+    }
+  ],
+  "control_files": [
+    "api/status.json",
+    "api/manifest.json",
+    "api/stock_table_rules.json",
+    "api/validation_report.json"
+  ]
+}

@@ -1,0 +1,279 @@
+openapi: 3.1.0
+info:
+  title: KRX Watchlist Auto Read API
+  version: "3.0.0"
+  description: >
+    Read-only JSON API for synchronized KRX stock tables, freshness status,
+    validation results, and stock table rules.
+servers:
+  - url: https://raw.githubusercontent.com
+paths:
+  /sehwankim0114/krx-watchlist-auto/main/api/status.json:
+    get:
+      operationId: getApiStatus
+      summary: Get API and official-data freshness gate
+      responses:
+        "200":
+          description: Current synchronization and freshness status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/manifest.json:
+    get:
+      operationId: getApiManifest
+      summary: Get generated table manifest
+      responses:
+        "200":
+          description: API manifest
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/validation_report.json:
+    get:
+      operationId: getApiValidationReport
+      summary: Get API structural validation report
+      responses:
+        "200":
+          description: API validation report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/stock_table_rules.json:
+    get:
+      operationId: getStockTableRules
+      summary: Get current stock-table rules from GitHub
+      responses:
+        "200":
+          description: Current rules and rules hash
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/watchlist.json:
+    get:
+      operationId: getWatchlist
+      summary: Get active watchlist table
+      responses:
+        "200":
+          description: Watchlist rows
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/kospi_candidates_30.json:
+    get:
+      operationId: getKospiCandidates
+      summary: Get KOSPI candidate 30 table
+      responses:
+        "200":
+          description: KOSPI candidates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/kospi_recommend_7.json:
+    get:
+      operationId: getKospiRecommendations
+      summary: Get KOSPI recommendation 7 table
+      responses:
+        "200":
+          description: KOSPI recommendations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/kosdaq_candidates_10.json:
+    get:
+      operationId: getKosdaqCandidates
+      summary: Get KOSDAQ candidate 10 table
+      responses:
+        "200":
+          description: KOSDAQ candidates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/kosdaq_recommend_5.json:
+    get:
+      operationId: getKosdaqRecommendations
+      summary: Get KOSDAQ recommendation 5 table
+      responses:
+        "200":
+          description: KOSDAQ recommendations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/kospi_gainers_1m.json:
+    get:
+      operationId: getKospiGainers
+      summary: Get KOSPI rapid-rise candidates
+      responses:
+        "200":
+          description: KOSPI rapid-rise table
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/kospi_monthly_cycle.json:
+    get:
+      operationId: getMonthlyCycle
+      summary: Get monthly-cycle candidates
+      responses:
+        "200":
+          description: Monthly-cycle table
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/kospi_fx_weakness_candidates_30.json:
+    get:
+      operationId: getFxWeaknessCandidates
+      summary: Get FX-weakness candidate 30 table
+      responses:
+        "200":
+          description: FX-weakness candidates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/kospi_fx_weakness_recommend_7.json:
+    get:
+      operationId: getFxWeaknessRecommendations
+      summary: Get FX-weakness recommendation 7 table
+      responses:
+        "200":
+          description: FX-weakness recommendations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/kospi_short_term_candidates_30.json:
+    get:
+      operationId: getShortTermCandidates
+      summary: Get short-term candidate 30 table
+      responses:
+        "200":
+          description: Short-term candidates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/kospi_short_term_recommend_7.json:
+    get:
+      operationId: getShortTermRecommendations
+      summary: Get short-term recommendation 7 table
+      responses:
+        "200":
+          description: Short-term recommendations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/official_data_status.json:
+    get:
+      operationId: getOfficialDataStatus
+      summary: Get canonical official KRX status snapshot
+      responses:
+        "200":
+          description: Official KRX status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/current_price_basis.json:
+    get:
+      operationId: getCurrentPriceBasis
+      summary: Get current-price adjustment status
+      responses:
+        "200":
+          description: Current-price basis status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/data_freshness_notice.json:
+    get:
+      operationId: getDataFreshnessNotice
+      summary: Get human-readable freshness metadata
+      responses:
+        "200":
+          description: Data freshness notice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/table_health.json:
+    get:
+      operationId: getTableHealth
+      summary: Get integrated table health status
+      responses:
+        "200":
+          description: Table health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/market_status.json:
+    get:
+      operationId: getMarketStatus
+      summary: Get market status
+      responses:
+        "200":
+          description: Market status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/macro_leverage.json:
+    get:
+      operationId: getMacroLeverage
+      summary: Get macro and leverage risk status
+      responses:
+        "200":
+          description: Macro and leverage status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+  /sehwankim0114/krx-watchlist-auto/main/api/bubble_risk.json:
+    get:
+      operationId: getBubbleRisk
+      summary: Get bubble-risk status
+      responses:
+        "200":
+          description: Bubble-risk status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
+
+components:
+  schemas:
+    AnyObject:
+      type: object
+      additionalProperties: true

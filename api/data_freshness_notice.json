@@ -1,20 +1,20 @@
 {
-  "schema_version": "3.0",
-  "build_id": "20260630T030150+0900-59199cea38",
+  "schema_version": "4.0",
+  "build_id": "20260630T051358+0900-f4d6ccf2b4",
   "snapshot_id": "data_freshness_notice",
   "display_name": "자료 최신성 안내",
-  "generated_at_kst": "2026-06-30T03:01:50+09:00",
-  "source_commit_sha": "59199cea38659c5c14936335cf13eeac3869fa54",
+  "generated_at_kst": "2026-06-30T05:13:58+09:00",
+  "source_commit_sha": "f4d6ccf2b46e66fa0b38351abdcd55aa86392c81",
   "source_file": "latest/data_freshness_notice_latest.json",
   "status": "OK",
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-06-25-v3-sync-gate",
-    "sha256": "5d06eb9414b27dfe36cc0cfcb045ad67c90c60fcaceb99fb30b6130484c60a07"
+    "version": "2026-06-30-v4-single-table",
+    "sha256": "9acf9285c42376b171393bbbb19f300f19a7e3ac2a00a82c430802b568b05128"
   },
   "data": {
     "script": "render_data_freshness_notice.py v1.1_single_status_source",
-    "notice_generated_at_kst": "2026-06-30T03:01:50+09:00",
+    "notice_generated_at_kst": "2026-06-30T05:13:58+09:00",
     "mode": "official",
     "main_badge_markdown": "![KRX 공식판 최신 공식판](https://img.shields.io/badge/KRX%20%EA%B3%B5%EC%8B%9D%ED%8C%90-%EC%B5%9C%EC%8B%A0%20%EA%B3%B5%EC%8B%9D%ED%8C%90-brightgreen)",
     "main_notice": "공식 KRX 자료가 기대 거래일까지 갱신되었습니다.",

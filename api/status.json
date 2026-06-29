@@ -1,9 +1,9 @@
 {
-  "schema_version": "3.0",
-  "build_id": "20260630T030150+0900-59199cea38",
-  "script": "build_api_json.py v3.0_sync_gate",
-  "generated_at_kst": "2026-06-30T03:01:50+09:00",
-  "source_commit_sha": "59199cea38659c5c14936335cf13eeac3869fa54",
+  "schema_version": "4.0",
+  "build_id": "20260630T051358+0900-f4d6ccf2b4",
+  "script": "build_api_json.py v4.0_single_table",
+  "generated_at_kst": "2026-06-30T05:13:58+09:00",
+  "source_commit_sha": "f4d6ccf2b46e66fa0b38351abdcd55aa86392c81",
   "status": "READY",
   "api_sync_ok": true,
   "official_fresh_now": true,
@@ -16,11 +16,18 @@
   "official_status_source_run_at_kst": "2026-06-27T18:34:46+09:00",
   "current_price_asof_kst": "2026-06-30T03:01:25+09:00",
   "current_price_basis_status": "OK",
-  "rules_version": "2026-06-25-v3-sync-gate",
-  "rules_sha256": "5d06eb9414b27dfe36cc0cfcb045ad67c90c60fcaceb99fb30b6130484c60a07",
-  "required_table_count": 6,
+  "rules_version": "2026-06-30-v4-single-table",
+  "rules_sha256": "9acf9285c42376b171393bbbb19f300f19a7e3ac2a00a82c430802b568b05128",
+  "required_table_count": 4,
   "generated_table_count": 12,
   "critical_errors": [],
   "warnings": [],
-  "usage_rule": "Custom GPT must call this endpoint first. Only when api_sync_ok and official_fresh_now are both true may it describe the data as the latest official dataset. If api_sync_ok is false, stop table analysis."
+  "presentation_policy": {
+    "default_output_mode": "single_main_table",
+    "separate_recommendation_table_default": false,
+    "recommendation_markings_embedded_in_main_table": true,
+    "explicit_shortlist_request": "filter main candidate rows and output only the shortlist table",
+    "duplicate_rows_across_main_and_shortlist_tables": false
+  },
+  "usage_rule": "Custom GPT must call this endpoint first. Only when api_sync_ok and official_fresh_now are both true may it describe the data as the latest official dataset. Default output must be one main table; do not repeat recommended rows in a separate shortlist table. If api_sync_ok is false, stop table analysis."
 }

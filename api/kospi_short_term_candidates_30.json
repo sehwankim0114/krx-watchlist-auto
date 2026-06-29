@@ -1,12 +1,21 @@
 {
-  "schema_version": "3.0",
-  "build_id": "20260630T030150+0900-59199cea38",
-  "script": "build_api_json.py v3.0_sync_gate",
+  "schema_version": "4.0",
+  "build_id": "20260630T051358+0900-f4d6ccf2b4",
+  "script": "build_api_json.py v4.0_single_table",
   "table_id": "kospi_short_term_candidates_30",
   "display_name": "단상표 후보 30",
-  "generated_at_kst": "2026-06-30T03:01:50+09:00",
-  "source_commit_sha": "59199cea38659c5c14936335cf13eeac3869fa54",
+  "generated_at_kst": "2026-06-30T05:13:58+09:00",
+  "source_commit_sha": "f4d6ccf2b46e66fa0b38351abdcd55aa86392c81",
   "required": false,
+  "default_output": true,
+  "explicit_request_only": false,
+  "presentation_policy": {
+    "default_output_mode": "single_main_table",
+    "separate_recommendation_table_default": false,
+    "recommendation_markings_embedded_in_main_table": true,
+    "explicit_shortlist_request": "filter main candidate rows and output only the shortlist table",
+    "duplicate_rows_across_main_and_shortlist_tables": false
+  },
   "expected_rows": {
     "exact": 30,
     "minimum": null
@@ -39,8 +48,8 @@
   },
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-06-25-v3-sync-gate",
-    "sha256": "5d06eb9414b27dfe36cc0cfcb045ad67c90c60fcaceb99fb30b6130484c60a07"
+    "version": "2026-06-30-v4-single-table",
+    "sha256": "9acf9285c42376b171393bbbb19f300f19a7e3ac2a00a82c430802b568b05128"
   },
   "status": "OK",
   "source_file": "latest/kospi_short_term_candidates_30_latest.csv",

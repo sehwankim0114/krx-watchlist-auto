@@ -1,0 +1,190 @@
+name: Apply Custom GPT v5 strict contract
+
+"on":
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: custom-gpt-v5-hardening
+  cancel-in-progress: false
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install runtime
+        run: python -m pip install --quiet pandas pyyaml
+
+      - name: Apply strict-contract patch
+        run: python apply_custom_gpt_v5_patch.py
+
+      - name: Compile and build synchronized API
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile apply_custom_gpt_v5_patch.py build_api_json.py validate_api_sync.py
+          python build_api_json.py
+          python validate_api_sync.py --api-dir api
+
+      - name: Validate strict contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import yaml
+
+          api = Path("api")
+          status = json.loads((api / "status.json").read_text(encoding="utf-8"))
+          manifest = json.loads((api / "manifest.json").read_text(encoding="utf-8"))
+          rules = json.loads((api / "stock_table_rules.json").read_text(encoding="utf-8"))
+          report = json.loads((api / "validation_report.json").read_text(encoding="utf-8"))
+
+          errors = []
+          build_ids = {
+              status.get("build_id"), manifest.get("build_id"),
+              rules.get("build_id"), report.get("build_id")
+          }
+          if None in build_ids or len(build_ids) != 1:
+              errors.append(f"control build_id mismatch: {sorted(str(v) for v in build_ids)}")
+          if report.get("status") != "PASS":
+              errors.extend(report.get("errors", []))
+
+          policy = status.get("presentation_policy")
+          required_policy = {
+              "default_output_mode": "single_main_table",
+              "separate_recommendation_table_default": False,
+              "recommendation_markings_embedded_in_main_table": True,
+              "duplicate_rows_across_main_and_shortlist_tables": False,
+          }
+          for key, value in required_policy.items():
+              if not policy or policy.get(key) != value:
+                  errors.append(f"presentation_policy.{key} mismatch")
+
+          rules_version = rules.get("rules_version")
+          rules_hash = rules.get("rules_sha256")
+          table_map = {}
+          for item in manifest.get("tables", []):
+              path = Path(item["api_file"])
+              payload = json.loads(path.read_text(encoding="utf-8"))
+              table_id = item["table_id"]
+              table_map[table_id] = (item, payload)
+              if payload.get("status") != "OK" and item.get("required"):
+                  errors.append(f"{table_id}: required status is not OK")
+              if payload.get("build_id") != status.get("build_id"):
+                  errors.append(f"{table_id}: build_id mismatch")
+              if payload.get("rules_version") != rules_version:
+                  errors.append(f"{table_id}: rules_version mismatch")
+              if payload.get("rules_sha256") != rules_hash:
+                  errors.append(f"{table_id}: rules_sha256 mismatch")
+              if payload.get("presentation_policy") != policy:
+                  errors.append(f"{table_id}: presentation_policy mismatch")
+              if payload.get("row_count") != len(payload.get("rows", [])):
+                  errors.append(f"{table_id}: row_count mismatch")
+              if payload.get("default_output") != item.get("default_output"):
+                  errors.append(f"{table_id}: default_output mismatch")
+              if payload.get("explicit_request_only") != item.get("explicit_request_only"):
+                  errors.append(f"{table_id}: explicit_request_only mismatch")
+
+          core = table_map.get("kospi_monthly_cycle")
+          full = table_map.get("kospi_monthly_cycle_candidates")
+          if not core:
+              errors.append("kospi_monthly_cycle missing")
+          else:
+              core_item, core_payload = core
+              if core_item.get("default_output") is not True or core_payload.get("default_output") is not True:
+                  errors.append("monthly-cycle core must be default")
+              if core_item.get("explicit_request_only") is not False or core_payload.get("explicit_request_only") is not False:
+                  errors.append("monthly-cycle core explicit flag invalid")
+          if not full:
+              errors.append("kospi_monthly_cycle_candidates missing")
+          else:
+              full_item, full_payload = full
+              if full_item.get("default_output") is not False or full_payload.get("default_output") is not False:
+                  errors.append("monthly-cycle full table must not be default")
+              if full_item.get("explicit_request_only") is not True or full_payload.get("explicit_request_only") is not True:
+                  errors.append("monthly-cycle full table must be explicit-request-only")
+
+          expected_safe = bool(
+              status.get("api_sync_ok")
+              and status.get("official_fresh_now")
+              and not status.get("critical_errors")
+          )
+          if bool(status.get("safe_to_analyze_as_latest")) != expected_safe:
+              errors.append("safe_to_analyze_as_latest strict gate mismatch")
+
+          schema = yaml.safe_load(Path("docs/custom_gpt_openapi_v5.yaml").read_text(encoding="utf-8"))
+          operations = {
+              item["get"]["operationId"]
+              for item in schema.get("paths", {}).values()
+              if isinstance(item, dict) and "get" in item
+          }
+          required_ops = {
+              "getApiStatus", "getStockTableRules", "getWatchlist",
+              "getKospiCandidates", "getKosdaqCandidates", "getKospiGainers",
+              "getMonthlyCycle", "getShortTermCandidates",
+              "getFxWeaknessCandidates", "getTableHealth",
+              "getApiManifest", "getApiValidationReport"
+          }
+          if not required_ops.issubset(operations):
+              errors.append(f"missing operations: {sorted(required_ops - operations)}")
+          if any("monthly_cycle_candidates" in path for path in schema.get("paths", {})):
+              errors.append("internal monthly-cycle full endpoint must not be exposed")
+
+          if errors:
+              print("STRICT_CONTRACT_VALIDATION=FAIL")
+              for error in errors:
+                  print(f"- {error}")
+              raise SystemExit(1)
+
+          print("STRICT_CONTRACT_VALIDATION=PASS")
+          print(f"BUILD_ID={status['build_id']}")
+          print(f"RULES_VERSION={rules_version}")
+          print(f"RULES_SHA256={rules_hash}")
+          print("MONTHLY_CORE_DEFAULT=true")
+          print("MONTHLY_FULL_DEFAULT=false")
+          print("TABLE_TOP_LEVEL_CONTRACT=PASS")
+          print("OPENAPI_SCHEMA=PASS")
+          PY
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add apply_custom_gpt_v5_patch.py build_api_json.py validate_api_sync.py docs api
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            exit 0
+          fi
+
+          echo "CHANGED_FILES_BEGIN"
+          git diff --cached --name-status
+          echo "CHANGED_FILES_END"
+
+          git commit -m "Harden Custom GPT API strict contract v5"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+
+          echo "STRICT_CONTRACT_PUSH_SUCCESS=true"
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"

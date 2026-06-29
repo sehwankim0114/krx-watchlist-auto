@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-build_api_json.py v3.0_sync_gate
+build_api_json.py v4.0_single_table
 
 목적
 - GitHub latest 산출물을 Custom GPT가 읽는 api/*.json으로 변환한다.
@@ -34,8 +34,8 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "build_api_json.py v3.0_sync_gate"
-SCHEMA_VERSION = "3.0"
+SCRIPT_VERSION = "build_api_json.py v4.0_single_table"
+SCHEMA_VERSION = "4.0"
 ROOT = Path(__file__).resolve().parent
 LATEST = ROOT / "latest"
 API = ROOT / "api"
@@ -43,6 +43,14 @@ DOCS = ROOT / "docs"
 CONFIG = ROOT / "config"
 RULES_PATH = DOCS / "stock_table_rules_latest.md"
 API.mkdir(parents=True, exist_ok=True)
+
+PRESENTATION_POLICY: Dict[str, Any] = {
+    "default_output_mode": "single_main_table",
+    "separate_recommendation_table_default": False,
+    "recommendation_markings_embedded_in_main_table": True,
+    "explicit_shortlist_request": "filter main candidate rows and output only the shortlist table",
+    "duplicate_rows_across_main_and_shortlist_tables": False,
+}
 
 
 @dataclass(frozen=True)
@@ -55,6 +63,8 @@ class TableSpec:
     exact_rows: Optional[int] = None
     min_rows: Optional[int] = None
     overlay_source: Optional[str] = None
+    default_output: bool = True
+    explicit_request_only: bool = False
 
 
 TABLE_SPECS: Tuple[TableSpec, ...] = (
@@ -69,10 +79,11 @@ TABLE_SPECS: Tuple[TableSpec, ...] = (
         required=True, exact_rows=30,
     ),
     TableSpec(
-        "kospi_recommend_7", "코피표 추천 7", "kospi_recommend_7.json",
+        "kospi_recommend_7", "별도 요청용 코피 추천 7", "kospi_recommend_7.json",
         ("kospi_recommend_7_current_basis_latest.csv", "kospi_recommend_7_latest.csv"),
-        required=True, exact_rows=7,
+        required=False, exact_rows=7,
         overlay_source="kospi_candidates_30_current_basis_latest.csv",
+        default_output=False, explicit_request_only=True,
     ),
     TableSpec(
         "kosdaq_candidates_10", "코닥표 후보 10", "kosdaq_candidates_10.json",
@@ -80,10 +91,11 @@ TABLE_SPECS: Tuple[TableSpec, ...] = (
         required=True, exact_rows=10,
     ),
     TableSpec(
-        "kosdaq_recommend_5", "코닥표 추천 5", "kosdaq_recommend_5.json",
+        "kosdaq_recommend_5", "별도 요청용 코닥 추천 5", "kosdaq_recommend_5.json",
         ("kosdaq_recommend_5_current_basis_latest.csv", "kosdaq_recommend_5_latest.csv"),
-        required=True, exact_rows=5,
+        required=False, exact_rows=5,
         overlay_source="kosdaq_candidates_10_current_basis_latest.csv",
+        default_output=False, explicit_request_only=True,
     ),
     TableSpec(
         "kospi_gainers_1m", "코급표 후보", "kospi_gainers_1m.json",
@@ -104,9 +116,10 @@ TABLE_SPECS: Tuple[TableSpec, ...] = (
         ("kospi_fx_weakness_candidates_30_latest.csv",), exact_rows=30,
     ),
     TableSpec(
-        "kospi_fx_weakness_recommend_7", "환율약세표 추천 7",
+        "kospi_fx_weakness_recommend_7", "별도 요청용 환율약세 추천 7",
         "kospi_fx_weakness_recommend_7.json",
         ("kospi_fx_weakness_recommend_7_latest.csv",), exact_rows=7,
+        default_output=False, explicit_request_only=True,
     ),
     TableSpec(
         "kospi_short_term_candidates_30", "단상표 후보 30",
@@ -114,9 +127,10 @@ TABLE_SPECS: Tuple[TableSpec, ...] = (
         ("kospi_short_term_candidates_30_latest.csv",), exact_rows=30,
     ),
     TableSpec(
-        "kospi_short_term_recommend_7", "단상표 추천 7",
+        "kospi_short_term_recommend_7", "별도 요청용 단상 추천 7",
         "kospi_short_term_recommend_7.json",
         ("kospi_short_term_recommend_7_latest.csv",), exact_rows=7,
+        default_output=False, explicit_request_only=True,
     ),
 )
 
@@ -429,6 +443,9 @@ def build_table(
         "generated_at_kst": generated_at,
         "source_commit_sha": commit_sha,
         "required": spec.required,
+        "default_output": spec.default_output,
+        "explicit_request_only": spec.explicit_request_only,
+        "presentation_policy": PRESENTATION_POLICY,
         "expected_rows": {
             "exact": spec.exact_rows,
             "minimum": spec.min_rows,
@@ -545,6 +562,9 @@ def main() -> int:
             "status": payload.get("status"),
             "row_count": payload.get("row_count"),
             "required": spec.required,
+        "default_output": spec.default_output,
+        "explicit_request_only": spec.explicit_request_only,
+        "presentation_policy": PRESENTATION_POLICY,
             "current_basis_selected": payload.get("current_basis_selected"),
         })
         if spec.required and payload.get("status") != "OK":
@@ -585,6 +605,7 @@ def main() -> int:
         "source_file": rules.get("source_file"),
         "rules_version": rules.get("version"),
         "rules_sha256": rules.get("sha256"),
+        "presentation_policy": PRESENTATION_POLICY,
         "content_markdown": rules_text,
     }
     write_json(API / "stock_table_rules.json", rules_payload)
@@ -635,10 +656,13 @@ def main() -> int:
         "generated_table_count": len(TABLE_SPECS),
         "critical_errors": critical_errors,
         "warnings": warnings,
+        "presentation_policy": PRESENTATION_POLICY,
         "usage_rule": (
             "Custom GPT must call this endpoint first. "
             "Only when api_sync_ok and official_fresh_now are both true may it describe "
-            "the data as the latest official dataset. If api_sync_ok is false, stop table analysis."
+            "the data as the latest official dataset. Default output must be one main table; "
+            "do not repeat recommended rows in a separate shortlist table. "
+            "If api_sync_ok is false, stop table analysis."
         ),
     }
     write_json(API / "status.json", status_payload)
@@ -652,6 +676,7 @@ def main() -> int:
         "api_sync_ok": api_sync_ok,
         "safe_to_analyze_as_latest": safe_latest,
         "rules": rules,
+        "presentation_policy": PRESENTATION_POLICY,
         "tables": manifest_tables,
         "snapshots": snapshot_files,
         "control_files": [

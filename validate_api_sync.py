@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-validate_api_sync.py v1.0
+validate_api_sync.py v1.1_single_table
 
 API 구조 오류는 실패 처리한다.
 공식 KRX 게시 지연은 구조 오류가 아니므로 경고로 기록하고 API에는 반영한다.
@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
-SCRIPT_VERSION = "validate_api_sync.py v1.0"
+SCRIPT_VERSION = "validate_api_sync.py v1.1_single_table"
 
 
 def read_json(path: Path) -> Dict[str, Any]:
@@ -72,6 +72,20 @@ def main() -> int:
             "Official data is not fresh for the current expected trading date. "
             "API is published with safe_to_analyze_as_latest=false."
         )
+
+    status_policy = status.get("presentation_policy", {}) if status else {}
+    manifest_policy = manifest.get("presentation_policy", {}) if manifest else {}
+    if not status_policy or not manifest_policy:
+        errors.append("presentation_policy missing from status or manifest")
+    elif status_policy != manifest_policy:
+        errors.append("presentation_policy mismatch between status and manifest")
+    else:
+        if status_policy.get("default_output_mode") != "single_main_table":
+            errors.append("presentation_policy.default_output_mode must be single_main_table")
+        if status_policy.get("separate_recommendation_table_default") is not False:
+            errors.append("separate recommendation table must be disabled by default")
+        if status_policy.get("duplicate_rows_across_main_and_shortlist_tables") is not False:
+            errors.append("duplicate rows across main and shortlist tables must be disabled")
 
     manifest_tables = manifest.get("tables", []) if isinstance(manifest, dict) else []
     required_seen = 0

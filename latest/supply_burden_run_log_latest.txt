@@ -1,5 +1,5 @@
 script=supply_burden_enricher.py v1.2_dart_whole_market_90d_cap
-run_at_kst=2026-06-27T18:35:29+09:00
+run_at_kst=2026-06-30T09:50:50+09:00
 output_dir=latest
 original_lookback_days=180
 effective_lookback_days=90
@@ -20,14 +20,16 @@ TARGET_FILE kospi_short_term_recommend_7_latest.csv: rows=7
 TARGET_FILE kospi_fx_weakness_candidates_30_latest.csv: rows=30
 TARGET_FILE kospi_fx_weakness_recommend_7_latest.csv: rows=7
 TARGET_FILE kospi_monthly_cycle_latest.csv: rows=40
-TARGET_FILE kospi_universe_summary_latest.csv: rows=926
-TARGET_FILE kosdaq_universe_summary_latest.csv: rows=1789
+TARGET_FILE kospi_universe_summary_latest.csv: rows=925
+TARGET_FILE kosdaq_universe_summary_latest.csv: rows=1790
 LOOKBACK_CAP_APPLIED original=180, effective=90
-dart_api_calls=345
-dart_api_error_count=0
-status=OK
+dart_api_calls=136
+dart_api_error_count=2
+DART_ERROR corp_cls=Y, page=120, error=TimeoutError: The read operation timed out
+DART_ERROR corp_cls=K, page=18, error=TimeoutError: The read operation timed out
+status=WARN_DART_PARTIAL_ERROR
 summary_rows=2715
-hit_reports=11876
+hit_reports=3472
 flagged_tickers=0
 danger_tickers=0
 warning_tickers=0
@@ -46,5 +48,5 @@ ENRICH_FILE kospi_short_term_recommend_7_latest.csv: status=OK, rows=7, matched_
 ENRICH_FILE kospi_fx_weakness_candidates_30_latest.csv: status=OK, rows=30, matched_rows=30, flagged_rows=0, note=
 ENRICH_FILE kospi_fx_weakness_recommend_7_latest.csv: status=OK, rows=7, matched_rows=7, flagged_rows=0, note=
 ENRICH_FILE kospi_monthly_cycle_latest.csv: status=OK, rows=40, matched_rows=40, flagged_rows=0, note=
-ENRICH_FILE kospi_universe_summary_latest.csv: status=OK, rows=926, matched_rows=926, flagged_rows=0, note=
-ENRICH_FILE kosdaq_universe_summary_latest.csv: status=OK, rows=1789, matched_rows=1789, flagged_rows=0, note=
+ENRICH_FILE kospi_universe_summary_latest.csv: status=OK, rows=925, matched_rows=925, flagged_rows=0, note=
+ENRICH_FILE kosdaq_universe_summary_latest.csv: status=OK, rows=1790, matched_rows=1790, flagged_rows=0, note=

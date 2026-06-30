@@ -1,40 +1,43 @@
 {
   "script": "supply_burden_enricher.py v1.2_dart_whole_market_90d_cap",
-  "run_at_kst": "2026-06-27T18:35:29+09:00",
-  "status": "OK",
+  "run_at_kst": "2026-06-30T09:50:50+09:00",
+  "status": "WARN_DART_PARTIAL_ERROR",
   "output_dir": "latest",
   "original_lookback_days": 180,
   "effective_lookback_days": 90,
   "dart_whole_market_max_days": 90,
   "lookback_capped": true,
   "target_tickers": 2715,
-  "hit_reports": 11876,
+  "hit_reports": 3472,
   "flagged_tickers": 0,
   "danger_tickers": 0,
   "warning_tickers": 0,
   "caution_tickers": 0,
   "dart_status": {
-    "bgn_de": "20260329",
-    "end_de": "20260627",
+    "bgn_de": "20260401",
+    "end_de": "20260630",
     "lookback_days": 90,
     "corp_cls": {
       "Y": {
-        "pages_requested": 162,
-        "total_page": 162,
-        "raw_reports": 16176,
-        "target_reports": 16176,
-        "matched_reports": 4575
+        "pages_requested": 119,
+        "total_page": 156,
+        "raw_reports": 11900,
+        "target_reports": 11900,
+        "matched_reports": 2700
       },
       "K": {
-        "pages_requested": 183,
-        "total_page": 183,
-        "raw_reports": 18245,
-        "target_reports": 18084,
-        "matched_reports": 7301
+        "pages_requested": 17,
+        "total_page": 169,
+        "raw_reports": 1700,
+        "target_reports": 1688,
+        "matched_reports": 772
       }
     },
-    "api_calls": 345,
-    "api_errors": []
+    "api_calls": 136,
+    "api_errors": [
+      "corp_cls=Y, page=120, error=TimeoutError: The read operation timed out",
+      "corp_cls=K, page=18, error=TimeoutError: The read operation timed out"
+    ]
   },
   "enrich_results": [
     {
@@ -128,16 +131,16 @@
     {
       "file": "kospi_universe_summary_latest.csv",
       "status": "OK",
-      "rows": 926,
-      "matched_rows": 926,
+      "rows": 925,
+      "matched_rows": 925,
       "flagged_rows": 0,
       "note": ""
     },
     {
       "file": "kosdaq_universe_summary_latest.csv",
       "status": "OK",
-      "rows": 1789,
-      "matched_rows": 1789,
+      "rows": 1790,
+      "matched_rows": 1790,
       "flagged_rows": 0,
       "note": ""
     }

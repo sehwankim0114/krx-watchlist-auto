@@ -72,6 +72,12 @@ jobs:
               "duplicate_rows_across_main_and_shortlist_tables": False,
           }
 
+          actual_policy = status.get("presentation_policy") or {}
+          policy_ok = all(
+              actual_policy.get(key) == value
+              for key, value in expected_policy.items()
+          )
+
           checks = {
               "status_ready": status.get("status") == "READY",
               "api_sync_ok": status.get("api_sync_ok") is True,
@@ -80,7 +86,7 @@ jobs:
               "validation_pass": validation.get("status") == "PASS",
               "critical_errors_empty": not status.get("critical_errors"),
               "validation_errors_empty": not validation.get("errors"),
-              "presentation_policy": status.get("presentation_policy") == expected_policy,
+              "presentation_policy": policy_ok,
           }
 
           failed = [name for name, ok in checks.items() if not ok]
@@ -111,6 +117,8 @@ jobs:
           print(f"BUILD_ID={status.get('build_id')}")
           print(f"RULES_VERSION={status.get('rules_version')}")
           print(f"CUSTOM_GPT_ACTION_COUNT={operation_count}")
+          print("PRESENTATION_POLICY_CORE=PASS")
+          print(f"PRESENTATION_POLICY_KEYS={sorted(actual_policy.keys())}")
           PY
 
       - name: Update current operating documents

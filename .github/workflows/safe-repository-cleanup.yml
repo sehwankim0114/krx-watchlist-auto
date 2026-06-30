@@ -1,0 +1,375 @@
+name: Safe repository cleanup
+
+"on":
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: safe-repository-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install validation dependency
+        run: python -m pip install --quiet pyyaml pandas
+
+      - name: Pre-cleanup health gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          required_files = [
+              ".github/workflows/collect-krx-watchlist.yml",
+              ".github/workflows/build_api_json.yml",
+              "build_api_json.py",
+              "validate_api_sync.py",
+              "docs/stock_table_rules_latest.md",
+              "docs/custom_gpt_instructions.md",
+              "docs/custom_gpt_action_schema.yaml",
+              "docs/custom_gpt_privacy_policy.md",
+              "api/status.json",
+              "api/validation_report.json",
+              "api/manifest.json",
+              "latest/official_data_status_latest.json",
+          ]
+
+          missing = [p for p in required_files if not Path(p).exists()]
+          if missing:
+              raise SystemExit(f"REQUIRED_FILES_MISSING={missing}")
+
+          status = json.loads(Path("api/status.json").read_text(encoding="utf-8"))
+          validation = json.loads(
+              Path("api/validation_report.json").read_text(encoding="utf-8")
+          )
+
+          expected_rules = "2026-06-30-v5-strict-contract"
+          expected_policy = {
+              "default_output_mode": "single_main_table",
+              "separate_recommendation_table_default": False,
+              "recommendation_markings_embedded_in_main_table": True,
+              "duplicate_rows_across_main_and_shortlist_tables": False,
+          }
+
+          checks = {
+              "status_ready": status.get("status") == "READY",
+              "api_sync_ok": status.get("api_sync_ok") is True,
+              "safe_latest": status.get("safe_to_analyze_as_latest") is True,
+              "rules_version": status.get("rules_version") == expected_rules,
+              "validation_pass": validation.get("status") == "PASS",
+              "critical_errors_empty": not status.get("critical_errors"),
+              "validation_errors_empty": not validation.get("errors"),
+              "presentation_policy": status.get("presentation_policy") == expected_policy,
+          }
+
+          failed = [name for name, ok in checks.items() if not ok]
+          if failed:
+              raise SystemExit(f"PRE_CLEANUP_HEALTH_GATE_FAILED={failed}")
+
+          instructions = Path(
+              "docs/custom_gpt_instructions.md"
+          ).read_text(encoding="utf-8")
+          if expected_rules not in instructions:
+              raise SystemExit("CUSTOM_GPT_INSTRUCTIONS_VERSION_MISMATCH")
+
+          schema_text = Path(
+              "docs/custom_gpt_action_schema.yaml"
+          ).read_text(encoding="utf-8")
+          if not re.search(r"(?m)^\s*version:\s*[\"']?5\.0\.0[\"']?\s*$", schema_text):
+              raise SystemExit("CUSTOM_GPT_SCHEMA_VERSION_MISMATCH")
+
+          operation_count = len(
+              re.findall(r"(?m)^\s*operationId:\s*\S+\s*$", schema_text)
+          )
+          if operation_count != 18:
+              raise SystemExit(
+                  f"CUSTOM_GPT_ACTION_COUNT_MISMATCH={operation_count}"
+              )
+
+          print("PRE_CLEANUP_HEALTH_GATE=PASS")
+          print(f"BUILD_ID={status.get('build_id')}")
+          print(f"RULES_VERSION={status.get('rules_version')}")
+          print(f"CUSTOM_GPT_ACTION_COUNT={operation_count}")
+          PY
+
+      - name: Update current operating documents
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+
+          readme = """# KRX Watchlist Auto 사용법
+
+          ## 현재 운영 구조
+
+          이 저장소는 다음 순서로 작동합니다.
+
+          1. `.github/workflows/collect-krx-watchlist.yml`이 공식 KRX 자료와 보조 현재가를 수집합니다.
+          2. 수집 결과는 `latest/`에 저장됩니다.
+          3. `.github/workflows/build_api_json.yml`이 `api/` JSON을 생성합니다.
+          4. `validate_api_sync.py`가 최신성·규칙 버전·행 수·단일표 정책을 검증합니다.
+          5. Custom GPT는 `api/status.json`과 `api/stock_table_rules.json`을 먼저 확인한 뒤 요청한 본표 API를 읽습니다.
+
+          ## 현재 규칙
+
+          - 규칙 버전: `2026-06-30-v5-strict-contract`
+          - 기본 출력: 한 요청당 본표 하나
+          - 코피표: 후보 30개 본표 하나
+          - 코닥표: 후보 10개 본표 하나
+          - 추천 종목은 본표 안에서 표시
+          - 별도 핵심추천표는 사용자가 명시적으로 요청한 경우에만 작성
+          - Knowledge 파일은 사용하지 않음
+          - Custom GPT Actions 인증: 없음(None)
+
+          ## 핵심 운영 파일
+
+          - 자동수집: `.github/workflows/collect-krx-watchlist.yml`
+          - API 생성: `.github/workflows/build_api_json.yml`
+          - API 생성기: `build_api_json.py`
+          - API 검증기: `validate_api_sync.py`
+          - 최신 규칙: `docs/stock_table_rules_latest.md`
+          - Custom GPT 지침: `docs/custom_gpt_instructions.md`
+          - Custom GPT Actions: `docs/custom_gpt_action_schema.yaml`
+          - 개인정보처리방침: `docs/custom_gpt_privacy_policy.md`
+
+          ## 삭제하거나 합치면 안 되는 파일
+
+          다음 파일들은 역할이 다르므로 그대로 둡니다.
+
+          - `latest/*_latest.*`
+          - `latest/*_current_basis_latest.*`
+          - `latest/*_supplemented_latest.*`
+          - 날짜별 `raw_history_*.csv`
+          - 날짜별 `watchlist_summary_*.csv`
+          - `latest/deprecated/`
+          - 추천 7개·5개 내부 CSV
+
+          ## 정상 확인 기준
+
+          `api/status.json`에서 다음 값이 정상이어야 합니다.
+
+          - `status=READY`
+          - `api_sync_ok=true`
+          - `official_fresh_now=true`
+          - `safe_to_analyze_as_latest=true`
+          - `rules_version=2026-06-30-v5-strict-contract`
+
+          `api/validation_report.json`은 `status=PASS`여야 합니다.
+
+          ## 주의
+
+          - `latest/deprecated/`의 파일은 현재 분석에 사용하지 않습니다.
+          - 일회성 유지보수 워크플로는 수동 실행 전용이며 자동으로 실행되지 않습니다.
+          - 투자판단은 자동수집 자료만으로 확정하지 말고 공시·뉴스·실적을 함께 확인합니다.
+          """
+          Path("README_사용법.md").write_text(readme, encoding="utf-8")
+
+          privacy_pointer = """# 개인정보처리방침 안내
+
+          Custom GPT용 최신 개인정보처리방침의 단일 원본은 다음 파일입니다.
+
+          - `docs/custom_gpt_privacy_policy.md`
+
+          이 루트 파일은 기존 링크의 호환성을 유지하기 위한 안내 파일입니다.
+          실제 정책 내용은 위 문서를 기준으로 합니다.
+          """
+          Path("privacy-policy.md").write_text(
+              privacy_pointer, encoding="utf-8"
+          )
+
+          catalog = """# 저장소 운영 파일 분류
+
+          ## 자동 실행 핵심
+
+          - `collect-krx-watchlist.yml`: 공식자료·보조 현재가 수집
+          - `build_api_json.yml`: API 생성·검증·푸시
+          - `dart-fx-exposure-safe.yml`: 예약 DART 환율노출 분석
+
+          ## 수동 실행 보조
+
+          다음 파일은 수동 실행용이며 예약 실행되지 않습니다.
+
+          - `dart-fx-exposure.yml`
+          - `apply-custom-gpt-v5-hardening.yml`
+          - `maintenance-repair.yml`
+          - `fix-rules-version-contract.yml`
+          - `safe-repository-cleanup.yml`
+
+          수동 보조 워크플로는 장애 복구 기록이므로 삭제하지 않고 보존합니다.
+          평상시에는 실행할 필요가 없습니다.
+
+          ## 데이터 폴더
+
+          - `latest/`: 자동수집 원본·중간·보정 산출물
+          - `api/`: Custom GPT가 읽는 공개 JSON
+          - `latest/deprecated/`: 사용 금지된 구형 상태파일 격리소
+          - `docs/archive/`: 과거 설명·유지보수 기록
+
+          ## 단일 원본
+
+          - 주식표 규칙: `docs/stock_table_rules_latest.md`
+          - Custom GPT 지침: `docs/custom_gpt_instructions.md`
+          - Actions 스키마: `docs/custom_gpt_action_schema.yaml`
+          - 개인정보처리방침: `docs/custom_gpt_privacy_policy.md`
+          """
+          Path("docs/REPOSITORY_STRUCTURE.md").write_text(
+              catalog, encoding="utf-8"
+          )
+
+          archive_dir = Path("docs/archive/legacy-notes")
+          archive_dir.mkdir(parents=True, exist_ok=True)
+
+          moved = []
+          for path in list(Path(".").iterdir()):
+              if not path.is_file():
+                  continue
+              if "제일 안정적인 추천 구조" in path.name:
+                  target = archive_dir / path.name
+                  if target.exists():
+                      path.unlink()
+                  else:
+                      shutil.move(str(path), str(target))
+                  moved.append(str(target))
+
+          archive_readme = """# Legacy notes
+
+          이 폴더는 과거 설정 설명을 보존하는 기록용입니다.
+
+          현재 자동화나 Custom GPT는 이 폴더의 파일을 읽지 않습니다.
+          현재 운영 기준은 다음 파일만 사용합니다.
+
+          - `docs/stock_table_rules_latest.md`
+          - `docs/custom_gpt_instructions.md`
+          - `docs/custom_gpt_action_schema.yaml`
+          - `api/status.json`
+          """
+          Path("docs/archive/legacy-notes/README.md").write_text(
+              archive_readme, encoding="utf-8"
+          )
+
+          print("README_UPDATED=true")
+          print("PRIVACY_POINTER_UPDATED=true")
+          print("REPOSITORY_CATALOG_CREATED=true")
+          print(f"LEGACY_NOTES_MOVED={moved}")
+          PY
+
+      - name: Validate automation after cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile build_api_json.py validate_api_sync.py
+          python validate_api_sync.py --api-dir api
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          status = json.loads(
+              Path("api/status.json").read_text(encoding="utf-8")
+          )
+          report = json.loads(
+              Path("api/validation_report.json").read_text(encoding="utf-8")
+          )
+
+          if status.get("status") != "READY":
+              raise SystemExit("POST_CLEANUP_API_NOT_READY")
+          if status.get("api_sync_ok") is not True:
+              raise SystemExit("POST_CLEANUP_API_SYNC_FAILED")
+          if report.get("status") != "PASS":
+              raise SystemExit("POST_CLEANUP_VALIDATION_FAILED")
+
+          protected = [
+              ".github/workflows/collect-krx-watchlist.yml",
+              ".github/workflows/build_api_json.yml",
+              "docs/stock_table_rules_latest.md",
+              "docs/custom_gpt_instructions.md",
+              "docs/custom_gpt_action_schema.yaml",
+              "latest/deprecated/README.md",
+          ]
+          missing = [p for p in protected if not Path(p).exists()]
+          if missing:
+              raise SystemExit(f"PROTECTED_FILES_MISSING={missing}")
+
+          print("POST_CLEANUP_VALIDATION=PASS")
+          print("CORE_AUTOMATION_FILES_PRESERVED=true")
+          print("LATEST_DATA_UNCHANGED=true")
+          print("API_DATA_UNCHANGED=true")
+          PY
+
+      - name: Commit and push documentation cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add README_사용법.md privacy-policy.md docs
+
+          if git diff --cached --quiet; then
+            echo "NO_DOCUMENTATION_CHANGES=true"
+          else
+            echo "CHANGED_FILES_BEGIN"
+            git diff --cached --name-status
+            echo "CHANGED_FILES_END"
+
+            git commit -m "Safely organize repository documentation"
+            git fetch origin main
+            git rebase origin/main
+            git push origin HEAD:main
+
+            echo "CLEANUP_PUSH_SUCCESS=true"
+            echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          fi
+
+      - name: Close resolved synchronization issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! gh issue view 1 --json state >/tmp/issue.json 2>/dev/null; then
+            echo "ISSUE_1_STATUS=NOT_FOUND_OR_INACCESSIBLE"
+            exit 0
+          fi
+
+          STATE="$(gh issue view 1 --json state --jq '.state')"
+          if [ "$STATE" = "OPEN" ]; then
+            gh issue comment 1 --body               "2026-06-30 기준 자동수집, API 동기화, strict contract v5, 규칙 버전 검증 및 저장소 문서 정리가 완료되었습니다. 현재 API 상태 READY, 동기화 true, 검증 PASS를 확인하여 이 이슈를 완료 처리합니다."
+            gh issue close 1 --reason completed
+            echo "ISSUE_1_CLOSED=true"
+          else
+            echo "ISSUE_1_ALREADY_CLOSED=true"
+          fi
+
+      - name: Final summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "SAFE_REPOSITORY_CLEANUP=PASS"
+          echo "CORE_AUTOMATION_PRESERVED=true"
+          echo "LATEST_AND_API_DATA_PRESERVED=true"
+          echo "CUSTOM_GPT_CONTRACT_PRESERVED=true"

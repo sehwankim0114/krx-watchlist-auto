@@ -1,6 +1,6 @@
 {
   "script": "apply_current_price_basis.py v1.1_current_close_support",
-  "run_at_kst": "2026-06-30T10:37:21+09:00",
+  "run_at_kst": "2026-06-30T15:18:57+09:00",
   "output_dir": "latest",
   "source_files": [
     "kospi_candidates_30_latest.csv",
@@ -16,11 +16,11 @@
       "output_file": "kospi_candidates_30_current_basis_latest.csv",
       "status": "OK",
       "rows": 30,
-      "matched": 30,
-      "marked_blue": 6,
-      "marked_orange": 5,
-      "marked_red": 12,
-      "marked_fail": 0,
+      "matched": 0,
+      "marked_blue": 0,
+      "marked_orange": 0,
+      "marked_red": 0,
+      "marked_fail": 30,
       "changed_price_cells": 30,
       "price_column": "close"
     },
@@ -29,11 +29,11 @@
       "output_file": "kosdaq_candidates_10_current_basis_latest.csv",
       "status": "OK",
       "rows": 10,
-      "matched": 10,
-      "marked_blue": 1,
-      "marked_orange": 4,
-      "marked_red": 4,
-      "marked_fail": 0,
+      "matched": 0,
+      "marked_blue": 0,
+      "marked_orange": 0,
+      "marked_red": 0,
+      "marked_fail": 10,
       "changed_price_cells": 10,
       "price_column": "close"
     },
@@ -42,11 +42,11 @@
       "output_file": "kospi_gainers_1m_current_basis_latest.csv",
       "status": "OK",
       "rows": 20,
-      "matched": 20,
-      "marked_blue": 1,
-      "marked_orange": 6,
-      "marked_red": 12,
-      "marked_fail": 0,
+      "matched": 0,
+      "marked_blue": 0,
+      "marked_orange": 0,
+      "marked_red": 0,
+      "marked_fail": 20,
       "changed_price_cells": 20,
       "price_column": "close"
     },
@@ -55,12 +55,12 @@
       "output_file": "watchlist_summary_current_basis_latest.csv",
       "status": "OK",
       "rows": 47,
-      "matched": 44,
-      "marked_blue": 12,
-      "marked_orange": 12,
-      "marked_red": 6,
-      "marked_fail": 0,
-      "changed_price_cells": 40,
+      "matched": 0,
+      "marked_blue": 0,
+      "marked_orange": 0,
+      "marked_red": 0,
+      "marked_fail": 44,
+      "changed_price_cells": 44,
       "price_column": "current_close"
     }
   ],
@@ -73,10 +73,10 @@
     "⚪": "보조 현재가 확인 실패"
   },
   "summary": {
-    "blue": 20,
-    "orange": 27,
-    "red": 34,
-    "fail": 0
+    "blue": 0,
+    "orange": 0,
+    "red": 0,
+    "fail": 104
   },
   "status": "OK"
 }

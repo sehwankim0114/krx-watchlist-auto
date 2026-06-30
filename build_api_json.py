@@ -303,7 +303,7 @@ def normalized_official_meta(now: datetime) -> Dict[str, Any]:
 def rules_meta() -> Tuple[Dict[str, Any], str]:
     text = RULES_PATH.read_text(encoding="utf-8") if RULES_PATH.exists() else ""
     digest = hashlib.sha256(text.encode("utf-8")).hexdigest() if text else ""
-    match = re.search(r"(?:규칙 버전|rules_version)\s*[:：]\s*([0-9A-Za-z._-]+)", text)
+    match = re.search(r"(?:규칙 버전|rules_version)\s*[:：]\s*`?([0-9A-Za-z._-]+)`?", text)
     if match is None:
         match = re.search(r"최종 업데이트\s*[:：]\s*([0-9A-Za-z._-]+)", text)
     version = match.group(1) if match else "UNKNOWN"

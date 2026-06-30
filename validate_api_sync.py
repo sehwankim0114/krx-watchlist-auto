@@ -11,7 +11,9 @@ API 구조 오류는 실패 처리한다.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
@@ -181,6 +183,97 @@ def main() -> int:
         errors.append(
             f"required table count mismatch: manifest={required_seen}, status={expected_required}"
         )
+
+
+    # RULES_VERSION_CONTRACT_BEGIN
+    rules_source = api.parent / "docs" / "stock_table_rules_latest.md"
+    canonical_rules_version = None
+    canonical_rules_hash = None
+
+    if not rules_source.exists():
+        errors.append("canonical rules source missing: docs/stock_table_rules_latest.md")
+    else:
+        rules_text = rules_source.read_text(encoding="utf-8")
+        canonical_rules_hash = hashlib.sha256(
+            rules_text.encode("utf-8")
+        ).hexdigest()
+        version_match = re.search(
+            r"(?:규칙 버전|rules_version)\s*[:：]\s*`?([0-9A-Za-z._-]+)`?",
+            rules_text,
+        )
+        if version_match is None:
+            errors.append("canonical rules_version could not be extracted")
+        else:
+            canonical_rules_version = version_match.group(1)
+
+    if canonical_rules_version:
+        control_versions = {
+            "status.json": status.get("rules_version"),
+            "manifest.json": (
+                manifest.get("rules_version")
+                or manifest.get("rules", {}).get("version")
+            ),
+            "stock_table_rules.json": rules.get("rules_version"),
+        }
+        for filename, actual_version in control_versions.items():
+            if actual_version != canonical_rules_version:
+                errors.append(
+                    f"{filename}: rules_version mismatch "
+                    f"actual={actual_version}, expected={canonical_rules_version}"
+                )
+
+    if canonical_rules_hash:
+        control_hashes = {
+            "status.json": status.get("rules_sha256"),
+            "manifest.json": (
+                manifest.get("rules_sha256")
+                or manifest.get("rules", {}).get("sha256")
+            ),
+            "stock_table_rules.json": rules.get("rules_sha256"),
+        }
+        for filename, actual_hash in control_hashes.items():
+            if actual_hash != canonical_rules_hash:
+                errors.append(
+                    f"{filename}: rules_sha256 mismatch with canonical rules file"
+                )
+
+    for item in manifest_tables:
+        if not isinstance(item, dict) or not item.get("api_file"):
+            continue
+        table_path = Path(item["api_file"])
+        if table_path.parts and table_path.parts[0] == api.name:
+            table_path = api.parent / table_path
+        elif not table_path.is_absolute():
+            table_path = api / table_path.name
+
+        table_payload = read_json(table_path)
+        if not table_payload:
+            continue
+
+        table_id = item.get("table_id")
+        table_rules_version = (
+            table_payload.get("rules_version")
+            or table_payload.get("rules", {}).get("version")
+        )
+        table_rules_hash = (
+            table_payload.get("rules_sha256")
+            or table_payload.get("rules", {}).get("sha256")
+        )
+
+        if (
+            canonical_rules_version
+            and table_rules_version != canonical_rules_version
+        ):
+            errors.append(
+                f"{table_id}: canonical rules_version mismatch "
+                f"actual={table_rules_version}, expected={canonical_rules_version}"
+            )
+
+        if canonical_rules_hash and table_rules_hash != canonical_rules_hash:
+            errors.append(
+                f"{table_id}: canonical rules_sha256 mismatch"
+            )
+    # RULES_VERSION_CONTRACT_END
 
     report = {
         "script": SCRIPT_VERSION,

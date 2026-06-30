@@ -278,9 +278,34 @@ jobs:
               archive_readme, encoding="utf-8"
           )
 
+          gitignore_path = Path(".gitignore")
+          existing_ignore = (
+              gitignore_path.read_text(encoding="utf-8")
+              if gitignore_path.exists()
+              else ""
+          )
+          ignore_lines = existing_ignore.splitlines()
+          required_ignore = [
+              "__pycache__/",
+              "*.py[cod]",
+              "*$py.class",
+              ".pytest_cache/",
+          ]
+          changed_ignore = False
+          for entry in required_ignore:
+              if entry not in ignore_lines:
+                  ignore_lines.append(entry)
+                  changed_ignore = True
+          if changed_ignore or not gitignore_path.exists():
+              gitignore_path.write_text(
+                  "\n".join(ignore_lines).rstrip() + "\n",
+                  encoding="utf-8",
+              )
+
           print("README_UPDATED=true")
           print("PRIVACY_POINTER_UPDATED=true")
           print("REPOSITORY_CATALOG_CREATED=true")
+          print("PYTHON_CACHE_GITIGNORE_UPDATED=true")
           print(f"LEGACY_NOTES_MOVED={moved}")
           PY
 
@@ -294,6 +319,10 @@ jobs:
           # 검증기는 validation_report의 실행시각을 갱신할 수 있다.
           # 이번 작업은 문서 정리 전용이므로 API 변경은 원상복구한다.
           git restore --worktree -- api/validation_report.json || true
+
+          # py_compile과 Python 실행이 만든 임시 캐시를 제거한다.
+          find . -type d -name '__pycache__' -prune -exec rm -rf {} +
+          find . -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 
           python - <<'PY'
           import json
@@ -339,7 +368,7 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
 
-          git add README_사용법.md privacy-policy.md docs
+          git add .gitignore README_사용법.md privacy-policy.md docs
 
           # 루트에서 docs/archive로 이동된 구형 한글 메모의 원래 경로 삭제도 stage한다.
           python - <<'PY'
@@ -361,6 +390,10 @@ jobs:
                   )
                   print(f"STAGED_LEGACY_DELETION={path}")
           PY
+
+          # 커밋 직전 한 번 더 Python 임시 캐시를 제거한다.
+          find . -type d -name '__pycache__' -prune -exec rm -rf {} +
+          find . -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 
           if git diff --cached --quiet; then
             echo "NO_DOCUMENTATION_CHANGES=true"
@@ -419,3 +452,4 @@ jobs:
           echo "CORE_AUTOMATION_PRESERVED=true"
           echo "LATEST_AND_API_DATA_PRESERVED=true"
           echo "CUSTOM_GPT_CONTRACT_PRESERVED=true"
+          echo "PYTHON_CACHE_CLEANUP=PASS"

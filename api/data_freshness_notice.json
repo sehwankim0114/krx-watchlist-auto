@@ -1,10 +1,10 @@
 {
   "schema_version": "4.1",
-  "build_id": "20260630T141158+0900-084b10ff21",
+  "build_id": "20260630T151924+0900-d47e47553d",
   "snapshot_id": "data_freshness_notice",
   "display_name": "자료 최신성 안내",
-  "generated_at_kst": "2026-06-30T14:11:58+09:00",
-  "source_commit_sha": "084b10ff2121877d5913a227f30fe7ebb02fcb65",
+  "generated_at_kst": "2026-06-30T15:19:24+09:00",
+  "source_commit_sha": "d47e47553de6ba0f2a4d0f2c2d5ee3ae1f8cf7fa",
   "source_file": "latest/data_freshness_notice_latest.json",
   "status": "OK",
   "rules_version": "2026-06-30-v5-strict-contract",
@@ -23,7 +23,7 @@
   },
   "data": {
     "script": "render_data_freshness_notice.py v1.1_single_status_source",
-    "notice_generated_at_kst": "2026-06-30T10:37:49+09:00",
+    "notice_generated_at_kst": "2026-06-30T15:19:23+09:00",
     "mode": "official",
     "main_badge_markdown": "![KRX 공식판 최신 공식판](https://img.shields.io/badge/KRX%20%EA%B3%B5%EC%8B%9D%ED%8C%90-%EC%B5%9C%EC%8B%A0%20%EA%B3%B5%EC%8B%9D%ED%8C%90-brightgreen)",
     "main_notice": "공식 KRX 자료가 기대 거래일까지 갱신되었습니다.",
@@ -53,9 +53,9 @@
     "holiday_file": "config/krx_market_holidays.json",
     "holiday_file_exists": true,
     "collector_return_code": 0,
-    "aux_status": "OK",
-    "aux_run_at_kst": "2026-06-30T10:36:10+09:00",
-    "aux_ok_count": 97,
-    "aux_fail_count": 0
+    "aux_status": "ALL_AUX_FETCH_FAILED",
+    "aux_run_at_kst": "2026-06-30T13:21:19+09:00",
+    "aux_ok_count": 0,
+    "aux_fail_count": 97
   }
 }

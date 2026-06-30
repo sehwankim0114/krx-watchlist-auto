@@ -1,11 +1,11 @@
 {
-  "schema_version": "4.0",
-  "build_id": "20260630T103750+0900-41a0d4d18e",
-  "script": "build_api_json.py v4.0_single_table",
+  "schema_version": "4.1",
+  "build_id": "20260630T132410+0900-53dcddcdf3",
+  "script": "build_api_json.py v4.1_strict_contract",
   "table_id": "kospi_recommend_7",
   "display_name": "별도 요청용 코피 추천 7",
-  "generated_at_kst": "2026-06-30T10:37:50+09:00",
-  "source_commit_sha": "41a0d4d18e4488e8d19804425788b580541d3e5e",
+  "generated_at_kst": "2026-06-30T13:24:10+09:00",
+  "source_commit_sha": "53dcddcdf31a4eeb1c207e994b43760c218825b8",
   "required": false,
   "default_output": false,
   "explicit_request_only": true,
@@ -16,6 +16,8 @@
     "explicit_shortlist_request": "filter main candidate rows and output only the shortlist table",
     "duplicate_rows_across_main_and_shortlist_tables": false
   },
+  "rules_version": "2026-06-30-v5-strict-contract",
+  "rules_sha256": "d5016f2425e39dcfb7a0d3e920ebf80854810e56289385610fb778930dcfa6fc",
   "expected_rows": {
     "exact": 7,
     "minimum": null
@@ -48,8 +50,8 @@
   },
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-06-30-v4-single-table",
-    "sha256": "b486ebb78247d8057087241fb714dc6bc481cf87e30a1567b4babc08ea4be62d"
+    "version": "2026-06-30-v5-strict-contract",
+    "sha256": "d5016f2425e39dcfb7a0d3e920ebf80854810e56289385610fb778930dcfa6fc"
   },
   "status": "OK",
   "source_file": "latest/kospi_recommend_7_latest.csv",

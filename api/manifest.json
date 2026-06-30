@@ -1,15 +1,17 @@
 {
-  "schema_version": "4.0",
-  "build_id": "20260630T103750+0900-41a0d4d18e",
-  "generated_at_kst": "2026-06-30T10:37:50+09:00",
-  "source_commit_sha": "41a0d4d18e4488e8d19804425788b580541d3e5e",
+  "schema_version": "4.1",
+  "build_id": "20260630T132410+0900-53dcddcdf3",
+  "generated_at_kst": "2026-06-30T13:24:10+09:00",
+  "source_commit_sha": "53dcddcdf31a4eeb1c207e994b43760c218825b8",
   "status": "READY",
   "api_sync_ok": true,
   "safe_to_analyze_as_latest": true,
+  "rules_version": "2026-06-30-v5-strict-contract",
+  "rules_sha256": "d5016f2425e39dcfb7a0d3e920ebf80854810e56289385610fb778930dcfa6fc",
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-06-30-v4-single-table",
-    "sha256": "b486ebb78247d8057087241fb714dc6bc481cf87e30a1567b4babc08ea4be62d"
+    "version": "2026-06-30-v5-strict-contract",
+    "sha256": "d5016f2425e39dcfb7a0d3e920ebf80854810e56289385610fb778930dcfa6fc"
   },
   "presentation_policy": {
     "default_output_mode": "single_main_table",
@@ -168,8 +170,8 @@
       "status": "OK",
       "row_count": 509,
       "required": false,
-      "default_output": true,
-      "explicit_request_only": false,
+      "default_output": false,
+      "explicit_request_only": true,
       "presentation_policy": {
         "default_output_mode": "single_main_table",
         "separate_recommendation_table_default": false,

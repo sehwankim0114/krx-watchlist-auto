@@ -1,16 +1,25 @@
 {
-  "schema_version": "4.0",
-  "build_id": "20260630T103750+0900-41a0d4d18e",
+  "schema_version": "4.1",
+  "build_id": "20260630T132410+0900-53dcddcdf3",
   "snapshot_id": "table_health",
   "display_name": "전체 표 통합 점검",
-  "generated_at_kst": "2026-06-30T10:37:50+09:00",
-  "source_commit_sha": "41a0d4d18e4488e8d19804425788b580541d3e5e",
+  "generated_at_kst": "2026-06-30T13:24:10+09:00",
+  "source_commit_sha": "53dcddcdf31a4eeb1c207e994b43760c218825b8",
   "source_file": "latest/table_health_latest.json",
   "status": "OK",
+  "rules_version": "2026-06-30-v5-strict-contract",
+  "rules_sha256": "d5016f2425e39dcfb7a0d3e920ebf80854810e56289385610fb778930dcfa6fc",
+  "presentation_policy": {
+    "default_output_mode": "single_main_table",
+    "separate_recommendation_table_default": false,
+    "recommendation_markings_embedded_in_main_table": true,
+    "explicit_shortlist_request": "filter main candidate rows and output only the shortlist table",
+    "duplicate_rows_across_main_and_shortlist_tables": false
+  },
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-06-30-v4-single-table",
-    "sha256": "b486ebb78247d8057087241fb714dc6bc481cf87e30a1567b4babc08ea4be62d"
+    "version": "2026-06-30-v5-strict-contract",
+    "sha256": "d5016f2425e39dcfb7a0d3e920ebf80854810e56289385610fb778930dcfa6fc"
   },
   "data": {
     "script": "table_health_check.py v1.1_current_basis_and_supply_burden",

@@ -1,7 +1,7 @@
 # 한국 주식 자동화 분석표 최신 개선형 통합 규칙
 
 - 최종 업데이트: 2026-06-30
-- 규칙 버전: 2026-06-30-v4-single-table
+- 규칙 버전: 2026-06-30-v5-strict-contract
 - 저장소: `sehwankim0114/krx-watchlist-auto`
 - 적용 대상: `관종표`, `분석표`, `코피표`, `코피표1개월`, `코닥표`, `코닥표1개월`, `코급표`, `월사이클표`, `단상표`, `환율약세표`, `시장상태표`, `보유종목표`, `미관종표`
 
@@ -311,3 +311,16 @@
 - 점수를 별도 열로 만들지 않았는가?
 - `시장·티커`, `섹터/테마`가 오른쪽 끝인가?
 - 확인하지 않은 뉴스·가격·공시를 만들어내지 않았는가?
+
+---
+
+## v5 엄격 계약 보강
+
+- `api_sync_ok=false` 또는 `critical_errors` 존재 시 표를 만들지 않는다.
+- `official_fresh_now=true`, `safe_to_analyze_as_latest=false` 조합도 표 작성을 중단한다.
+- 공식자료 지연은 API 동기화가 정상이고 `confirmed_basis_date`가 있을 때만 제한 분석한다.
+- 모든 본표 JSON은 최상위에 `rules_version`, `rules_sha256`,
+  `presentation_policy`, `default_output`, `explicit_request_only`를 포함한다.
+- `kospi_monthly_cycle`은 기본 월사이클표다.
+- `kospi_monthly_cycle_candidates`는 내부 저장용이며
+  `default_output=false`, `explicit_request_only=true`로 고정한다.

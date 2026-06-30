@@ -34,8 +34,8 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "build_api_json.py v4.0_single_table"
-SCHEMA_VERSION = "4.0"
+SCRIPT_VERSION = "build_api_json.py v4.1_strict_contract"
+SCHEMA_VERSION = "4.1"
 ROOT = Path(__file__).resolve().parent
 LATEST = ROOT / "latest"
 API = ROOT / "api"
@@ -105,10 +105,14 @@ TABLE_SPECS: Tuple[TableSpec, ...] = (
     TableSpec(
         "kospi_monthly_cycle", "월사이클표 핵심 후보", "kospi_monthly_cycle.json",
         ("kospi_monthly_cycle_latest.csv",), min_rows=1,
+        default_output=True,
+        explicit_request_only=False,
     ),
     TableSpec(
         "kospi_monthly_cycle_candidates", "월사이클표 전체 후보", "kospi_monthly_cycle_candidates.json",
         ("kospi_monthly_cycle_candidates_latest.csv",), min_rows=1,
+        default_output=False,
+        explicit_request_only=True,
     ),
     TableSpec(
         "kospi_fx_weakness_candidates_30", "환율약세표 후보 30",
@@ -446,6 +450,8 @@ def build_table(
         "default_output": spec.default_output,
         "explicit_request_only": spec.explicit_request_only,
         "presentation_policy": PRESENTATION_POLICY,
+        "rules_version": rules.get("version"),
+        "rules_sha256": rules.get("sha256"),
         "expected_rows": {
             "exact": spec.exact_rows,
             "minimum": spec.min_rows,
@@ -522,6 +528,9 @@ def snapshot_payload(
         "source_commit_sha": commit_sha,
         "source_file": str(source.relative_to(ROOT)),
         "status": "OK" if data else "MISSING_OR_INVALID",
+        "rules_version": rules.get("version"),
+        "rules_sha256": rules.get("sha256"),
+        "presentation_policy": PRESENTATION_POLICY,
         "rules": rules,
         "data": data,
     }
@@ -675,6 +684,8 @@ def main() -> int:
         "status": overall_status,
         "api_sync_ok": api_sync_ok,
         "safe_to_analyze_as_latest": safe_latest,
+        "rules_version": rules.get("version"),
+        "rules_sha256": rules.get("sha256"),
         "rules": rules,
         "presentation_policy": PRESENTATION_POLICY,
         "tables": manifest_tables,

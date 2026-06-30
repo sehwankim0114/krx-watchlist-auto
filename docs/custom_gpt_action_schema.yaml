@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: KRX Watchlist Auto Read API
-  version: 4.0.0
-  description: Read-only synchronized KRX API. Default output uses one candidate table with embedded recommendation markings
-    and does not expose duplicate shortlist endpoints.
+  version: 5.0.0
+  description: Read-only synchronized KRX strict-contract API. The GPT must call status and rules first, validate build/rules/presentation
+    policy, and output one main table without duplicate shortlist tables.
 servers:
 - url: https://raw.githubusercontent.com
 paths:
@@ -333,6 +333,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FlexibleObject'
+        presentation_policy:
+          $ref: '#/components/schemas/FlexibleObject'
+        default_output:
+          type: boolean
+        explicit_request_only:
+          type: boolean
       additionalProperties: true
     FlexibleObject:
       type: object

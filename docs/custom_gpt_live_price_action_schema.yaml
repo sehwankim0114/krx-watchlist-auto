@@ -1,0 +1,56 @@
+openapi: 3.1.0
+info:
+  title: KRX Request-Time Price Overlay API
+  version: 1.1.0
+  description: >
+    Read-only request-time auxiliary stock price service. After loading a
+    GitHub stock table, the GPT must query every row in batches of 50 or fewer.
+servers:
+  - url: https://krx-live-price-ksh.diaconos.workers.dev
+paths:
+  /health:
+    get:
+      operationId: getRequestTimePriceHealth
+      summary: Check the request-time stock price service
+      x-openai-isConsequential: false
+      responses:
+        "200":
+          description: Service health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlexibleObject"
+  /quotes:
+    get:
+      operationId: getRequestTimePrices
+      summary: Get request-time prices for all requested stock rows
+      description: >
+        Pass comma-separated SYMBOL|MARKET items. Maximum 50 items per call.
+        Split larger tables into multiple calls and merge every batch.
+      x-openai-isConsequential: false
+      parameters:
+        - name: items
+          in: query
+          required: true
+          description: Comma-separated SYMBOL|MARKET items.
+          schema:
+            type: string
+          example: 005930|KOSPI,000660|KOSPI
+      responses:
+        "200":
+          description: Request-time quote batch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlexibleObject"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlexibleObject"
+components:
+  schemas:
+    FlexibleObject:
+      type: object
+      additionalProperties: true

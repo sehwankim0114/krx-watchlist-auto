@@ -32,3 +32,14 @@
 - Custom GPT 지침: `docs/custom_gpt_instructions.md`
 - Actions 스키마: `docs/custom_gpt_action_schema.yaml`
 - 개인정보처리방침: `docs/custom_gpt_privacy_policy.md`
+
+<!-- REQUEST_TIME_PRICE_STRUCTURE_V51_BEGIN -->
+## 요청시점 현재가 Action
+
+- Worker: `https://krx-live-price-ksh.diaconos.workers.dev`
+- Action 스키마: `docs/custom_gpt_live_price_action_schema.yaml`
+- 호출 작업: `getRequestTimePriceHealth`, `getRequestTimePrices`
+- 공식 KRX 과거자료는 GitHub API에 유지한다.
+- 요청시점 가격은 Custom GPT 응답 작성 단계에서 모든 표 행에 결합한다.
+- 한 호출당 최대 50개이며 큰 표는 여러 배치로 나눈다.
+<!-- REQUEST_TIME_PRICE_STRUCTURE_V51_END -->

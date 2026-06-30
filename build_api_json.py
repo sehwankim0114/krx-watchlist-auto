@@ -34,8 +34,8 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "build_api_json.py v4.1_strict_contract"
-SCHEMA_VERSION = "4.1"
+SCRIPT_VERSION = "build_api_json.py v4.2_request_time_price_overlay"
+SCHEMA_VERSION = "4.2"
 ROOT = Path(__file__).resolve().parent
 LATEST = ROOT / "latest"
 API = ROOT / "api"
@@ -52,6 +52,24 @@ PRESENTATION_POLICY: Dict[str, Any] = {
     "duplicate_rows_across_main_and_shortlist_tables": False,
 }
 
+
+# REQUEST_TIME_PRICE_POLICY_V51_BEGIN
+REQUEST_TIME_PRICE_POLICY: Dict[str, Any] = {
+    "enabled": True,
+    "mode": "request_time_dynamic_overlay",
+    "lookup_scope": "all_rows_in_requested_table",
+    "action_operation_id": "getRequestTimePrices",
+    "health_operation_id": "getRequestTimePriceHealth",
+    "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
+    "max_batch_size": 50,
+    "quote_key_fields": ["ticker", "code", "종목코드"],
+    "market_fields": ["market", "시장", "exchange", "country"],
+    "preserve_official_history": True,
+    "allow_last_confirmed_official_when_delayed": True,
+    "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
+    "large_table_behavior": "split_into_batches_until_all_rows_attempted",
+}
+# REQUEST_TIME_PRICE_POLICY_V51_END
 
 @dataclass(frozen=True)
 class TableSpec:
@@ -450,6 +468,7 @@ def build_table(
         "default_output": spec.default_output,
         "explicit_request_only": spec.explicit_request_only,
         "presentation_policy": PRESENTATION_POLICY,
+        "request_time_price_policy": REQUEST_TIME_PRICE_POLICY,
         "rules_version": rules.get("version"),
         "rules_sha256": rules.get("sha256"),
         "expected_rows": {
@@ -531,6 +550,7 @@ def snapshot_payload(
         "rules_version": rules.get("version"),
         "rules_sha256": rules.get("sha256"),
         "presentation_policy": PRESENTATION_POLICY,
+        "request_time_price_policy": REQUEST_TIME_PRICE_POLICY,
         "rules": rules,
         "data": data,
     }
@@ -574,6 +594,7 @@ def main() -> int:
         "default_output": spec.default_output,
         "explicit_request_only": spec.explicit_request_only,
         "presentation_policy": PRESENTATION_POLICY,
+        "request_time_price_policy": REQUEST_TIME_PRICE_POLICY,
             "current_basis_selected": payload.get("current_basis_selected"),
         })
         if spec.required and payload.get("status") != "OK":
@@ -615,6 +636,7 @@ def main() -> int:
         "rules_version": rules.get("version"),
         "rules_sha256": rules.get("sha256"),
         "presentation_policy": PRESENTATION_POLICY,
+        "request_time_price_policy": REQUEST_TIME_PRICE_POLICY,
         "content_markdown": rules_text,
     }
     write_json(API / "stock_table_rules.json", rules_payload)
@@ -666,6 +688,7 @@ def main() -> int:
         "critical_errors": critical_errors,
         "warnings": warnings,
         "presentation_policy": PRESENTATION_POLICY,
+        "request_time_price_policy": REQUEST_TIME_PRICE_POLICY,
         "usage_rule": (
             "Custom GPT must call this endpoint first. "
             "Only when api_sync_ok and official_fresh_now are both true may it describe "
@@ -688,6 +711,7 @@ def main() -> int:
         "rules_sha256": rules.get("sha256"),
         "rules": rules,
         "presentation_policy": PRESENTATION_POLICY,
+        "request_time_price_policy": REQUEST_TIME_PRICE_POLICY,
         "tables": manifest_tables,
         "snapshots": snapshot_files,
         "control_files": [

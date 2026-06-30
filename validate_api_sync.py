@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
-SCRIPT_VERSION = "validate_api_sync.py v1.2_strict_contract"
+SCRIPT_VERSION = "validate_api_sync.py v1.3_request_time_price_contract"
 
 
 def read_json(path: Path) -> Dict[str, Any]:
@@ -274,6 +274,95 @@ def main() -> int:
                 f"{table_id}: canonical rules_sha256 mismatch"
             )
     # RULES_VERSION_CONTRACT_END
+
+    # REQUEST_TIME_PRICE_CONTRACT_V51_BEGIN
+    request_policy = status.get("request_time_price_policy") or {}
+    required_request_policy = {
+        "enabled": True,
+        "mode": "request_time_dynamic_overlay",
+        "lookup_scope": "all_rows_in_requested_table",
+        "action_operation_id": "getRequestTimePrices",
+        "health_operation_id": "getRequestTimePriceHealth",
+        "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
+        "max_batch_size": 50,
+        "preserve_official_history": True,
+        "allow_last_confirmed_official_when_delayed": True,
+    }
+
+    for policy_key, expected_value in required_request_policy.items():
+        actual_value = request_policy.get(policy_key)
+        if actual_value != expected_value:
+            errors.append(
+                "request_time_price_policy mismatch: "
+                f"{policy_key}={actual_value!r}, expected={expected_value!r}"
+            )
+
+    for control_name, control_payload in (
+        ("manifest.json", manifest),
+        ("stock_table_rules.json", rules),
+    ):
+        if control_payload.get("request_time_price_policy") != request_policy:
+            errors.append(
+                f"{control_name}: request_time_price_policy mismatch"
+            )
+
+    quote_key_candidates = {"ticker", "code", "종목코드"}
+    manifest_tables_v51 = manifest.get("tables", [])
+    if not isinstance(manifest_tables_v51, list) or not manifest_tables_v51:
+        errors.append("manifest tables missing for request-time price validation")
+    else:
+        for table_item in manifest_tables_v51:
+            if not isinstance(table_item, dict):
+                errors.append("manifest table item is not an object")
+                continue
+
+            table_id = table_item.get("table_id")
+            api_file = table_item.get("api_file")
+            if not api_file:
+                errors.append(f"{table_id}: api_file missing")
+                continue
+
+            table_path = Path(str(api_file))
+            if table_path.parts and table_path.parts[0] == api.name:
+                table_path = api.parent / table_path
+            elif not table_path.is_absolute():
+                table_path = api / table_path.name
+
+            table_payload = read_json(table_path)
+            if not table_payload:
+                errors.append(f"{table_id}: table API missing or invalid")
+                continue
+
+            if table_payload.get("request_time_price_policy") != request_policy:
+                errors.append(
+                    f"{table_id}: request_time_price_policy mismatch"
+                )
+
+            row_count = int(table_payload.get("row_count") or 0)
+            columns = set(table_payload.get("columns") or [])
+            if row_count > 0 and not (columns & quote_key_candidates):
+                errors.append(
+                    f"{table_id}: ticker/code column missing for live lookup"
+                )
+
+    live_schema_path = (
+        api.parent / "docs" / "custom_gpt_live_price_action_schema.yaml"
+    )
+    if not live_schema_path.exists():
+        errors.append("custom_gpt_live_price_action_schema.yaml missing")
+    else:
+        live_schema_text = live_schema_path.read_text(encoding="utf-8")
+        required_schema_tokens = (
+            "operationId: getRequestTimePriceHealth",
+            "operationId: getRequestTimePrices",
+            "https://krx-live-price-ksh.diaconos.workers.dev",
+        )
+        for schema_token in required_schema_tokens:
+            if schema_token not in live_schema_text:
+                errors.append(
+                    f"live price action schema missing token: {schema_token}"
+                )
+    # REQUEST_TIME_PRICE_CONTRACT_V51_END
 
     report = {
         "script": SCRIPT_VERSION,

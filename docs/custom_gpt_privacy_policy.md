@@ -29,3 +29,14 @@ checks. It is not a promise of investment performance and is not individualized 
 ## Contact
 
 Questions or corrections may be submitted through the GitHub repository's Issues page.
+
+<!-- LIVE_PRICE_PRIVACY_V51_BEGIN -->
+## Request-time auxiliary stock price service
+
+The Custom GPT may send public stock symbols and market labels to
+`https://krx-live-price-ksh.diaconos.workers.dev` to retrieve request-time auxiliary stock prices.
+The request does not include account credentials, portfolio quantities,
+average purchase prices, names, email addresses, or other personal data.
+Returned prices are auxiliary market information and do not replace
+confirmed KRX historical datasets.
+<!-- LIVE_PRICE_PRIVACY_V51_END -->

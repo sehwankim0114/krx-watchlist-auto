@@ -1,14 +1,14 @@
 {
-  "schema_version": "4.1",
-  "build_id": "20260630T151924+0900-d47e47553d",
+  "schema_version": "4.2",
+  "build_id": "20260630T180722+0900-288233fd33",
   "snapshot_id": "data_freshness_notice",
   "display_name": "자료 최신성 안내",
-  "generated_at_kst": "2026-06-30T15:19:24+09:00",
-  "source_commit_sha": "d47e47553de6ba0f2a4d0f2c2d5ee3ae1f8cf7fa",
+  "generated_at_kst": "2026-06-30T18:07:22+09:00",
+  "source_commit_sha": "288233fd33269b7c040b81d123377ec36fe6cf58",
   "source_file": "latest/data_freshness_notice_latest.json",
   "status": "OK",
-  "rules_version": "2026-06-30-v5-strict-contract",
-  "rules_sha256": "01ea0cd91d10a3e5deb8def9bfca138444a784c204b7400f264dfb3cfb386760",
+  "rules_version": "2026-06-30-v5.1-request-time-price-overlay",
+  "rules_sha256": "8acb8a6256d701de48abb417acd78a7ec035785c7d62ab62e9e7c33bc801f897",
   "presentation_policy": {
     "default_output_mode": "single_main_table",
     "separate_recommendation_table_default": false,
@@ -16,10 +16,34 @@
     "explicit_shortlist_request": "filter main candidate rows and output only the shortlist table",
     "duplicate_rows_across_main_and_shortlist_tables": false
   },
+  "request_time_price_policy": {
+    "enabled": true,
+    "mode": "request_time_dynamic_overlay",
+    "lookup_scope": "all_rows_in_requested_table",
+    "action_operation_id": "getRequestTimePrices",
+    "health_operation_id": "getRequestTimePriceHealth",
+    "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
+    "max_batch_size": 50,
+    "quote_key_fields": [
+      "ticker",
+      "code",
+      "종목코드"
+    ],
+    "market_fields": [
+      "market",
+      "시장",
+      "exchange",
+      "country"
+    ],
+    "preserve_official_history": true,
+    "allow_last_confirmed_official_when_delayed": true,
+    "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
+    "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+  },
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-06-30-v5-strict-contract",
-    "sha256": "01ea0cd91d10a3e5deb8def9bfca138444a784c204b7400f264dfb3cfb386760"
+    "version": "2026-06-30-v5.1-request-time-price-overlay",
+    "sha256": "8acb8a6256d701de48abb417acd78a7ec035785c7d62ab62e9e7c33bc801f897"
   },
   "data": {
     "script": "render_data_freshness_notice.py v1.1_single_status_source",

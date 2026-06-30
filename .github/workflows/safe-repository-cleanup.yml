@@ -290,6 +290,11 @@ jobs:
           set -euo pipefail
           python -m py_compile build_api_json.py validate_api_sync.py
           python validate_api_sync.py --api-dir api
+
+          # 검증기는 validation_report의 실행시각을 갱신할 수 있다.
+          # 이번 작업은 문서 정리 전용이므로 API 변경은 원상복구한다.
+          git restore --worktree -- api/validation_report.json || true
+
           python - <<'PY'
           import json
           from pathlib import Path
@@ -336,6 +341,27 @@ jobs:
 
           git add README_사용법.md privacy-policy.md docs
 
+          # 루트에서 docs/archive로 이동된 구형 한글 메모의 원래 경로 삭제도 stage한다.
+          python - <<'PY'
+          import subprocess
+
+          tracked = subprocess.check_output(
+              ["git", "ls-files", "-z"]
+          ).decode("utf-8").split("\0")
+
+          for path in tracked:
+              if (
+                  path
+                  and "/" not in path
+                  and "제일 안정적인 추천 구조" in path
+              ):
+                  subprocess.run(
+                      ["git", "add", "-u", "--", path],
+                      check=True,
+                  )
+                  print(f"STAGED_LEGACY_DELETION={path}")
+          PY
+
           if git diff --cached --quiet; then
             echo "NO_DOCUMENTATION_CHANGES=true"
           else
@@ -344,6 +370,18 @@ jobs:
             echo "CHANGED_FILES_END"
 
             git commit -m "Safely organize repository documentation"
+
+            echo "POST_COMMIT_GIT_STATUS_BEGIN"
+            git status --short
+            echo "POST_COMMIT_GIT_STATUS_END"
+
+            if [ -n "$(git status --porcelain)" ]; then
+              echo "POST_COMMIT_WORKTREE_NOT_CLEAN=true"
+              exit 1
+            fi
+
+            echo "POST_COMMIT_WORKTREE_CLEAN=true"
+
             git fetch origin main
             git rebase origin/main
             git push origin HEAD:main

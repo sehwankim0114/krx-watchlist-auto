@@ -129,7 +129,7 @@ jobs:
           if bool(status.get("safe_to_analyze_as_latest")) != expected_safe:
               errors.append("safe_to_analyze_as_latest strict gate mismatch")
 
-          schema = yaml.safe_load(Path("docs/custom_gpt_openapi_v5.yaml").read_text(encoding="utf-8"))
+          schema = yaml.safe_load(Path("docs/custom_gpt_action_schema.yaml").read_text(encoding="utf-8"))
           operations = {
               item["get"]["operationId"]
               for item in schema.get("paths", {}).values()

@@ -1,75 +1,63 @@
-# KRX 관종표 자동 수집 키트
+# KRX Watchlist Auto 사용법
 
-## 목적
+## 현재 운영 구조
 
-이 키트는 관심종목 47개의 최근 3개월 가격·거래량·거래대금·기초 수급 데이터를 자동 수집하여 ChatGPT 관종표 작성에 사용할 CSV/XLSX를 만듭니다.
+이 저장소는 다음 순서로 작동합니다.
 
-## 포함 파일
+1. `.github/workflows/collect-krx-watchlist.yml`이 공식 KRX 자료와 보조 현재가를 수집합니다.
+2. 수집 결과는 `latest/`에 저장됩니다.
+3. `.github/workflows/build_api_json.yml`이 `api/` JSON을 생성합니다.
+4. `validate_api_sync.py`가 최신성·규칙 버전·행 수·단일표 정책을 검증합니다.
+5. Custom GPT는 `api/status.json`과 `api/stock_table_rules.json`을 먼저 확인한 뒤 요청한 본표 API를 읽습니다.
 
-- `watchlist.csv` : 관심종목 47개 목록
-- `collect_watchlist.py` : 수집/요약 메인 프로그램
-- `requirements.txt` : 필요한 Python 패키지
-- `.env.template` : 환경설정 예시
-- `install_windows.bat` : Windows 설치용
-- `run_collect.bat` : Windows 수동 실행용
-- `create_windows_task.ps1` : Windows 작업 스케줄러 등록용
-- `.github/workflows/collect-krx-watchlist.yml` : GitHub Actions 자동실행용
+## 현재 규칙
 
-## 1. Windows PC에서 쓰는 방법
+- 규칙 버전: `2026-06-30-v5-strict-contract`
+- 기본 출력: 한 요청당 본표 하나
+- 코피표: 후보 30개 본표 하나
+- 코닥표: 후보 10개 본표 하나
+- 추천 종목은 본표 안에서 표시
+- 별도 핵심추천표는 사용자가 명시적으로 요청한 경우에만 작성
+- Knowledge 파일은 사용하지 않음
+- Custom GPT Actions 인증: 없음(None)
 
-1. 압축을 `C:\krx_watchlist_auto` 같은 폴더에 풉니다.
-2. `install_windows.bat`를 더블클릭합니다.
-3. 설치가 끝나면 `run_collect.bat`를 더블클릭합니다.
-4. 결과는 `outputs` 폴더에 생성됩니다.
+## 핵심 운영 파일
 
-주요 결과 파일:
+- 자동수집: `.github/workflows/collect-krx-watchlist.yml`
+- API 생성: `.github/workflows/build_api_json.yml`
+- API 생성기: `build_api_json.py`
+- API 검증기: `validate_api_sync.py`
+- 최신 규칙: `docs/stock_table_rules_latest.md`
+- Custom GPT 지침: `docs/custom_gpt_instructions.md`
+- Custom GPT Actions: `docs/custom_gpt_action_schema.yaml`
+- 개인정보처리방침: `docs/custom_gpt_privacy_policy.md`
 
-- `outputs/watchlist_summary_latest.csv`
-- `outputs/watchlist_latest.xlsx`
-- `outputs/raw_history_latest.csv`
-- `outputs/run_log_latest.txt`
+## 삭제하거나 합치면 안 되는 파일
 
-## 2. 매일 자동 실행 등록
+다음 파일들은 역할이 다르므로 그대로 둡니다.
 
-PowerShell을 관리자 권한으로 열고 아래 명령을 실행합니다.
+- `latest/*_latest.*`
+- `latest/*_current_basis_latest.*`
+- `latest/*_supplemented_latest.*`
+- 날짜별 `raw_history_*.csv`
+- 날짜별 `watchlist_summary_*.csv`
+- `latest/deprecated/`
+- 추천 7개·5개 내부 CSV
 
-```powershell
-cd C:\krx_watchlist_auto
-powershell -ExecutionPolicy Bypass -File .\create_windows_task.ps1
-```
+## 정상 확인 기준
 
-등록 후 매주 월~금 오후 4:45에 자동 수집합니다.
+`api/status.json`에서 다음 값이 정상이어야 합니다.
 
-## 3. GitHub Actions로 완전 자동화하는 방법
+- `status=READY`
+- `api_sync_ok=true`
+- `official_fresh_now=true`
+- `safe_to_analyze_as_latest=true`
+- `rules_version=2026-06-30-v5-strict-contract`
 
-이 방식은 ChatGPT가 웹에서 직접 읽을 수 있는 CSV URL을 만들기 위한 방식입니다.
+`api/validation_report.json`은 `status=PASS`여야 합니다.
 
-1. GitHub에서 새 저장소를 만듭니다.
-2. 이 키트의 모든 파일을 저장소에 업로드합니다.
-3. 저장소는 공개 Public으로 설정합니다.
-4. Actions 탭에서 `collect-krx-watchlist` 워크플로를 수동 실행합니다.
-5. 실행 후 아래 파일이 생깁니다.
+## 주의
 
-```text
-latest/watchlist_summary_latest.csv
-latest/raw_history_latest.csv
-```
-
-ChatGPT에 아래 형식의 Raw URL을 알려주면 됩니다.
-
-```text
-https://raw.githubusercontent.com/깃허브아이디/저장소명/main/latest/watchlist_summary_latest.csv
-```
-
-그다음부터는 “관종표 작성 시 이 URL을 먼저 읽어라”라고 설정하면, 매번 파일을 직접 올리지 않아도 됩니다.
-
-## 4. KRX OPEN API 인증키
-
-KRX 공식 OPEN API 인증키를 받으면 `.env`의 `KRX_AUTH_KEY=` 뒤에 넣어두세요. 현재 버전은 pykrx/KRX CSV-OTP/yfinance를 사용하며, KRX OPEN API 개발 명세서의 실제 엔드포인트를 확인한 뒤 공식 API 직접호출 모드로 확장할 수 있습니다.
-
-## 5. 주의사항
-
-- pykrx와 KRX CSV-OTP는 KRX 화면/세션/접속정책 변경에 영향을 받을 수 있습니다.
-- GitHub Actions는 해외 서버에서 KRX에 접속하므로 간혹 실패할 수 있습니다.
-- 실패하면 `latest/run_log_latest.txt` 또는 `outputs/run_log_latest.txt`를 확인하세요.
-- 투자판단은 자동 수집값만으로 하지 말고, DART/KIND/공시/뉴스/실적 검증을 함께 해야 합니다.
+- `latest/deprecated/`의 파일은 현재 분석에 사용하지 않습니다.
+- 일회성 유지보수 워크플로는 수동 실행 전용이며 자동으로 실행되지 않습니다.
+- 투자판단은 자동수집 자료만으로 확정하지 말고 공시·뉴스·실적을 함께 확인합니다.

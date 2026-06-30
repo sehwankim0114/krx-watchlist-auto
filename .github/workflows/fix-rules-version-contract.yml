@@ -1,0 +1,253 @@
+name: Fix rules version contract
+
+"on":
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fix-rules-version-contract
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install runtime
+        run: python -m pip install --quiet pandas
+
+      - name: Patch rules-version extraction and validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          build_path = Path("build_api_json.py")
+          validate_path = Path("validate_api_sync.py")
+
+          build = build_path.read_text(encoding="utf-8")
+          old_regex = r'r"(?:규칙 버전|rules_version)\s*[:：]\s*([0-9A-Za-z._-]+)"'
+          new_regex = r'r"(?:규칙 버전|rules_version)\s*[:：]\s*`?([0-9A-Za-z._-]+)`?"'
+
+          if new_regex not in build:
+              if old_regex not in build:
+                  raise RuntimeError("build_api_json.py에서 규칙 버전 정규식을 찾지 못했습니다.")
+              build = build.replace(old_regex, new_regex, 1)
+
+          build_path.write_text(build, encoding="utf-8")
+
+          validate = validate_path.read_text(encoding="utf-8")
+
+          if "import hashlib" not in validate:
+              validate = validate.replace(
+                  "import argparse\nimport json\n",
+                  "import argparse\nimport hashlib\nimport json\nimport re\n",
+                  1,
+              )
+          elif "import re" not in validate:
+              validate = validate.replace("import json\n", "import json\nimport re\n", 1)
+
+          marker = "# RULES_VERSION_CONTRACT_BEGIN"
+          if marker not in validate:
+              anchor = '    report = {\n'
+              if anchor not in validate:
+                  raise RuntimeError("validate_api_sync.py에서 report 앵커를 찾지 못했습니다.")
+
+              block = """
+              # RULES_VERSION_CONTRACT_BEGIN
+              rules_source = api.parent / "docs" / "stock_table_rules_latest.md"
+              canonical_rules_version = None
+              canonical_rules_hash = None
+
+              if not rules_source.exists():
+                  errors.append("canonical rules source missing: docs/stock_table_rules_latest.md")
+              else:
+                  rules_text = rules_source.read_text(encoding="utf-8")
+                  canonical_rules_hash = hashlib.sha256(
+                      rules_text.encode("utf-8")
+                  ).hexdigest()
+                  version_match = re.search(
+                      r"(?:규칙 버전|rules_version)\\s*[:：]\\s*`?([0-9A-Za-z._-]+)`?",
+                      rules_text,
+                  )
+                  if version_match is None:
+                      errors.append("canonical rules_version could not be extracted")
+                  else:
+                      canonical_rules_version = version_match.group(1)
+
+              if canonical_rules_version:
+                  control_versions = {
+                      "status.json": status.get("rules_version"),
+                      "manifest.json": (
+                          manifest.get("rules_version")
+                          or manifest.get("rules", {}).get("version")
+                      ),
+                      "stock_table_rules.json": rules.get("rules_version"),
+                  }
+                  for filename, actual_version in control_versions.items():
+                      if actual_version != canonical_rules_version:
+                          errors.append(
+                              f"{filename}: rules_version mismatch "
+                              f"actual={actual_version}, expected={canonical_rules_version}"
+                          )
+
+              if canonical_rules_hash:
+                  control_hashes = {
+                      "status.json": status.get("rules_sha256"),
+                      "manifest.json": (
+                          manifest.get("rules_sha256")
+                          or manifest.get("rules", {}).get("sha256")
+                      ),
+                      "stock_table_rules.json": rules.get("rules_sha256"),
+                  }
+                  for filename, actual_hash in control_hashes.items():
+                      if actual_hash != canonical_rules_hash:
+                          errors.append(
+                              f"{filename}: rules_sha256 mismatch with canonical rules file"
+                          )
+
+              for item in manifest_tables:
+                  if not isinstance(item, dict) or not item.get("api_file"):
+                      continue
+                  table_path = Path(item["api_file"])
+                  if table_path.parts and table_path.parts[0] == api.name:
+                      table_path = api.parent / table_path
+                  elif not table_path.is_absolute():
+                      table_path = api / table_path.name
+
+                  table_payload = read_json(table_path)
+                  if not table_payload:
+                      continue
+
+                  table_id = item.get("table_id")
+                  table_rules_version = (
+                      table_payload.get("rules_version")
+                      or table_payload.get("rules", {}).get("version")
+                  )
+                  table_rules_hash = (
+                      table_payload.get("rules_sha256")
+                      or table_payload.get("rules", {}).get("sha256")
+                  )
+
+                  if (
+                      canonical_rules_version
+                      and table_rules_version != canonical_rules_version
+                  ):
+                      errors.append(
+                          f"{table_id}: canonical rules_version mismatch "
+                          f"actual={table_rules_version}, expected={canonical_rules_version}"
+                      )
+
+                  if canonical_rules_hash and table_rules_hash != canonical_rules_hash:
+                      errors.append(
+                          f"{table_id}: canonical rules_sha256 mismatch"
+                      )
+              # RULES_VERSION_CONTRACT_END
+
+          """
+              validate = validate.replace(anchor, block + anchor, 1)
+
+          validate_path.write_text(validate, encoding="utf-8")
+
+          print("RULES_VERSION_REGEX_PATCHED=true")
+          print("RULES_VERSION_VALIDATION_PATCHED=true")
+          PY
+
+      - name: Compile and rebuild API
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile build_api_json.py validate_api_sync.py
+          python build_api_json.py
+          python validate_api_sync.py --api-dir api
+
+      - name: Verify full rules version
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          expected_match = re.search(
+              r"(?:규칙 버전|rules_version)\s*[:：]\s*`?([0-9A-Za-z._-]+)`?",
+              Path("docs/stock_table_rules_latest.md").read_text(encoding="utf-8"),
+          )
+          if not expected_match:
+              raise SystemExit("규칙파일에서 전체 버전을 찾지 못했습니다.")
+
+          expected = expected_match.group(1)
+          files = [
+              Path("api/status.json"),
+              Path("api/manifest.json"),
+              Path("api/stock_table_rules.json"),
+              Path("api/kospi_candidates_30.json"),
+              Path("api/kosdaq_candidates_10.json"),
+          ]
+
+          for path in files:
+              payload = json.loads(path.read_text(encoding="utf-8"))
+              actual = (
+                  payload.get("rules_version")
+                  or payload.get("rules", {}).get("version")
+              )
+              if actual != expected:
+                  raise SystemExit(
+                      f"{path}: rules_version={actual}, expected={expected}"
+                  )
+
+          report = json.loads(
+              Path("api/validation_report.json").read_text(encoding="utf-8")
+          )
+          if report.get("status") != "PASS":
+              raise SystemExit(
+                  f"validation_report is not PASS: {report.get('errors')}"
+              )
+
+          print("RULES_VERSION_CONTRACT=PASS")
+          print(f"RULES_VERSION={expected}")
+          print("API_VALIDATION_STATUS=PASS")
+          PY
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add build_api_json.py validate_api_sync.py api
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            exit 0
+          fi
+
+          echo "CHANGED_FILES_BEGIN"
+          git diff --cached --name-status
+          echo "CHANGED_FILES_END"
+
+          git commit -m "Fix full stock rules version contract"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+
+          echo "RULES_VERSION_PUSH_SUCCESS=true"
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"

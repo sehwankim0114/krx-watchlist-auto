@@ -1,0 +1,198 @@
+name: V6 Legacy Market Score Alias Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-legacy-market-score-alias-main
+  cancel-in-progress: false
+
+jobs:
+  add-and-verify-aliases:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Python packages
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install pandas
+
+      - name: Check required v6 files
+        run: |
+          set -euo pipefail
+          test -f add_legacy_market_score_aliases.py
+          test -f docs/scoring_system_v6.md
+          test -d latest
+          echo "REQUIRED_V6_FILES=OK"
+
+      - name: Compile alias program
+        run: |
+          set -euo pipefail
+          python -m py_compile add_legacy_market_score_aliases.py
+          echo "PYTHON_COMPILE=OK"
+
+      - name: Add legacy market score aliases
+        run: |
+          set -euo pipefail
+          python add_legacy_market_score_aliases.py --root . --strict
+
+      - name: Verify aliases and original fields
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import pandas as pd
+
+          latest_dir = Path("latest")
+          csv_paths = sorted(latest_dir.glob("*.csv"))
+
+          score_target_files = []
+          reason_target_files = []
+          failures = []
+
+          for path in csv_paths:
+              try:
+                  df = pd.read_csv(path, encoding="utf-8-sig")
+              except pd.errors.EmptyDataError:
+                  continue
+
+              if "score" in df.columns:
+                  score_target_files.append(path.name)
+                  if "legacy_market_score" not in df.columns:
+                      failures.append(
+                          f"{path.name}: legacy_market_score missing"
+                      )
+                  else:
+                      source = df["score"].astype("string").fillna("<NA>")
+                      alias = (
+                          df["legacy_market_score"]
+                          .astype("string")
+                          .fillna("<NA>")
+                      )
+                      if not source.equals(alias):
+                          failures.append(
+                              f"{path.name}: score alias mismatch"
+                          )
+
+              if "reason" in df.columns:
+                  reason_target_files.append(path.name)
+                  if "legacy_market_reason" not in df.columns:
+                      failures.append(
+                          f"{path.name}: legacy_market_reason missing"
+                      )
+                  else:
+                      source = df["reason"].astype("string").fillna("<NA>")
+                      alias = (
+                          df["legacy_market_reason"]
+                          .astype("string")
+                          .fillna("<NA>")
+                      )
+                      if not source.equals(alias):
+                          failures.append(
+                              f"{path.name}: reason alias mismatch"
+                          )
+
+          print(
+              "SCORE_TARGET_FILE_COUNT="
+              f"{len(score_target_files)}"
+          )
+          print(
+              "REASON_TARGET_FILE_COUNT="
+              f"{len(reason_target_files)}"
+          )
+          print(
+              "SCORE_TARGET_FILES="
+              + ",".join(score_target_files)
+          )
+          print(
+              "REASON_TARGET_FILES="
+              + ",".join(reason_target_files)
+          )
+
+          if not score_target_files and not reason_target_files:
+              failures.append(
+                  "No latest CSV contains score or reason fields"
+              )
+
+          if failures:
+              print("ALIAS_VERIFICATION=FAILED")
+              for failure in failures:
+                  print(f"ERROR={failure}")
+              raise SystemExit(1)
+
+          print("ALIAS_VERIFICATION=OK")
+          PY
+
+      - name: Show alias run log
+        run: |
+          set -euo pipefail
+          echo "----- legacy alias run log -----"
+          cat latest/legacy_market_score_alias_run_log_latest.txt
+
+      - name: Commit and push alias results
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email             "github-actions@users.noreply.github.com"
+
+          git add latest/*.csv
+          git add             latest/legacy_market_score_alias_run_log_latest.txt
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            exit 0
+          fi
+
+          echo "CHANGED_FILES_BEGIN"
+          git diff --cached --name-status
+          echo "CHANGED_FILES_END"
+
+          git commit -m "Add v6 legacy market score aliases"
+
+          PUSHED=false
+          for attempt in 1 2 3; do
+            echo "PUSH_ATTEMPT=$attempt"
+            git fetch origin main
+
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              echo "REBASE_FAILED=true"
+              sleep $((attempt * 5))
+              continue
+            fi
+
+            if git push origin HEAD:main; then
+              PUSHED=true
+              break
+            fi
+
+            sleep $((attempt * 5))
+          done
+
+          if [ "$PUSHED" != "true" ]; then
+            echo "PUSH_SUCCESS=false"
+            exit 1
+          fi
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"

@@ -1,9 +1,9 @@
 script=run_universe_latest.py v1.4_publication_cutoff_sync
-run_at_kst=2026-07-01T10:07:04+09:00
+run_at_kst=2026-07-01T17:21:27+09:00
 run_mode=official
 final_run_mode=official
 expected_official_trading_date=2026-06-30
-status=FRESH
+status=SKIPPED_ALREADY_FRESH
 official_status=FRESH
 fresh=True
 official_fresh=True
@@ -20,4 +20,4 @@ kosdaq_summary_rows=1791
 holiday_file=config/krx_market_holidays.json
 holiday_file_exists=True
 official_publication_cutoff_kst=08:30
-reason=KOSPI/KOSDAQ official summaries match the expected official trading date.
+reason=Official previous trading day data already exists.

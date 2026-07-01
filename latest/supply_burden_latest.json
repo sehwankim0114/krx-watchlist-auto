@@ -1,64 +1,55 @@
 {
-  "script": "supply_burden_enricher.py v1.2_dart_whole_market_90d_cap",
-  "run_at_kst": "2026-07-01T10:07:47+09:00",
-  "status": "OK",
+  "script": "supply_burden_enricher.py v2.0.0-check-status-separated",
+  "policy_version": "2026-07-01-v6.0-supply-status-separated",
+  "run_at_kst": "2026-07-01T17:21:59+09:00",
+  "status": "LIMITED",
+  "check_scope": "DART 최근 90일 공시 제목 기준",
+  "check_limited_reason": "DART_WHOLE_MARKET_LOOKBACK_CAPPED_90D_FROM_180D;DART_PARTIAL_ERROR_COUNT_2",
   "output_dir": "latest",
-  "original_lookback_days": 180,
+  "requested_lookback_days": 180,
   "effective_lookback_days": 90,
   "dart_whole_market_max_days": 90,
-  "lookback_capped": true,
   "target_tickers": 2716,
-  "hit_reports": 11505,
-  "flagged_tickers": 0,
-  "danger_tickers": 0,
-  "warning_tickers": 0,
-  "caution_tickers": 0,
+  "hit_reports": 5050,
+  "supply_burden_detected_tickers": 1410,
+  "danger_tickers": 370,
+  "warning_tickers": 446,
+  "caution_tickers": 594,
   "dart_status": {
     "bgn_de": "20260402",
     "end_de": "20260701",
     "lookback_days": 90,
     "corp_cls": {
       "Y": {
-        "pages_requested": 156,
-        "total_page": 156,
-        "raw_reports": 15575,
-        "target_reports": 15575,
-        "matched_reports": 4374
+        "pages_requested": 76,
+        "total_page": 159,
+        "raw_reports": 7600,
+        "target_reports": 7600,
+        "matched_reports": 1809
       },
       "K": {
-        "pages_requested": 169,
-        "total_page": 169,
-        "raw_reports": 16820,
-        "target_reports": 16665,
-        "matched_reports": 7131
+        "pages_requested": 69,
+        "total_page": 171,
+        "raw_reports": 6900,
+        "target_reports": 6841,
+        "matched_reports": 3241
       }
     },
-    "api_calls": 325,
-    "api_errors": []
+    "api_calls": 145,
+    "api_errors": [
+      "corp_cls=Y,page=77,error=TimeoutError:The read operation timed out",
+      "corp_cls=K,page=70,error=TimeoutError:The read operation timed out"
+    ]
   },
   "enrich_results": [
     {
-      "file": "watchlist_summary_latest.csv",
+      "file": "kosdaq_candidates_10_current_basis_latest.csv",
       "status": "OK",
-      "rows": 47,
-      "matched_rows": 44,
-      "flagged_rows": 0,
-      "note": ""
-    },
-    {
-      "file": "kospi_candidates_30_latest.csv",
-      "status": "OK",
-      "rows": 30,
-      "matched_rows": 30,
-      "flagged_rows": 0,
-      "note": ""
-    },
-    {
-      "file": "kospi_recommend_7_latest.csv",
-      "status": "OK",
-      "rows": 7,
-      "matched_rows": 7,
-      "flagged_rows": 0,
+      "rows": 10,
+      "matched_rows": 10,
+      "burden_detected_rows": 8,
+      "check_limited_rows": 10,
+      "check_failed_rows": 0,
       "note": ""
     },
     {
@@ -66,15 +57,179 @@
       "status": "OK",
       "rows": 10,
       "matched_rows": 10,
-      "flagged_rows": 0,
+      "burden_detected_rows": 8,
+      "check_limited_rows": 10,
+      "check_failed_rows": 0,
       "note": ""
+    },
+    {
+      "file": "kosdaq_candidates_10_supplemented_latest.csv",
+      "status": "OK",
+      "rows": 10,
+      "matched_rows": 10,
+      "burden_detected_rows": 8,
+      "check_limited_rows": 10,
+      "check_failed_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kosdaq_recommend_5_current_basis_latest.csv",
+      "status": "EMPTY_OR_MISSING",
+      "rows": 0,
+      "matched_rows": 0,
+      "burden_detected_rows": 0,
+      "check_limited_rows": 0,
+      "check_failed_rows": 0,
+      "note": "file missing or empty"
     },
     {
       "file": "kosdaq_recommend_5_latest.csv",
       "status": "OK",
       "rows": 5,
       "matched_rows": 5,
-      "flagged_rows": 0,
+      "burden_detected_rows": 4,
+      "check_limited_rows": 5,
+      "check_failed_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kosdaq_recommend_5_supplemented_latest.csv",
+      "status": "EMPTY_OR_MISSING",
+      "rows": 0,
+      "matched_rows": 0,
+      "burden_detected_rows": 0,
+      "check_limited_rows": 0,
+      "check_failed_rows": 0,
+      "note": "file missing or empty"
+    },
+    {
+      "file": "kosdaq_universe_summary_current_basis_latest.csv",
+      "status": "EMPTY_OR_MISSING",
+      "rows": 0,
+      "matched_rows": 0,
+      "burden_detected_rows": 0,
+      "check_limited_rows": 0,
+      "check_failed_rows": 0,
+      "note": "file missing or empty"
+    },
+    {
+      "file": "kosdaq_universe_summary_latest.csv",
+      "status": "OK",
+      "rows": 1791,
+      "matched_rows": 1791,
+      "burden_detected_rows": 937,
+      "check_limited_rows": 1791,
+      "check_failed_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kosdaq_universe_summary_supplemented_latest.csv",
+      "status": "EMPTY_OR_MISSING",
+      "rows": 0,
+      "matched_rows": 0,
+      "burden_detected_rows": 0,
+      "check_limited_rows": 0,
+      "check_failed_rows": 0,
+      "note": "file missing or empty"
+    },
+    {
+      "file": "kospi_candidates_30_current_basis_latest.csv",
+      "status": "OK",
+      "rows": 30,
+      "matched_rows": 30,
+      "burden_detected_rows": 27,
+      "check_limited_rows": 30,
+      "check_failed_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kospi_candidates_30_latest.csv",
+      "status": "OK",
+      "rows": 30,
+      "matched_rows": 30,
+      "burden_detected_rows": 27,
+      "check_limited_rows": 30,
+      "check_failed_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kospi_candidates_30_supplemented_latest.csv",
+      "status": "OK",
+      "rows": 30,
+      "matched_rows": 30,
+      "burden_detected_rows": 27,
+      "check_limited_rows": 30,
+      "check_failed_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kospi_fx_weakness_candidates_30_current_basis_latest.csv",
+      "status": "EMPTY_OR_MISSING",
+      "rows": 0,
+      "matched_rows": 0,
+      "burden_detected_rows": 0,
+      "check_limited_rows": 0,
+      "check_failed_rows": 0,
+      "note": "file missing or empty"
+    },
+    {
+      "file": "kospi_fx_weakness_candidates_30_latest.csv",
+      "status": "OK",
+      "rows": 30,
+      "matched_rows": 30,
+      "burden_detected_rows": 23,
+      "check_limited_rows": 30,
+      "check_failed_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kospi_fx_weakness_candidates_30_supplemented_latest.csv",
+      "status": "EMPTY_OR_MISSING",
+      "rows": 0,
+      "matched_rows": 0,
+      "burden_detected_rows": 0,
+      "check_limited_rows": 0,
+      "check_failed_rows": 0,
+      "note": "file missing or empty"
+    },
+    {
+      "file": "kospi_fx_weakness_recommend_7_current_basis_latest.csv",
+      "status": "EMPTY_OR_MISSING",
+      "rows": 0,
+      "matched_rows": 0,
+      "burden_detected_rows": 0,
+      "check_limited_rows": 0,
+      "check_failed_rows": 0,
+      "note": "file missing or empty"
+    },
+    {
+      "file": "kospi_fx_weakness_recommend_7_latest.csv",
+      "status": "OK",
+      "rows": 7,
+      "matched_rows": 7,
+      "burden_detected_rows": 5,
+      "check_limited_rows": 7,
+      "check_failed_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kospi_fx_weakness_recommend_7_supplemented_latest.csv",
+      "status": "EMPTY_OR_MISSING",
+      "rows": 0,
+      "matched_rows": 0,
+      "burden_detected_rows": 0,
+      "check_limited_rows": 0,
+      "check_failed_rows": 0,
+      "note": "file missing or empty"
+    },
+    {
+      "file": "kospi_gainers_1m_current_basis_latest.csv",
+      "status": "OK",
+      "rows": 20,
+      "matched_rows": 20,
+      "burden_detected_rows": 16,
+      "check_limited_rows": 20,
+      "check_failed_rows": 0,
       "note": ""
     },
     {
@@ -82,63 +237,199 @@
       "status": "OK",
       "rows": 20,
       "matched_rows": 20,
-      "flagged_rows": 0,
+      "burden_detected_rows": 16,
+      "check_limited_rows": 20,
+      "check_failed_rows": 0,
       "note": ""
     },
     {
-      "file": "kospi_short_term_candidates_30_latest.csv",
+      "file": "kospi_gainers_1m_supplemented_latest.csv",
       "status": "OK",
-      "rows": 30,
-      "matched_rows": 30,
-      "flagged_rows": 0,
+      "rows": 20,
+      "matched_rows": 20,
+      "burden_detected_rows": 16,
+      "check_limited_rows": 20,
+      "check_failed_rows": 0,
       "note": ""
     },
     {
-      "file": "kospi_short_term_recommend_7_latest.csv",
-      "status": "OK",
-      "rows": 7,
-      "matched_rows": 7,
-      "flagged_rows": 0,
-      "note": ""
-    },
-    {
-      "file": "kospi_fx_weakness_candidates_30_latest.csv",
-      "status": "OK",
-      "rows": 30,
-      "matched_rows": 30,
-      "flagged_rows": 0,
-      "note": ""
-    },
-    {
-      "file": "kospi_fx_weakness_recommend_7_latest.csv",
-      "status": "OK",
-      "rows": 7,
-      "matched_rows": 7,
-      "flagged_rows": 0,
-      "note": ""
+      "file": "kospi_monthly_cycle_current_basis_latest.csv",
+      "status": "EMPTY_OR_MISSING",
+      "rows": 0,
+      "matched_rows": 0,
+      "burden_detected_rows": 0,
+      "check_limited_rows": 0,
+      "check_failed_rows": 0,
+      "note": "file missing or empty"
     },
     {
       "file": "kospi_monthly_cycle_latest.csv",
       "status": "OK",
       "rows": 40,
       "matched_rows": 40,
-      "flagged_rows": 0,
+      "burden_detected_rows": 20,
+      "check_limited_rows": 40,
+      "check_failed_rows": 0,
       "note": ""
+    },
+    {
+      "file": "kospi_monthly_cycle_supplemented_latest.csv",
+      "status": "EMPTY_OR_MISSING",
+      "rows": 0,
+      "matched_rows": 0,
+      "burden_detected_rows": 0,
+      "check_limited_rows": 0,
+      "check_failed_rows": 0,
+      "note": "file missing or empty"
+    },
+    {
+      "file": "kospi_recommend_7_current_basis_latest.csv",
+      "status": "EMPTY_OR_MISSING",
+      "rows": 0,
+      "matched_rows": 0,
+      "burden_detected_rows": 0,
+      "check_limited_rows": 0,
+      "check_failed_rows": 0,
+      "note": "file missing or empty"
+    },
+    {
+      "file": "kospi_recommend_7_latest.csv",
+      "status": "OK",
+      "rows": 7,
+      "matched_rows": 7,
+      "burden_detected_rows": 5,
+      "check_limited_rows": 7,
+      "check_failed_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kospi_recommend_7_supplemented_latest.csv",
+      "status": "EMPTY_OR_MISSING",
+      "rows": 0,
+      "matched_rows": 0,
+      "burden_detected_rows": 0,
+      "check_limited_rows": 0,
+      "check_failed_rows": 0,
+      "note": "file missing or empty"
+    },
+    {
+      "file": "kospi_short_term_candidates_30_current_basis_latest.csv",
+      "status": "EMPTY_OR_MISSING",
+      "rows": 0,
+      "matched_rows": 0,
+      "burden_detected_rows": 0,
+      "check_limited_rows": 0,
+      "check_failed_rows": 0,
+      "note": "file missing or empty"
+    },
+    {
+      "file": "kospi_short_term_candidates_30_latest.csv",
+      "status": "OK",
+      "rows": 30,
+      "matched_rows": 30,
+      "burden_detected_rows": 26,
+      "check_limited_rows": 30,
+      "check_failed_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kospi_short_term_candidates_30_supplemented_latest.csv",
+      "status": "EMPTY_OR_MISSING",
+      "rows": 0,
+      "matched_rows": 0,
+      "burden_detected_rows": 0,
+      "check_limited_rows": 0,
+      "check_failed_rows": 0,
+      "note": "file missing or empty"
+    },
+    {
+      "file": "kospi_short_term_recommend_7_current_basis_latest.csv",
+      "status": "EMPTY_OR_MISSING",
+      "rows": 0,
+      "matched_rows": 0,
+      "burden_detected_rows": 0,
+      "check_limited_rows": 0,
+      "check_failed_rows": 0,
+      "note": "file missing or empty"
+    },
+    {
+      "file": "kospi_short_term_recommend_7_latest.csv",
+      "status": "OK",
+      "rows": 7,
+      "matched_rows": 7,
+      "burden_detected_rows": 5,
+      "check_limited_rows": 7,
+      "check_failed_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kospi_short_term_recommend_7_supplemented_latest.csv",
+      "status": "EMPTY_OR_MISSING",
+      "rows": 0,
+      "matched_rows": 0,
+      "burden_detected_rows": 0,
+      "check_limited_rows": 0,
+      "check_failed_rows": 0,
+      "note": "file missing or empty"
+    },
+    {
+      "file": "kospi_universe_summary_current_basis_latest.csv",
+      "status": "EMPTY_OR_MISSING",
+      "rows": 0,
+      "matched_rows": 0,
+      "burden_detected_rows": 0,
+      "check_limited_rows": 0,
+      "check_failed_rows": 0,
+      "note": "file missing or empty"
     },
     {
       "file": "kospi_universe_summary_latest.csv",
       "status": "OK",
       "rows": 925,
       "matched_rows": 925,
-      "flagged_rows": 0,
+      "burden_detected_rows": 473,
+      "check_limited_rows": 925,
+      "check_failed_rows": 0,
       "note": ""
     },
     {
-      "file": "kosdaq_universe_summary_latest.csv",
+      "file": "kospi_universe_summary_supplemented_latest.csv",
+      "status": "EMPTY_OR_MISSING",
+      "rows": 0,
+      "matched_rows": 0,
+      "burden_detected_rows": 0,
+      "check_limited_rows": 0,
+      "check_failed_rows": 0,
+      "note": "file missing or empty"
+    },
+    {
+      "file": "watchlist_summary_current_basis_latest.csv",
       "status": "OK",
-      "rows": 1791,
-      "matched_rows": 1791,
-      "flagged_rows": 0,
+      "rows": 47,
+      "matched_rows": 44,
+      "burden_detected_rows": 32,
+      "check_limited_rows": 44,
+      "check_failed_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "watchlist_summary_latest.csv",
+      "status": "OK",
+      "rows": 47,
+      "matched_rows": 44,
+      "burden_detected_rows": 32,
+      "check_limited_rows": 44,
+      "check_failed_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "watchlist_summary_supplemented_latest.csv",
+      "status": "OK",
+      "rows": 47,
+      "matched_rows": 44,
+      "burden_detected_rows": 32,
+      "check_limited_rows": 44,
+      "check_failed_rows": 0,
       "note": ""
     }
   ],
@@ -148,5 +439,11 @@
     "json": "latest/supply_burden_latest.json",
     "log": "latest/supply_burden_run_log_latest.txt"
   },
-  "note": "공시 제목 기반 1차 수급부담 탐지. 본문 수량/발행가/행사비율 정밀판독 아님."
+  "field_policy": {
+    "supply_check_status": "OK/LIMITED/FAILED",
+    "supply_burden_detected": "TRUE/FALSE only",
+    "supply_burden_flag": "TRUE/FALSE compatibility only",
+    "check_limited_is_not_burden": true
+  },
+  "note": "공시 제목 기반 1차 탐지이며 공시 본문 수량·행사가격·잠재물량 정밀판독은 후속 단계에서 수행합니다."
 }

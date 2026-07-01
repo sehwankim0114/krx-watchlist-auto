@@ -1,50 +1,105 @@
-script=supply_burden_enricher.py v1.2_dart_whole_market_90d_cap
-run_at_kst=2026-07-01T10:07:47+09:00
-output_dir=latest
-original_lookback_days=180
-effective_lookback_days=90
-dart_whole_market_max_days=90
-lookback_capped=True
-max_pages=500
-sleep_seconds=0.12
-target_tickers=2716
-target_files=watchlist_summary_latest.csv,kospi_candidates_30_latest.csv,kospi_recommend_7_latest.csv,kosdaq_candidates_10_latest.csv,kosdaq_recommend_5_latest.csv,kospi_gainers_1m_latest.csv,kospi_short_term_candidates_30_latest.csv,kospi_short_term_recommend_7_latest.csv,kospi_fx_weakness_candidates_30_latest.csv,kospi_fx_weakness_recommend_7_latest.csv,kospi_monthly_cycle_latest.csv,kospi_universe_summary_latest.csv,kosdaq_universe_summary_latest.csv
-TARGET_FILE watchlist_summary_latest.csv: rows=47
-TARGET_FILE kospi_candidates_30_latest.csv: rows=30
-TARGET_FILE kospi_recommend_7_latest.csv: rows=7
-TARGET_FILE kosdaq_candidates_10_latest.csv: rows=10
-TARGET_FILE kosdaq_recommend_5_latest.csv: rows=5
-TARGET_FILE kospi_gainers_1m_latest.csv: rows=20
-TARGET_FILE kospi_short_term_candidates_30_latest.csv: rows=30
-TARGET_FILE kospi_short_term_recommend_7_latest.csv: rows=7
-TARGET_FILE kospi_fx_weakness_candidates_30_latest.csv: rows=30
-TARGET_FILE kospi_fx_weakness_recommend_7_latest.csv: rows=7
-TARGET_FILE kospi_monthly_cycle_latest.csv: rows=40
-TARGET_FILE kospi_universe_summary_latest.csv: rows=925
-TARGET_FILE kosdaq_universe_summary_latest.csv: rows=1791
-LOOKBACK_CAP_APPLIED original=180, effective=90
-dart_api_calls=325
-dart_api_error_count=0
-status=OK
-summary_rows=2716
-hit_reports=11505
-flagged_tickers=0
-danger_tickers=0
-warning_tickers=0
-caution_tickers=0
-output_summary=latest/supply_burden_summary_latest.csv
-output_hits=latest/supply_burden_hits_latest.csv
-output_json=latest/supply_burden_latest.json
-ENRICH_FILE watchlist_summary_latest.csv: status=OK, rows=47, matched_rows=44, flagged_rows=0, note=
-ENRICH_FILE kospi_candidates_30_latest.csv: status=OK, rows=30, matched_rows=30, flagged_rows=0, note=
-ENRICH_FILE kospi_recommend_7_latest.csv: status=OK, rows=7, matched_rows=7, flagged_rows=0, note=
-ENRICH_FILE kosdaq_candidates_10_latest.csv: status=OK, rows=10, matched_rows=10, flagged_rows=0, note=
-ENRICH_FILE kosdaq_recommend_5_latest.csv: status=OK, rows=5, matched_rows=5, flagged_rows=0, note=
-ENRICH_FILE kospi_gainers_1m_latest.csv: status=OK, rows=20, matched_rows=20, flagged_rows=0, note=
-ENRICH_FILE kospi_short_term_candidates_30_latest.csv: status=OK, rows=30, matched_rows=30, flagged_rows=0, note=
-ENRICH_FILE kospi_short_term_recommend_7_latest.csv: status=OK, rows=7, matched_rows=7, flagged_rows=0, note=
-ENRICH_FILE kospi_fx_weakness_candidates_30_latest.csv: status=OK, rows=30, matched_rows=30, flagged_rows=0, note=
-ENRICH_FILE kospi_fx_weakness_recommend_7_latest.csv: status=OK, rows=7, matched_rows=7, flagged_rows=0, note=
-ENRICH_FILE kospi_monthly_cycle_latest.csv: status=OK, rows=40, matched_rows=40, flagged_rows=0, note=
-ENRICH_FILE kospi_universe_summary_latest.csv: status=OK, rows=925, matched_rows=925, flagged_rows=0, note=
-ENRICH_FILE kosdaq_universe_summary_latest.csv: status=OK, rows=1791, matched_rows=1791, flagged_rows=0, note=
+SCRIPT_NAME=supply_burden_enricher.py v2.0.0-check-status-separated
+POLICY_VERSION=2026-07-01-v6.0-supply-status-separated
+RUN_AT_KST=2026-07-01T17:21:59+09:00
+OUTPUT_DIR=latest
+REQUESTED_LOOKBACK_DAYS=180
+EFFECTIVE_LOOKBACK_DAYS=90
+DART_WHOLE_MARKET_MAX_LOOKBACK_DAYS=90
+TARGET_TICKERS=2716
+TARGET_FILE_COUNT=39
+DART_API_KEY_PRESENT=true
+TARGET_FILE=kosdaq_candidates_10_current_basis_latest.csv|rows=10
+TARGET_FILE=kosdaq_candidates_10_latest.csv|rows=10
+TARGET_FILE=kosdaq_candidates_10_supplemented_latest.csv|rows=10
+TARGET_FILE=kosdaq_recommend_5_current_basis_latest.csv|rows=0
+TARGET_FILE=kosdaq_recommend_5_latest.csv|rows=5
+TARGET_FILE=kosdaq_recommend_5_supplemented_latest.csv|rows=0
+TARGET_FILE=kosdaq_universe_summary_current_basis_latest.csv|rows=0
+TARGET_FILE=kosdaq_universe_summary_latest.csv|rows=1791
+TARGET_FILE=kosdaq_universe_summary_supplemented_latest.csv|rows=0
+TARGET_FILE=kospi_candidates_30_current_basis_latest.csv|rows=30
+TARGET_FILE=kospi_candidates_30_latest.csv|rows=30
+TARGET_FILE=kospi_candidates_30_supplemented_latest.csv|rows=30
+TARGET_FILE=kospi_fx_weakness_candidates_30_current_basis_latest.csv|rows=0
+TARGET_FILE=kospi_fx_weakness_candidates_30_latest.csv|rows=30
+TARGET_FILE=kospi_fx_weakness_candidates_30_supplemented_latest.csv|rows=0
+TARGET_FILE=kospi_fx_weakness_recommend_7_current_basis_latest.csv|rows=0
+TARGET_FILE=kospi_fx_weakness_recommend_7_latest.csv|rows=7
+TARGET_FILE=kospi_fx_weakness_recommend_7_supplemented_latest.csv|rows=0
+TARGET_FILE=kospi_gainers_1m_current_basis_latest.csv|rows=20
+TARGET_FILE=kospi_gainers_1m_latest.csv|rows=20
+TARGET_FILE=kospi_gainers_1m_supplemented_latest.csv|rows=20
+TARGET_FILE=kospi_monthly_cycle_current_basis_latest.csv|rows=0
+TARGET_FILE=kospi_monthly_cycle_latest.csv|rows=40
+TARGET_FILE=kospi_monthly_cycle_supplemented_latest.csv|rows=0
+TARGET_FILE=kospi_recommend_7_current_basis_latest.csv|rows=0
+TARGET_FILE=kospi_recommend_7_latest.csv|rows=7
+TARGET_FILE=kospi_recommend_7_supplemented_latest.csv|rows=0
+TARGET_FILE=kospi_short_term_candidates_30_current_basis_latest.csv|rows=0
+TARGET_FILE=kospi_short_term_candidates_30_latest.csv|rows=30
+TARGET_FILE=kospi_short_term_candidates_30_supplemented_latest.csv|rows=0
+TARGET_FILE=kospi_short_term_recommend_7_current_basis_latest.csv|rows=0
+TARGET_FILE=kospi_short_term_recommend_7_latest.csv|rows=7
+TARGET_FILE=kospi_short_term_recommend_7_supplemented_latest.csv|rows=0
+TARGET_FILE=kospi_universe_summary_current_basis_latest.csv|rows=0
+TARGET_FILE=kospi_universe_summary_latest.csv|rows=925
+TARGET_FILE=kospi_universe_summary_supplemented_latest.csv|rows=0
+TARGET_FILE=watchlist_summary_current_basis_latest.csv|rows=47
+TARGET_FILE=watchlist_summary_latest.csv|rows=47
+TARGET_FILE=watchlist_summary_supplemented_latest.csv|rows=47
+SUPPLY_CHECK_STATUS=LIMITED
+SUPPLY_CHECK_SCOPE=DART 최근 90일 공시 제목 기준
+SUPPLY_CHECK_LIMITED_REASON=DART_WHOLE_MARKET_LOOKBACK_CAPPED_90D_FROM_180D;DART_PARTIAL_ERROR_COUNT_2
+DART_API_CALLS=145
+DART_API_ERROR_COUNT=2
+SUMMARY_ROWS=2716
+HIT_REPORTS=5050
+SUPPLY_BURDEN_DETECTED_TICKERS=1410
+DANGER_TICKERS=370
+WARNING_TICKERS=446
+CAUTION_TICKERS=594
+CHECK_LIMITED_IN_BURDEN_FLAG=0
+OUTPUT_SUMMARY=latest/supply_burden_summary_latest.csv
+OUTPUT_HITS=latest/supply_burden_hits_latest.csv
+OUTPUT_JSON=latest/supply_burden_latest.json
+DART_ERROR=corp_cls=Y,page=77,error=TimeoutError:The read operation timed out
+DART_ERROR=corp_cls=K,page=70,error=TimeoutError:The read operation timed out
+ENRICH_FILE=kosdaq_candidates_10_current_basis_latest.csv|status=OK|rows=10|matched_rows=10|burden_detected_rows=8|check_limited_rows=10|check_failed_rows=0|note=
+ENRICH_FILE=kosdaq_candidates_10_latest.csv|status=OK|rows=10|matched_rows=10|burden_detected_rows=8|check_limited_rows=10|check_failed_rows=0|note=
+ENRICH_FILE=kosdaq_candidates_10_supplemented_latest.csv|status=OK|rows=10|matched_rows=10|burden_detected_rows=8|check_limited_rows=10|check_failed_rows=0|note=
+ENRICH_FILE=kosdaq_recommend_5_current_basis_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
+ENRICH_FILE=kosdaq_recommend_5_latest.csv|status=OK|rows=5|matched_rows=5|burden_detected_rows=4|check_limited_rows=5|check_failed_rows=0|note=
+ENRICH_FILE=kosdaq_recommend_5_supplemented_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
+ENRICH_FILE=kosdaq_universe_summary_current_basis_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
+ENRICH_FILE=kosdaq_universe_summary_latest.csv|status=OK|rows=1791|matched_rows=1791|burden_detected_rows=937|check_limited_rows=1791|check_failed_rows=0|note=
+ENRICH_FILE=kosdaq_universe_summary_supplemented_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
+ENRICH_FILE=kospi_candidates_30_current_basis_latest.csv|status=OK|rows=30|matched_rows=30|burden_detected_rows=27|check_limited_rows=30|check_failed_rows=0|note=
+ENRICH_FILE=kospi_candidates_30_latest.csv|status=OK|rows=30|matched_rows=30|burden_detected_rows=27|check_limited_rows=30|check_failed_rows=0|note=
+ENRICH_FILE=kospi_candidates_30_supplemented_latest.csv|status=OK|rows=30|matched_rows=30|burden_detected_rows=27|check_limited_rows=30|check_failed_rows=0|note=
+ENRICH_FILE=kospi_fx_weakness_candidates_30_current_basis_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
+ENRICH_FILE=kospi_fx_weakness_candidates_30_latest.csv|status=OK|rows=30|matched_rows=30|burden_detected_rows=23|check_limited_rows=30|check_failed_rows=0|note=
+ENRICH_FILE=kospi_fx_weakness_candidates_30_supplemented_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
+ENRICH_FILE=kospi_fx_weakness_recommend_7_current_basis_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
+ENRICH_FILE=kospi_fx_weakness_recommend_7_latest.csv|status=OK|rows=7|matched_rows=7|burden_detected_rows=5|check_limited_rows=7|check_failed_rows=0|note=
+ENRICH_FILE=kospi_fx_weakness_recommend_7_supplemented_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
+ENRICH_FILE=kospi_gainers_1m_current_basis_latest.csv|status=OK|rows=20|matched_rows=20|burden_detected_rows=16|check_limited_rows=20|check_failed_rows=0|note=
+ENRICH_FILE=kospi_gainers_1m_latest.csv|status=OK|rows=20|matched_rows=20|burden_detected_rows=16|check_limited_rows=20|check_failed_rows=0|note=
+ENRICH_FILE=kospi_gainers_1m_supplemented_latest.csv|status=OK|rows=20|matched_rows=20|burden_detected_rows=16|check_limited_rows=20|check_failed_rows=0|note=
+ENRICH_FILE=kospi_monthly_cycle_current_basis_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
+ENRICH_FILE=kospi_monthly_cycle_latest.csv|status=OK|rows=40|matched_rows=40|burden_detected_rows=20|check_limited_rows=40|check_failed_rows=0|note=
+ENRICH_FILE=kospi_monthly_cycle_supplemented_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
+ENRICH_FILE=kospi_recommend_7_current_basis_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
+ENRICH_FILE=kospi_recommend_7_latest.csv|status=OK|rows=7|matched_rows=7|burden_detected_rows=5|check_limited_rows=7|check_failed_rows=0|note=
+ENRICH_FILE=kospi_recommend_7_supplemented_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
+ENRICH_FILE=kospi_short_term_candidates_30_current_basis_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
+ENRICH_FILE=kospi_short_term_candidates_30_latest.csv|status=OK|rows=30|matched_rows=30|burden_detected_rows=26|check_limited_rows=30|check_failed_rows=0|note=
+ENRICH_FILE=kospi_short_term_candidates_30_supplemented_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
+ENRICH_FILE=kospi_short_term_recommend_7_current_basis_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
+ENRICH_FILE=kospi_short_term_recommend_7_latest.csv|status=OK|rows=7|matched_rows=7|burden_detected_rows=5|check_limited_rows=7|check_failed_rows=0|note=
+ENRICH_FILE=kospi_short_term_recommend_7_supplemented_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
+ENRICH_FILE=kospi_universe_summary_current_basis_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
+ENRICH_FILE=kospi_universe_summary_latest.csv|status=OK|rows=925|matched_rows=925|burden_detected_rows=473|check_limited_rows=925|check_failed_rows=0|note=
+ENRICH_FILE=kospi_universe_summary_supplemented_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
+ENRICH_FILE=watchlist_summary_current_basis_latest.csv|status=OK|rows=47|matched_rows=44|burden_detected_rows=32|check_limited_rows=44|check_failed_rows=0|note=
+ENRICH_FILE=watchlist_summary_latest.csv|status=OK|rows=47|matched_rows=44|burden_detected_rows=32|check_limited_rows=44|check_failed_rows=0|note=
+ENRICH_FILE=watchlist_summary_supplemented_latest.csv|status=OK|rows=47|matched_rows=44|burden_detected_rows=32|check_limited_rows=44|check_failed_rows=0|note=

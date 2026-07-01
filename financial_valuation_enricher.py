@@ -2063,6 +2063,7 @@ def main() -> int:
     log_lines: List[str] = [
         f"SCRIPT_VERSION={SCRIPT_VERSION}",
         f"POLICY_VERSION={POLICY_VERSION}",
+        f"CORP_IDENTITY_POLICY_VERSION={CORP_IDENTITY_POLICY_VERSION}",
         f"RUN_AT_KST={now_kst_text()}",
         f"OUTPUT_DIR={output_dir.as_posix()}",
         f"TARGET_PERIOD_KEY={target_key}",

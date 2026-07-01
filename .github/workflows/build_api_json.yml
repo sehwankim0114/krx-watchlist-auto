@@ -2,7 +2,6 @@ name: Build API JSON
 
 on:
   workflow_dispatch:
-
   workflow_run:
     workflows:
       - collect-krx-watchlist
@@ -10,7 +9,6 @@ on:
       - completed
     branches:
       - main
-
   schedule:
     # 한국시간 평일 17:25: workflow_run 누락에 대비한 보조 안전망
     - cron: "25 8 * * 1-5"
@@ -62,16 +60,43 @@ jobs:
             MODE="$(python - <<'PY'
           import json
           from pathlib import Path
+
           path = Path("latest/official_data_status_latest.json")
-          data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-          mode = str(data.get("run_mode") or data.get("final_run_mode") or "official")
+          data = (
+              json.loads(path.read_text(encoding="utf-8"))
+              if path.exists()
+              else {}
+          )
+          mode = str(
+              data.get("run_mode")
+              or data.get("final_run_mode")
+              or "official"
+          )
           print(mode if mode in {"official", "aux"} else "official")
           PY
-          )"
-            python render_data_freshness_notice.py --output-dir latest --mode "$MODE"
+            )"
+            python render_data_freshness_notice.py               --output-dir latest               --mode "$MODE"
           else
             echo "FRESHNESS_RENDERER=NOT_FOUND"
           fi
+
+      - name: Add and verify legacy market score aliases
+        run: |
+          set -euo pipefail
+          test -f add_legacy_market_score_aliases.py
+          test -f docs/scoring_system_v6.md
+          python -m py_compile add_legacy_market_score_aliases.py
+          python add_legacy_market_score_aliases.py             --root .             --strict
+          test -f             latest/legacy_market_score_alias_run_log_latest.txt
+          grep -q "STATUS=OK"             latest/legacy_market_score_alias_run_log_latest.txt
+          grep -q "FAILED_FILE_COUNT=0"             latest/legacy_market_score_alias_run_log_latest.txt
+          echo "LEGACY_MARKET_SCORE_ALIAS=OK"
+
+      - name: Show legacy score alias status
+        run: |
+          set -euo pipefail
+          echo "----- legacy market score alias -----"
+          cat latest/legacy_market_score_alias_run_log_latest.txt
 
       - name: Build synchronized API JSON files
         run: |
@@ -99,7 +124,7 @@ jobs:
           echo "----- api/validation_report.json -----"
           cat api/validation_report.json
           echo "----- generated API files -----"
-          find api -maxdepth 1 -type f -name "*.json" -printf "%f\n" | sort
+          find api             -maxdepth 1             -type f             -name "*.json"             -printf "%f\n"             | sort
 
       - name: Commit and push synchronized latest and API data
         shell: bash
@@ -107,16 +132,11 @@ jobs:
           set -euo pipefail
 
           git config user.name "github-actions"
-          git config user.email "github-actions@users.noreply.github.com"
+          git config user.email             "github-actions@users.noreply.github.com"
 
           git add -A api
-          git add \
-            latest/official_data_status_latest.json \
-            latest/official_data_status_latest.txt \
-            latest/data_freshness_notice_latest.json \
-            latest/data_freshness_notice_latest.md \
-            latest/data_freshness_notice_latest.txt \
-            2>/dev/null || true
+          git add latest/*.csv
+          git add             latest/legacy_market_score_alias_run_log_latest.txt             latest/official_data_status_latest.json             latest/official_data_status_latest.txt             latest/data_freshness_notice_latest.json             latest/data_freshness_notice_latest.md             latest/data_freshness_notice_latest.txt             2>/dev/null || true
 
           if git diff --cached --quiet; then
             echo "NO_CHANGES_TO_COMMIT=true"
@@ -134,16 +154,19 @@ jobs:
           for attempt in 1 2 3; do
             echo "PUSH_ATTEMPT=$attempt"
             git fetch origin main
+
             if ! git rebase origin/main; then
               git rebase --abort || true
               echo "REBASE_FAILED=true"
               sleep $((attempt * 5))
               continue
             fi
+
             if git push origin HEAD:main; then
               PUSHED=true
               break
             fi
+
             sleep $((attempt * 5))
           done
 

@@ -359,6 +359,283 @@ jobs:
           echo "----- financial valuation run log -----"
           cat latest/financial_valuation_run_log_latest.txt
 
+
+      - name: Check fixed market metric standards
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f market_metric_labels_enricher.py
+          test -d latest
+
+          grep -q \
+            'v1.0.0-fixed-standards' \
+            market_metric_labels_enricher.py
+
+          grep -q \
+            '2026-07-01-v6.0-market-metric-standards' \
+            market_metric_labels_enricher.py
+
+          python -m py_compile \
+            market_metric_labels_enricher.py
+
+          python market_metric_labels_enricher.py \
+            --self-test \
+            | tee /tmp/market_metric_self_test.txt
+
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/market_metric_self_test.txt
+
+          grep -q \
+            'trading_boundaries' \
+            /tmp/market_metric_self_test.txt
+
+          grep -q \
+            'elasticity_boundaries' \
+            /tmp/market_metric_self_test.txt
+
+          grep -q \
+            'position_boundaries' \
+            /tmp/market_metric_self_test.txt
+
+          echo "MARKET_METRIC_STANDARDS_PREREQUISITES=OK"
+
+      - name: Apply fixed market metric labels to production tables
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python market_metric_labels_enricher.py \
+            --latest-dir latest
+
+          test -f \
+            latest/market_metric_labels_run_log_latest.txt
+
+          test -f \
+            latest/market_metric_standards_latest.json
+
+          grep -q \
+            'STATUS=OK' \
+            latest/market_metric_labels_run_log_latest.txt
+
+          grep -q \
+            'FAILED_FILE_COUNT=0' \
+            latest/market_metric_labels_run_log_latest.txt
+
+          grep -q \
+            'TRADING_ACTIVITY_THRESHOLDS=100B/30B/5B/1B_KRW' \
+            latest/market_metric_labels_run_log_latest.txt
+
+          grep -q \
+            'PRICE_ELASTICITY_THRESHOLDS=1.5/3.0/5.0_PERCENT' \
+            latest/market_metric_labels_run_log_latest.txt
+
+          grep -q \
+            'CURRENT_POSITION_THRESHOLDS=20/35/65/80/92_PERCENT' \
+            latest/market_metric_labels_run_log_latest.txt
+
+          echo "PRODUCTION_MARKET_METRIC_ENRICHMENT=OK"
+
+      - name: Verify production market metric labels
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import pandas as pd
+
+          required_columns = {
+              "market_metric_policy_version",
+              "market_metric_label_status",
+              "market_metric_missing_fields",
+              "trading_activity_label",
+              "trading_activity_basis_krw",
+              "trading_activity_basis_text",
+              "price_elasticity_label",
+              "price_elasticity_basis_pct",
+              "price_elasticity_basis_text",
+              "current_position_label",
+              "current_position_basis_pct",
+              "current_position_period",
+              "current_position_basis_text",
+          }
+
+          key_tables = [
+              Path("latest/kospi_candidates_30_latest.csv"),
+              Path("latest/kosdaq_candidates_10_latest.csv"),
+              Path("latest/watchlist_summary_latest.csv"),
+          ]
+
+          allowed_trading = {
+              "",
+              "매우활발",
+              "활발",
+              "보통",
+              "부족",
+              "매우부족",
+          }
+          allowed_elasticity = {
+              "",
+              "탄력 낮음",
+              "탄력 보통",
+              "탄력 높음",
+              "탄력 불안정",
+          }
+          allowed_position = {
+              "",
+              "저점권",
+              "저점권반등초입",
+              "중간권",
+              "중상단권",
+              "상단권부담",
+              "고점권과열",
+          }
+
+          ready_rows = 0
+          partial_rows = 0
+          limited_rows = 0
+          verified_tables = []
+
+          for path in key_tables:
+              if not path.exists():
+                  raise SystemExit(
+                      f"required production table missing: {path}"
+                  )
+
+              df = pd.read_csv(
+                  path,
+                  encoding="utf-8-sig",
+                  dtype=str,
+              ).fillna("")
+
+              missing = sorted(
+                  required_columns - set(df.columns)
+              )
+              if missing:
+                  raise SystemExit(
+                      f"{path.name} missing market metric columns: "
+                      + ",".join(missing)
+                  )
+
+              if not set(
+                  df["trading_activity_label"]
+              ).issubset(allowed_trading):
+                  raise SystemExit(
+                      f"{path.name} has invalid trading labels"
+                  )
+
+              if not set(
+                  df["price_elasticity_label"]
+              ).issubset(allowed_elasticity):
+                  raise SystemExit(
+                      f"{path.name} has invalid elasticity labels"
+                  )
+
+              if not set(
+                  df["current_position_label"]
+              ).issubset(allowed_position):
+                  raise SystemExit(
+                      f"{path.name} has invalid position labels"
+                  )
+
+              usable_position = df[
+                  df["current_position_label"].ne("")
+              ]
+              if (
+                  path.name
+                  in {
+                      "kospi_candidates_30_latest.csv",
+                      "kosdaq_candidates_10_latest.csv",
+                  }
+                  and not usable_position.empty
+                  and not usable_position[
+                      "current_position_period"
+                  ].eq("3개월").all()
+              ):
+                  raise SystemExit(
+                      f"{path.name} general table must use 3개월 position"
+                  )
+
+              ready_rows += int(
+                  df["market_metric_label_status"]
+                  .eq("READY")
+                  .sum()
+              )
+              partial_rows += int(
+                  df["market_metric_label_status"]
+                  .eq("PARTIAL")
+                  .sum()
+              )
+              limited_rows += int(
+                  df["market_metric_label_status"]
+                  .eq("LIMITED")
+                  .sum()
+              )
+              verified_tables.append(path.name)
+
+          if ready_rows + partial_rows < 1:
+              raise SystemExit(
+                  "no usable market metric rows in production tables"
+              )
+
+          policy_path = Path(
+              "latest/market_metric_standards_latest.json"
+          )
+          policy = json.loads(
+              policy_path.read_text(encoding="utf-8")
+          )
+
+          if (
+              policy.get("policy_version")
+              != "2026-07-01-v6.0-market-metric-standards"
+          ):
+              raise SystemExit(
+                  "market metric policy version mismatch"
+              )
+
+          if (
+              policy.get("letter_grades_forbidden")
+              != ["A+", "A", "B", "C", "D"]
+          ):
+              raise SystemExit(
+                  "letter-grade prohibition policy mismatch"
+              )
+
+          print(
+              "MARKET_METRIC_VERIFIED_TABLES="
+              + ",".join(verified_tables)
+          )
+          print(
+              f"MARKET_METRIC_READY_ROWS={ready_rows}"
+          )
+          print(
+              f"MARKET_METRIC_PARTIAL_ROWS={partial_rows}"
+          )
+          print(
+              f"MARKET_METRIC_LIMITED_ROWS={limited_rows}"
+          )
+          print(
+              "GENERAL_TABLE_POSITION_PERIOD=3개월"
+          )
+          print(
+              "LETTER_GRADES_PRESENT=0"
+          )
+          print(
+              "PRODUCTION_MARKET_METRIC_VERIFICATION=OK"
+          )
+          PY
+
+      - name: Show market metric standards status
+        run: |
+          set -euo pipefail
+          echo "----- market metric labels run log -----"
+          cat latest/market_metric_labels_run_log_latest.txt
+          echo "----- market metric standards policy -----"
+          cat latest/market_metric_standards_latest.json
+
       - name: Add and verify legacy market score aliases
         run: |
           set -euo pipefail
@@ -482,6 +759,81 @@ jobs:
           print("FINANCIAL_FIELDS_IN_API=OK")
           PY
 
+
+      - name: Verify market metric fields reached API tables
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          api_files = [
+              Path("api/watchlist.json"),
+              Path("api/kospi_candidates_30.json"),
+              Path("api/kosdaq_candidates_10.json"),
+          ]
+
+          required_columns = {
+              "market_metric_policy_version",
+              "market_metric_label_status",
+              "trading_activity_label",
+              "trading_activity_basis_krw",
+              "price_elasticity_label",
+              "price_elasticity_basis_pct",
+              "current_position_label",
+              "current_position_basis_pct",
+              "current_position_period",
+          }
+
+          verified_files = []
+          usable_rows = 0
+
+          for path in api_files:
+              if not path.exists():
+                  raise SystemExit(
+                      f"required API table missing: {path}"
+                  )
+
+              payload = json.loads(
+                  path.read_text(encoding="utf-8")
+              )
+              columns = set(payload.get("columns", []))
+              missing = sorted(
+                  required_columns - columns
+              )
+
+              if missing:
+                  raise SystemExit(
+                      f"{path.name} missing market metric fields: "
+                      + ",".join(missing)
+                  )
+
+              rows = payload.get("rows", [])
+              usable_rows += sum(
+                  1
+                  for row in rows
+                  if row.get("market_metric_label_status")
+                  in {"READY", "PARTIAL"}
+              )
+              verified_files.append(path.name)
+
+          if usable_rows < 1:
+              raise SystemExit(
+                  "no usable market metric rows reached API tables"
+              )
+
+          print(
+              "MARKET_METRIC_API_VERIFIED_FILES="
+              + ",".join(verified_files)
+          )
+          print(
+              f"MARKET_METRIC_API_USABLE_ROWS={usable_rows}"
+          )
+          print("MARKET_METRIC_FIELDS_IN_API=OK")
+          PY
+
       - name: Show generated status
         run: |
           set -euo pipefail
@@ -510,6 +862,8 @@ jobs:
           git add latest/*.csv
           git add \
             latest/financial_valuation_run_log_latest.txt \
+            latest/market_metric_labels_run_log_latest.txt \
+            latest/market_metric_standards_latest.json \
             latest/legacy_market_score_alias_run_log_latest.txt \
             latest/official_data_status_latest.json \
             latest/official_data_status_latest.txt \
@@ -529,7 +883,7 @@ jobs:
           echo "CHANGED_FILES_END"
 
           git commit -m \
-            "Synchronize financial valuation API data"
+            "Synchronize financial and market metric API data"
 
           PUSHED=false
           for attempt in 1 2 3; do

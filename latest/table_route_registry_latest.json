@@ -1,0 +1,525 @@
+{
+  "script_version": "table_route_registry.py v1.0.0-thirteen-table-contract",
+  "policy_version": "2026-07-01-v6.0-thirteen-table-route-contract",
+  "generated_at_kst": "2026-07-01T21:14:06+09:00",
+  "contract_table_count": 13,
+  "counts": {
+    "total": 13,
+    "ready_direct": 7,
+    "ready_shared": 1,
+    "ready_composite": 1,
+    "missing": 4,
+    "broken": 0,
+    "ready_total": 9
+  },
+  "all_existing_routes_healthy": true,
+  "all_thirteen_routes_complete": false,
+  "routes": [
+    {
+      "route_id": "watchlist",
+      "display_name": "관종표",
+      "request_terms": [
+        "관종표"
+      ],
+      "generation_mode": "DIRECT",
+      "source_candidates": [
+        "latest/watchlist_summary_current_basis_latest.csv",
+        "latest/watchlist_summary_latest.csv"
+      ],
+      "api_files": [
+        "api/watchlist.json"
+      ],
+      "operation_ids": [
+        "getWatchlist"
+      ],
+      "shared_with": "",
+      "required_now": true,
+      "planned_missing": false,
+      "next_step": "",
+      "status": "READY_DIRECT",
+      "source_existing": [
+        "latest/watchlist_summary_current_basis_latest.csv",
+        "latest/watchlist_summary_latest.csv"
+      ],
+      "source_missing": [],
+      "api_existing": [
+        "api/watchlist.json"
+      ],
+      "api_missing": [],
+      "operation_existing": [
+        "getWatchlist"
+      ],
+      "operation_missing": [],
+      "missing_components": []
+    },
+    {
+      "route_id": "analysis",
+      "display_name": "분석표",
+      "request_terms": [
+        "분석표",
+        "개별 기업 분석"
+      ],
+      "generation_mode": "SHARED",
+      "source_candidates": [],
+      "api_files": [],
+      "operation_ids": [],
+      "shared_with": "watchlist",
+      "required_now": true,
+      "planned_missing": false,
+      "next_step": "관심종목 비교는 관종표 경로를 공유하고, 개별 기업은 같은 행을 심화 해석한다.",
+      "status": "READY_SHARED",
+      "source_existing": [
+        "latest/watchlist_summary_current_basis_latest.csv",
+        "latest/watchlist_summary_latest.csv"
+      ],
+      "source_missing": [],
+      "api_existing": [
+        "api/watchlist.json"
+      ],
+      "api_missing": [],
+      "operation_existing": [
+        "getWatchlist"
+      ],
+      "operation_missing": [],
+      "missing_components": []
+    },
+    {
+      "route_id": "kospi",
+      "display_name": "코피표",
+      "request_terms": [
+        "코피표",
+        "코스피",
+        "코스피 줘"
+      ],
+      "generation_mode": "DIRECT",
+      "source_candidates": [
+        "latest/kospi_candidates_30_current_basis_latest.csv",
+        "latest/kospi_candidates_30_latest.csv"
+      ],
+      "api_files": [
+        "api/kospi_candidates_30.json"
+      ],
+      "operation_ids": [
+        "getKospiCandidates"
+      ],
+      "shared_with": "",
+      "required_now": true,
+      "planned_missing": false,
+      "next_step": "",
+      "status": "READY_DIRECT",
+      "source_existing": [
+        "latest/kospi_candidates_30_current_basis_latest.csv",
+        "latest/kospi_candidates_30_latest.csv"
+      ],
+      "source_missing": [],
+      "api_existing": [
+        "api/kospi_candidates_30.json"
+      ],
+      "api_missing": [],
+      "operation_existing": [
+        "getKospiCandidates"
+      ],
+      "operation_missing": [],
+      "missing_components": []
+    },
+    {
+      "route_id": "kospi_1m",
+      "display_name": "코피표1개월",
+      "request_terms": [
+        "코피표1개월",
+        "코스피 1개월"
+      ],
+      "generation_mode": "DIRECT",
+      "source_candidates": [
+        "latest/kospi_1m_candidates_30_current_basis_latest.csv",
+        "latest/kospi_1m_candidates_30_latest.csv"
+      ],
+      "api_files": [
+        "api/kospi_1m_candidates_30.json"
+      ],
+      "operation_ids": [
+        "getKospiOneMonthCandidates"
+      ],
+      "shared_with": "",
+      "required_now": false,
+      "planned_missing": true,
+      "next_step": "코스피 전체를 최근 1개월 기준으로 재산출하는 전용 생성기 필요",
+      "status": "MISSING",
+      "source_existing": [],
+      "source_missing": [
+        "latest/kospi_1m_candidates_30_current_basis_latest.csv",
+        "latest/kospi_1m_candidates_30_latest.csv"
+      ],
+      "api_existing": [],
+      "api_missing": [
+        "api/kospi_1m_candidates_30.json"
+      ],
+      "operation_existing": [],
+      "operation_missing": [
+        "getKospiOneMonthCandidates"
+      ],
+      "missing_components": [
+        "SOURCE",
+        "API",
+        "ACTION"
+      ]
+    },
+    {
+      "route_id": "kosdaq",
+      "display_name": "코닥표",
+      "request_terms": [
+        "코닥표",
+        "코스닥",
+        "코스닥 줘"
+      ],
+      "generation_mode": "DIRECT",
+      "source_candidates": [
+        "latest/kosdaq_candidates_10_current_basis_latest.csv",
+        "latest/kosdaq_candidates_10_latest.csv"
+      ],
+      "api_files": [
+        "api/kosdaq_candidates_10.json"
+      ],
+      "operation_ids": [
+        "getKosdaqCandidates"
+      ],
+      "shared_with": "",
+      "required_now": true,
+      "planned_missing": false,
+      "next_step": "",
+      "status": "READY_DIRECT",
+      "source_existing": [
+        "latest/kosdaq_candidates_10_current_basis_latest.csv",
+        "latest/kosdaq_candidates_10_latest.csv"
+      ],
+      "source_missing": [],
+      "api_existing": [
+        "api/kosdaq_candidates_10.json"
+      ],
+      "api_missing": [],
+      "operation_existing": [
+        "getKosdaqCandidates"
+      ],
+      "operation_missing": [],
+      "missing_components": []
+    },
+    {
+      "route_id": "kosdaq_1m",
+      "display_name": "코닥표1개월",
+      "request_terms": [
+        "코닥표1개월",
+        "코스닥 1개월"
+      ],
+      "generation_mode": "DIRECT",
+      "source_candidates": [
+        "latest/kosdaq_1m_candidates_10_current_basis_latest.csv",
+        "latest/kosdaq_1m_candidates_10_latest.csv"
+      ],
+      "api_files": [
+        "api/kosdaq_1m_candidates_10.json"
+      ],
+      "operation_ids": [
+        "getKosdaqOneMonthCandidates"
+      ],
+      "shared_with": "",
+      "required_now": false,
+      "planned_missing": true,
+      "next_step": "코스닥 전체를 최근 1개월 기준으로 재산출하는 전용 생성기 필요",
+      "status": "MISSING",
+      "source_existing": [],
+      "source_missing": [
+        "latest/kosdaq_1m_candidates_10_current_basis_latest.csv",
+        "latest/kosdaq_1m_candidates_10_latest.csv"
+      ],
+      "api_existing": [],
+      "api_missing": [
+        "api/kosdaq_1m_candidates_10.json"
+      ],
+      "operation_existing": [],
+      "operation_missing": [
+        "getKosdaqOneMonthCandidates"
+      ],
+      "missing_components": [
+        "SOURCE",
+        "API",
+        "ACTION"
+      ]
+    },
+    {
+      "route_id": "kospi_gainers",
+      "display_name": "코급표",
+      "request_terms": [
+        "코급표"
+      ],
+      "generation_mode": "DIRECT",
+      "source_candidates": [
+        "latest/kospi_gainers_1m_current_basis_latest.csv",
+        "latest/kospi_gainers_1m_latest.csv"
+      ],
+      "api_files": [
+        "api/kospi_gainers_1m.json"
+      ],
+      "operation_ids": [
+        "getKospiGainers"
+      ],
+      "shared_with": "",
+      "required_now": true,
+      "planned_missing": false,
+      "next_step": "",
+      "status": "READY_DIRECT",
+      "source_existing": [
+        "latest/kospi_gainers_1m_current_basis_latest.csv",
+        "latest/kospi_gainers_1m_latest.csv"
+      ],
+      "source_missing": [],
+      "api_existing": [
+        "api/kospi_gainers_1m.json"
+      ],
+      "api_missing": [],
+      "operation_existing": [
+        "getKospiGainers"
+      ],
+      "operation_missing": [],
+      "missing_components": []
+    },
+    {
+      "route_id": "monthly_cycle",
+      "display_name": "월사이클표",
+      "request_terms": [
+        "월사이클표"
+      ],
+      "generation_mode": "DIRECT",
+      "source_candidates": [
+        "latest/kospi_monthly_cycle_latest.csv"
+      ],
+      "api_files": [
+        "api/kospi_monthly_cycle.json"
+      ],
+      "operation_ids": [
+        "getMonthlyCycle"
+      ],
+      "shared_with": "",
+      "required_now": true,
+      "planned_missing": false,
+      "next_step": "",
+      "status": "READY_DIRECT",
+      "source_existing": [
+        "latest/kospi_monthly_cycle_latest.csv"
+      ],
+      "source_missing": [],
+      "api_existing": [
+        "api/kospi_monthly_cycle.json"
+      ],
+      "api_missing": [],
+      "operation_existing": [
+        "getMonthlyCycle"
+      ],
+      "operation_missing": [],
+      "missing_components": []
+    },
+    {
+      "route_id": "short_term",
+      "display_name": "단상표",
+      "request_terms": [
+        "단상표"
+      ],
+      "generation_mode": "DIRECT",
+      "source_candidates": [
+        "latest/kospi_short_term_candidates_30_latest.csv"
+      ],
+      "api_files": [
+        "api/kospi_short_term_candidates_30.json"
+      ],
+      "operation_ids": [
+        "getShortTermCandidates"
+      ],
+      "shared_with": "",
+      "required_now": true,
+      "planned_missing": false,
+      "next_step": "",
+      "status": "READY_DIRECT",
+      "source_existing": [
+        "latest/kospi_short_term_candidates_30_latest.csv"
+      ],
+      "source_missing": [],
+      "api_existing": [
+        "api/kospi_short_term_candidates_30.json"
+      ],
+      "api_missing": [],
+      "operation_existing": [
+        "getShortTermCandidates"
+      ],
+      "operation_missing": [],
+      "missing_components": []
+    },
+    {
+      "route_id": "fx_weakness",
+      "display_name": "환율약세표",
+      "request_terms": [
+        "환율약세표"
+      ],
+      "generation_mode": "DIRECT",
+      "source_candidates": [
+        "latest/kospi_fx_weakness_candidates_30_latest.csv"
+      ],
+      "api_files": [
+        "api/kospi_fx_weakness_candidates_30.json"
+      ],
+      "operation_ids": [
+        "getFxWeaknessCandidates"
+      ],
+      "shared_with": "",
+      "required_now": true,
+      "planned_missing": false,
+      "next_step": "",
+      "status": "READY_DIRECT",
+      "source_existing": [
+        "latest/kospi_fx_weakness_candidates_30_latest.csv"
+      ],
+      "source_missing": [],
+      "api_existing": [
+        "api/kospi_fx_weakness_candidates_30.json"
+      ],
+      "api_missing": [],
+      "operation_existing": [
+        "getFxWeaknessCandidates"
+      ],
+      "operation_missing": [],
+      "missing_components": []
+    },
+    {
+      "route_id": "market_status",
+      "display_name": "시장상태표",
+      "request_terms": [
+        "시장상태표",
+        "시장 상태"
+      ],
+      "generation_mode": "COMPOSITE",
+      "source_candidates": [
+        "latest/data_status_latest.json",
+        "latest/macro_leverage_latest.json",
+        "latest/bubble_risk_latest.json"
+      ],
+      "api_files": [
+        "api/market_status.json",
+        "api/macro_leverage.json",
+        "api/bubble_risk.json"
+      ],
+      "operation_ids": [
+        "getMarketStatus",
+        "getMacroLeverage",
+        "getBubbleRisk"
+      ],
+      "shared_with": "",
+      "required_now": true,
+      "planned_missing": false,
+      "next_step": "",
+      "status": "READY_COMPOSITE",
+      "source_existing": [
+        "latest/data_status_latest.json",
+        "latest/macro_leverage_latest.json",
+        "latest/bubble_risk_latest.json"
+      ],
+      "source_missing": [],
+      "api_existing": [
+        "api/market_status.json",
+        "api/macro_leverage.json",
+        "api/bubble_risk.json"
+      ],
+      "api_missing": [],
+      "operation_existing": [
+        "getMarketStatus",
+        "getMacroLeverage",
+        "getBubbleRisk"
+      ],
+      "operation_missing": [],
+      "missing_components": []
+    },
+    {
+      "route_id": "holdings",
+      "display_name": "보유종목표",
+      "request_terms": [
+        "보유종목표",
+        "보유주식표"
+      ],
+      "generation_mode": "DIRECT",
+      "source_candidates": [
+        "latest/holdings_latest.csv"
+      ],
+      "api_files": [
+        "api/holdings.json"
+      ],
+      "operation_ids": [
+        "getHoldings"
+      ],
+      "shared_with": "",
+      "required_now": false,
+      "planned_missing": true,
+      "next_step": "사용자 보유수량·매입가를 별도 입력자료로 관리하고 국내 종목 분석자료와 결합하는 생성기 필요",
+      "status": "MISSING",
+      "source_existing": [],
+      "source_missing": [
+        "latest/holdings_latest.csv"
+      ],
+      "api_existing": [],
+      "api_missing": [
+        "api/holdings.json"
+      ],
+      "operation_existing": [],
+      "operation_missing": [
+        "getHoldings"
+      ],
+      "missing_components": [
+        "SOURCE",
+        "API",
+        "ACTION"
+      ]
+    },
+    {
+      "route_id": "us_watchlist",
+      "display_name": "미관종표",
+      "request_terms": [
+        "미관종표",
+        "미국 관종표"
+      ],
+      "generation_mode": "DIRECT",
+      "source_candidates": [
+        "latest/us_sp500_watchlist_latest.csv"
+      ],
+      "api_files": [
+        "api/us_watchlist.json"
+      ],
+      "operation_ids": [
+        "getUsWatchlist"
+      ],
+      "shared_with": "",
+      "required_now": false,
+      "planned_missing": true,
+      "next_step": "S&P500 전체 수집·점수화 후 코피표형 후보표를 만드는 미국시장 전용 저장소 또는 생성기 필요",
+      "status": "MISSING",
+      "source_existing": [],
+      "source_missing": [
+        "latest/us_sp500_watchlist_latest.csv"
+      ],
+      "api_existing": [],
+      "api_missing": [
+        "api/us_watchlist.json"
+      ],
+      "operation_existing": [],
+      "operation_missing": [
+        "getUsWatchlist"
+      ],
+      "missing_components": [
+        "SOURCE",
+        "API",
+        "ACTION"
+      ]
+    }
+  ],
+  "next_build_order": [
+    "kospi_1m",
+    "kosdaq_1m",
+    "holdings",
+    "us_watchlist"
+  ]
+}

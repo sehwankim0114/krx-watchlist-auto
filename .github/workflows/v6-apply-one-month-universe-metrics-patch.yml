@@ -1,0 +1,710 @@
+name: V6 Apply One-Month Universe Metrics Patch
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-apply-one-month-universe-metrics-patch-main
+  cancel-in-progress: false
+
+jobs:
+  apply-one-month-metrics-patch:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install validation packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install numpy pandas requests python-dateutil python-dotenv
+
+      - name: Check patcher and target files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f patch_collect_universe_one_month_metrics.py
+          test -f collect_universe.py
+
+          grep -q \
+            'patch_collect_universe_one_month_metrics.py.*v1.0.0' \
+            patch_collect_universe_one_month_metrics.py
+
+          grep -q \
+            '2026-07-02-v6.0-one-month-universe-metrics' \
+            patch_collect_universe_one_month_metrics.py
+
+          grep -q \
+            'position_in_1m_range_pct' \
+            patch_collect_universe_one_month_metrics.py
+
+          grep -q \
+            'SCRIPT_VERSION = "collect_universe.py' \
+            collect_universe.py
+
+          echo "PATCHER_VERSION=v1.0.0"
+          echo "PATCH_TARGET=collect_universe.py"
+          echo "PATCH_PREREQUISITES=OK"
+
+      - name: Compile and self-test patcher
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m py_compile \
+            patch_collect_universe_one_month_metrics.py
+
+          python patch_collect_universe_one_month_metrics.py \
+            --self-test \
+            | tee /tmp/one_month_patcher_self_test.txt
+
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/one_month_patcher_self_test.txt
+
+          grep -q \
+            'idempotency' \
+            /tmp/one_month_patcher_self_test.txt
+
+          grep -q \
+            'python_compile' \
+            /tmp/one_month_patcher_self_test.txt
+
+          echo "ONE_MONTH_PATCHER_SELF_TEST=OK"
+
+      - name: Apply patch to isolated copy
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cp collect_universe.py \
+            /tmp/collect_universe_before.py
+
+          cp collect_universe.py \
+            /tmp/collect_universe_patched.py
+
+          python patch_collect_universe_one_month_metrics.py \
+            --target /tmp/collect_universe_patched.py \
+            --no-backup \
+            | tee /tmp/one_month_patch_dry_run.txt
+
+          grep -Eq \
+            'ONE_MONTH_METRICS_PATCH_STATUS=(APPLIED|NO_CHANGE)' \
+            /tmp/one_month_patch_dry_run.txt
+
+          python patch_collect_universe_one_month_metrics.py \
+            --target /tmp/collect_universe_patched.py \
+            --check-only \
+            | tee /tmp/one_month_patch_check.txt
+
+          grep -q \
+            'ONE_MONTH_METRICS_PATCH_STATUS=ALREADY_APPLIED' \
+            /tmp/one_month_patch_check.txt
+
+          echo "ISOLATED_PATCH_APPLICATION=OK"
+
+      - name: Audit isolated patch diff and structure
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          import difflib
+          import importlib.util
+
+          before_path = Path(
+              "/tmp/collect_universe_before.py"
+          )
+          after_path = Path(
+              "/tmp/collect_universe_patched.py"
+          )
+          patcher_path = Path(
+              "patch_collect_universe_one_month_metrics.py"
+          )
+
+          before = before_path.read_text(encoding="utf-8")
+          after = after_path.read_text(encoding="utf-8")
+
+          spec = importlib.util.spec_from_file_location(
+              "one_month_patcher",
+              patcher_path,
+          )
+          patcher = importlib.util.module_from_spec(spec)
+          assert spec.loader is not None
+          spec.loader.exec_module(patcher)
+
+          expected, changed = patcher.patch_text(before)
+
+          if expected != after:
+              raise SystemExit(
+                  "isolated result differs from deterministic "
+                  "patch_text output"
+              )
+
+          if not changed:
+              # 재실행에서도 허용하되 이미 패치된 상태여야 한다.
+              patcher.verify_patched_text(after)
+
+          before_tree = ast.parse(before)
+          after_tree = ast.parse(after)
+
+          def top_level_symbols(tree):
+              return [
+                  (type(node).__name__, getattr(node, "name", ""))
+                  for node in tree.body
+                  if isinstance(
+                      node,
+                      (
+                          ast.FunctionDef,
+                          ast.AsyncFunctionDef,
+                          ast.ClassDef,
+                      ),
+                  )
+              ]
+
+          if top_level_symbols(before_tree) != top_level_symbols(
+              after_tree
+          ):
+              raise SystemExit(
+                  "top-level function/class structure changed"
+              )
+
+          required_old_fragments = [
+              'low = safe_float(g["low"].min(), last_close)',
+              'high = safe_float(g["high"].max(), last_close)',
+              'range_pct = ((high - low) / low * 100)',
+              'position = ((last_close - low) / (high - low) * 100)',
+              'ref_1m = find_close_on_or_after(g, one_month_ago)',
+              '"low_3m_intraday": kr_tick_round(low)',
+              '"position_in_3m_range_pct":',
+              '"return_1m_pct": ret_1m',
+              '"return_3m_pct": ret_3m',
+          ]
+          for fragment in required_old_fragments:
+              if fragment not in after:
+                  raise SystemExit(
+                      f"existing 3m/return logic missing: {fragment}"
+                  )
+
+          required_new_fragments = [
+              "one_month_metrics_v6",
+              "# ONE_MONTH_METRICS_V6_BEGIN",
+              'g_1m = g[g["date"] >= one_month_ago].copy()',
+              '"low_1m_intraday": kr_tick_round(low_1m)',
+              '"high_1m_intraday": kr_tick_round(high_1m)',
+              '"low_1m_close": kr_tick_round(close_low_1m)',
+              '"high_1m_close": kr_tick_round(close_high_1m)',
+              '"range_1m_pct": (',
+              '"position_in_1m_range_pct": (',
+              '"data_rows_1m": int(len(g_1m))',
+          ]
+          for fragment in required_new_fragments:
+              if fragment not in after:
+                  raise SystemExit(
+                      f"new one-month logic missing: {fragment}"
+                  )
+
+          if after.count(
+              "# ONE_MONTH_METRICS_V6_BEGIN"
+          ) != 2:
+              raise SystemExit(
+                  "one-month BEGIN marker count must be 2"
+              )
+
+          if after.count(
+              "# ONE_MONTH_METRICS_V6_END"
+          ) != 2:
+              raise SystemExit(
+                  "one-month END marker count must be 2"
+              )
+
+          diff = list(
+              difflib.unified_diff(
+                  before.splitlines(),
+                  after.splitlines(),
+                  fromfile="before/collect_universe.py",
+                  tofile="after/collect_universe.py",
+                  lineterm="",
+              )
+          )
+
+          if not diff and "one_month_metrics_v6" not in before:
+              raise SystemExit(
+                  "unpatched target produced no diff"
+              )
+
+          Path("/tmp/collect_universe_patch.diff").write_text(
+              "\n".join(diff) + "\n",
+              encoding="utf-8",
+          )
+
+          print(
+              f"PATCH_DIFF_LINE_COUNT={len(diff)}"
+          )
+          print(
+              "TOP_LEVEL_SYMBOLS_PRESERVED=true"
+          )
+          print(
+              "EXISTING_THREE_MONTH_LOGIC_PRESERVED=true"
+          )
+          print(
+              "DETERMINISTIC_PATCH_OUTPUT=OK"
+          )
+          print(
+              "ISOLATED_PATCH_STRUCTURE_AUDIT=OK"
+          )
+          PY
+
+          python -m py_compile \
+            /tmp/collect_universe_patched.py
+
+          echo "ISOLATED_PATCH_COMPILE=OK"
+
+      - name: Run synthetic one-month calculation test
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import importlib.util
+          import pandas as pd
+          import numpy as np
+
+          def load_module(name, path):
+              spec = importlib.util.spec_from_file_location(
+                  name,
+                  path,
+              )
+              module = importlib.util.module_from_spec(spec)
+              assert spec.loader is not None
+              spec.loader.exec_module(module)
+              return module
+
+          before = load_module(
+              "collect_universe_before",
+              Path("/tmp/collect_universe_before.py"),
+          )
+          after = load_module(
+              "collect_universe_after",
+              Path("/tmp/collect_universe_patched.py"),
+          )
+
+          dates = pd.bdate_range(
+              end="2026-07-01",
+              periods=70,
+          )
+          one_month_cutoff = dates[-1] - pd.DateOffset(
+              months=1
+          )
+
+          rows = []
+          for index, date in enumerate(dates):
+              in_one_month = date >= one_month_cutoff
+
+              if in_one_month:
+                  low = 90_000 + (index % 5) * 500
+                  high = 125_000 + (index % 4) * 1_000
+                  close = 100_000 + (
+                      index - (
+                          len(dates)
+                          - sum(dates >= one_month_cutoff)
+                      )
+                  ) * 900
+              else:
+                  low = 80_000
+                  high = 150_000
+                  close = 100_000
+
+              rows.append(
+                  {
+                      "date": date,
+                      "market": "KOSPI",
+                      "ticker": "005930",
+                      "name": "삼성전자",
+                      "open": close,
+                      "high": high,
+                      "low": low,
+                      "close": close,
+                      "volume": 10_000_000 + index,
+                      "trading_value": (
+                          1_000_000_000_000 + index
+                      ),
+                      "market_cap": 500_000_000_000_000,
+                      "listed_shares": 5_900_000_000,
+                  }
+              )
+
+          history = pd.DataFrame(rows)
+
+          # 마지막 값을 명시적으로 고정하여 기대값을 안정화한다.
+          history.loc[
+              history.index[-1],
+              ["low", "high", "close", "open"],
+          ] = [95_000, 130_000, 120_000, 120_000]
+
+          before_log = []
+          after_log = []
+
+          old_summary = before.build_market_summary(
+              history,
+              "KOSPI",
+              1_000_000_000,
+              before_log,
+          )
+          new_summary = after.build_market_summary(
+              history,
+              "KOSPI",
+              1_000_000_000,
+              after_log,
+          )
+
+          if len(old_summary) != 1 or len(new_summary) != 1:
+              raise SystemExit(
+                  "synthetic summary must contain one row"
+              )
+
+          old_row = old_summary.iloc[0]
+          new_row = new_summary.iloc[0]
+
+          # 새 필드 외 기존 결과는 source_used를 제외하고 같아야 한다.
+          for column in before.SUMMARY_COLUMNS:
+              if column == "source_used":
+                  continue
+
+              old_value = old_row.get(column)
+              new_value = new_row.get(column)
+
+              if pd.isna(old_value) and pd.isna(new_value):
+                  continue
+
+              if str(old_value) != str(new_value):
+                  raise SystemExit(
+                      f"existing summary value changed: "
+                      f"{column}: {old_value} -> {new_value}"
+                  )
+
+          required_columns = [
+              "low_1m_intraday",
+              "high_1m_intraday",
+              "low_1m_close",
+              "high_1m_close",
+              "range_1m_pct",
+              "position_in_1m_range_pct",
+              "data_rows_1m",
+          ]
+
+          for column in required_columns:
+              if column not in new_summary.columns:
+                  raise SystemExit(
+                      f"new summary column missing: {column}"
+                  )
+
+          one_month = history[
+              history["date"] >= one_month_cutoff
+          ].copy()
+
+          expected_low = int(
+              round(float(one_month["low"].min()))
+          )
+          expected_high = int(
+              round(float(one_month["high"].max()))
+          )
+          expected_close_low = int(
+              round(float(one_month["close"].min()))
+          )
+          expected_close_high = int(
+              round(float(one_month["close"].max()))
+          )
+          last_close = float(
+              one_month.iloc[-1]["close"]
+          )
+          expected_range = round(
+              (
+                  expected_high - expected_low
+              )
+              / expected_low
+              * 100,
+              2,
+          )
+          expected_position = round(
+              (
+                  last_close - expected_low
+              )
+              / (
+                  expected_high - expected_low
+              )
+              * 100,
+              2,
+          )
+
+          checks = {
+              "low_1m_intraday": expected_low,
+              "high_1m_intraday": expected_high,
+              "low_1m_close": expected_close_low,
+              "high_1m_close": expected_close_high,
+              "range_1m_pct": expected_range,
+              "position_in_1m_range_pct": (
+                  expected_position
+              ),
+              "data_rows_1m": len(one_month),
+          }
+
+          for column, expected in checks.items():
+              actual = new_row[column]
+              if float(actual) != float(expected):
+                  raise SystemExit(
+                      f"{column} expected {expected}, "
+                      f"got {actual}"
+                  )
+
+          print(
+              f"SYNTHETIC_1M_LOW={new_row['low_1m_intraday']}"
+          )
+          print(
+              f"SYNTHETIC_1M_HIGH={new_row['high_1m_intraday']}"
+          )
+          print(
+              "SYNTHETIC_1M_RANGE_PCT="
+              f"{new_row['range_1m_pct']}"
+          )
+          print(
+              "SYNTHETIC_1M_POSITION_PCT="
+              f"{new_row['position_in_1m_range_pct']}"
+          )
+          print(
+              f"SYNTHETIC_1M_DATA_ROWS={new_row['data_rows_1m']}"
+          )
+          print(
+              "EXISTING_SUMMARY_VALUE_CHANGE_COUNT=0"
+          )
+          print(
+              "SYNTHETIC_ONE_MONTH_CALCULATION=OK"
+          )
+          PY
+
+      - name: Apply verified patch to repository file
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python patch_collect_universe_one_month_metrics.py \
+            --target collect_universe.py \
+            --no-backup \
+            | tee /tmp/one_month_patch_apply.txt
+
+          grep -Eq \
+            'ONE_MONTH_METRICS_PATCH_STATUS=(APPLIED|NO_CHANGE)' \
+            /tmp/one_month_patch_apply.txt
+
+          python patch_collect_universe_one_month_metrics.py \
+            --target collect_universe.py \
+            --check-only \
+            | tee /tmp/one_month_patch_final_check.txt
+
+          grep -q \
+            'ONE_MONTH_METRICS_PATCH_STATUS=ALREADY_APPLIED' \
+            /tmp/one_month_patch_final_check.txt
+
+          python -m py_compile collect_universe.py
+          git diff --check
+
+          if find . -maxdepth 2 -type f \
+            -name "*.before_one_month_metrics.bak" \
+            | grep -q .; then
+            echo "::error::Backup file must not remain in repository."
+            exit 1
+          fi
+
+          echo "REPOSITORY_PATCH_APPLICATION=OK"
+
+      - name: Verify final repository patch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          import importlib.util
+
+          path = Path("collect_universe.py")
+          text = path.read_text(encoding="utf-8")
+
+          required_fields = [
+              "low_1m_intraday",
+              "high_1m_intraday",
+              "low_1m_close",
+              "high_1m_close",
+              "range_1m_pct",
+              "position_in_1m_range_pct",
+              "data_rows_1m",
+          ]
+
+          tree = ast.parse(text)
+
+          summary_columns = None
+          for node in tree.body:
+              if not isinstance(node, ast.Assign):
+                  continue
+              for target in node.targets:
+                  if (
+                      isinstance(target, ast.Name)
+                      and target.id == "SUMMARY_COLUMNS"
+                  ):
+                      summary_columns = ast.literal_eval(
+                          node.value
+                      )
+
+          if summary_columns is None:
+              raise SystemExit(
+                  "SUMMARY_COLUMNS assignment not found"
+              )
+
+          for field in required_fields:
+              if summary_columns.count(field) != 1:
+                  raise SystemExit(
+                      f"SUMMARY_COLUMNS count for {field} "
+                      f"must be 1"
+                  )
+
+          if "one_month_metrics_v6" not in text:
+              raise SystemExit(
+                  "collector version marker missing"
+              )
+
+          if text.count(
+              "# ONE_MONTH_METRICS_V6_BEGIN"
+          ) != 2:
+              raise SystemExit(
+                  "final BEGIN marker count mismatch"
+              )
+
+          spec = importlib.util.spec_from_file_location(
+              "collect_universe_final",
+              path,
+          )
+          module = importlib.util.module_from_spec(spec)
+          assert spec.loader is not None
+          spec.loader.exec_module(module)
+
+          for field in required_fields:
+              if field not in module.SUMMARY_COLUMNS:
+                  raise SystemExit(
+                      f"imported SUMMARY_COLUMNS missing {field}"
+                  )
+
+          print(
+              "FINAL_ONE_MONTH_FIELDS="
+              + ",".join(required_fields)
+          )
+          print("FINAL_ONE_MONTH_FIELD_COUNT=7")
+          print(
+              "EXISTING_THREE_MONTH_LOGIC_PRESERVED=true"
+          )
+          print("FINAL_COLLECTOR_IMPORT=OK")
+          print(
+              "ONE_MONTH_UNIVERSE_METRICS_PATCH_VERIFICATION=OK"
+          )
+          PY
+
+      - name: Write patch evidence report
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          {
+            echo "PATCHER_VERSION=v1.0.0"
+            echo "PATCH_POLICY_VERSION=2026-07-02-v6.0-one-month-universe-metrics"
+            echo "TARGET=collect_universe.py"
+            echo "NEW_FIELD_COUNT=7"
+            echo "NEW_FIELDS=low_1m_intraday,high_1m_intraday,low_1m_close,high_1m_close,range_1m_pct,position_in_1m_range_pct,data_rows_1m"
+            echo "DETERMINISTIC_PATCH_OUTPUT=OK"
+            echo "TOP_LEVEL_SYMBOLS_PRESERVED=true"
+            echo "EXISTING_THREE_MONTH_LOGIC_PRESERVED=true"
+            echo "EXISTING_SUMMARY_VALUE_CHANGE_COUNT=0"
+            echo "SYNTHETIC_ONE_MONTH_CALCULATION=OK"
+            echo "PATCH_IDEMPOTENCY=OK"
+            echo "COLLECT_UNIVERSE_COMPILE=OK"
+            echo "LIVE_PATCH_STATUS=OK"
+          } > \
+            latest/one_month_universe_metrics_patch_report_latest.txt
+
+          echo "----- one-month universe metrics patch report -----"
+          cat \
+            latest/one_month_universe_metrics_patch_report_latest.txt
+
+          echo "----- patch diff -----"
+          git diff -- collect_universe.py
+
+      - name: Commit and push patched collector
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email \
+            "github-actions@users.noreply.github.com"
+
+          git add \
+            collect_universe.py \
+            latest/one_month_universe_metrics_patch_report_latest.txt
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            exit 0
+          fi
+
+          echo "CHANGED_FILES_BEGIN"
+          git diff --cached --name-status
+          echo "CHANGED_FILES_END"
+
+          git commit -m \
+            "Add one-month universe metrics"
+
+          PUSHED=false
+          for attempt in 1 2 3; do
+            echo "PUSH_ATTEMPT=$attempt"
+            git fetch origin main
+
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              echo "REBASE_FAILED=true"
+              sleep $((attempt * 5))
+              continue
+            fi
+
+            if git push origin HEAD:main; then
+              PUSHED=true
+              break
+            fi
+
+            sleep $((attempt * 5))
+          done
+
+          if [ "$PUSHED" != "true" ]; then
+            echo "PUSH_SUCCESS=false"
+            exit 1
+          fi
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"

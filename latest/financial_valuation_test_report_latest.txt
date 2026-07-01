@@ -1,8 +1,9 @@
-SCRIPT_VERSION=financial_valuation_enricher.py v1.0.0
+SCRIPT_VERSION=financial_valuation_enricher.py v1.2.0-duplicate-stock-code-fix
 POLICY_VERSION=2026-07-01-v6.0-score-policy
-RUN_AT_KST=2026-07-01T15:27:23+09:00
+CORP_IDENTITY_POLICY_VERSION=corp-candidate-name-match-v2
+RUN_AT_KST=2026-07-01T16:27:24+09:00
 OUTPUT_DIR=.test_financial
-TARGET_PERIOD_KEY=2026_11013
+TARGET_PERIOD_KEY=2026_11013_corp-candidate-name-match-v2
 CANDIDATE_PERIODS=2026_11013,2025_11011,2025_11014,2025_11012,2025_11013,2024_11011
 WORKERS=2
 MAX_API_CALLS=5
@@ -10,15 +11,19 @@ RETRY_HOURS=0.0
 DART_API_KEY_PRESENT=true
 TARGET_TICKERS=5
 MARKET_METRIC_TICKERS=2716
-corp_code_source=dart_corp_code_cache_latest.csv
-corp_code_rows=3937
+corp_code_source=OPENDART_OFFICIAL_DOWNLOAD
+corp_code_unique_stock_codes=3937
+corp_code_candidate_rows=3974
+corp_code_duplicate_stock_code_count=27
+CORP_IDENTITY_RESOLUTION_COUNTS={'MATCH': 5}
 STABLE_CACHE_HITS=0
 TEMPORARY_CACHE_HITS=0
 TO_FETCH=5
 CACHE_OUTPUT_ROWS=5
-SOURCE_STATUS_COUNTS={'OK': 4, 'NO_CORP_CODE': 1}
-FINANCIAL_STATUS_COUNTS={'READY': 4, 'LIMITED': 1}
-VALUATION_STATUS_COUNTS={'READY': 3, 'LIMITED_NO_FINANCIAL_DATA': 1, 'PARTIAL_LOSS_PER_NA': 1}
+SOURCE_STATUS_COUNTS={'OK': 5}
+FINANCIAL_STATUS_COUNTS={'READY': 5}
+VALUATION_STATUS_COUNTS={'READY': 5}
+CORP_IDENTITY_STATUS_COUNTS={'MATCH': 5}
 ENRICH_FILE=kosdaq_candidates_10_current_basis_latest.csv|status=MISSING|rows=0|matched=0
 ENRICH_FILE=kosdaq_candidates_10_latest.csv|status=MISSING|rows=0|matched=0
 ENRICH_FILE=kosdaq_candidates_10_supplemented_latest.csv|status=MISSING|rows=0|matched=0
@@ -52,14 +57,20 @@ ENRICH_FILE=kospi_short_term_recommend_7_supplemented_latest.csv|status=MISSING|
 ENRICH_FILE=watchlist_summary_current_basis_latest.csv|status=MISSING|rows=0|matched=0
 ENRICH_FILE=watchlist_summary_latest.csv|status=OK|rows=5|matched=5
 ENRICH_FILE=watchlist_summary_supplemented_latest.csv|status=MISSING|rows=0|matched=0
-FINANCIAL_READY_COUNT=4
+FINANCIAL_READY_COUNT=5
 FINANCIAL_PARTIAL_COUNT=0
-FINANCIAL_LIMITED_COUNT=1
+FINANCIAL_LIMITED_COUNT=0
 ENRICHED_FILE_COUNT=1
 STATUS=OK
 NOTE=PER는 연환산 순이익이 양수일 때만 계산하며, 적자기업에는 숫자 PER를 만들지 않습니다.
 NOTE=이 단계의 PER/PBR은 기초 계산값이며 업종 상대가치 평가는 후속 점수 계산기에서 수행합니다.
+NOTE=동일 종목코드 후보가 여러 개이면 KRX 종목명과 회사명이 일치하는 OpenDART 법인만 선택합니다.
 
-TEST_SCOPE=isolated_five_tickers
+TEST_WORKFLOW_VERSION=v1.2-duplicate-stock-code
+TEST_SCOPE=isolated_five_korean_tickers
+DBHITEK_IDENTITY_REQUIRED=true
+INVALID_000000_BLOCKED=true
+OFFICIAL_CORP_CODE_REQUIRED=true
+CORP_IDENTITY_UNRESOLVED_COUNT=0
 PRODUCTION_TABLES_CHANGED=false
 LIVE_TEST_STATUS=OK

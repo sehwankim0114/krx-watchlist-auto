@@ -1,0 +1,399 @@
+name: V6 Financial Valuation Enricher Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-financial-valuation-enricher-test-main
+  cancel-in-progress: false
+
+jobs:
+  test-financial-valuation:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Python packages
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install pandas
+
+      - name: Check required files and DART secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f financial_valuation_enricher.py
+          test -f docs/scoring_system_v6.md
+          test -d latest
+
+          if [ -z "${DART_API_KEY:-}" ]; then
+            echo "::error::DART_API_KEY secret is missing."
+            exit 1
+          fi
+
+          echo "REQUIRED_FILES=OK"
+          echo "DART_API_KEY_PRESENT=true"
+
+      - name: Compile and run built-in self-test
+        run: |
+          set -euo pipefail
+          python -m py_compile financial_valuation_enricher.py
+          python financial_valuation_enricher.py --self-test
+          echo "PROGRAM_COMPILE_AND_SELF_TEST=OK"
+
+      - name: Prepare isolated five-ticker test data
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .test_financial
+          mkdir -p .test_financial
+
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+          import pandas as pd
+          import re
+
+          source_dir = Path("latest")
+          test_dir = Path(".test_financial")
+
+          preferred = [
+              "watchlist_summary_latest.csv",
+              "kospi_recommend_7_latest.csv",
+              "kosdaq_recommend_5_latest.csv",
+              "kospi_candidates_30_latest.csv",
+              "kosdaq_candidates_10_latest.csv",
+          ]
+
+          def read_csv(path):
+              for encoding in ("utf-8-sig", "utf-8", "cp949"):
+                  try:
+                      return pd.read_csv(
+                          path,
+                          encoding=encoding,
+                          dtype=str,
+                      ).fillna("")
+                  except UnicodeDecodeError:
+                      continue
+              raise RuntimeError(f"Unable to read {path}")
+
+          def ticker_col(df):
+              for name in ("ticker", "code", "종목코드", "단축코드"):
+                  if name in df.columns:
+                      return name
+              return None
+
+          def name_col(df):
+              for name in ("name", "종목명", "회사명"):
+                  if name in df.columns:
+                      return name
+              return None
+
+          selected = []
+          seen = set()
+
+          for filename in preferred:
+              path = source_dir / filename
+              if not path.exists():
+                  continue
+
+              df = read_csv(path)
+              t_col = ticker_col(df)
+              n_col = name_col(df)
+              if t_col is None:
+                  continue
+
+              for _, row in df.iterrows():
+                  ticker = re.sub(
+                      r"[^0-9]",
+                      "",
+                      str(row.get(t_col, "")),
+                  ).zfill(6)
+                  if not ticker or ticker in seen:
+                      continue
+
+                  selected.append(
+                      {
+                          "ticker": ticker,
+                          "name": (
+                              str(row.get(n_col, ""))
+                              if n_col
+                              else ""
+                          ),
+                          "market": str(row.get("market", "")),
+                      }
+                  )
+                  seen.add(ticker)
+
+                  if len(selected) >= 5:
+                      break
+
+              if len(selected) >= 5:
+                  break
+
+          if len(selected) < 3:
+              raise SystemExit(
+                  "At least three test tickers are required."
+              )
+
+          sample = pd.DataFrame(selected[:5])
+          sample.to_csv(
+              test_dir / "watchlist_summary_latest.csv",
+              index=False,
+              encoding="utf-8-sig",
+          )
+
+          copy_candidates = [
+              "kospi_universe_summary_latest.csv",
+              "kosdaq_universe_summary_latest.csv",
+              "dart_corp_code_cache_latest.csv",
+              "dart_corp_code_map_latest.csv",
+          ]
+
+          copied = []
+          for filename in copy_candidates:
+              source = source_dir / filename
+              if source.exists():
+                  shutil.copy2(source, test_dir / filename)
+                  copied.append(filename)
+
+          print(f"TEST_TICKER_COUNT={len(sample)}")
+          print(
+              "TEST_TICKERS="
+              + ",".join(sample["ticker"].tolist())
+          )
+          print(
+              "COPIED_SUPPORT_FILES="
+              + ",".join(copied)
+          )
+          PY
+
+      - name: Run live OpenDART financial valuation test
+        shell: bash
+        run: |
+          set -euo pipefail
+          python financial_valuation_enricher.py \
+            --output-dir .test_financial \
+            --workers 2 \
+            --timeout 30 \
+            --max-api-calls 5 \
+            --retry-hours 0
+
+      - name: Verify live financial and valuation results
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import pandas as pd
+
+          test_dir = Path(".test_financial")
+          cache_path = (
+              test_dir
+              / "financial_valuation_cache_latest.csv"
+          )
+          log_path = (
+              test_dir
+              / "financial_valuation_run_log_latest.txt"
+          )
+
+          if not cache_path.exists():
+              raise SystemExit(
+                  "financial valuation cache was not created"
+              )
+          if not log_path.exists():
+              raise SystemExit(
+                  "financial valuation run log was not created"
+              )
+
+          df = pd.read_csv(
+              cache_path,
+              encoding="utf-8-sig",
+              dtype=str,
+          ).fillna("")
+
+          required = {
+              "ticker",
+              "financial_data_status",
+              "financial_source_status",
+              "revenue",
+              "operating_profit",
+              "net_income",
+              "total_assets",
+              "total_liabilities",
+              "total_equity",
+              "revenue_yoy_pct",
+              "operating_profit_yoy_pct",
+              "operating_margin_pct",
+              "debt_ratio_pct",
+              "roe_annualized_pct",
+              "earnings_trend",
+              "eps_annualized",
+              "bps",
+              "per_annualized",
+              "pbr",
+              "valuation_data_status",
+          }
+          missing = sorted(required - set(df.columns))
+          if missing:
+              raise SystemExit(
+                  "missing required columns: "
+                  + ",".join(missing)
+              )
+
+          if len(df) < 3:
+              raise SystemExit(
+                  f"too few cache rows: {len(df)}"
+              )
+
+          source_ok = int(
+              df["financial_source_status"].eq("OK").sum()
+          )
+          financial_usable = int(
+              df["financial_data_status"]
+              .isin(["READY", "PARTIAL"])
+              .sum()
+          )
+          valuation_ready = int(
+              df["valuation_data_status"].eq("READY").sum()
+          )
+
+          if source_ok < 1:
+              statuses = (
+                  df["financial_source_status"]
+                  .value_counts()
+                  .to_dict()
+              )
+              raise SystemExit(
+                  f"no successful DART record: {statuses}"
+              )
+
+          if financial_usable < 1:
+              statuses = (
+                  df["financial_data_status"]
+                  .value_counts()
+                  .to_dict()
+              )
+              raise SystemExit(
+                  f"no usable financial record: {statuses}"
+              )
+
+          # 적자·0이익 종목에는 PER 숫자를 만들지 않는지 확인한다.
+          for _, row in df.iterrows():
+              try:
+                  net_income = float(row["net_income"])
+              except (TypeError, ValueError):
+                  continue
+              if (
+                  net_income <= 0
+                  and str(row["per_annualized"]).strip()
+              ):
+                  raise SystemExit(
+                      "PER must be blank for non-positive "
+                      f"net income: {row['ticker']}"
+                  )
+
+          print(f"TEST_ROW_COUNT={len(df)}")
+          print(f"DART_SOURCE_OK_COUNT={source_ok}")
+          print(
+              "FINANCIAL_USABLE_COUNT="
+              f"{financial_usable}"
+          )
+          print(
+              "VALUATION_READY_COUNT="
+              f"{valuation_ready}"
+          )
+          print("LIVE_FINANCIAL_VERIFICATION=OK")
+          PY
+
+      - name: Publish test sample and report
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp \
+            .test_financial/financial_valuation_cache_latest.csv \
+            latest/financial_valuation_test_sample_latest.csv
+          cp \
+            .test_financial/financial_valuation_run_log_latest.txt \
+            latest/financial_valuation_test_report_latest.txt
+
+          {
+            echo
+            echo "TEST_SCOPE=isolated_five_tickers"
+            echo "PRODUCTION_TABLES_CHANGED=false"
+            echo "LIVE_TEST_STATUS=OK"
+          } >> \
+            latest/financial_valuation_test_report_latest.txt
+
+          echo "----- financial valuation test report -----"
+          cat latest/financial_valuation_test_report_latest.txt
+
+      - name: Commit and push test evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email \
+            "github-actions@users.noreply.github.com"
+
+          git add \
+            latest/financial_valuation_test_sample_latest.csv \
+            latest/financial_valuation_test_report_latest.txt
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            exit 0
+          fi
+
+          echo "CHANGED_FILES_BEGIN"
+          git diff --cached --name-status
+          echo "CHANGED_FILES_END"
+
+          git commit -m \
+            "Test v6 financial valuation enrichment"
+
+          PUSHED=false
+          for attempt in 1 2 3; do
+            echo "PUSH_ATTEMPT=$attempt"
+            git fetch origin main
+
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              echo "REBASE_FAILED=true"
+              sleep $((attempt * 5))
+              continue
+            fi
+
+            if git push origin HEAD:main; then
+              PUSHED=true
+              break
+            fi
+
+            sleep $((attempt * 5))
+          done
+
+          if [ "$PUSHED" != "true" ]; then
+            echo "PUSH_SUCCESS=false"
+            exit 1
+          fi
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"

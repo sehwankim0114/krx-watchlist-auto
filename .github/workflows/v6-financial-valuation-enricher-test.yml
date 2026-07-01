@@ -34,7 +34,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas
 
-      - name: Check v1.1 program and DART secret
+      - name: Check v1.2 duplicate-code program and DART secret
         shell: bash
         run: |
           set -euo pipefail
@@ -48,11 +48,23 @@ jobs:
           fi
 
           grep -q \
-            'v1.1.0-corp-identity-fix' \
+            'v1.2.0-duplicate-stock-code-fix' \
             financial_valuation_enricher.py
 
           grep -q \
             'CORP_CODE_MAP_FILENAME' \
+            financial_valuation_enricher.py
+
+          grep -q \
+            'corp-candidate-name-match-v2' \
+            financial_valuation_enricher.py
+
+          grep -q \
+            'def resolve_corp_info(' \
+            financial_valuation_enricher.py
+
+          grep -Fq \
+            'mapping.setdefault(stock_code, []).append(candidate)' \
             financial_valuation_enricher.py
 
           if grep -q \
@@ -62,9 +74,9 @@ jobs:
             exit 1
           fi
 
-          echo "PROGRAM_VERSION=v1.1.0-corp-identity-fix"
+          echo "PROGRAM_VERSION=v1.2.0-duplicate-stock-code-fix"
           echo "DART_API_KEY_PRESENT=true"
-          echo "V1_1_REQUIRED_FILES=OK"
+          echo "V1_2_REQUIRED_FILES=OK"
 
       - name: Compile and run built-in identity self-test
         run: |
@@ -78,10 +90,10 @@ jobs:
             /tmp/financial_self_test.txt
 
           grep -q \
-            'corp_identity' \
+            'duplicate_stock_code_name_resolution' \
             /tmp/financial_self_test.txt
 
-          echo "PROGRAM_COMPILE_AND_IDENTITY_SELF_TEST=OK"
+          echo "PROGRAM_COMPILE_AND_DUPLICATE_CODE_SELF_TEST=OK"
 
       - name: Prepare isolated identity test data
         shell: bash
@@ -320,6 +332,8 @@ jobs:
               "corp_code_source",
               "corp_identity_status",
               "corp_identity_reason",
+              "corp_candidate_count",
+              "corp_selection_method",
               "financial_data_status",
               "financial_source_status",
               "revenue",
@@ -362,18 +376,23 @@ jobs:
                   + ",".join(invalid_tickers)
               )
 
-          mismatch_rows = df[
-              df["corp_identity_status"].eq("MISMATCH")
+          unresolved_rows = df[
+              ~df["corp_identity_status"].isin(
+                  ["MATCH", "MATCH_NORMALIZED"]
+              )
           ]
-          if not mismatch_rows.empty:
+          if not unresolved_rows.empty:
               raise SystemExit(
-                  "corporate identity mismatch detected: "
-                  + mismatch_rows[
+                  "corporate identity was not resolved by name: "
+                  + unresolved_rows[
                       [
                           "ticker",
                           "name",
                           "corp_name",
+                          "corp_identity_status",
                           "corp_identity_reason",
+                          "corp_candidate_count",
+                          "corp_selection_method",
                       ]
                   ].to_json(
                       orient="records",
@@ -426,11 +445,34 @@ jobs:
                   "Old DB HiTek/SPAC mismatch still exists."
               )
 
+          try:
+              db_candidate_count = int(
+                  float(db_row["corp_candidate_count"])
+              )
+          except (TypeError, ValueError):
+              raise SystemExit(
+                  "DB HiTek candidate count is not numeric: "
+                  f"{db_row['corp_candidate_count']}"
+              )
+
+          if db_candidate_count < 2:
+              raise SystemExit(
+                  "Duplicate-code test was not exercised for "
+                  f"DB HiTek: candidate_count={db_candidate_count}"
+              )
+
+          if db_row["corp_selection_method"] not in {
+              "NAME_EXACT",
+              "NAME_CONTAINS",
+          }:
+              raise SystemExit(
+                  "DB HiTek was not selected by company name: "
+                  f"method={db_row['corp_selection_method']}"
+              )
+
           accepted_identity = {
               "MATCH",
               "MATCH_NORMALIZED",
-              "OFFICIAL_TICKER_NAME_DIFFERENCE",
-              "NAME_NOT_AVAILABLE",
           }
           unknown_identity = sorted(
               set(df["corp_identity_status"])
@@ -440,6 +482,20 @@ jobs:
               raise SystemExit(
                   "unexpected identity statuses: "
                   + ",".join(unknown_identity)
+              )
+
+          accepted_selection_methods = {
+              "NAME_EXACT",
+              "NAME_CONTAINS",
+          }
+          bad_selection_methods = sorted(
+              set(df["corp_selection_method"])
+              - accepted_selection_methods
+          )
+          if bad_selection_methods:
+              raise SystemExit(
+                  "unexpected corporate selection methods: "
+                  + ",".join(bad_selection_methods)
               )
 
           source_ok = int(
@@ -503,6 +559,22 @@ jobs:
                   "OpenDART corporate-code download."
               )
 
+          if (
+              "CORP_IDENTITY_POLICY_VERSION="
+              "corp-candidate-name-match-v2"
+              not in log_text
+          ):
+              raise SystemExit(
+                  "run log does not confirm duplicate-code "
+                  "identity policy v2."
+              )
+
+          if "corp_code_duplicate_stock_code_count=" not in log_text:
+              raise SystemExit(
+                  "run log does not report duplicate "
+                  "OpenDART stock-code candidates."
+              )
+
           if "STATUS=OK" not in log_text:
               raise SystemExit(
                   "financial valuation run status is not OK."
@@ -522,13 +594,21 @@ jobs:
               "DBHITEK_CORP_CODE="
               f"{db_row['corp_code']}"
           )
-          print("CORP_IDENTITY_MISMATCH_COUNT=0")
+          print(
+              "DBHITEK_CANDIDATE_COUNT="
+              f"{db_candidate_count}"
+          )
+          print(
+              "DBHITEK_SELECTION_METHOD="
+              f"{db_row['corp_selection_method']}"
+          )
+          print("CORP_IDENTITY_UNRESOLVED_COUNT=0")
           print("INVALID_000000_COUNT=0")
           print(
               "CORP_CODE_SOURCE="
               "OPENDART_OFFICIAL_DOWNLOAD"
           )
-          print("LIVE_FINANCIAL_IDENTITY_VERIFICATION=OK")
+          print("LIVE_DUPLICATE_CODE_IDENTITY_VERIFICATION=OK")
           PY
 
       - name: Publish corrected test evidence
@@ -546,12 +626,12 @@ jobs:
 
           {
             echo
-            echo "TEST_WORKFLOW_VERSION=v1.1-corp-identity"
+            echo "TEST_WORKFLOW_VERSION=v1.2-duplicate-stock-code"
             echo "TEST_SCOPE=isolated_five_korean_tickers"
             echo "DBHITEK_IDENTITY_REQUIRED=true"
             echo "INVALID_000000_BLOCKED=true"
             echo "OFFICIAL_CORP_CODE_REQUIRED=true"
-            echo "CORP_IDENTITY_MISMATCH_COUNT=0"
+            echo "CORP_IDENTITY_UNRESOLVED_COUNT=0"
             echo "PRODUCTION_TABLES_CHANGED=false"
             echo "LIVE_TEST_STATUS=OK"
           } >> \
@@ -584,7 +664,7 @@ jobs:
           echo "CHANGED_FILES_END"
 
           git commit -m \
-            "Verify v6 DART corporate identity matching"
+            "Verify v6 duplicate DART stock code matching"
 
           PUSHED=false
           for attempt in 1 2 3; do

@@ -1,0 +1,622 @@
+name: V6 Thirteen Table Route Registry Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-thirteen-table-route-registry-test-main
+  cancel-in-progress: false
+
+jobs:
+  test-thirteen-table-routes:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Check thirteen-table registry program
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f table_route_registry.py
+          test -d latest
+          test -d api
+          test -d docs
+          test -f docs/custom_gpt_action_schema.yaml
+          test -f build_api_json.py
+
+          grep -q \
+            'v1.0.0-thirteen-table-contract' \
+            table_route_registry.py
+
+          grep -q \
+            'CONTRACT_TABLE_COUNT=13' \
+            table_route_registry.py
+
+          grep -q \
+            'EXPECTED_CURRENT_READY_COUNT=9' \
+            table_route_registry.py
+
+          grep -q \
+            'EXPECTED_CURRENT_MISSING_COUNT=4' \
+            table_route_registry.py
+
+          echo "PROGRAM_VERSION=v1.0.0-thirteen-table-contract"
+          echo "THIRTEEN_TABLE_REGISTRY_PROGRAM=OK"
+
+      - name: Compile and run registry self-test
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m py_compile table_route_registry.py
+
+          python table_route_registry.py --self-test \
+            | tee /tmp/table_route_registry_self_test.txt
+
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/table_route_registry_self_test.txt
+
+          grep -q \
+            'thirteen_route_count' \
+            /tmp/table_route_registry_self_test.txt
+
+          grep -q \
+            'nine_current_routes' \
+            /tmp/table_route_registry_self_test.txt
+
+          grep -q \
+            'four_planned_missing_routes' \
+            /tmp/table_route_registry_self_test.txt
+
+          echo "THIRTEEN_TABLE_REGISTRY_SELF_TEST=OK"
+
+      - name: Run live repository route inspection
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python table_route_registry.py \
+            --strict-current-baseline \
+            | tee /tmp/table_route_registry_live.txt
+
+          grep -q \
+            'TABLE_ROUTE_REGISTRY_STATUS=OK' \
+            /tmp/table_route_registry_live.txt
+
+          grep -q \
+            'CONTRACT_TABLE_COUNT=13' \
+            /tmp/table_route_registry_live.txt
+
+          grep -q \
+            'READY_TOTAL_COUNT=9' \
+            /tmp/table_route_registry_live.txt
+
+          grep -q \
+            'MISSING_COUNT=4' \
+            /tmp/table_route_registry_live.txt
+
+          grep -q \
+            'BROKEN_COUNT=0' \
+            /tmp/table_route_registry_live.txt
+
+          grep -q \
+            'CURRENT_BASELINE_VERIFICATION=OK' \
+            /tmp/table_route_registry_live.txt
+
+          echo "LIVE_ROUTE_INSPECTION=OK"
+
+      - name: Verify exact ready and missing route sets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          registry_path = Path(
+              "latest/table_route_registry_latest.json"
+          )
+          csv_path = Path(
+              "latest/table_route_registry_latest.csv"
+          )
+          log_path = Path(
+              "latest/table_route_registry_run_log_latest.txt"
+          )
+
+          for path in (registry_path, csv_path, log_path):
+              if not path.exists():
+                  raise SystemExit(
+                      f"required registry output missing: {path}"
+                  )
+
+          payload = json.loads(
+              registry_path.read_text(encoding="utf-8")
+          )
+
+          if payload.get("contract_table_count") != 13:
+              raise SystemExit(
+                  "contract_table_count must be 13"
+              )
+
+          counts = payload.get("counts", {})
+          expected_counts = {
+              "ready_total": 9,
+              "missing": 4,
+              "broken": 0,
+          }
+          for key, expected in expected_counts.items():
+              actual = counts.get(key)
+              if actual != expected:
+                  raise SystemExit(
+                      f"{key} expected {expected}, got {actual}"
+                  )
+
+          routes = payload.get("routes", [])
+          if len(routes) != 13:
+              raise SystemExit(
+                  f"route row count must be 13, got {len(routes)}"
+              )
+
+          by_id = {
+              row.get("route_id"): row
+              for row in routes
+          }
+
+          expected_route_ids = {
+              "watchlist",
+              "analysis",
+              "kospi",
+              "kospi_1m",
+              "kosdaq",
+              "kosdaq_1m",
+              "kospi_gainers",
+              "monthly_cycle",
+              "short_term",
+              "fx_weakness",
+              "market_status",
+              "holdings",
+              "us_watchlist",
+          }
+
+          if set(by_id) != expected_route_ids:
+              raise SystemExit(
+                  "thirteen route IDs differ from contract"
+              )
+
+          expected_ready = {
+              "watchlist",
+              "analysis",
+              "kospi",
+              "kosdaq",
+              "kospi_gainers",
+              "monthly_cycle",
+              "short_term",
+              "fx_weakness",
+              "market_status",
+          }
+
+          expected_missing = {
+              "kospi_1m",
+              "kosdaq_1m",
+              "holdings",
+              "us_watchlist",
+          }
+
+          actual_ready = {
+              route_id
+              for route_id, row in by_id.items()
+              if str(row.get("status", "")).startswith(
+                  "READY"
+              )
+          }
+          actual_missing = {
+              route_id
+              for route_id, row in by_id.items()
+              if row.get("status") == "MISSING"
+          }
+          actual_broken = {
+              route_id
+              for route_id, row in by_id.items()
+              if row.get("status") == "BROKEN"
+          }
+
+          if actual_ready != expected_ready:
+              raise SystemExit(
+                  "ready route set mismatch: "
+                  + ",".join(sorted(actual_ready))
+              )
+
+          if actual_missing != expected_missing:
+              raise SystemExit(
+                  "missing route set mismatch: "
+                  + ",".join(sorted(actual_missing))
+              )
+
+          if actual_broken:
+              raise SystemExit(
+                  "broken existing routes: "
+                  + ",".join(sorted(actual_broken))
+              )
+
+          expected_statuses = {
+              "watchlist": "READY_DIRECT",
+              "analysis": "READY_SHARED",
+              "kospi": "READY_DIRECT",
+              "kosdaq": "READY_DIRECT",
+              "kospi_gainers": "READY_DIRECT",
+              "monthly_cycle": "READY_DIRECT",
+              "short_term": "READY_DIRECT",
+              "fx_weakness": "READY_DIRECT",
+              "market_status": "READY_COMPOSITE",
+              "kospi_1m": "MISSING",
+              "kosdaq_1m": "MISSING",
+              "holdings": "MISSING",
+              "us_watchlist": "MISSING",
+          }
+
+          for route_id, expected_status in (
+              expected_statuses.items()
+          ):
+              actual = by_id[route_id].get("status")
+              if actual != expected_status:
+                  raise SystemExit(
+                      f"{route_id} expected {expected_status}, "
+                      f"got {actual}"
+                  )
+
+          if (
+              by_id["analysis"].get("shared_with")
+              != "watchlist"
+          ):
+              raise SystemExit(
+                  "analysis route must share watchlist route"
+              )
+
+          if (
+              by_id["market_status"].get(
+                  "generation_mode"
+              )
+              != "COMPOSITE"
+          ):
+              raise SystemExit(
+                  "market status must be composite"
+              )
+
+          if payload.get(
+              "all_existing_routes_healthy"
+          ) is not True:
+              raise SystemExit(
+                  "all_existing_routes_healthy must be true"
+              )
+
+          if payload.get(
+              "all_thirteen_routes_complete"
+          ) is not False:
+              raise SystemExit(
+                  "all_thirteen_routes_complete must be false "
+                  "until four missing routes are built"
+              )
+
+          expected_order = [
+              "kospi_1m",
+              "kosdaq_1m",
+              "holdings",
+              "us_watchlist",
+          ]
+          if payload.get("next_build_order") != expected_order:
+              raise SystemExit(
+                  "next_build_order mismatch"
+              )
+
+          print(
+              "READY_ROUTE_IDS="
+              + ",".join(sorted(actual_ready))
+          )
+          print(
+              "MISSING_ROUTE_IDS="
+              + ",".join(sorted(actual_missing))
+          )
+          print("BROKEN_ROUTE_IDS=NONE")
+          print("ANALYSIS_ROUTE_MODE=READY_SHARED")
+          print(
+              "MARKET_STATUS_ROUTE_MODE=READY_COMPOSITE"
+          )
+          print(
+              "ALL_EXISTING_ROUTES_HEALTHY=true"
+          )
+          print(
+              "ALL_THIRTEEN_ROUTES_COMPLETE=false"
+          )
+          print(
+              "EXACT_ROUTE_SET_VERIFICATION=OK"
+          )
+          PY
+
+      - name: Verify every ready route has usable components
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          payload = json.loads(
+              Path(
+                  "latest/table_route_registry_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          routes = payload["routes"]
+          ready_routes = [
+              row
+              for row in routes
+              if str(row["status"]).startswith("READY")
+          ]
+
+          for row in ready_routes:
+              route_id = row["route_id"]
+              status = row["status"]
+
+              if status == "READY_SHARED":
+                  if route_id != "analysis":
+                      raise SystemExit(
+                          f"unexpected shared route: {route_id}"
+                      )
+                  if row.get("shared_with") != "watchlist":
+                      raise SystemExit(
+                          "analysis shared target is incorrect"
+                      )
+                  continue
+
+              source_existing = row.get(
+                  "source_existing",
+                  [],
+              )
+              api_existing = row.get(
+                  "api_existing",
+                  [],
+              )
+              operation_existing = row.get(
+                  "operation_existing",
+                  [],
+              )
+
+              if not source_existing:
+                  raise SystemExit(
+                      f"{route_id} has no existing source"
+                  )
+              if not api_existing:
+                  raise SystemExit(
+                      f"{route_id} has no existing API"
+                  )
+              if not operation_existing:
+                  raise SystemExit(
+                      f"{route_id} has no existing Action operation"
+                  )
+
+              for relative_path in (
+                  source_existing + api_existing
+              ):
+                  path = Path(relative_path)
+                  if not path.exists():
+                      raise SystemExit(
+                          f"{route_id} reported missing path "
+                          f"as existing: {relative_path}"
+                      )
+
+          missing_routes = [
+              row
+              for row in routes
+              if row["status"] == "MISSING"
+          ]
+
+          for row in missing_routes:
+              if not row.get("next_step"):
+                  raise SystemExit(
+                      f"{row['route_id']} missing next_step"
+                  )
+              if not row.get("missing_components"):
+                  raise SystemExit(
+                      f"{row['route_id']} must declare "
+                      "missing components"
+                  )
+
+          print(
+              f"READY_COMPONENT_ROUTE_COUNT="
+              f"{len(ready_routes)}"
+          )
+          print(
+              f"MISSING_COMPONENT_ROUTE_COUNT="
+              f"{len(missing_routes)}"
+          )
+          print(
+              "READY_ROUTE_COMPONENT_VERIFICATION=OK"
+          )
+          print(
+              "MISSING_ROUTE_DISCLOSURE_VERIFICATION=OK"
+          )
+          PY
+
+      - name: Verify Action operation IDs against schema
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          schema = Path(
+              "docs/custom_gpt_action_schema.yaml"
+          ).read_text(
+              encoding="utf-8",
+              errors="replace",
+          )
+
+          payload = json.loads(
+              Path(
+                  "latest/table_route_registry_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          checked = []
+
+          for row in payload["routes"]:
+              if not str(
+                  row["status"]
+              ).startswith("READY"):
+                  continue
+
+              for operation_id in row.get(
+                  "operation_existing",
+                  [],
+              ):
+                  marker = (
+                      f"operationId: {operation_id}"
+                  )
+                  if marker not in schema:
+                      raise SystemExit(
+                          f"operation missing from schema: "
+                          f"{operation_id}"
+                      )
+                  checked.append(operation_id)
+
+          expected_operations = {
+              "getWatchlist",
+              "getKospiCandidates",
+              "getKosdaqCandidates",
+              "getKospiGainers",
+              "getMonthlyCycle",
+              "getShortTermCandidates",
+              "getFxWeaknessCandidates",
+              "getMarketStatus",
+              "getMacroLeverage",
+              "getBubbleRisk",
+          }
+
+          if set(checked) != expected_operations:
+              raise SystemExit(
+                  "ready Action operation set mismatch: "
+                  + ",".join(sorted(set(checked)))
+              )
+
+          print(
+              "READY_ACTION_OPERATION_IDS="
+              + ",".join(sorted(set(checked)))
+          )
+          print(
+              f"READY_ACTION_OPERATION_COUNT="
+              f"{len(set(checked))}"
+          )
+          print(
+              "ACTION_OPERATION_VERIFICATION=OK"
+          )
+          PY
+
+      - name: Publish thirteen-table route evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          {
+            echo "SCRIPT_VERSION=v1.0.0-thirteen-table-contract"
+            echo "TEST_SCOPE=live_repository_source_api_action_routes"
+            echo "CONTRACT_TABLE_COUNT=13"
+            echo "READY_TOTAL_COUNT=9"
+            echo "MISSING_COUNT=4"
+            echo "BROKEN_COUNT=0"
+            echo "READY_ROUTES=watchlist,analysis,kospi,kosdaq,kospi_gainers,monthly_cycle,short_term,fx_weakness,market_status"
+            echo "MISSING_ROUTES=kospi_1m,kosdaq_1m,holdings,us_watchlist"
+            echo "NEXT_BUILD_ORDER=kospi_1m,kosdaq_1m,holdings,us_watchlist"
+            echo "ALL_EXISTING_ROUTES_HEALTHY=true"
+            echo "ALL_THIRTEEN_ROUTES_COMPLETE=false"
+            echo "PRODUCTION_TABLES_CHANGED=false"
+            echo "LIVE_TEST_STATUS=OK"
+          } > \
+            latest/table_route_registry_test_report_latest.txt
+
+          echo "----- thirteen-table registry run log -----"
+          cat \
+            latest/table_route_registry_run_log_latest.txt
+
+          echo "----- thirteen-table registry test report -----"
+          cat \
+            latest/table_route_registry_test_report_latest.txt
+
+          echo "----- thirteen-table registry CSV -----"
+          cat \
+            latest/table_route_registry_latest.csv
+
+      - name: Commit and push route registry evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email \
+            "github-actions@users.noreply.github.com"
+
+          git add \
+            latest/table_route_registry_latest.json \
+            latest/table_route_registry_latest.csv \
+            latest/table_route_registry_run_log_latest.txt \
+            latest/table_route_registry_test_report_latest.txt
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            exit 0
+          fi
+
+          echo "CHANGED_FILES_BEGIN"
+          git diff --cached --name-status
+          echo "CHANGED_FILES_END"
+
+          git commit -m \
+            "Test thirteen-table route registry"
+
+          PUSHED=false
+          for attempt in 1 2 3; do
+            echo "PUSH_ATTEMPT=$attempt"
+            git fetch origin main
+
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              echo "REBASE_FAILED=true"
+              sleep $((attempt * 5))
+              continue
+            fi
+
+            if git push origin HEAD:main; then
+              PUSHED=true
+              break
+            fi
+
+            sleep $((attempt * 5))
+          done
+
+          if [ "$PUSHED" != "true" ]; then
+            echo "PUSH_SUCCESS=false"
+            exit 1
+          fi
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"

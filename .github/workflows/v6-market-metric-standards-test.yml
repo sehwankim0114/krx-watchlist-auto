@@ -1,0 +1,610 @@
+name: V6 Market Metric Standards Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-market-metric-standards-test-main
+  cancel-in-progress: false
+
+jobs:
+  test-market-metric-standards:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Python packages
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install pandas
+
+      - name: Check fixed-standards program
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f market_metric_labels_enricher.py
+          test -d latest
+
+          grep -q \
+            'v1.0.0-fixed-standards' \
+            market_metric_labels_enricher.py
+
+          grep -q \
+            '2026-07-01-v6.0-market-metric-standards' \
+            market_metric_labels_enricher.py
+
+          grep -q \
+            'LETTER_GRADES_FORBIDDEN=A+,A,B,C,D' \
+            market_metric_labels_enricher.py
+
+          echo "PROGRAM_VERSION=v1.0.0-fixed-standards"
+          echo "FIXED_STANDARD_PROGRAM=OK"
+
+      - name: Compile and run built-in boundary tests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m py_compile market_metric_labels_enricher.py
+
+          python market_metric_labels_enricher.py --self-test \
+            | tee /tmp/market_metric_self_test.txt
+
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/market_metric_self_test.txt
+
+          grep -q \
+            'trading_boundaries' \
+            /tmp/market_metric_self_test.txt
+
+          grep -q \
+            'elasticity_boundaries' \
+            /tmp/market_metric_self_test.txt
+
+          grep -q \
+            'position_boundaries' \
+            /tmp/market_metric_self_test.txt
+
+          echo "MARKET_METRIC_BOUNDARY_SELF_TEST=OK"
+
+      - name: Prepare isolated real and synthetic tables
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf .test_market_metrics
+          mkdir -p .test_market_metrics
+
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+          import pandas as pd
+
+          source_dir = Path("latest")
+          test_dir = Path(".test_market_metrics")
+
+          real_files = [
+              "kospi_candidates_30_latest.csv",
+              "kosdaq_candidates_10_latest.csv",
+          ]
+
+          copied = []
+          for filename in real_files:
+              source = source_dir / filename
+              if not source.exists():
+                  raise SystemExit(
+                      f"required real table missing: {filename}"
+                  )
+              shutil.copy2(source, test_dir / filename)
+              copied.append(filename)
+
+          boundary_rows = [
+              {
+                  "ticker": "T00001",
+                  "avg20_trading_value": 100_000_000_000,
+                  "avg_daily_move_pct": 1.49,
+                  "position_in_3m_range_pct": 20,
+              },
+              {
+                  "ticker": "T00002",
+                  "avg20_trading_value": 30_000_000_000,
+                  "avg_daily_move_pct": 1.5,
+                  "position_in_3m_range_pct": 20.01,
+              },
+              {
+                  "ticker": "T00003",
+                  "avg20_trading_value": 5_000_000_000,
+                  "avg_daily_move_pct": 3.0,
+                  "position_in_3m_range_pct": 35.01,
+              },
+              {
+                  "ticker": "T00004",
+                  "avg20_trading_value": 1_000_000_000,
+                  "avg_daily_move_pct": 5.0,
+                  "position_in_3m_range_pct": 65.01,
+              },
+              {
+                  "ticker": "T00005",
+                  "avg20_trading_value": 999_999_999,
+                  "avg_daily_move_pct": 2.99,
+                  "position_in_3m_range_pct": 80.01,
+              },
+              {
+                  "ticker": "T00006",
+                  "avg20_trading_value": 4_999_999_999,
+                  "avg_daily_move_pct": 4.99,
+                  "position_in_3m_range_pct": 92.01,
+              },
+          ]
+
+          pd.DataFrame(boundary_rows).to_csv(
+              test_dir / "synthetic_boundary_latest.csv",
+              index=False,
+              encoding="utf-8-sig",
+          )
+
+          one_month_rows = [
+              {
+                  "ticker": "M00001",
+                  "avg_trading_value": 50_000_000_000,
+                  "avg_daily_move_text": "약 ±1.50%",
+                  "position_in_1m_range_pct": 92.01,
+                  "position_in_3m_range_pct": 10,
+              },
+              {
+                  "ticker": "M00002",
+                  "avg_trading_value": 2_000_000_000,
+                  "avg_daily_move_text": "약 ±5.00%",
+                  "current_close": 150,
+                  "low_1m": 100,
+                  "high_1m": 200,
+                  "position_in_3m_range_pct": 5,
+              },
+          ]
+
+          pd.DataFrame(one_month_rows).to_csv(
+              test_dir / "synthetic_one_month_latest.csv",
+              index=False,
+              encoding="utf-8-sig",
+          )
+
+          print(
+              "COPIED_REAL_TABLES="
+              + ",".join(copied)
+          )
+          print(
+              "SYNTHETIC_BOUNDARY_ROWS="
+              f"{len(boundary_rows)}"
+          )
+          print(
+              "SYNTHETIC_ONE_MONTH_ROWS="
+              f"{len(one_month_rows)}"
+          )
+          print("PRODUCTION_TABLES_CHANGED=false")
+          PY
+
+      - name: Run isolated market metric label enrichment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python market_metric_labels_enricher.py \
+            --latest-dir .test_market_metrics
+
+      - name: Verify fixed thresholds and periods
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import pandas as pd
+
+          test_dir = Path(".test_market_metrics")
+
+          def read_csv(filename):
+              return pd.read_csv(
+                  test_dir / filename,
+                  encoding="utf-8-sig",
+                  dtype=str,
+              ).fillna("")
+
+          boundary = read_csv(
+              "synthetic_boundary_latest.csv"
+          )
+          one_month = read_csv(
+              "synthetic_one_month_latest.csv"
+          )
+          kospi = read_csv(
+              "kospi_candidates_30_latest.csv"
+          )
+          kosdaq = read_csv(
+              "kosdaq_candidates_10_latest.csv"
+          )
+
+          required_columns = {
+              "market_metric_policy_version",
+              "market_metric_label_status",
+              "market_metric_missing_fields",
+              "trading_activity_label",
+              "trading_activity_basis_krw",
+              "price_elasticity_label",
+              "price_elasticity_basis_pct",
+              "current_position_label",
+              "current_position_basis_pct",
+              "current_position_period",
+          }
+
+          for name, df in (
+              ("boundary", boundary),
+              ("one_month", one_month),
+              ("kospi", kospi),
+              ("kosdaq", kosdaq),
+          ):
+              missing = sorted(
+                  required_columns - set(df.columns)
+              )
+              if missing:
+                  raise SystemExit(
+                      f"{name} missing columns: "
+                      + ",".join(missing)
+                  )
+
+          expected_boundary = [
+              ("매우활발", "탄력 낮음", "저점권"),
+              ("활발", "탄력 보통", "저점권반등초입"),
+              ("보통", "탄력 높음", "중간권"),
+              ("부족", "탄력 불안정", "중상단권"),
+              ("매우부족", "탄력 보통", "상단권부담"),
+              ("부족", "탄력 높음", "고점권과열"),
+          ]
+
+          actual_boundary = list(
+              zip(
+                  boundary["trading_activity_label"],
+                  boundary["price_elasticity_label"],
+                  boundary["current_position_label"],
+              )
+          )
+
+          if actual_boundary != expected_boundary:
+              raise SystemExit(
+                  "boundary labels mismatch: "
+                  f"actual={actual_boundary}"
+              )
+
+          if not boundary[
+              "current_position_period"
+          ].eq("3개월").all():
+              raise SystemExit(
+                  "boundary table must use 3개월 position"
+              )
+
+          if one_month.loc[
+              0, "current_position_label"
+          ] != "고점권과열":
+              raise SystemExit(
+                  "one-month explicit position was not used"
+              )
+
+          if one_month.loc[
+              0, "current_position_period"
+          ] != "1개월":
+              raise SystemExit(
+                  "one-month explicit period is incorrect"
+              )
+
+          if one_month.loc[
+              1, "current_position_basis_pct"
+          ] != "50.0":
+              raise SystemExit(
+                  "one-month calculated position must be 50.0"
+              )
+
+          if one_month.loc[
+              1, "current_position_period"
+          ] != "1개월":
+              raise SystemExit(
+                  "one-month calculated period is incorrect"
+              )
+
+          for name, df in (
+              ("kospi", kospi),
+              ("kosdaq", kosdaq),
+          ):
+              usable = df[
+                  df["current_position_label"].ne("")
+              ]
+              if usable.empty:
+                  raise SystemExit(
+                      f"{name} has no usable position labels"
+                  )
+
+              if not usable[
+                  "current_position_period"
+              ].eq("3개월").all():
+                  bad = usable[
+                      ~usable[
+                          "current_position_period"
+                      ].eq("3개월")
+                  ]
+                  raise SystemExit(
+                      f"{name} general table used non-3m period: "
+                      + bad[
+                          [
+                              "code",
+                              "name",
+                              "current_position_period",
+                          ]
+                      ].head(10).to_json(
+                          orient="records",
+                          force_ascii=False,
+                      )
+                  )
+
+          allowed_trading = {
+              "",
+              "매우활발",
+              "활발",
+              "보통",
+              "부족",
+              "매우부족",
+          }
+          allowed_elasticity = {
+              "",
+              "탄력 낮음",
+              "탄력 보통",
+              "탄력 높음",
+              "탄력 불안정",
+          }
+          allowed_position = {
+              "",
+              "저점권",
+              "저점권반등초입",
+              "중간권",
+              "중상단권",
+              "상단권부담",
+              "고점권과열",
+          }
+
+          for name, df in (
+              ("boundary", boundary),
+              ("one_month", one_month),
+              ("kospi", kospi),
+              ("kosdaq", kosdaq),
+          ):
+              if not set(
+                  df["trading_activity_label"]
+              ).issubset(allowed_trading):
+                  raise SystemExit(
+                      f"{name} invalid trading label"
+                  )
+
+              if not set(
+                  df["price_elasticity_label"]
+              ).issubset(allowed_elasticity):
+                  raise SystemExit(
+                      f"{name} invalid elasticity label"
+                  )
+
+              if not set(
+                  df["current_position_label"]
+              ).issubset(allowed_position):
+                  raise SystemExit(
+                      f"{name} invalid position label"
+                  )
+
+              joined = " ".join(
+                  df[
+                      [
+                          "trading_activity_label",
+                          "price_elasticity_label",
+                          "current_position_label",
+                      ]
+                  ].astype(str).stack().tolist()
+              )
+
+              forbidden = [
+                  "A+",
+                  " A ",
+                  " B ",
+                  " C ",
+                  " D ",
+              ]
+              if any(token in joined for token in forbidden):
+                  raise SystemExit(
+                      f"{name} contains forbidden letter grades"
+                  )
+
+          policy_path = (
+              test_dir
+              / "market_metric_standards_latest.json"
+          )
+          log_path = (
+              test_dir
+              / "market_metric_labels_run_log_latest.txt"
+          )
+
+          if not policy_path.exists():
+              raise SystemExit(
+                  "market metric policy JSON missing"
+              )
+
+          if not log_path.exists():
+              raise SystemExit(
+                  "market metric run log missing"
+              )
+
+          policy = json.loads(
+              policy_path.read_text(encoding="utf-8")
+          )
+          log_text = log_path.read_text(
+              encoding="utf-8"
+          )
+
+          if (
+              policy.get("policy_version")
+              != "2026-07-01-v6.0-market-metric-standards"
+          ):
+              raise SystemExit(
+                  "policy version mismatch"
+              )
+
+          if (
+              policy.get("letter_grades_forbidden")
+              != ["A+", "A", "B", "C", "D"]
+          ):
+              raise SystemExit(
+                  "forbidden letter grades policy mismatch"
+              )
+
+          required_log_markers = [
+              "TRADING_ACTIVITY_THRESHOLDS="
+              "100B/30B/5B/1B_KRW",
+              "PRICE_ELASTICITY_THRESHOLDS="
+              "1.5/3.0/5.0_PERCENT",
+              "CURRENT_POSITION_THRESHOLDS="
+              "20/35/65/80/92_PERCENT",
+              "LETTER_GRADES_FORBIDDEN=A+,A,B,C,D",
+              "STATUS=OK",
+          ]
+          for marker in required_log_markers:
+              if marker not in log_text:
+                  raise SystemExit(
+                      f"run log marker missing: {marker}"
+                  )
+
+          print(
+              f"KOSPI_TEST_ROWS={len(kospi)}"
+          )
+          print(
+              f"KOSDAQ_TEST_ROWS={len(kosdaq)}"
+          )
+          print(
+              "GENERAL_TABLE_POSITION_PERIOD=3개월"
+          )
+          print(
+              "ONE_MONTH_TABLE_POSITION_PERIOD=1개월"
+          )
+          print(
+              "TRADING_ACTIVITY_LABELS="
+              "매우활발,활발,보통,부족,매우부족"
+          )
+          print(
+              "PRICE_ELASTICITY_LABELS="
+              "탄력 낮음,탄력 보통,탄력 높음,"
+              "탄력 불안정"
+          )
+          print(
+              "CURRENT_POSITION_LABELS="
+              "저점권,저점권반등초입,중간권,"
+              "중상단권,상단권부담,고점권과열"
+          )
+          print(
+              "LETTER_GRADES_PRESENT=0"
+          )
+          print(
+              "MARKET_METRIC_STANDARDS_VERIFICATION=OK"
+          )
+          PY
+
+      - name: Publish isolated test evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cp \
+            .test_market_metrics/synthetic_boundary_latest.csv \
+            latest/market_metric_standards_test_sample_latest.csv
+
+          cp \
+            .test_market_metrics/market_metric_labels_run_log_latest.txt \
+            latest/market_metric_standards_test_report_latest.txt
+
+          {
+            echo
+            echo "TEST_WORKFLOW_VERSION=v1.0-fixed-standards"
+            echo "TEST_SCOPE=isolated_real_and_synthetic_tables"
+            echo "GENERAL_TABLE_POSITION_PERIOD=3개월"
+            echo "ONE_MONTH_TABLE_POSITION_PERIOD=1개월"
+            echo "LETTER_GRADES_PRESENT=0"
+            echo "PRODUCTION_TABLES_CHANGED=false"
+            echo "LIVE_TEST_STATUS=OK"
+          } >> \
+            latest/market_metric_standards_test_report_latest.txt
+
+          echo "----- market metric standards test report -----"
+          cat \
+            latest/market_metric_standards_test_report_latest.txt
+
+      - name: Commit and push isolated test evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email \
+            "github-actions@users.noreply.github.com"
+
+          git add \
+            latest/market_metric_standards_test_sample_latest.csv \
+            latest/market_metric_standards_test_report_latest.txt
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            exit 0
+          fi
+
+          echo "CHANGED_FILES_BEGIN"
+          git diff --cached --name-status
+          echo "CHANGED_FILES_END"
+
+          git commit -m \
+            "Test fixed market metric standards"
+
+          PUSHED=false
+          for attempt in 1 2 3; do
+            echo "PUSH_ATTEMPT=$attempt"
+            git fetch origin main
+
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              echo "REBASE_FAILED=true"
+              sleep $((attempt * 5))
+              continue
+            fi
+
+            if git push origin HEAD:main; then
+              PUSHED=true
+              break
+            fi
+
+            sleep $((attempt * 5))
+          done
+
+          if [ "$PUSHED" != "true" ]; then
+            echo "PUSH_SUCCESS=false"
+            exit 1
+          fi
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"

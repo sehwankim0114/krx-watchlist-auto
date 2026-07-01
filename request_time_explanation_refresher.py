@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-request_time_explanation_refresher.py v1.0.0-deterministic-refresh
+request_time_explanation_refresher.py v1.1.0-production-column-compatibility
 
 요청시점 현재가가 조회된 뒤 가격 의존 항목을 결정적으로 다시 계산한다.
 
@@ -41,9 +41,9 @@ from typing import Any, Iterable, Mapping, Optional, Sequence, Tuple
 
 SCRIPT_VERSION = (
     "request_time_explanation_refresher.py "
-    "v1.0.0-deterministic-refresh"
+    "v1.1.0-production-column-compatibility"
 )
-POLICY_VERSION = "2026-07-01-v6.0-request-time-explanation-refresh"
+POLICY_VERSION = "2026-07-01-v6.0-request-time-explanation-refresh-v2"
 
 PRICE_STATUS_OK = "OK"
 PRICE_STATUS_FAILED = "FAILED"
@@ -141,6 +141,7 @@ BUY_TEXT_FIELDS = (
     "value_buy_range",
     "value_buy_zone",
     "value_buy_range_text",
+    "buy_range",
     "가치매수구간",
 )
 
@@ -163,6 +164,7 @@ TARGET_TEXT_FIELDS = (
     "target_range",
     "first_sell_range",
     "first_take_profit_range",
+    "sell_range",
     "1차 매도/익절가",
 )
 
@@ -170,6 +172,7 @@ BASE_RECOMMENDATION_FIELDS = (
     "base_recommendation",
     "recommendation",
     "recommendation_mark",
+    "recommend_flag",
     "signal",
     "추천",
 )
@@ -551,21 +554,36 @@ def static_reason_text(row: Mapping[str, Any]) -> str:
     if not text:
         return ""
 
-    # 정적 사유에 과거 가격판정 표현이 섞여 있으면 그대로 복사하지 않는다.
+    # 기존 복합 사유에서 가격 의존 조각만 제거하고,
+    # 거래대금·변동성·재무 등 정적 근거는 보존한다.
     forbidden_fragments = (
         "매수구간",
         "익절구간",
         "현재가",
+        "매수위치",
         "저점권",
         "중간권",
         "상단권",
         "고점권",
         "추격",
         "눌림",
+        "추세",
     )
-    if any(fragment in text for fragment in forbidden_fragments):
-        return ""
-    return text.strip(" ;")
+
+    parts = [
+        part.strip()
+        for part in re.split(r"[;|·]+", text)
+        if part.strip()
+    ]
+    kept = [
+        part
+        for part in parts
+        if not any(
+            fragment in part
+            for fragment in forbidden_fragments
+        )
+    ]
+    return "; ".join(kept).strip(" ;")
 
 
 def refresh(

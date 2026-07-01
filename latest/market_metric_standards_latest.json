@@ -1,0 +1,45 @@
+{
+  "script_version": "market_metric_labels_enricher.py v1.0.0-fixed-standards",
+  "policy_version": "2026-07-01-v6.0-market-metric-standards",
+  "generated_at_kst": "2026-07-01T19:31:21+09:00",
+  "trading_activity": {
+    "basis": "최근 20거래일 평균 거래대금",
+    "thresholds_krw": {
+      "매우활발": ">=100000000000",
+      "활발": ">=30000000000 and <100000000000",
+      "보통": ">=5000000000 and <30000000000",
+      "부족": ">=1000000000 and <5000000000",
+      "매우부족": ">=0 and <1000000000"
+    }
+  },
+  "price_elasticity": {
+    "basis": "최근 20거래일 하루평균 절대등락률",
+    "thresholds_pct": {
+      "탄력 낮음": "<1.5",
+      "탄력 보통": ">=1.5 and <3.0",
+      "탄력 높음": ">=3.0 and <5.0",
+      "탄력 불안정": ">=5.0"
+    }
+  },
+  "current_position": {
+    "formula": "(current-low)/(high-low)*100",
+    "default_period": "3개월",
+    "one_month_table_period": "1개월",
+    "thresholds_pct": {
+      "저점권": "<=20",
+      "저점권반등초입": ">20 and <=35",
+      "중간권": ">35 and <=65",
+      "중상단권": ">65 and <=80",
+      "상단권부담": ">80 and <=92",
+      "고점권과열": ">92"
+    }
+  },
+  "letter_grades_forbidden": [
+    "A+",
+    "A",
+    "B",
+    "C",
+    "D"
+  ],
+  "missing_data_policy": "추정하지 않고 PARTIAL/LIMITED"
+}

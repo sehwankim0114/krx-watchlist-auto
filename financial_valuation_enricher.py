@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-financial_valuation_enricher.py v1.1.0-corp-identity-fix
+financial_valuation_enricher.py v1.2.0-duplicate-stock-code-fix
 
 목적
-- OpenDART 공식 기업코드표를 우선 내려받고 회사명까지 검증한다.
+- OpenDART 공식 기업코드표의 동일 종목코드 후보 전체를 보존하고 KRX 종목명과 일치하는 법인만 선택한다.
 - 표에 필요한 최근 확정 실적·재무상태를 수집한다.
 - KRX 시가총액·상장주식수와 결합해 기초 밸류에이션을 계산한다.
 - 기존 임시 시장점수(legacy_market_score)와 v6 최종점수를 혼동하지 않는다.
@@ -46,7 +46,8 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 
-SCRIPT_VERSION = "financial_valuation_enricher.py v1.1.0-corp-identity-fix"
+SCRIPT_VERSION = "financial_valuation_enricher.py v1.2.0-duplicate-stock-code-fix"
+CORP_IDENTITY_POLICY_VERSION = "corp-candidate-name-match-v2"
 POLICY_VERSION = "2026-07-01-v6.0-score-policy"
 KST = ZoneInfo("Asia/Seoul")
 
@@ -114,6 +115,8 @@ OUTPUT_COLUMNS = [
     "corp_code_source",
     "corp_identity_status",
     "corp_identity_reason",
+    "corp_candidate_count",
+    "corp_selection_method",
     "financial_data_status",
     "financial_source_status",
     "financial_basis",
@@ -158,6 +161,8 @@ ENRICH_COLUMNS = [
     "corp_code_source",
     "corp_identity_status",
     "corp_identity_reason",
+    "corp_candidate_count",
+    "corp_selection_method",
     "financial_data_status",
     "financial_source_status",
     "financial_basis",
@@ -372,15 +377,12 @@ def evaluate_corp_identity(
     if target in corp or corp in target:
         return "MATCH_NORMALIZED", "법인표기 제거 후 회사명 일치"
 
-    if source_text == "OPENDART_OFFICIAL_DOWNLOAD":
-        return (
-            "OFFICIAL_TICKER_NAME_DIFFERENCE",
-            f"공식 종목코드 매핑이나 회사명 차이: {target_name} / {corp_name}",
-        )
-
     return (
         "MISMATCH",
-        f"캐시 회사명 불일치: {target_name} / {corp_name}",
+        (
+            "종목명과 OpenDART 회사명 불일치: "
+            f"{target_name} / {corp_name} / source={source_text}"
+        ),
     )
 
 
@@ -516,7 +518,7 @@ def candidate_report_periods(
 def target_period_key(periods: Sequence[Tuple[str, str]]) -> str:
     if not periods:
         return ""
-    return f"{periods[0][0]}_{periods[0][1]}"
+    return f"{periods[0][0]}_{periods[0][1]}_{CORP_IDENTITY_POLICY_VERSION}"
 
 
 def get_ticker_column(df: pd.DataFrame) -> Optional[str]:
@@ -593,7 +595,13 @@ def urlopen_bytes(url: str, timeout: int = 25) -> bytes:
 def download_corp_code_map(
     api_key: str,
     timeout: int,
-) -> Dict[str, Dict[str, str]]:
+) -> Dict[str, List[Dict[str, str]]]:
+    """
+    OpenDART corpCode.xml의 동일 stock_code 후보를 모두 보존한다.
+
+    종목코드는 상장폐지·합병·스팩 등의 이력 때문에 여러 공시법인에
+    남아 있을 수 있으므로 dict의 마지막 값으로 덮어쓰지 않는다.
+    """
     query = urllib.parse.urlencode({"crtfc_key": api_key})
     raw = urlopen_bytes(f"{DART_CORP_CODE_URL}?{query}", timeout=timeout)
 
@@ -610,12 +618,13 @@ def download_corp_code_map(
             raise RuntimeError("DART_CORP_CODE_XML_MISSING")
         root = ET.fromstring(archive.read(xml_names[0]))
 
-    mapping: Dict[str, Dict[str, str]] = {}
+    mapping: Dict[str, List[Dict[str, str]]] = {}
     for item in root.findall(".//list"):
         stock_code = clean_ticker(item.findtext("stock_code"))
-        if not stock_code:
+        if not stock_code or stock_code == "000000":
             continue
-        mapping[stock_code] = {
+
+        candidate = {
             "corp_code": normalize_text(
                 item.findtext("corp_code")
             ).zfill(8),
@@ -627,30 +636,59 @@ def download_corp_code_map(
                 item.findtext("modify_date")
             ),
         }
+        if not candidate["corp_code"] or not candidate["corp_name"]:
+            continue
+        mapping.setdefault(stock_code, []).append(candidate)
+
+    # 같은 corp_code가 중복되어 있으면 하나만 남긴다.
+    for stock_code, candidates in list(mapping.items()):
+        unique: Dict[str, Dict[str, str]] = {}
+        for candidate in candidates:
+            corp_code = candidate["corp_code"]
+            previous = unique.get(corp_code)
+            if (
+                previous is None
+                or candidate.get("modify_date", "")
+                > previous.get("modify_date", "")
+            ):
+                unique[corp_code] = candidate
+        mapping[stock_code] = sorted(
+            unique.values(),
+            key=lambda item: (
+                item.get("modify_date", ""),
+                item.get("corp_code", ""),
+            ),
+            reverse=True,
+        )
+
     return mapping
 
 
 def write_official_corp_code_map(
     output_dir: Path,
-    mapping: Mapping[str, Mapping[str, Any]],
+    mapping: Mapping[str, Sequence[Mapping[str, Any]]],
 ) -> None:
     rows = []
-    for stock_code, info in sorted(mapping.items()):
-        rows.append(
-            {
-                "stock_code": stock_code,
-                "corp_code": normalize_text(
-                    info.get("corp_code", "")
-                ),
-                "corp_name": normalize_text(
-                    info.get("corp_name", "")
-                ),
-                "modify_date": normalize_text(
-                    info.get("modify_date", "")
-                ),
-                "source": "OPENDART_OFFICIAL_DOWNLOAD",
-            }
-        )
+    for stock_code, candidates in sorted(mapping.items()):
+        candidate_count = len(candidates)
+        for candidate in candidates:
+            rows.append(
+                {
+                    "stock_code": stock_code,
+                    "corp_code": normalize_text(
+                        candidate.get("corp_code", "")
+                    ),
+                    "corp_name": normalize_text(
+                        candidate.get("corp_name", "")
+                    ),
+                    "modify_date": normalize_text(
+                        candidate.get("modify_date", "")
+                    ),
+                    "source": "OPENDART_OFFICIAL_DOWNLOAD",
+                    "stock_code_candidate_count": candidate_count,
+                }
+            )
+
     write_csv_atomically(
         pd.DataFrame(rows),
         output_dir / CORP_CODE_MAP_FILENAME,
@@ -660,7 +698,7 @@ def write_official_corp_code_map(
 def load_validated_corp_code_cache(
     output_dir: Path,
     log_lines: List[str],
-) -> Dict[str, Dict[str, str]]:
+) -> Dict[str, List[Dict[str, str]]]:
     path = output_dir / CORP_CODE_MAP_FILENAME
     if not path.exists():
         return {}
@@ -684,23 +722,48 @@ def load_validated_corp_code_cache(
         )
         return {}
 
-    mapping: Dict[str, Dict[str, str]] = {}
+    mapping: Dict[str, List[Dict[str, str]]] = {}
+    seen_pairs = set()
+
     for _, row in df.iterrows():
         ticker = clean_ticker(row.get("stock_code", ""))
         corp_code = normalize_text(
             row.get("corp_code", "")
         ).zfill(8)
         corp_name = normalize_text(row.get("corp_name", ""))
-        if not ticker or not corp_code or not corp_name:
+        if (
+            not ticker
+            or ticker == "000000"
+            or not corp_code
+            or not corp_name
+        ):
             continue
-        mapping[ticker] = {
-            "corp_code": corp_code,
-            "corp_name": corp_name,
-            "source": "VALIDATED_CORP_CODE_MAP_CACHE",
-            "modify_date": normalize_text(
-                row.get("modify_date", "")
+
+        pair = (ticker, corp_code)
+        if pair in seen_pairs:
+            continue
+        seen_pairs.add(pair)
+
+        mapping.setdefault(ticker, []).append(
+            {
+                "corp_code": corp_code,
+                "corp_name": corp_name,
+                "source": "VALIDATED_CORP_CODE_MAP_CACHE",
+                "modify_date": normalize_text(
+                    row.get("modify_date", "")
+                ),
+            }
+        )
+
+    for ticker in mapping:
+        mapping[ticker] = sorted(
+            mapping[ticker],
+            key=lambda item: (
+                item.get("modify_date", ""),
+                item.get("corp_code", ""),
             ),
-        }
+            reverse=True,
+        )
 
     return mapping
 
@@ -710,12 +773,10 @@ def load_corp_code_map(
     api_key: str,
     timeout: int,
     log_lines: List[str],
-) -> Dict[str, Dict[str, str]]:
+) -> Dict[str, List[Dict[str, str]]]:
     """
-    공식 OpenDART 기업코드표를 최우선으로 사용한다.
-
-    과거의 dart_corp_code_cache_latest.csv는 다른 목적의 캐시일 수
-    있으므로 이 함수에서 읽지 않는다.
+    공식 OpenDART 기업코드표를 최우선으로 사용하고,
+    동일 종목코드의 법인 후보 전체를 보존한다.
     """
     if api_key:
         try:
@@ -728,11 +789,26 @@ def load_corp_code_map(
                     output_dir,
                     mapping,
                 )
+                duplicate_tickers = sum(
+                    1 for candidates in mapping.values()
+                    if len(candidates) > 1
+                )
+                candidate_rows = sum(
+                    len(candidates)
+                    for candidates in mapping.values()
+                )
                 log_lines.append(
                     "corp_code_source=OPENDART_OFFICIAL_DOWNLOAD"
                 )
                 log_lines.append(
-                    f"corp_code_rows={len(mapping)}"
+                    f"corp_code_unique_stock_codes={len(mapping)}"
+                )
+                log_lines.append(
+                    f"corp_code_candidate_rows={candidate_rows}"
+                )
+                log_lines.append(
+                    "corp_code_duplicate_stock_code_count="
+                    f"{duplicate_tickers}"
                 )
                 return mapping
         except Exception as exc:
@@ -746,10 +822,27 @@ def load_corp_code_map(
         log_lines,
     )
     if mapping:
+        duplicate_tickers = sum(
+            1 for candidates in mapping.values()
+            if len(candidates) > 1
+        )
+        candidate_rows = sum(
+            len(candidates)
+            for candidates in mapping.values()
+        )
         log_lines.append(
             "corp_code_source=VALIDATED_CORP_CODE_MAP_CACHE"
         )
-        log_lines.append(f"corp_code_rows={len(mapping)}")
+        log_lines.append(
+            f"corp_code_unique_stock_codes={len(mapping)}"
+        )
+        log_lines.append(
+            f"corp_code_candidate_rows={candidate_rows}"
+        )
+        log_lines.append(
+            "corp_code_duplicate_stock_code_count="
+            f"{duplicate_tickers}"
+        )
         return mapping
 
     if not api_key:
@@ -757,6 +850,138 @@ def load_corp_code_map(
     else:
         log_lines.append("corp_code_source=NONE_DOWNLOAD_FAILED")
     return {}
+
+
+def resolve_corp_info(
+    ticker: str,
+    target_name: Any,
+    candidates: Sequence[Mapping[str, Any]],
+) -> Dict[str, Any]:
+    """
+    동일 종목코드 후보 중 현재 KRX 종목명과 맞는 법인만 선택한다.
+
+    우선순위
+    1. 법인표기 제거 후 회사명 완전일치
+    2. 한쪽 이름이 다른 쪽을 포함하는 정규화 일치
+    3. 대상 회사명이 없고 후보가 1개인 경우만 제한적 선택
+    4. 그 밖에는 선택하지 않고 MISMATCH/AMBIGUOUS로 남긴다.
+    """
+    candidate_list = [
+        dict(candidate)
+        for candidate in candidates
+        if normalize_text(candidate.get("corp_code", ""))
+    ]
+    candidate_count = len(candidate_list)
+    target_normalized = normalize_company_name(target_name)
+
+    base = {
+        "corp_code": "",
+        "corp_name": "",
+        "source": "",
+        "modify_date": "",
+        "identity_status": "NO_CORP_CODE",
+        "identity_reason": "OpenDART 기업코드 후보 없음",
+        "candidate_count": candidate_count,
+        "selection_method": "NONE",
+    }
+
+    if not candidate_list:
+        return base
+
+    exact_matches = []
+    contains_matches = []
+    for candidate in candidate_list:
+        corp_normalized = normalize_company_name(
+            candidate.get("corp_name", "")
+        )
+        if target_normalized and target_normalized == corp_normalized:
+            exact_matches.append(candidate)
+        elif (
+            target_normalized
+            and corp_normalized
+            and (
+                target_normalized in corp_normalized
+                or corp_normalized in target_normalized
+            )
+        ):
+            contains_matches.append(candidate)
+
+    def newest(items: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
+        return dict(
+            sorted(
+                items,
+                key=lambda item: (
+                    normalize_text(item.get("modify_date", "")),
+                    normalize_text(item.get("corp_code", "")),
+                ),
+                reverse=True,
+            )[0]
+        )
+
+    if exact_matches:
+        selected = newest(exact_matches)
+        selected.update(
+            {
+                "identity_status": "MATCH",
+                "identity_reason": (
+                    "동일 종목코드 후보 중 KRX 종목명과 회사명 완전일치"
+                ),
+                "candidate_count": candidate_count,
+                "selection_method": "NAME_EXACT",
+            }
+        )
+        return selected
+
+    if contains_matches:
+        selected = newest(contains_matches)
+        selected.update(
+            {
+                "identity_status": "MATCH_NORMALIZED",
+                "identity_reason": (
+                    "동일 종목코드 후보 중 법인표기 제거 후 회사명 일치"
+                ),
+                "candidate_count": candidate_count,
+                "selection_method": "NAME_CONTAINS",
+            }
+        )
+        return selected
+
+    candidate_names = " | ".join(
+        normalize_text(candidate.get("corp_name", ""))
+        for candidate in candidate_list[:10]
+    )
+
+    if not target_normalized and candidate_count == 1:
+        selected = dict(candidate_list[0])
+        selected.update(
+            {
+                "identity_status": "NAME_NOT_AVAILABLE_SINGLE",
+                "identity_reason": (
+                    "대상 종목명은 없으나 동일 종목코드 후보가 1개"
+                ),
+                "candidate_count": 1,
+                "selection_method": "SINGLE_WITHOUT_TARGET_NAME",
+            }
+        )
+        return selected
+
+    base.update(
+        {
+            "identity_status": (
+                "AMBIGUOUS"
+                if candidate_count > 1
+                else "MISMATCH"
+            ),
+            "identity_reason": (
+                f"KRX 종목명={target_name}; "
+                f"OpenDART 후보={candidate_names}"
+            ),
+            "candidate_count": candidate_count,
+            "selection_method": "NO_NAME_MATCH",
+        }
+    )
+    return base
+
 
 
 def collect_target_metadata(
@@ -1229,12 +1454,23 @@ def blank_record(
             "corp_code_source": normalize_text(
                 corp_info.get("source", "")
             ),
-            "corp_identity_status": (
+            "corp_identity_status": normalize_text(
+                corp_info.get("identity_status", "")
+            ) or (
                 "NO_CORP_CODE"
                 if not normalize_text(corp_info.get("corp_code", ""))
                 else "NOT_VERIFIED"
             ),
-            "corp_identity_reason": source_status,
+            "corp_identity_reason": normalize_text(
+                corp_info.get("identity_reason", "")
+            ) or source_status,
+            "corp_candidate_count": corp_info.get(
+                "candidate_count",
+                0,
+            ),
+            "corp_selection_method": normalize_text(
+                corp_info.get("selection_method", "")
+            ),
             "financial_data_status": "LIMITED",
             "financial_source_status": source_status,
             "financial_basis": "",
@@ -1277,20 +1513,39 @@ def fetch_financial_record(
             target_key=target_key,
         )
 
-    identity_status, identity_reason = evaluate_corp_identity(
-        metadata.get("name", ""),
-        corp_info.get("corp_name", ""),
-        corp_info.get("source", ""),
+    identity_status = normalize_text(
+        corp_info.get("identity_status", "")
     )
-    if identity_status == "MISMATCH":
+    identity_reason = normalize_text(
+        corp_info.get("identity_reason", "")
+    )
+
+    if not identity_status:
+        identity_status, identity_reason = evaluate_corp_identity(
+            metadata.get("name", ""),
+            corp_info.get("corp_name", ""),
+            corp_info.get("source", ""),
+        )
+
+    allowed_identity_statuses = {
+        "MATCH",
+        "MATCH_NORMALIZED",
+        "NAME_NOT_AVAILABLE_SINGLE",
+    }
+    if identity_status not in allowed_identity_statuses:
         result = blank_record(
             ticker=ticker,
             metadata=metadata,
             corp_info=corp_info,
-            source_status="CORP_IDENTITY_MISMATCH",
+            source_status=(
+                "CORP_IDENTITY_"
+                + (identity_status or "UNRESOLVED")
+            ),
             target_key=target_key,
         )
-        result["corp_identity_status"] = identity_status
+        result["corp_identity_status"] = (
+            identity_status or "UNRESOLVED"
+        )
         result["corp_identity_reason"] = identity_reason
         return result
 
@@ -1366,6 +1621,13 @@ def fetch_financial_record(
                 ),
                 "corp_identity_status": identity_status,
                 "corp_identity_reason": identity_reason,
+                "corp_candidate_count": corp_info.get(
+                    "candidate_count",
+                    0,
+                ),
+                "corp_selection_method": normalize_text(
+                    corp_info.get("selection_method", "")
+                ),
                 "financial_data_status": financial_status,
                 "financial_source_status": "OK",
                 "financial_basis": report_label(
@@ -1694,15 +1956,50 @@ def run_self_test() -> int:
     )
     assert status in {"MATCH", "MATCH_NORMALIZED"}
 
-    status, _ = evaluate_corp_identity(
+    duplicate_candidates = [
+        {
+            "corp_code": "00160843",
+            "corp_name": "(주)DB하이텍",
+            "source": "OPENDART_OFFICIAL_DOWNLOAD",
+            "modify_date": "20250101",
+        },
+        {
+            "corp_code": "01948220",
+            "corp_name": "미래에셋비전스팩11호",
+            "source": "OPENDART_OFFICIAL_DOWNLOAD",
+            "modify_date": "20260630",
+        },
+        {
+            "corp_code": "01900000",
+            "corp_name": "IBKS제25호스팩",
+            "source": "OPENDART_OFFICIAL_DOWNLOAD",
+            "modify_date": "20260501",
+        },
+    ]
+    resolved = resolve_corp_info(
+        "000990",
         "DB하이텍",
-        "IBKS제25호스팩",
-        "VALIDATED_CORP_CODE_MAP_CACHE",
+        duplicate_candidates,
     )
-    assert status == "MISMATCH"
+    assert resolved["corp_code"] == "00160843"
+    assert "DB하이텍" in resolved["corp_name"]
+    assert resolved["identity_status"] in {
+        "MATCH",
+        "MATCH_NORMALIZED",
+    }
+    assert resolved["candidate_count"] == 3
+    assert "스팩" not in resolved["corp_name"]
+
+    unresolved = resolve_corp_info(
+        "000990",
+        "전혀다른회사",
+        duplicate_candidates,
+    )
+    assert unresolved["corp_code"] == ""
+    assert unresolved["identity_status"] == "AMBIGUOUS"
 
     print("SELF_TEST_STATUS=OK")
-    print("TESTED=account_selection,financial_status,ratios,valuation,corp_identity")
+    print("TESTED=account_selection,financial_status,ratios,valuation,duplicate_stock_code_name_resolution")
     return 0
 
 
@@ -1798,11 +2095,35 @@ def main() -> int:
         print("FINANCIAL_VALUATION_STATUS=ERROR_NO_TARGET_TICKERS")
         return 1
 
-    corp_map = load_corp_code_map(
+    corp_candidate_map = load_corp_code_map(
         output_dir,
         api_key,
         args.timeout,
         log_lines,
+    )
+    corp_map: Dict[str, Dict[str, Any]] = {
+        ticker: resolve_corp_info(
+            ticker,
+            metadata[ticker].get("name", ""),
+            corp_candidate_map.get(ticker, []),
+        )
+        for ticker in sorted(metadata)
+    }
+    resolution_counts = (
+        pd.Series(
+            [
+                normalize_text(
+                    info.get("identity_status", "")
+                )
+                or "UNKNOWN"
+                for info in corp_map.values()
+            ]
+        )
+        .value_counts(dropna=False)
+        .to_dict()
+    )
+    log_lines.append(
+        f"CORP_IDENTITY_RESOLUTION_COUNTS={resolution_counts}"
     )
 
     stable_cache, temporary_cache = read_cache(
@@ -1986,6 +2307,10 @@ def main() -> int:
             (
                 "NOTE=이 단계의 PER/PBR은 기초 계산값이며 "
                 "업종 상대가치 평가는 후속 점수 계산기에서 수행합니다."
+            ),
+            (
+                "NOTE=동일 종목코드 후보가 여러 개이면 KRX 종목명과 "
+                "회사명이 일치하는 OpenDART 법인만 선택합니다."
             ),
         ]
     )

@@ -1,45 +1,42 @@
 {
   "script": "supply_burden_enricher.py v2.0.0-check-status-separated",
   "policy_version": "2026-07-01-v6.0-supply-status-separated",
-  "run_at_kst": "2026-07-01T17:21:59+09:00",
+  "run_at_kst": "2026-07-01T17:41:15+09:00",
   "status": "LIMITED",
   "check_scope": "DART 최근 90일 공시 제목 기준",
-  "check_limited_reason": "DART_WHOLE_MARKET_LOOKBACK_CAPPED_90D_FROM_180D;DART_PARTIAL_ERROR_COUNT_2",
+  "check_limited_reason": "DART_WHOLE_MARKET_LOOKBACK_CAPPED_90D_FROM_180D",
   "output_dir": "latest",
   "requested_lookback_days": 180,
   "effective_lookback_days": 90,
   "dart_whole_market_max_days": 90,
   "target_tickers": 2716,
-  "hit_reports": 5050,
-  "supply_burden_detected_tickers": 1410,
-  "danger_tickers": 370,
-  "warning_tickers": 446,
-  "caution_tickers": 594,
+  "hit_reports": 11774,
+  "supply_burden_detected_tickers": 1834,
+  "danger_tickers": 667,
+  "warning_tickers": 667,
+  "caution_tickers": 500,
   "dart_status": {
     "bgn_de": "20260402",
     "end_de": "20260701",
     "lookback_days": 90,
     "corp_cls": {
       "Y": {
-        "pages_requested": 76,
+        "pages_requested": 159,
         "total_page": 159,
-        "raw_reports": 7600,
-        "target_reports": 7600,
-        "matched_reports": 1809
+        "raw_reports": 15867,
+        "target_reports": 15867,
+        "matched_reports": 4520
       },
       "K": {
-        "pages_requested": 69,
+        "pages_requested": 171,
         "total_page": 171,
-        "raw_reports": 6900,
-        "target_reports": 6841,
-        "matched_reports": 3241
+        "raw_reports": 17054,
+        "target_reports": 16896,
+        "matched_reports": 7254
       }
     },
-    "api_calls": 145,
-    "api_errors": [
-      "corp_cls=Y,page=77,error=TimeoutError:The read operation timed out",
-      "corp_cls=K,page=70,error=TimeoutError:The read operation timed out"
-    ]
+    "api_calls": 330,
+    "api_errors": []
   },
   "enrich_results": [
     {
@@ -47,7 +44,7 @@
       "status": "OK",
       "rows": 10,
       "matched_rows": 10,
-      "burden_detected_rows": 8,
+      "burden_detected_rows": 10,
       "check_limited_rows": 10,
       "check_failed_rows": 0,
       "note": ""
@@ -57,7 +54,7 @@
       "status": "OK",
       "rows": 10,
       "matched_rows": 10,
-      "burden_detected_rows": 8,
+      "burden_detected_rows": 10,
       "check_limited_rows": 10,
       "check_failed_rows": 0,
       "note": ""
@@ -67,7 +64,7 @@
       "status": "OK",
       "rows": 10,
       "matched_rows": 10,
-      "burden_detected_rows": 8,
+      "burden_detected_rows": 10,
       "check_limited_rows": 10,
       "check_failed_rows": 0,
       "note": ""
@@ -87,7 +84,7 @@
       "status": "OK",
       "rows": 5,
       "matched_rows": 5,
-      "burden_detected_rows": 4,
+      "burden_detected_rows": 5,
       "check_limited_rows": 5,
       "check_failed_rows": 0,
       "note": ""
@@ -117,7 +114,7 @@
       "status": "OK",
       "rows": 1791,
       "matched_rows": 1791,
-      "burden_detected_rows": 937,
+      "burden_detected_rows": 1256,
       "check_limited_rows": 1791,
       "check_failed_rows": 0,
       "note": ""
@@ -137,7 +134,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 27,
+      "burden_detected_rows": 29,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -147,7 +144,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 27,
+      "burden_detected_rows": 29,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -157,7 +154,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 27,
+      "burden_detected_rows": 29,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -177,7 +174,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 23,
+      "burden_detected_rows": 28,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -207,7 +204,7 @@
       "status": "OK",
       "rows": 7,
       "matched_rows": 7,
-      "burden_detected_rows": 5,
+      "burden_detected_rows": 6,
       "check_limited_rows": 7,
       "check_failed_rows": 0,
       "note": ""
@@ -227,7 +224,7 @@
       "status": "OK",
       "rows": 20,
       "matched_rows": 20,
-      "burden_detected_rows": 16,
+      "burden_detected_rows": 18,
       "check_limited_rows": 20,
       "check_failed_rows": 0,
       "note": ""
@@ -237,7 +234,7 @@
       "status": "OK",
       "rows": 20,
       "matched_rows": 20,
-      "burden_detected_rows": 16,
+      "burden_detected_rows": 18,
       "check_limited_rows": 20,
       "check_failed_rows": 0,
       "note": ""
@@ -247,7 +244,7 @@
       "status": "OK",
       "rows": 20,
       "matched_rows": 20,
-      "burden_detected_rows": 16,
+      "burden_detected_rows": 18,
       "check_limited_rows": 20,
       "check_failed_rows": 0,
       "note": ""
@@ -267,7 +264,7 @@
       "status": "OK",
       "rows": 40,
       "matched_rows": 40,
-      "burden_detected_rows": 20,
+      "burden_detected_rows": 25,
       "check_limited_rows": 40,
       "check_failed_rows": 0,
       "note": ""
@@ -297,7 +294,7 @@
       "status": "OK",
       "rows": 7,
       "matched_rows": 7,
-      "burden_detected_rows": 5,
+      "burden_detected_rows": 7,
       "check_limited_rows": 7,
       "check_failed_rows": 0,
       "note": ""
@@ -327,7 +324,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 26,
+      "burden_detected_rows": 29,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -357,7 +354,7 @@
       "status": "OK",
       "rows": 7,
       "matched_rows": 7,
-      "burden_detected_rows": 5,
+      "burden_detected_rows": 7,
       "check_limited_rows": 7,
       "check_failed_rows": 0,
       "note": ""
@@ -387,7 +384,7 @@
       "status": "OK",
       "rows": 925,
       "matched_rows": 925,
-      "burden_detected_rows": 473,
+      "burden_detected_rows": 578,
       "check_limited_rows": 925,
       "check_failed_rows": 0,
       "note": ""
@@ -407,7 +404,7 @@
       "status": "OK",
       "rows": 47,
       "matched_rows": 44,
-      "burden_detected_rows": 32,
+      "burden_detected_rows": 37,
       "check_limited_rows": 44,
       "check_failed_rows": 0,
       "note": ""
@@ -417,7 +414,7 @@
       "status": "OK",
       "rows": 47,
       "matched_rows": 44,
-      "burden_detected_rows": 32,
+      "burden_detected_rows": 37,
       "check_limited_rows": 44,
       "check_failed_rows": 0,
       "note": ""
@@ -427,7 +424,7 @@
       "status": "OK",
       "rows": 47,
       "matched_rows": 44,
-      "burden_detected_rows": 32,
+      "burden_detected_rows": 37,
       "check_limited_rows": 44,
       "check_failed_rows": 0,
       "note": ""

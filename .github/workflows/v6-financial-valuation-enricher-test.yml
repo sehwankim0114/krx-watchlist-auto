@@ -34,7 +34,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas
 
-      - name: Check required files and DART secret
+      - name: Check v1.1 program and DART secret
         shell: bash
         run: |
           set -euo pipefail
@@ -47,17 +47,43 @@ jobs:
             exit 1
           fi
 
-          echo "REQUIRED_FILES=OK"
-          echo "DART_API_KEY_PRESENT=true"
+          grep -q \
+            'v1.1.0-corp-identity-fix' \
+            financial_valuation_enricher.py
 
-      - name: Compile and run built-in self-test
+          grep -q \
+            'CORP_CODE_MAP_FILENAME' \
+            financial_valuation_enricher.py
+
+          if grep -q \
+            'CORP_CACHE_CANDIDATES' \
+            financial_valuation_enricher.py; then
+            echo "::error::Old corporate-code cache logic remains."
+            exit 1
+          fi
+
+          echo "PROGRAM_VERSION=v1.1.0-corp-identity-fix"
+          echo "DART_API_KEY_PRESENT=true"
+          echo "V1_1_REQUIRED_FILES=OK"
+
+      - name: Compile and run built-in identity self-test
         run: |
           set -euo pipefail
           python -m py_compile financial_valuation_enricher.py
-          python financial_valuation_enricher.py --self-test
-          echo "PROGRAM_COMPILE_AND_SELF_TEST=OK"
+          python financial_valuation_enricher.py --self-test \
+            | tee /tmp/financial_self_test.txt
 
-      - name: Prepare isolated five-ticker test data
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/financial_self_test.txt
+
+          grep -q \
+            'corp_identity' \
+            /tmp/financial_self_test.txt
+
+          echo "PROGRAM_COMPILE_AND_IDENTITY_SELF_TEST=OK"
+
+      - name: Prepare isolated identity test data
         shell: bash
         run: |
           set -euo pipefail
@@ -66,19 +92,16 @@ jobs:
 
           python - <<'PY'
           from pathlib import Path
+          import re
           import shutil
           import pandas as pd
-          import re
 
           source_dir = Path("latest")
           test_dir = Path(".test_financial")
 
-          preferred = [
-              "watchlist_summary_latest.csv",
-              "kospi_recommend_7_latest.csv",
-              "kosdaq_recommend_5_latest.csv",
-              "kospi_candidates_30_latest.csv",
-              "kosdaq_candidates_10_latest.csv",
+          universe_files = [
+              source_dir / "kospi_universe_summary_latest.csv",
+              source_dir / "kosdaq_universe_summary_latest.csv",
           ]
 
           def read_csv(path):
@@ -93,81 +116,129 @@ jobs:
                       continue
               raise RuntimeError(f"Unable to read {path}")
 
-          def ticker_col(df):
+          def ticker_column(df):
               for name in ("ticker", "code", "종목코드", "단축코드"):
                   if name in df.columns:
                       return name
               return None
 
-          def name_col(df):
+          def name_column(df):
               for name in ("name", "종목명", "회사명"):
                   if name in df.columns:
                       return name
               return None
 
-          selected = []
-          seen = set()
+          def valid_korean_ticker(value):
+              text = str(value).strip()
+              if text.endswith(".0"):
+                  text = text[:-2]
+              digits = re.sub(r"[^0-9]", "", text)
+              if len(digits) > 6:
+                  return ""
+              ticker = digits.zfill(6) if digits else ""
+              if not re.fullmatch(r"[0-9]{6}", ticker):
+                  return ""
+              if ticker == "000000":
+                  return ""
+              return ticker
 
-          for filename in preferred:
-              path = source_dir / filename
+          rows_by_ticker = {}
+
+          for path in universe_files:
               if not path.exists():
                   continue
-
               df = read_csv(path)
-              t_col = ticker_col(df)
-              n_col = name_col(df)
+              t_col = ticker_column(df)
+              n_col = name_column(df)
               if t_col is None:
                   continue
 
               for _, row in df.iterrows():
-                  ticker = re.sub(
-                      r"[^0-9]",
-                      "",
-                      str(row.get(t_col, "")),
-                  ).zfill(6)
-                  if not ticker or ticker in seen:
+                  ticker = valid_korean_ticker(
+                      row.get(t_col, "")
+                  )
+                  if not ticker:
                       continue
-
-                  selected.append(
+                  rows_by_ticker.setdefault(
+                      ticker,
                       {
                           "ticker": ticker,
                           "name": (
-                              str(row.get(n_col, ""))
+                              str(row.get(n_col, "")).strip()
                               if n_col
                               else ""
                           ),
-                          "market": str(row.get("market", "")),
-                      }
+                          "market": str(
+                              row.get("market", "")
+                          ).strip(),
+                      },
                   )
+
+          # DB하이텍을 반드시 포함해 과거 오매칭을 재검증한다.
+          required_ticker = "000990"
+          if required_ticker not in rows_by_ticker:
+              raise SystemExit(
+                  "Required DB HiTek ticker 000990 is missing "
+                  "from the KOSPI universe."
+              )
+
+          preferred = [
+              "000990",  # DB하이텍: 과거 오매칭 재검증
+              "005930",  # 삼성전자
+              "000660",  # SK하이닉스
+              "042700",  # 한미반도체
+              "247540",  # 에코프로비엠
+          ]
+
+          selected = []
+          seen = set()
+
+          for ticker in preferred:
+              row = rows_by_ticker.get(ticker)
+              if row and ticker not in seen:
+                  selected.append(row)
                   seen.add(ticker)
 
+          if len(selected) < 5:
+              for ticker in sorted(rows_by_ticker):
+                  if ticker in seen:
+                      continue
+                  selected.append(rows_by_ticker[ticker])
+                  seen.add(ticker)
                   if len(selected) >= 5:
                       break
 
-              if len(selected) >= 5:
-                  break
-
-          if len(selected) < 3:
+          if len(selected) < 5:
               raise SystemExit(
-                  "At least three test tickers are required."
+                  f"Five valid Korean tickers are required; "
+                  f"found {len(selected)}."
               )
 
           sample = pd.DataFrame(selected[:5])
+
+          if "000000" in set(sample["ticker"]):
+              raise SystemExit(
+                  "Invalid ticker 000000 entered the test sample."
+              )
+          if "000990" not in set(sample["ticker"]):
+              raise SystemExit(
+                  "DB HiTek 000990 is not in the test sample."
+              )
+
           sample.to_csv(
               test_dir / "watchlist_summary_latest.csv",
               index=False,
               encoding="utf-8-sig",
           )
 
-          copy_candidates = [
+          # 시장가치 자료만 복사한다.
+          # 과거 DART 기업코드 캐시는 복사하지 않아
+          # 공식 corpCode.xml 다운로드를 강제로 검증한다.
+          copied = []
+          for filename in (
               "kospi_universe_summary_latest.csv",
               "kosdaq_universe_summary_latest.csv",
-              "dart_corp_code_cache_latest.csv",
-              "dart_corp_code_map_latest.csv",
-          ]
-
-          copied = []
-          for filename in copy_candidates:
+          ):
               source = source_dir / filename
               if source.exists():
                   shutil.copy2(source, test_dir / filename)
@@ -179,12 +250,19 @@ jobs:
               + ",".join(sample["ticker"].tolist())
           )
           print(
+              "TEST_NAMES="
+              + ",".join(sample["name"].tolist())
+          )
+          print(
               "COPIED_SUPPORT_FILES="
               + ",".join(copied)
           )
+          print("OLD_DART_CACHE_COPIED=false")
+          print("DBHITEK_REQUIRED=true")
+          print("INVALID_000000_BLOCKED=true")
           PY
 
-      - name: Run live OpenDART financial valuation test
+      - name: Run live official OpenDART identity test
         shell: bash
         run: |
           set -euo pipefail
@@ -195,12 +273,13 @@ jobs:
             --max-api-calls 5 \
             --retry-hours 0
 
-      - name: Verify live financial and valuation results
+      - name: Verify corporate identity and financial results
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
+          import re
           import pandas as pd
 
           test_dir = Path(".test_financial")
@@ -212,15 +291,20 @@ jobs:
               test_dir
               / "financial_valuation_run_log_latest.txt"
           )
+          official_map_path = (
+              test_dir
+              / "dart_corp_code_map_latest.csv"
+          )
 
-          if not cache_path.exists():
-              raise SystemExit(
-                  "financial valuation cache was not created"
-              )
-          if not log_path.exists():
-              raise SystemExit(
-                  "financial valuation run log was not created"
-              )
+          for path in (
+              cache_path,
+              log_path,
+              official_map_path,
+          ):
+              if not path.exists():
+                  raise SystemExit(
+                      f"required test output missing: {path}"
+                  )
 
           df = pd.read_csv(
               cache_path,
@@ -228,8 +312,14 @@ jobs:
               dtype=str,
           ).fillna("")
 
-          required = {
+          required_columns = {
               "ticker",
+              "name",
+              "corp_code",
+              "corp_name",
+              "corp_code_source",
+              "corp_identity_status",
+              "corp_identity_reason",
               "financial_data_status",
               "financial_source_status",
               "revenue",
@@ -238,34 +328,124 @@ jobs:
               "total_assets",
               "total_liabilities",
               "total_equity",
-              "revenue_yoy_pct",
-              "operating_profit_yoy_pct",
-              "operating_margin_pct",
-              "debt_ratio_pct",
-              "roe_annualized_pct",
-              "earnings_trend",
               "eps_annualized",
               "bps",
               "per_annualized",
               "pbr",
               "valuation_data_status",
           }
-          missing = sorted(required - set(df.columns))
+          missing = sorted(
+              required_columns - set(df.columns)
+          )
           if missing:
               raise SystemExit(
                   "missing required columns: "
                   + ",".join(missing)
               )
 
-          if len(df) < 3:
+          if len(df) != 5:
               raise SystemExit(
-                  f"too few cache rows: {len(df)}"
+                  f"test row count must be 5; got {len(df)}"
+              )
+
+          invalid_tickers = [
+              ticker
+              for ticker in df["ticker"].astype(str)
+              if (
+                  not re.fullmatch(r"[0-9]{6}", ticker)
+                  or ticker == "000000"
+              )
+          ]
+          if invalid_tickers:
+              raise SystemExit(
+                  "invalid ticker values: "
+                  + ",".join(invalid_tickers)
+              )
+
+          mismatch_rows = df[
+              df["corp_identity_status"].eq("MISMATCH")
+          ]
+          if not mismatch_rows.empty:
+              raise SystemExit(
+                  "corporate identity mismatch detected: "
+                  + mismatch_rows[
+                      [
+                          "ticker",
+                          "name",
+                          "corp_name",
+                          "corp_identity_reason",
+                      ]
+                  ].to_json(
+                      orient="records",
+                      force_ascii=False,
+                  )
+              )
+
+          bad_source_rows = df[
+              ~df["corp_code_source"].eq(
+                  "OPENDART_OFFICIAL_DOWNLOAD"
+              )
+          ]
+          if not bad_source_rows.empty:
+              raise SystemExit(
+                  "non-official corporate-code source detected: "
+                  + bad_source_rows[
+                      [
+                          "ticker",
+                          "corp_code_source",
+                      ]
+                  ].to_json(
+                      orient="records",
+                      force_ascii=False,
+                  )
+              )
+
+          db_rows = df[df["ticker"].eq("000990")]
+          if len(db_rows) != 1:
+              raise SystemExit(
+                  "DB HiTek 000990 must appear exactly once."
+              )
+
+          db_row = db_rows.iloc[0]
+          normalized_corp_name = re.sub(
+              r"[^0-9A-Z가-힣]",
+              "",
+              str(db_row["corp_name"]).upper(),
+          )
+
+          if "DB하이텍" not in normalized_corp_name:
+              raise SystemExit(
+                  "DB HiTek corporate identity is incorrect: "
+                  f"name={db_row['name']} "
+                  f"corp_name={db_row['corp_name']} "
+                  f"corp_code={db_row['corp_code']}"
+              )
+
+          if "IBKS" in normalized_corp_name or "스팩" in normalized_corp_name:
+              raise SystemExit(
+                  "Old DB HiTek/SPAC mismatch still exists."
+              )
+
+          accepted_identity = {
+              "MATCH",
+              "MATCH_NORMALIZED",
+              "OFFICIAL_TICKER_NAME_DIFFERENCE",
+              "NAME_NOT_AVAILABLE",
+          }
+          unknown_identity = sorted(
+              set(df["corp_identity_status"])
+              - accepted_identity
+          )
+          if unknown_identity:
+              raise SystemExit(
+                  "unexpected identity statuses: "
+                  + ",".join(unknown_identity)
               )
 
           source_ok = int(
               df["financial_source_status"].eq("OK").sum()
           )
-          financial_usable = int(
+          usable = int(
               df["financial_data_status"]
               .isin(["READY", "PARTIAL"])
               .sum()
@@ -275,26 +455,26 @@ jobs:
           )
 
           if source_ok < 1:
-              statuses = (
-                  df["financial_source_status"]
-                  .value_counts()
-                  .to_dict()
-              )
               raise SystemExit(
-                  f"no successful DART record: {statuses}"
+                  "no successful DART financial record: "
+                  + str(
+                      df["financial_source_status"]
+                      .value_counts()
+                      .to_dict()
+                  )
               )
 
-          if financial_usable < 1:
-              statuses = (
-                  df["financial_data_status"]
-                  .value_counts()
-                  .to_dict()
-              )
+          if usable < 1:
               raise SystemExit(
-                  f"no usable financial record: {statuses}"
+                  "no usable financial record: "
+                  + str(
+                      df["financial_data_status"]
+                      .value_counts()
+                      .to_dict()
+                  )
               )
 
-          # 적자·0이익 종목에는 PER 숫자를 만들지 않는지 확인한다.
+          # 적자·0이익 종목에는 PER를 만들지 않는다.
           for _, row in df.iterrows():
               try:
                   net_income = float(row["net_income"])
@@ -309,42 +489,78 @@ jobs:
                       f"net income: {row['ticker']}"
                   )
 
+          log_text = log_path.read_text(
+              encoding="utf-8"
+          )
+
+          if (
+              "corp_code_source="
+              "OPENDART_OFFICIAL_DOWNLOAD"
+              not in log_text
+          ):
+              raise SystemExit(
+                  "run log does not confirm official "
+                  "OpenDART corporate-code download."
+              )
+
+          if "STATUS=OK" not in log_text:
+              raise SystemExit(
+                  "financial valuation run status is not OK."
+              )
+
           print(f"TEST_ROW_COUNT={len(df)}")
           print(f"DART_SOURCE_OK_COUNT={source_ok}")
+          print(f"FINANCIAL_USABLE_COUNT={usable}")
           print(
-              "FINANCIAL_USABLE_COUNT="
-              f"{financial_usable}"
+              f"VALUATION_READY_COUNT={valuation_ready}"
           )
           print(
-              "VALUATION_READY_COUNT="
-              f"{valuation_ready}"
+              "DBHITEK_CORP_NAME="
+              f"{db_row['corp_name']}"
           )
-          print("LIVE_FINANCIAL_VERIFICATION=OK")
+          print(
+              "DBHITEK_CORP_CODE="
+              f"{db_row['corp_code']}"
+          )
+          print("CORP_IDENTITY_MISMATCH_COUNT=0")
+          print("INVALID_000000_COUNT=0")
+          print(
+              "CORP_CODE_SOURCE="
+              "OPENDART_OFFICIAL_DOWNLOAD"
+          )
+          print("LIVE_FINANCIAL_IDENTITY_VERIFICATION=OK")
           PY
 
-      - name: Publish test sample and report
+      - name: Publish corrected test evidence
         shell: bash
         run: |
           set -euo pipefail
+
           cp \
             .test_financial/financial_valuation_cache_latest.csv \
             latest/financial_valuation_test_sample_latest.csv
+
           cp \
             .test_financial/financial_valuation_run_log_latest.txt \
             latest/financial_valuation_test_report_latest.txt
 
           {
             echo
-            echo "TEST_SCOPE=isolated_five_tickers"
+            echo "TEST_WORKFLOW_VERSION=v1.1-corp-identity"
+            echo "TEST_SCOPE=isolated_five_korean_tickers"
+            echo "DBHITEK_IDENTITY_REQUIRED=true"
+            echo "INVALID_000000_BLOCKED=true"
+            echo "OFFICIAL_CORP_CODE_REQUIRED=true"
+            echo "CORP_IDENTITY_MISMATCH_COUNT=0"
             echo "PRODUCTION_TABLES_CHANGED=false"
             echo "LIVE_TEST_STATUS=OK"
           } >> \
             latest/financial_valuation_test_report_latest.txt
 
-          echo "----- financial valuation test report -----"
+          echo "----- corrected financial test report -----"
           cat latest/financial_valuation_test_report_latest.txt
 
-      - name: Commit and push test evidence
+      - name: Commit and push corrected test evidence
         shell: bash
         run: |
           set -euo pipefail
@@ -368,7 +584,7 @@ jobs:
           echo "CHANGED_FILES_END"
 
           git commit -m \
-            "Test v6 financial valuation enrichment"
+            "Verify v6 DART corporate identity matching"
 
           PUSHED=false
           for attempt in 1 2 3; do

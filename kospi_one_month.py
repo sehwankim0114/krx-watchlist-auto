@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-kospi_one_month.py v1.0.0
+kospi_one_month.py v1.1.0-candidate-contained-recommendations
 
 코스피 전체 최근 1개월 가치후보 생성기.
 
@@ -38,8 +38,8 @@ import numpy as np
 import pandas as pd
 
 
-SCRIPT_VERSION = "kospi_one_month.py v1.0.0"
-POLICY_VERSION = "2026-07-02-v6.0-kospi-one-month-value-candidates"
+SCRIPT_VERSION = "kospi_one_month.py v1.1.0-candidate-contained-recommendations"
+POLICY_VERSION = "2026-07-02-v6.0-kospi-one-month-value-candidates-v2"
 KST = timezone(timedelta(hours=9))
 
 OUTPUT_COLUMNS = [
@@ -659,26 +659,39 @@ def build_candidates(
 
     top = scored.head(candidate_n).copy()
 
-    eligible = scored[
-        scored["_recommendation_eligible"].astype(bool)
+    # 추천 7개는 반드시 후보 30개 안에서만 선정한다.
+    # 전체 종목에서 따로 추천을 뽑으면 후보표 밖 종목이
+    # 추천으로 들어갈 수 있으므로 top을 유일한 모집단으로 사용한다.
+    eligible = top[
+        top["_recommendation_eligible"].astype(bool)
     ].copy()
     recommend_base = eligible.head(recommend_n).copy()
 
     if len(recommend_base) < recommend_n:
-        fallback = scored[
-            (~scored.index.isin(recommend_base.index))
-            & (~scored["_hard_red"].astype(bool))
-            & (~scored["_liquidity_flag"].astype(bool))
+        fallback_safe = top[
+            (~top.index.isin(recommend_base.index))
+            & (~top["_hard_red"].astype(bool))
+            & (~top["_liquidity_flag"].astype(bool))
         ].head(recommend_n - len(recommend_base))
         recommend_base = pd.concat(
-            [recommend_base, fallback],
+            [recommend_base, fallback_safe],
             ignore_index=False,
         )
 
-    recommend_codes = set(
-        recommend_base["ticker"].astype(str).head(
-            recommend_n
+    # 안전 후보가 부족한 극단적 시장에서도 추천행 수를 7개로
+    # 유지하되, 후보 30개 밖으로는 절대 나가지 않는다.
+    if len(recommend_base) < recommend_n:
+        fallback_any = top[
+            ~top.index.isin(recommend_base.index)
+        ].head(recommend_n - len(recommend_base))
+        recommend_base = pd.concat(
+            [recommend_base, fallback_any],
+            ignore_index=False,
         )
+
+    recommend_base = recommend_base.head(recommend_n)
+    recommend_codes = set(
+        recommend_base["ticker"].astype(str)
     )
 
     candidate_rows = []
@@ -740,6 +753,8 @@ def build_candidates(
         "recommend_n": int(recommend_n),
         "minimum_data_rows_1m": 15,
         "position_period": "1개월",
+        "recommend_source": "candidate_top_30",
+        "recommend_outside_candidates": 0,
     }
 
     return candidates, recommends, metadata
@@ -827,6 +842,8 @@ def write_outputs(
             "position_in_1m_range_pct"
         ),
         "THREE_MONTH_POSITION_REUSED=false",
+        "RECOMMEND_SOURCE=candidate_top_30",
+        "RECOMMEND_OUTSIDE_CANDIDATES=0",
         "DEFAULT_OUTPUT=single_candidate_table",
         "SEPARATE_RECOMMEND_TABLE=explicit_request_only",
     ]
@@ -1004,6 +1021,11 @@ def run_self_test() -> int:
         ]
     ) == set(recommends["code"])
     assert metadata["position_period"] == "1개월"
+    assert metadata["recommend_source"] == "candidate_top_30"
+    assert metadata["recommend_outside_candidates"] == 0
+    assert set(recommends["code"]).issubset(
+        set(candidates["code"])
+    )
 
     score_values = candidates["one_month_market_score"]
     assert score_values.between(0, 100).all()
@@ -1048,6 +1070,7 @@ def run_self_test() -> int:
         "one_month_position,"
         "score_0_100,"
         "recommend_subset,"
+        "recommend_selected_only_from_top30,"
         "single_table_policy,"
         "output_files"
     )
@@ -1105,6 +1128,8 @@ def main() -> int:
     print(f"RECOMMEND_ROWS={metadata['recommend_rows']}")
     print("POSITION_PERIOD=1개월")
     print("THREE_MONTH_POSITION_REUSED=false")
+    print("RECOMMEND_SOURCE=candidate_top_30")
+    print("RECOMMEND_OUTSIDE_CANDIDATES=0")
     return 0
 
 

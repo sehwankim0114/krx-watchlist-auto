@@ -1,0 +1,604 @@
+name: V6 Supply Burden Status Separation Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-supply-burden-status-separation-test-main
+  cancel-in-progress: false
+
+jobs:
+  test-supply-status-separation:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Python packages
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install pandas
+
+      - name: Check v2 program and DART secret
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f supply_burden_enricher.py
+          test -d latest
+
+          if [ -z "${DART_API_KEY:-}" ]; then
+            echo "::error::DART_API_KEY secret is missing."
+            exit 1
+          fi
+
+          grep -q \
+            'v2.0.0-check-status-separated' \
+            supply_burden_enricher.py
+
+          grep -q \
+            'supply_check_status' \
+            supply_burden_enricher.py
+
+          grep -q \
+            'supply_burden_detected' \
+            supply_burden_enricher.py
+
+          grep -q \
+            'CHECK_LIMITED_IN_BURDEN_FLAG=0' \
+            supply_burden_enricher.py
+
+          if grep -q \
+            'flag = "CHECK_LIMITED"' \
+            supply_burden_enricher.py; then
+            echo "::error::Old CHECK_LIMITED burden logic remains."
+            exit 1
+          fi
+
+          echo "PROGRAM_VERSION=v2.0.0-check-status-separated"
+          echo "DART_API_KEY_PRESENT=true"
+          echo "V2_REQUIRED_FIELDS=OK"
+
+      - name: Compile and run built-in separation self-test
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m py_compile supply_burden_enricher.py
+
+          python supply_burden_enricher.py --self-test \
+            | tee /tmp/supply_self_test.txt
+
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/supply_self_test.txt
+
+          grep -q \
+            'check_status_separation' \
+            /tmp/supply_self_test.txt
+
+          grep -q \
+            'check_limited_removed_from_flag' \
+            /tmp/supply_self_test.txt
+
+          echo "SUPPLY_STATUS_SEPARATION_SELF_TEST=OK"
+
+      - name: Prepare isolated five-ticker test data
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf .test_supply
+          mkdir -p .test_supply
+
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          import pandas as pd
+
+          source_dir = Path("latest")
+          test_dir = Path(".test_supply")
+
+          preferred_files = [
+              "kospi_recommend_7_latest.csv",
+              "kosdaq_recommend_5_latest.csv",
+              "watchlist_summary_latest.csv",
+              "kospi_candidates_30_latest.csv",
+              "kosdaq_candidates_10_latest.csv",
+          ]
+
+          def read_csv(path):
+              for encoding in ("utf-8-sig", "utf-8", "cp949"):
+                  try:
+                      return pd.read_csv(
+                          path,
+                          encoding=encoding,
+                          dtype=str,
+                      ).fillna("")
+                  except UnicodeDecodeError:
+                      continue
+              raise RuntimeError(f"Unable to read {path}")
+
+          def ticker_column(df):
+              for name in (
+                  "ticker",
+                  "code",
+                  "종목코드",
+                  "단축코드",
+                  "stock_code",
+              ):
+                  if name in df.columns:
+                      return name
+              return None
+
+          def name_column(df):
+              for name in (
+                  "name",
+                  "종목명",
+                  "corp_name",
+                  "회사명",
+              ):
+                  if name in df.columns:
+                      return name
+              return None
+
+          def normalize_ticker(value):
+              text = str(value).strip()
+              if text.endswith(".0"):
+                  text = text[:-2]
+              digits = re.sub(r"[^0-9]", "", text)
+              if not digits or len(digits) > 6:
+                  return ""
+              ticker = digits.zfill(6)
+              if ticker == "000000":
+                  return ""
+              return ticker
+
+          selected = []
+          seen = set()
+
+          for filename in preferred_files:
+              path = source_dir / filename
+              if not path.exists():
+                  continue
+
+              df = read_csv(path)
+              t_col = ticker_column(df)
+              n_col = name_column(df)
+
+              if t_col is None:
+                  continue
+
+              for _, row in df.iterrows():
+                  ticker = normalize_ticker(
+                      row.get(t_col, "")
+                  )
+                  if not ticker or ticker in seen:
+                      continue
+
+                  selected.append(
+                      {
+                          "ticker": ticker,
+                          "name": (
+                              str(row.get(n_col, "")).strip()
+                              if n_col
+                              else ""
+                          ),
+                          "market": str(
+                              row.get("market", "")
+                          ).strip(),
+                      }
+                  )
+                  seen.add(ticker)
+
+                  if len(selected) >= 5:
+                      break
+
+              if len(selected) >= 5:
+                  break
+
+          if len(selected) < 5:
+              raise SystemExit(
+                  f"Five Korean tickers are required; "
+                  f"found {len(selected)}."
+              )
+
+          sample = pd.DataFrame(selected[:5])
+
+          if sample["ticker"].eq("000000").any():
+              raise SystemExit(
+                  "Invalid ticker 000000 entered test data."
+              )
+
+          sample.to_csv(
+              test_dir / "watchlist_summary_latest.csv",
+              index=False,
+              encoding="utf-8-sig",
+          )
+
+          print(f"TEST_TICKER_COUNT={len(sample)}")
+          print(
+              "TEST_TICKERS="
+              + ",".join(sample["ticker"].tolist())
+          )
+          print(
+              "TEST_NAMES="
+              + ",".join(sample["name"].tolist())
+          )
+          print("PRODUCTION_TABLES_COPIED=false")
+          print("ISOLATED_TEST_DATA=OK")
+          PY
+
+      - name: Run live DART limited-scope separation test
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python supply_burden_enricher.py \
+            --output-dir .test_supply \
+            --lookback-days 180 \
+            --dart-whole-market-max-days 90 \
+            --sleep-seconds 0.12 \
+            --max-pages 500 \
+            --timeout 30 \
+            --target-files watchlist_summary_latest.csv
+
+      - name: Verify check status and actual burden are separated
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import pandas as pd
+
+          test_dir = Path(".test_supply")
+
+          summary_path = (
+              test_dir
+              / "supply_burden_summary_latest.csv"
+          )
+          enriched_path = (
+              test_dir
+              / "watchlist_summary_latest.csv"
+          )
+          json_path = (
+              test_dir
+              / "supply_burden_latest.json"
+          )
+          log_path = (
+              test_dir
+              / "supply_burden_run_log_latest.txt"
+          )
+
+          for path in (
+              summary_path,
+              enriched_path,
+              json_path,
+              log_path,
+          ):
+              if not path.exists():
+                  raise SystemExit(
+                      f"required output missing: {path}"
+                  )
+
+          summary = pd.read_csv(
+              summary_path,
+              encoding="utf-8-sig",
+              dtype=str,
+          ).fillna("")
+
+          enriched = pd.read_csv(
+              enriched_path,
+              encoding="utf-8-sig",
+              dtype=str,
+          ).fillna("")
+
+          payload = json.loads(
+              json_path.read_text(encoding="utf-8")
+          )
+          log_text = log_path.read_text(
+              encoding="utf-8"
+          )
+
+          required_columns = {
+              "ticker",
+              "supply_check_status",
+              "supply_check_scope",
+              "supply_check_limited_reason",
+              "supply_burden_detected",
+              "supply_burden_flag",
+              "supply_burden_level",
+              "supply_burden_keywords",
+              "supply_burden_report_count",
+          }
+
+          for name, df in (
+              ("summary", summary),
+              ("enriched", enriched),
+          ):
+              missing = sorted(
+                  required_columns - set(df.columns)
+              )
+              if missing:
+                  raise SystemExit(
+                      f"{name} missing columns: "
+                      + ",".join(missing)
+                  )
+
+          if len(summary) != 5:
+              raise SystemExit(
+                  f"summary row count must be 5; "
+                  f"got {len(summary)}"
+              )
+
+          if len(enriched) != 5:
+              raise SystemExit(
+                  f"enriched row count must be 5; "
+                  f"got {len(enriched)}"
+              )
+
+          expected_statuses = {"LIMITED"}
+          actual_statuses = set(
+              summary["supply_check_status"]
+          )
+          if actual_statuses != expected_statuses:
+              raise SystemExit(
+                  "limited-scope test did not produce "
+                  f"LIMITED status: {actual_statuses}"
+              )
+
+          if not summary[
+              "supply_check_limited_reason"
+          ].str.contains(
+              "LOOKBACK_CAPPED_90D_FROM_180D",
+              regex=False,
+          ).all():
+              raise SystemExit(
+                  "limited reason is missing or inconsistent"
+              )
+
+          allowed_flags = {"TRUE", "FALSE"}
+
+          for frame_name, df in (
+              ("summary", summary),
+              ("enriched", enriched),
+          ):
+              actual_flags = set(
+                  df["supply_burden_flag"]
+              )
+              actual_detected = set(
+                  df["supply_burden_detected"]
+              )
+
+              if not actual_flags.issubset(
+                  allowed_flags
+              ):
+                  raise SystemExit(
+                      f"{frame_name} contains invalid burden "
+                      f"flags: {actual_flags}"
+                  )
+
+              if not actual_detected.issubset(
+                  allowed_flags
+              ):
+                  raise SystemExit(
+                      f"{frame_name} contains invalid detected "
+                      f"values: {actual_detected}"
+                  )
+
+              if not df[
+                  "supply_burden_flag"
+              ].equals(
+                  df["supply_burden_detected"]
+              ):
+                  raise SystemExit(
+                      f"{frame_name} burden flag and detected "
+                      "values are different"
+                  )
+
+              forbidden = {
+                  "CHECK_LIMITED",
+                  "LIMITED",
+                  "FAILED",
+              }
+              if set(
+                  df["supply_burden_flag"]
+              ) & forbidden:
+                  raise SystemExit(
+                      f"{frame_name} still mixes check status "
+                      "into actual burden field"
+                  )
+
+          no_burden_rows = summary[
+              summary["supply_burden_detected"].eq(
+                  "FALSE"
+              )
+          ]
+          if no_burden_rows.empty:
+              print(
+                  "NO_FALSE_BURDEN_ROW_IN_LIVE_SAMPLE="
+                  "true"
+              )
+          else:
+              if not no_burden_rows[
+                  "supply_burden_level"
+              ].eq("없음").all():
+                  raise SystemExit(
+                      "non-burden rows must have level 없음"
+                  )
+
+          burden_rows = summary[
+              summary["supply_burden_detected"].eq(
+                  "TRUE"
+              )
+          ]
+          if not burden_rows.empty:
+              if burden_rows[
+                  "supply_burden_level"
+              ].eq("없음").any():
+                  raise SystemExit(
+                      "detected burden row cannot have level 없음"
+                  )
+
+          if payload.get("status") != "LIMITED":
+              raise SystemExit(
+                  "JSON status must be LIMITED in capped test"
+              )
+
+          policy = payload.get("field_policy", {})
+          if (
+              policy.get("check_limited_is_not_burden")
+              is not True
+          ):
+              raise SystemExit(
+                  "JSON field policy does not separate "
+                  "CHECK_LIMITED from burden"
+              )
+
+          if (
+              "CHECK_LIMITED_IN_BURDEN_FLAG=0"
+              not in log_text
+          ):
+              raise SystemExit(
+                  "run log does not confirm removal of "
+                  "CHECK_LIMITED from burden flag"
+              )
+
+          if "SUPPLY_CHECK_STATUS=LIMITED" not in log_text:
+              raise SystemExit(
+                  "run log does not confirm LIMITED "
+                  "check status"
+              )
+
+          detected_count = int(
+              summary["supply_burden_detected"]
+              .eq("TRUE")
+              .sum()
+          )
+          clear_count = int(
+              summary["supply_burden_detected"]
+              .eq("FALSE")
+              .sum()
+          )
+
+          print(f"TEST_ROW_COUNT={len(summary)}")
+          print("SUPPLY_CHECK_STATUS=LIMITED")
+          print(
+              "SUPPLY_CHECK_LIMITED_REASON="
+              "DART_WHOLE_MARKET_LOOKBACK_CAPPED_"
+              "90D_FROM_180D"
+          )
+          print(
+              "SUPPLY_BURDEN_DETECTED_COUNT="
+              f"{detected_count}"
+          )
+          print(
+              "SUPPLY_BURDEN_CLEAR_COUNT="
+              f"{clear_count}"
+          )
+          print("CHECK_LIMITED_IN_BURDEN_FLAG=0")
+          print("BURDEN_FLAG_ALLOWED_VALUES=TRUE,FALSE")
+          print("SUPPLY_STATUS_SEPARATION_VERIFICATION=OK")
+          PY
+
+      - name: Publish isolated test evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cp \
+            .test_supply/supply_burden_summary_latest.csv \
+            latest/supply_status_separation_test_sample_latest.csv
+
+          cp \
+            .test_supply/supply_burden_run_log_latest.txt \
+            latest/supply_status_separation_test_report_latest.txt
+
+          {
+            echo
+            echo "TEST_WORKFLOW_VERSION=v2.0-status-separated"
+            echo "TEST_SCOPE=isolated_five_tickers"
+            echo "REQUESTED_LOOKBACK_DAYS=180"
+            echo "EFFECTIVE_LOOKBACK_DAYS=90"
+            echo "EXPECTED_CHECK_STATUS=LIMITED"
+            echo "CHECK_LIMITED_IN_BURDEN_FLAG=0"
+            echo "BURDEN_FLAG_ALLOWED_VALUES=TRUE,FALSE"
+            echo "PRODUCTION_TABLES_CHANGED=false"
+            echo "LIVE_TEST_STATUS=OK"
+          } >> \
+            latest/supply_status_separation_test_report_latest.txt
+
+          echo "----- supply status separation test report -----"
+          cat \
+            latest/supply_status_separation_test_report_latest.txt
+
+      - name: Commit and push isolated test evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email \
+            "github-actions@users.noreply.github.com"
+
+          git add \
+            latest/supply_status_separation_test_sample_latest.csv \
+            latest/supply_status_separation_test_report_latest.txt
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            exit 0
+          fi
+
+          echo "CHANGED_FILES_BEGIN"
+          git diff --cached --name-status
+          echo "CHANGED_FILES_END"
+
+          git commit -m \
+            "Test supply check status separation"
+
+          PUSHED=false
+          for attempt in 1 2 3; do
+            echo "PUSH_ATTEMPT=$attempt"
+            git fetch origin main
+
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              echo "REBASE_FAILED=true"
+              sleep $((attempt * 5))
+              continue
+            fi
+
+            if git push origin HEAD:main; then
+              PUSHED=true
+              break
+            fi
+
+            sleep $((attempt * 5))
+          done
+
+          if [ "$PUSHED" != "true" ]; then
+            echo "PUSH_SUCCESS=false"
+            exit 1
+          fi
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"

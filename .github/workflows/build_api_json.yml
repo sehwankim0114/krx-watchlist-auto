@@ -28,6 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
 
     steps:
       - name: Checkout repository
@@ -72,13 +73,291 @@ jobs:
               or data.get("final_run_mode")
               or "official"
           )
-          print(mode if mode in {"official", "aux"} else "official")
+          print(
+              mode
+              if mode in {"official", "aux"}
+              else "official"
+          )
           PY
             )"
-            python render_data_freshness_notice.py               --output-dir latest               --mode "$MODE"
+            python render_data_freshness_notice.py \
+              --output-dir latest \
+              --mode "$MODE"
           else
             echo "FRESHNESS_RENDERER=NOT_FOUND"
           fi
+
+      - name: Check financial valuation prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f financial_valuation_enricher.py
+          test -f docs/scoring_system_v6.md
+          test -d latest
+
+          if [ -z "${DART_API_KEY:-}" ]; then
+            echo "::error::DART_API_KEY secret is missing."
+            exit 1
+          fi
+
+          grep -q \
+            'v1.2.0-duplicate-stock-code-fix' \
+            financial_valuation_enricher.py
+
+          grep -q \
+            'corp-candidate-name-match-v2' \
+            financial_valuation_enricher.py
+
+          if grep -q \
+            'CORP_CACHE_CANDIDATES' \
+            financial_valuation_enricher.py; then
+            echo "::error::Old DART corporate-code logic remains."
+            exit 1
+          fi
+
+          python -m py_compile financial_valuation_enricher.py
+          python financial_valuation_enricher.py --self-test \
+            | tee /tmp/financial_self_test.txt
+
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/financial_self_test.txt
+
+          grep -q \
+            'duplicate_stock_code_name_resolution' \
+            /tmp/financial_self_test.txt
+
+          echo "FINANCIAL_VALUATION_PREREQUISITES=OK"
+
+      - name: Enrich production tables with financial valuation data
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python financial_valuation_enricher.py \
+            --output-dir latest \
+            --workers 3 \
+            --timeout 30 \
+            --max-api-calls 500 \
+            --retry-hours 20
+
+          test -f \
+            latest/financial_valuation_cache_latest.csv
+
+          test -f \
+            latest/financial_valuation_run_log_latest.txt
+
+          grep -q \
+            'STATUS=OK' \
+            latest/financial_valuation_run_log_latest.txt
+
+          grep -q \
+            'CORP_IDENTITY_POLICY_VERSION=corp-candidate-name-match-v2' \
+            latest/financial_valuation_run_log_latest.txt
+
+          echo "FINANCIAL_VALUATION_ENRICHMENT=OK"
+
+      - name: Verify production financial identity and data
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          import pandas as pd
+
+          cache_path = Path(
+              "latest/financial_valuation_cache_latest.csv"
+          )
+          log_path = Path(
+              "latest/financial_valuation_run_log_latest.txt"
+          )
+
+          df = pd.read_csv(
+              cache_path,
+              encoding="utf-8-sig",
+              dtype=str,
+          ).fillna("")
+
+          required_columns = {
+              "ticker",
+              "name",
+              "corp_code",
+              "corp_name",
+              "corp_code_source",
+              "corp_identity_status",
+              "corp_identity_reason",
+              "corp_candidate_count",
+              "corp_selection_method",
+              "financial_data_status",
+              "financial_source_status",
+              "revenue",
+              "operating_profit",
+              "net_income",
+              "total_assets",
+              "total_liabilities",
+              "total_equity",
+              "revenue_yoy_pct",
+              "operating_profit_yoy_pct",
+              "operating_margin_pct",
+              "debt_ratio_pct",
+              "roe_annualized_pct",
+              "earnings_trend",
+              "eps_annualized",
+              "bps",
+              "per_annualized",
+              "pbr",
+              "valuation_data_status",
+          }
+
+          missing = sorted(
+              required_columns - set(df.columns)
+          )
+          if missing:
+              raise SystemExit(
+                  "missing financial columns: "
+                  + ",".join(missing)
+              )
+
+          if df.empty:
+              raise SystemExit(
+                  "financial valuation cache is empty"
+              )
+
+          invalid_tickers = [
+              ticker
+              for ticker in df["ticker"].astype(str)
+              if (
+                  not re.fullmatch(r"[0-9]{6}", ticker)
+                  or ticker == "000000"
+              )
+          ]
+          if invalid_tickers:
+              raise SystemExit(
+                  "invalid financial ticker values: "
+                  + ",".join(invalid_tickers[:20])
+              )
+
+          wrong_identity = df[
+              df["financial_source_status"].eq("OK")
+              & ~df["corp_identity_status"].isin(
+                  ["MATCH", "MATCH_NORMALIZED"]
+              )
+          ]
+          if not wrong_identity.empty:
+              raise SystemExit(
+                  "financial data was applied to unresolved "
+                  "corporate identities: "
+                  + wrong_identity[
+                      [
+                          "ticker",
+                          "name",
+                          "corp_name",
+                          "corp_identity_status",
+                          "corp_identity_reason",
+                      ]
+                  ].head(20).to_json(
+                      orient="records",
+                      force_ascii=False,
+                  )
+              )
+
+          bad_per = []
+          for _, row in df.iterrows():
+              try:
+                  net_income = float(row["net_income"])
+              except (TypeError, ValueError):
+                  continue
+              if (
+                  net_income <= 0
+                  and str(row["per_annualized"]).strip()
+              ):
+                  bad_per.append(str(row["ticker"]))
+
+          if bad_per:
+              raise SystemExit(
+                  "PER exists for non-positive net income: "
+                  + ",".join(bad_per[:20])
+              )
+
+          source_ok = int(
+              df["financial_source_status"].eq("OK").sum()
+          )
+          financial_ready = int(
+              df["financial_data_status"].eq("READY").sum()
+          )
+          financial_partial = int(
+              df["financial_data_status"].eq("PARTIAL").sum()
+          )
+          financial_limited = int(
+              df["financial_data_status"].eq("LIMITED").sum()
+          )
+          valuation_ready = int(
+              df["valuation_data_status"].eq("READY").sum()
+          )
+          # 회사명이 해결되지 않은 종목 수는 정보용으로 기록한다.
+          identity_unresolved = int(
+              (
+                  ~df["corp_identity_status"].isin(
+                      ["MATCH", "MATCH_NORMALIZED"]
+                  )
+              ).sum()
+          )
+
+          if source_ok < 1:
+              raise SystemExit(
+                  "no successful production DART record"
+              )
+
+          if financial_ready + financial_partial < 1:
+              raise SystemExit(
+                  "no usable production financial record"
+              )
+
+          log_text = log_path.read_text(
+              encoding="utf-8"
+          )
+          if (
+              "corp_code_source="
+              "OPENDART_OFFICIAL_DOWNLOAD"
+              not in log_text
+              and
+              "corp_code_source="
+              "VALIDATED_CORP_CODE_MAP_CACHE"
+              not in log_text
+          ):
+              raise SystemExit(
+                  "corporate-code source is not confirmed"
+              )
+
+          print(f"FINANCIAL_CACHE_ROWS={len(df)}")
+          print(f"DART_SOURCE_OK_COUNT={source_ok}")
+          print(
+              f"FINANCIAL_READY_COUNT={financial_ready}"
+          )
+          print(
+              f"FINANCIAL_PARTIAL_COUNT={financial_partial}"
+          )
+          print(
+              f"FINANCIAL_LIMITED_COUNT={financial_limited}"
+          )
+          print(
+              f"VALUATION_READY_COUNT={valuation_ready}"
+          )
+          print(
+              "CORP_IDENTITY_UNRESOLVED_COUNT="
+              f"{identity_unresolved}"
+          )
+          print("PRODUCTION_FINANCIAL_VERIFICATION=OK")
+          PY
+
+      - name: Show financial valuation status
+        run: |
+          set -euo pipefail
+          echo "----- financial valuation run log -----"
+          cat latest/financial_valuation_run_log_latest.txt
 
       - name: Add and verify legacy market score aliases
         run: |
@@ -86,10 +365,15 @@ jobs:
           test -f add_legacy_market_score_aliases.py
           test -f docs/scoring_system_v6.md
           python -m py_compile add_legacy_market_score_aliases.py
-          python add_legacy_market_score_aliases.py             --root .             --strict
-          test -f             latest/legacy_market_score_alias_run_log_latest.txt
-          grep -q "STATUS=OK"             latest/legacy_market_score_alias_run_log_latest.txt
-          grep -q "FAILED_FILE_COUNT=0"             latest/legacy_market_score_alias_run_log_latest.txt
+          python add_legacy_market_score_aliases.py \
+            --root . \
+            --strict
+          test -f \
+            latest/legacy_market_score_alias_run_log_latest.txt
+          grep -q "STATUS=OK" \
+            latest/legacy_market_score_alias_run_log_latest.txt
+          grep -q "FAILED_FILE_COUNT=0" \
+            latest/legacy_market_score_alias_run_log_latest.txt
           echo "LEGACY_MARKET_SCORE_ALIAS=OK"
 
       - name: Show legacy score alias status
@@ -112,9 +396,91 @@ jobs:
           python -m py_compile validate_api_sync.py
           python validate_api_sync.py --api-dir api
           CODE=$?
-          echo "validation_exit_code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "validation_exit_code=$CODE" \
+            >> "$GITHUB_OUTPUT"
           echo "VALIDATION_EXIT_CODE=$CODE"
           exit 0
+
+      - name: Verify financial fields reached API tables
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          api_files = [
+              Path("api/watchlist.json"),
+              Path("api/kospi_candidates_30.json"),
+              Path("api/kosdaq_candidates_10.json"),
+          ]
+
+          required_columns = {
+              "financial_data_status",
+              "financial_basis",
+              "revenue",
+              "operating_profit",
+              "net_income",
+              "total_assets",
+              "total_liabilities",
+              "total_equity",
+              "operating_margin_pct",
+              "debt_ratio_pct",
+              "roe_annualized_pct",
+              "earnings_trend",
+              "eps_annualized",
+              "bps",
+              "per_annualized",
+              "pbr",
+              "valuation_data_status",
+          }
+
+          verified_files = []
+          usable_rows = 0
+
+          for path in api_files:
+              if not path.exists():
+                  raise SystemExit(
+                      f"required API table missing: {path}"
+                  )
+
+              payload = json.loads(
+                  path.read_text(encoding="utf-8")
+              )
+              columns = set(payload.get("columns", []))
+              missing = sorted(
+                  required_columns - columns
+              )
+              if missing:
+                  raise SystemExit(
+                      f"{path.name} missing financial fields: "
+                      + ",".join(missing)
+                  )
+
+              rows = payload.get("rows", [])
+              usable_rows += sum(
+                  1
+                  for row in rows
+                  if row.get("financial_data_status")
+                  in {"READY", "PARTIAL"}
+              )
+              verified_files.append(path.name)
+
+          if usable_rows < 1:
+              raise SystemExit(
+                  "no usable financial rows reached API tables"
+              )
+
+          print(
+              "FINANCIAL_API_VERIFIED_FILES="
+              + ",".join(verified_files)
+          )
+          print(
+              f"FINANCIAL_API_USABLE_ROWS={usable_rows}"
+          )
+          print("FINANCIAL_FIELDS_IN_API=OK")
+          PY
 
       - name: Show generated status
         run: |
@@ -124,7 +490,12 @@ jobs:
           echo "----- api/validation_report.json -----"
           cat api/validation_report.json
           echo "----- generated API files -----"
-          find api             -maxdepth 1             -type f             -name "*.json"             -printf "%f\n"             | sort
+          find api \
+            -maxdepth 1 \
+            -type f \
+            -name "*.json" \
+            -printf "%f\n" \
+            | sort
 
       - name: Commit and push synchronized latest and API data
         shell: bash
@@ -132,11 +503,20 @@ jobs:
           set -euo pipefail
 
           git config user.name "github-actions"
-          git config user.email             "github-actions@users.noreply.github.com"
+          git config user.email \
+            "github-actions@users.noreply.github.com"
 
           git add -A api
           git add latest/*.csv
-          git add             latest/legacy_market_score_alias_run_log_latest.txt             latest/official_data_status_latest.json             latest/official_data_status_latest.txt             latest/data_freshness_notice_latest.json             latest/data_freshness_notice_latest.md             latest/data_freshness_notice_latest.txt             2>/dev/null || true
+          git add \
+            latest/financial_valuation_run_log_latest.txt \
+            latest/legacy_market_score_alias_run_log_latest.txt \
+            latest/official_data_status_latest.json \
+            latest/official_data_status_latest.txt \
+            latest/data_freshness_notice_latest.json \
+            latest/data_freshness_notice_latest.md \
+            latest/data_freshness_notice_latest.txt \
+            2>/dev/null || true
 
           if git diff --cached --quiet; then
             echo "NO_CHANGES_TO_COMMIT=true"
@@ -148,7 +528,8 @@ jobs:
           git diff --cached --name-status
           echo "CHANGED_FILES_END"
 
-          git commit -m "Synchronize latest KRX API data"
+          git commit -m \
+            "Synchronize financial valuation API data"
 
           PUSHED=false
           for attempt in 1 2 3; do

@@ -1,43 +1,40 @@
 {
   "script": "supply_burden_enricher.py v1.2_dart_whole_market_90d_cap",
-  "run_at_kst": "2026-06-30T09:50:50+09:00",
-  "status": "WARN_DART_PARTIAL_ERROR",
+  "run_at_kst": "2026-07-01T10:07:47+09:00",
+  "status": "OK",
   "output_dir": "latest",
   "original_lookback_days": 180,
   "effective_lookback_days": 90,
   "dart_whole_market_max_days": 90,
   "lookback_capped": true,
-  "target_tickers": 2715,
-  "hit_reports": 3472,
+  "target_tickers": 2716,
+  "hit_reports": 11505,
   "flagged_tickers": 0,
   "danger_tickers": 0,
   "warning_tickers": 0,
   "caution_tickers": 0,
   "dart_status": {
-    "bgn_de": "20260401",
-    "end_de": "20260630",
+    "bgn_de": "20260402",
+    "end_de": "20260701",
     "lookback_days": 90,
     "corp_cls": {
       "Y": {
-        "pages_requested": 119,
+        "pages_requested": 156,
         "total_page": 156,
-        "raw_reports": 11900,
-        "target_reports": 11900,
-        "matched_reports": 2700
+        "raw_reports": 15575,
+        "target_reports": 15575,
+        "matched_reports": 4374
       },
       "K": {
-        "pages_requested": 17,
+        "pages_requested": 169,
         "total_page": 169,
-        "raw_reports": 1700,
-        "target_reports": 1688,
-        "matched_reports": 772
+        "raw_reports": 16820,
+        "target_reports": 16665,
+        "matched_reports": 7131
       }
     },
-    "api_calls": 136,
-    "api_errors": [
-      "corp_cls=Y, page=120, error=TimeoutError: The read operation timed out",
-      "corp_cls=K, page=18, error=TimeoutError: The read operation timed out"
-    ]
+    "api_calls": 325,
+    "api_errors": []
   },
   "enrich_results": [
     {
@@ -139,8 +136,8 @@
     {
       "file": "kosdaq_universe_summary_latest.csv",
       "status": "OK",
-      "rows": 1790,
-      "matched_rows": 1790,
+      "rows": 1791,
+      "matched_rows": 1791,
       "flagged_rows": 0,
       "note": ""
     }

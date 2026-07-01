@@ -42,7 +42,7 @@ except Exception:  # GitHub Actions에 dotenv가 없어도 실행되게 처리
         return False
 
 
-SCRIPT_VERSION = "collect_universe.py v4.6.1_kosdaq_candidates_gainer_filter_actual_date_log"
+SCRIPT_VERSION = "collect_universe.py v4.6.1_kosdaq_candidates_gainer_filter_actual_date_log_one_month_metrics_v6"
 
 OPENAPI_STOCK_URLS = {
     "KOSPI": "http://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
@@ -64,6 +64,13 @@ SUMMARY_COLUMNS = [
     "avg_daily_move_abs",
     "avg_daily_move_pct",
     "avg_wave_days",
+    "low_1m_intraday",
+    "high_1m_intraday",
+    "low_1m_close",
+    "high_1m_close",
+    "range_1m_pct",
+    "position_in_1m_range_pct",
+    "data_rows_1m",
     "low_3m_intraday",
     "high_3m_intraday",
     "low_3m_close",
@@ -472,6 +479,36 @@ def build_market_summary(hist: pd.DataFrame, market: str, low_liq_krw: float, lo
         close_low = safe_float(g["close"].min(), last_close)
         close_high = safe_float(g["close"].max(), last_close)
 
+
+        # ONE_MONTH_METRICS_V6_BEGIN
+        g_1m = g[g["date"] >= one_month_ago].copy()
+        if g_1m.empty:
+            # 달력 1개월 구간이 비어 있는 예외 상황에서는
+            # 최근 최대 22거래일을 보조 기준으로 사용한다.
+            g_1m = g.tail(min(22, len(g))).copy()
+        low_1m = safe_float(g_1m["low"].min(), last_close)
+        high_1m = safe_float(g_1m["high"].max(), last_close)
+        close_low_1m = safe_float(
+            g_1m["close"].min(),
+            last_close,
+        )
+        close_high_1m = safe_float(
+            g_1m["close"].max(),
+            last_close,
+        )
+        range_1m_pct = (
+            (high_1m - low_1m) / low_1m * 100
+            if low_1m > 0
+            else np.nan
+        )
+        position_1m = (
+            (last_close - low_1m)
+            / (high_1m - low_1m)
+            * 100
+            if high_1m > low_1m
+            else np.nan
+        )
+        # ONE_MONTH_METRICS_V6_END
         avg_abs = g["close"].diff().abs().dropna().mean()
         avg_pct = (g["close"].pct_change().abs() * 100).dropna().mean()
         wave = calc_wave_period(g["close"])
@@ -524,6 +561,23 @@ def build_market_summary(hist: pd.DataFrame, market: str, low_liq_krw: float, lo
                 "avg_daily_move_abs": kr_tick_round(avg_abs) if not pd.isna(avg_abs) else None,
                 "avg_daily_move_pct": round(float(avg_pct), 2) if not pd.isna(avg_pct) else None,
                 "avg_wave_days": wave,
+                # ONE_MONTH_METRICS_V6_BEGIN
+                "low_1m_intraday": kr_tick_round(low_1m),
+                "high_1m_intraday": kr_tick_round(high_1m),
+                "low_1m_close": kr_tick_round(close_low_1m),
+                "high_1m_close": kr_tick_round(close_high_1m),
+                "range_1m_pct": (
+                    round(float(range_1m_pct), 2)
+                    if not pd.isna(range_1m_pct)
+                    else None
+                ),
+                "position_in_1m_range_pct": (
+                    round(float(position_1m), 2)
+                    if not pd.isna(position_1m)
+                    else None
+                ),
+                "data_rows_1m": int(len(g_1m)),
+                # ONE_MONTH_METRICS_V6_END
                 "low_3m_intraday": kr_tick_round(low),
                 "high_3m_intraday": kr_tick_round(high),
                 "low_3m_close": kr_tick_round(close_low),

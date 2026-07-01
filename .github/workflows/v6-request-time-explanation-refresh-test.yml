@@ -1,0 +1,871 @@
+name: V6 Request-Time Explanation Refresh Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-request-time-explanation-refresh-test-main
+  cancel-in-progress: false
+
+jobs:
+  test-request-time-explanation-refresh:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Python packages
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install pandas
+
+      - name: Check v1.1 production-compatible refresher
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f request_time_explanation_refresher.py
+          test -d latest
+
+          grep -q \
+            'v1.1.0-production-column-compatibility' \
+            request_time_explanation_refresher.py
+
+          grep -q \
+            '"buy_range",' \
+            request_time_explanation_refresher.py
+
+          grep -q \
+            '"sell_range",' \
+            request_time_explanation_refresher.py
+
+          grep -q \
+            '"recommend_flag",' \
+            request_time_explanation_refresher.py
+
+          grep -q \
+            'rewrite_dynamic_explanation_from_scratch' \
+            request_time_explanation_refresher.py
+
+          echo "PROGRAM_VERSION=v1.1.0-production-column-compatibility"
+          echo "PRODUCTION_COLUMN_COMPATIBILITY=OK"
+
+      - name: Compile and run built-in tests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m py_compile \
+            request_time_explanation_refresher.py
+
+          python request_time_explanation_refresher.py \
+            --self-test \
+            | tee /tmp/request_time_refresh_self_test.txt
+
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/request_time_refresh_self_test.txt
+
+          grep -q \
+            'buy_zone' \
+            /tmp/request_time_refresh_self_test.txt
+
+          grep -q \
+            'take_profit_zone' \
+            /tmp/request_time_refresh_self_test.txt
+
+          grep -q \
+            'quote_failure' \
+            /tmp/request_time_refresh_self_test.txt
+
+          grep -q \
+            'old_price_reason_not_reused' \
+            /tmp/request_time_refresh_self_test.txt
+
+          echo "REQUEST_TIME_REFRESH_SELF_TEST=OK"
+
+      - name: Prepare isolated real KOSPI and KOSDAQ rows
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf .test_request_time_refresh
+          mkdir -p .test_request_time_refresh
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import pandas as pd
+
+          source_dir = Path("latest")
+          output_dir = Path(".test_request_time_refresh")
+
+          source_files = [
+              ("KOSPI", "kospi_candidates_30_latest.csv"),
+              ("KOSDAQ", "kosdaq_candidates_10_latest.csv"),
+          ]
+
+          required = {
+              "code",
+              "name",
+              "close",
+              "buy_range",
+              "sell_range",
+              "recommend_flag",
+              "score",
+              "legacy_market_reason",
+              "low_3m",
+              "high_3m",
+          }
+
+          selected = []
+
+          for market, filename in source_files:
+              path = source_dir / filename
+              if not path.exists():
+                  raise SystemExit(
+                      f"required source table missing: {filename}"
+                  )
+
+              df = pd.read_csv(
+                  path,
+                  encoding="utf-8-sig",
+                  dtype=str,
+              ).fillna("")
+
+              missing = sorted(required - set(df.columns))
+              if missing:
+                  raise SystemExit(
+                      f"{filename} missing columns: "
+                      + ",".join(missing)
+                  )
+
+              usable = df[
+                  df["buy_range"].ne("")
+                  & df["sell_range"].ne("")
+                  & df["low_3m"].ne("")
+                  & df["high_3m"].ne("")
+                  & df["recommend_flag"].str.contains(
+                      "✅",
+                      regex=False,
+                  )
+              ]
+
+              if usable.empty:
+                  raise SystemExit(
+                      f"{filename} has no usable recommended row"
+                  )
+
+              row = usable.iloc[0].to_dict()
+              row["_test_market"] = market
+              row["_test_source_file"] = filename
+              selected.append(row)
+
+          for row in selected:
+              market = row["_test_market"].lower()
+              path = output_dir / f"{market}_static_row.json"
+              path.write_text(
+                  json.dumps(
+                      row,
+                      ensure_ascii=False,
+                      indent=2,
+                  )
+                  + "\n",
+                  encoding="utf-8",
+              )
+
+          print(
+              "SELECTED_ROWS="
+              + ",".join(
+                  f"{row['_test_market']}:{row['code']}:{row['name']}"
+                  for row in selected
+              )
+          )
+          print("REAL_STATIC_ROW_COUNT=2")
+          print("PRODUCTION_TABLES_COPIED=false")
+          print("ISOLATED_REAL_ROWS=OK")
+          PY
+
+      - name: Run real-row price-zone scenarios
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import copy
+          import csv
+          import importlib.util
+          import json
+          import math
+
+          root = Path(".test_request_time_refresh")
+          program = Path(
+              "request_time_explanation_refresher.py"
+          )
+
+          spec = importlib.util.spec_from_file_location(
+              "request_time_explanation_refresher",
+              program,
+          )
+          module = importlib.util.module_from_spec(spec)
+          assert spec.loader is not None
+          spec.loader.exec_module(module)
+
+          def midpoint(low, high):
+              return int(round((low + high) / 2))
+
+          scenario_rows = []
+          detailed = []
+
+          for market in ("kospi", "kosdaq"):
+              static_path = root / f"{market}_static_row.json"
+              static_row = json.loads(
+                  static_path.read_text(encoding="utf-8")
+              )
+              original_static = copy.deepcopy(static_row)
+
+              buy_low, buy_high, buy_source = (
+                  module.extract_range(
+                      static_row,
+                      module.BUY_LOW_FIELDS,
+                      module.BUY_HIGH_FIELDS,
+                      module.BUY_TEXT_FIELDS,
+                  )
+              )
+              target_low, target_high, target_source = (
+                  module.extract_range(
+                      static_row,
+                      module.TARGET_LOW_FIELDS,
+                      module.TARGET_HIGH_FIELDS,
+                      module.TARGET_TEXT_FIELDS,
+                  )
+              )
+
+              if any(
+                  value is None
+                  for value in (
+                      buy_low,
+                      buy_high,
+                      target_low,
+                      target_high,
+                  )
+              ):
+                  raise SystemExit(
+                      f"{market} ranges could not be parsed"
+                  )
+
+              if not (
+                  buy_low <= buy_high < target_low <= target_high
+              ):
+                  raise SystemExit(
+                      f"{market} ranges are not ordered: "
+                      f"buy={buy_low}-{buy_high},"
+                      f"target={target_low}-{target_high}"
+                  )
+
+              below_price = max(
+                  1,
+                  int(math.floor(buy_low * 0.97)),
+              )
+              buy_price = midpoint(buy_low, buy_high)
+              above_buy_price = midpoint(
+                  buy_high,
+                  target_low,
+              )
+              if above_buy_price <= buy_high:
+                  above_buy_price = int(buy_high + 1)
+              target_price = midpoint(
+                  target_low,
+                  target_high,
+              )
+              above_target_price = int(
+                  math.ceil(target_high * 1.03)
+              )
+
+              scenarios = [
+                  {
+                      "scenario": "BELOW_BUY_RAPID_FALL",
+                      "quote": {
+                          "status": "OK",
+                          "price": below_price,
+                          "change_pct": -6.0,
+                      },
+                      "expected_zone": "BELOW_BUY_ZONE",
+                      "expected_mark": "⚠️",
+                      "required_text": "하락 원인",
+                  },
+                  {
+                      "scenario": "BUY_ZONE",
+                      "quote": {
+                          "status": "OK",
+                          "price": buy_price,
+                          "change_pct": 0.5,
+                      },
+                      "expected_zone": "BUY_ZONE",
+                      "expected_mark": "✅",
+                      "required_text": "가치매수구간",
+                  },
+                  {
+                      "scenario": "ABOVE_BUY_ZONE",
+                      "quote": {
+                          "status": "OK",
+                          "price": above_buy_price,
+                          "change_pct": 1.0,
+                      },
+                      "expected_zone": "ABOVE_BUY_ZONE",
+                      "expected_mark": "🟡",
+                      "required_text": "눌림 대기",
+                  },
+                  {
+                      "scenario": "TAKE_PROFIT_ZONE",
+                      "quote": {
+                          "status": "OK",
+                          "price": target_price,
+                          "change_pct": 2.5,
+                      },
+                      "expected_zone": "TAKE_PROFIT_ZONE",
+                      "expected_mark": "🔻",
+                      "required_text": "분할매도",
+                  },
+                  {
+                      "scenario": "ABOVE_TARGET",
+                      "quote": {
+                          "status": "OK",
+                          "price": above_target_price,
+                          "change_pct": 5.5,
+                      },
+                      "expected_zone": "ABOVE_TARGET",
+                      "expected_mark": "🔻",
+                      "required_text": "신규매수",
+                  },
+                  {
+                      "scenario": "QUOTE_FAILED",
+                      "quote": {
+                          "status": "FAILED",
+                      },
+                      "expected_zone": "QUOTE_FAILED",
+                      "expected_mark": "🟡",
+                      "required_text": "확인하지 못해",
+                  },
+              ]
+
+              for item in scenarios:
+                  result = module.refresh(
+                      static_row,
+                      item["quote"],
+                  )
+
+                  if (
+                      result["request_time_price_zone"]
+                      != item["expected_zone"]
+                  ):
+                      raise SystemExit(
+                          f"{market}:{item['scenario']} "
+                          "zone mismatch: "
+                          f"{result['request_time_price_zone']}"
+                      )
+
+                  if (
+                      result[
+                          "request_time_final_recommendation_mark"
+                      ]
+                      != item["expected_mark"]
+                  ):
+                      raise SystemExit(
+                          f"{market}:{item['scenario']} "
+                          "mark mismatch: "
+                          + result[
+                              "request_time_final_recommendation_mark"
+                          ]
+                      )
+
+                  if (
+                      item["required_text"]
+                      not in result[
+                          "request_time_final_reason"
+                      ]
+                  ):
+                      raise SystemExit(
+                          f"{market}:{item['scenario']} "
+                          "required new explanation missing"
+                      )
+
+                  if (
+                      result[
+                          "old_price_dependent_reason_reused"
+                      ]
+                      is not False
+                  ):
+                      raise SystemExit(
+                          f"{market}:{item['scenario']} "
+                          "old price reason reuse flag is not false"
+                      )
+
+                  if (
+                      result["static_score_preserved"]
+                      is not True
+                      or result[
+                          "static_financial_data_preserved"
+                      ]
+                      is not True
+                      or result[
+                          "static_supply_data_preserved"
+                      ]
+                      is not True
+                  ):
+                      raise SystemExit(
+                          f"{market}:{item['scenario']} "
+                          "static preservation flag failed"
+                      )
+
+                  if static_row != original_static:
+                      raise SystemExit(
+                          f"{market}:{item['scenario']} "
+                          "input static row was mutated"
+                      )
+
+                  if item["scenario"] == "QUOTE_FAILED":
+                      if result["request_time_price"] is not None:
+                          raise SystemExit(
+                              f"{market}: failed quote reused "
+                              "a static price"
+                          )
+                      static_close = str(
+                          static_row.get("close", "")
+                      ).replace(",", "")
+                      reason_digits = (
+                          result[
+                              "request_time_price_explanation"
+                          ]
+                          .replace(",", "")
+                      )
+                      if (
+                          static_close
+                          and static_close in reason_digits
+                      ):
+                          raise SystemExit(
+                              f"{market}: failed quote explanation "
+                              "contains static close"
+                          )
+
+                  if item["scenario"] != "QUOTE_FAILED":
+                      if (
+                          result[
+                              "request_time_position_pct"
+                          ]
+                          is None
+                      ):
+                          raise SystemExit(
+                              f"{market}:{item['scenario']} "
+                              "position was not recalculated"
+                          )
+                      if (
+                          result[
+                              "request_time_position_label"
+                          ]
+                          == "확인 불가"
+                      ):
+                          raise SystemExit(
+                              f"{market}:{item['scenario']} "
+                              "position label was not refreshed"
+                          )
+
+                  legacy_reason = str(
+                      static_row.get(
+                          "legacy_market_reason",
+                          "",
+                      )
+                  )
+
+                  if (
+                      "거래대금" in legacy_reason
+                      and "거래대금" not in result[
+                          "request_time_final_reason"
+                      ]
+                  ):
+                      raise SystemExit(
+                          f"{market}:{item['scenario']} "
+                          "static liquidity reason was lost"
+                      )
+
+                  if (
+                      "변동성" in legacy_reason
+                      and "변동성" not in result[
+                          "request_time_final_reason"
+                      ]
+                  ):
+                      raise SystemExit(
+                          f"{market}:{item['scenario']} "
+                          "static volatility reason was lost"
+                      )
+
+                  forbidden_old_fragments = [
+                      "매수위치 중립",
+                      "매수위치 양호",
+                      "매수위치 부담",
+                      "1개월 추세 양호",
+                      "1개월 추세 부진",
+                  ]
+                  for fragment in forbidden_old_fragments:
+                      if (
+                          fragment in legacy_reason
+                          and fragment in result[
+                              "request_time_final_reason"
+                          ]
+                      ):
+                          raise SystemExit(
+                              f"{market}:{item['scenario']} "
+                              f"old price fragment remained: "
+                              f"{fragment}"
+                          )
+
+                  scenario_rows.append(
+                      {
+                          "market": market.upper(),
+                          "code": static_row.get("code", ""),
+                          "name": static_row.get("name", ""),
+                          "scenario": item["scenario"],
+                          "request_time_price": (
+                              ""
+                              if result[
+                                  "request_time_price"
+                              ]
+                              is None
+                              else result[
+                                  "request_time_price"
+                              ]
+                          ),
+                          "price_zone": result[
+                              "request_time_price_zone"
+                          ],
+                          "position_pct": (
+                              ""
+                              if result[
+                                  "request_time_position_pct"
+                              ]
+                              is None
+                              else result[
+                                  "request_time_position_pct"
+                              ]
+                          ),
+                          "position_label": result[
+                              "request_time_position_label"
+                          ],
+                          "base_mark": result[
+                              "base_recommendation_mark"
+                          ],
+                          "price_mark": result[
+                              "request_time_price_mark"
+                          ],
+                          "final_mark": result[
+                              "request_time_final_recommendation_mark"
+                          ],
+                          "old_reason_reused": result[
+                              "old_price_dependent_reason_reused"
+                          ],
+                          "final_reason": result[
+                              "request_time_final_reason"
+                          ],
+                      }
+                  )
+
+                  detailed.append(
+                      {
+                          "market": market.upper(),
+                          "code": static_row.get("code", ""),
+                          "name": static_row.get("name", ""),
+                          "scenario": item["scenario"],
+                          "quote": item["quote"],
+                          "result": result,
+                      }
+                  )
+
+              # 정적 위험등급은 가격이 좋아도 상향되지 않는지 별도 확인
+              risky_row = copy.deepcopy(static_row)
+              risky_row["recommend_flag"] = "⚠️"
+              risky_result = module.refresh(
+                  risky_row,
+                  {
+                      "status": "OK",
+                      "price": buy_price,
+                      "change_pct": 0.0,
+                  },
+              )
+              if (
+                  risky_result[
+                      "request_time_final_recommendation_mark"
+                  ]
+                  != "⚠️"
+              ):
+                  raise SystemExit(
+                      f"{market}: static risk was incorrectly upgraded"
+                  )
+
+              print(
+                  f"{market.upper()}_ROW="
+                  f"{static_row.get('code')}|"
+                  f"{static_row.get('name')}"
+              )
+              print(
+                  f"{market.upper()}_BUY_RANGE_SOURCE="
+                  f"{buy_source}"
+              )
+              print(
+                  f"{market.upper()}_TARGET_RANGE_SOURCE="
+                  f"{target_source}"
+              )
+              print(
+                  f"{market.upper()}_SCENARIO_COUNT="
+                  f"{len(scenarios)}"
+              )
+              print(
+                  f"{market.upper()}_STATIC_RISK_NOT_UPGRADED=OK"
+              )
+
+          csv_path = root / "scenario_results.csv"
+          fieldnames = list(scenario_rows[0].keys())
+          with csv_path.open(
+              "w",
+              encoding="utf-8-sig",
+              newline="",
+          ) as handle:
+              writer = csv.DictWriter(
+                  handle,
+                  fieldnames=fieldnames,
+              )
+              writer.writeheader()
+              writer.writerows(scenario_rows)
+
+          json_path = root / "scenario_results.json"
+          json_path.write_text(
+              json.dumps(
+                  detailed,
+                  ensure_ascii=False,
+                  indent=2,
+              )
+              + "\n",
+              encoding="utf-8",
+          )
+
+          if len(scenario_rows) != 12:
+              raise SystemExit(
+                  f"expected 12 scenario rows, got "
+                  f"{len(scenario_rows)}"
+              )
+
+          print("REAL_MARKET_ROW_COUNT=2")
+          print("PRICE_ZONE_SCENARIO_COUNT=12")
+          print("OLD_PRICE_REASON_REUSED_COUNT=0")
+          print("FAILED_QUOTE_STATIC_PRICE_SUBSTITUTION=0")
+          print("STATIC_INPUT_MUTATION_COUNT=0")
+          print("REQUEST_TIME_EXPLANATION_REFRESH_VERIFICATION=OK")
+          PY
+
+      - name: Generate and verify policy contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python request_time_explanation_refresher.py \
+            --write-policy-json \
+            .test_request_time_refresh/policy.json
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          path = Path(
+              ".test_request_time_refresh/policy.json"
+          )
+          policy = json.loads(
+              path.read_text(encoding="utf-8")
+          )
+
+          if (
+              policy.get("policy_version")
+              != "2026-07-01-v6.0-request-time-explanation-refresh-v2"
+          ):
+              raise SystemExit(
+                  "policy version mismatch"
+              )
+
+          text_policy = policy.get(
+              "text_policy",
+              {},
+          )
+
+          if (
+              text_policy.get(
+                  "append_old_reason_note"
+              )
+              is not False
+          ):
+              raise SystemExit(
+                  "old reason append must be false"
+              )
+
+          if (
+              text_policy.get(
+                  "reuse_old_price_dependent_sentence"
+              )
+              is not False
+          ):
+              raise SystemExit(
+                  "old price sentence reuse must be false"
+              )
+
+          if (
+              text_policy.get(
+                  "rewrite_dynamic_explanation_from_scratch"
+              )
+              is not True
+          ):
+              raise SystemExit(
+                  "dynamic explanation rewrite must be true"
+              )
+
+          quote_failure = policy.get(
+              "quote_failure_policy",
+              {},
+          )
+
+          if (
+              quote_failure.get(
+                  "use_static_price_as_request_time_price"
+              )
+              is not False
+          ):
+              raise SystemExit(
+                  "failed quote must not use static price"
+              )
+
+          print(
+              "APPEND_OLD_REASON_NOTE=false"
+          )
+          print(
+              "REUSE_OLD_PRICE_SENTENCE=false"
+          )
+          print(
+              "REWRITE_DYNAMIC_EXPLANATION_FROM_SCRATCH=true"
+          )
+          print(
+              "FAILED_QUOTE_USES_STATIC_PRICE=false"
+          )
+          print(
+              "REQUEST_TIME_POLICY_CONTRACT=OK"
+          )
+          PY
+
+      - name: Publish isolated test evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cp \
+            .test_request_time_refresh/scenario_results.csv \
+            latest/request_time_explanation_refresh_test_sample_latest.csv
+
+          cp \
+            .test_request_time_refresh/scenario_results.json \
+            latest/request_time_explanation_refresh_test_details_latest.json
+
+          cp \
+            .test_request_time_refresh/policy.json \
+            latest/request_time_explanation_refresh_policy_latest.json
+
+          {
+            echo "SCRIPT_VERSION=v1.1.0-production-column-compatibility"
+            echo "TEST_SCOPE=isolated_real_kospi_kosdaq_rows"
+            echo "REAL_MARKET_ROW_COUNT=2"
+            echo "SCENARIO_COUNT=12"
+            echo "SCENARIOS=BELOW_BUY_RAPID_FALL,BUY_ZONE,ABOVE_BUY_ZONE,TAKE_PROFIT_ZONE,ABOVE_TARGET,QUOTE_FAILED"
+            echo "BUY_RANGE_SOURCE=buy_range"
+            echo "TARGET_RANGE_SOURCE=sell_range"
+            echo "BASE_MARK_SOURCE=recommend_flag"
+            echo "OLD_PRICE_REASON_REUSED_COUNT=0"
+            echo "FAILED_QUOTE_STATIC_PRICE_SUBSTITUTION=0"
+            echo "STATIC_INPUT_MUTATION_COUNT=0"
+            echo "STATIC_RISK_UPGRADE_COUNT=0"
+            echo "PRODUCTION_TABLES_CHANGED=false"
+            echo "LIVE_TEST_STATUS=OK"
+          } > \
+            latest/request_time_explanation_refresh_test_report_latest.txt
+
+          echo "----- request-time refresh test report -----"
+          cat \
+            latest/request_time_explanation_refresh_test_report_latest.txt
+
+          echo "----- scenario sample -----"
+          cat \
+            latest/request_time_explanation_refresh_test_sample_latest.csv
+
+      - name: Commit and push isolated test evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email \
+            "github-actions@users.noreply.github.com"
+
+          git add \
+            latest/request_time_explanation_refresh_test_sample_latest.csv \
+            latest/request_time_explanation_refresh_test_details_latest.json \
+            latest/request_time_explanation_refresh_policy_latest.json \
+            latest/request_time_explanation_refresh_test_report_latest.txt
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            exit 0
+          fi
+
+          echo "CHANGED_FILES_BEGIN"
+          git diff --cached --name-status
+          echo "CHANGED_FILES_END"
+
+          git commit -m \
+            "Test request-time explanation refresh"
+
+          PUSHED=false
+          for attempt in 1 2 3; do
+            echo "PUSH_ATTEMPT=$attempt"
+            git fetch origin main
+
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              echo "REBASE_FAILED=true"
+              sleep $((attempt * 5))
+              continue
+            fi
+
+            if git push origin HEAD:main; then
+              PUSHED=true
+              break
+            fi
+
+            sleep $((attempt * 5))
+          done
+
+          if [ "$PUSHED" != "true" ]; then
+            echo "PUSH_SUCCESS=false"
+            exit 1
+          fi
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"

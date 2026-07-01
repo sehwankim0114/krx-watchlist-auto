@@ -1,21 +1,27 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
 """
-supply_burden_enricher.py
-v1.2_dart_whole_market_90d_cap
+supply_burden_enricher.py v2.0.0-check-status-separated
 
 목적
-- OpenDART 공시검색 API의 최근 공시 제목을 기준으로 CB/BW/EB, 유상증자,
-  전환청구, 자기주식처분, 대량보유, 보호예수, 블록딜 등 수급부담 가능성을 자동 탐지한다.
-- 기존 latest CSV 파일들에 수급부담 관련 기술 컬럼을 추가한다.
-- 실행 성공/실패와 무관하게 latest/supply_burden_run_log_latest.txt,
-  latest/supply_burden_latest.json 파일을 항상 생성한다.
+- 실제 수급부담 탐지 결과와 DART 조회상태를 완전히 분리한다.
+- CHECK_LIMITED를 supply_burden_flag에 저장하지 않는다.
+- 조회범위가 제한되어도 실제 공시가 발견되면 부담 여부는 별도로 표시한다.
+- 기존 표 및 API와의 호환을 위해 supply_burden_flag는 TRUE/FALSE만 유지한다.
 
-주의
-- v1.2는 공시 제목 기반 1차 탐지이며, corp_code 없는 전체시장 검색은 DART 제한에 맞춰 90일 이하로 자동 제한한다.
-- 공시 본문 세부 수량, 발행가, 행사비율, 보호예수 해제 물량까지 정밀 판독하는 단계는 아니다.
-- supply_burden_flag=TRUE는 "수급부담 가능성/주의 신호"로 해석한다.
+핵심 필드
+- supply_check_status: OK / LIMITED / FAILED
+- supply_check_scope: 조회 범위 설명
+- supply_check_limited_reason: 제한 또는 실패 사유
+- supply_burden_detected: TRUE / FALSE
+- supply_burden_flag: TRUE / FALSE (기존 호환 필드)
+- supply_burden_level: 없음 / 주의 / 경계 / 위험
+
+중요 원칙
+- CHECK_LIMITED는 실제 수급부담이 아니다.
+- 조회 제한만으로 종목명 오른쪽에 언더바(_)를 붙이지 않는다.
+- 실제 부담 공시가 확인된 경우에만 supply_burden_detected=TRUE로 저장한다.
+- 조회 실패 시에도 부담을 임의로 FALSE라고 단정하지 않고 check_status로 제한을 알린다.
 """
 
 from __future__ import annotations
@@ -24,24 +30,32 @@ import argparse
 import json
 import os
 import re
+import tempfile
 import time
 import urllib.parse
 import urllib.request
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import pandas as pd
 
 try:
     from zoneinfo import ZoneInfo
-except Exception:
+except Exception:  # pragma: no cover
     ZoneInfo = None
 
-SCRIPT_NAME = "supply_burden_enricher.py v1.2_dart_whole_market_90d_cap"
 
-TARGET_FILES = [
+SCRIPT_NAME = (
+    "supply_burden_enricher.py "
+    "v2.0.0-check-status-separated"
+)
+POLICY_VERSION = "2026-07-01-v6.0-supply-status-separated"
+
+DART_WHOLE_MARKET_MAX_LOOKBACK_DAYS = 90
+
+BASE_TARGET_FILES = [
     "watchlist_summary_latest.csv",
     "kospi_candidates_30_latest.csv",
     "kospi_recommend_7_latest.csv",
@@ -57,9 +71,11 @@ TARGET_FILES = [
     "kosdaq_universe_summary_latest.csv",
 ]
 
-# OpenDART 공시검색 API는 corp_code 없이 전체시장 검색 시 검색기간을 3개월 이내로 제한한다.
-# 이 스크립트는 corp_code 없는 코스피/코스닥 전체검색 방식이므로 기본 90일로 자동 제한한다.
-DART_WHOLE_MARKET_MAX_LOOKBACK_DAYS = 90
+VARIANT_SUFFIXES = (
+    "",
+    "_current_basis",
+    "_supplemented",
+)
 
 CODE_COLUMNS = [
     "ticker",
@@ -81,6 +97,10 @@ NAME_COLUMNS = [
 ]
 
 SUPPLY_COLUMNS = [
+    "supply_check_status",
+    "supply_check_scope",
+    "supply_check_limited_reason",
+    "supply_burden_detected",
     "supply_burden_flag",
     "supply_burden_level",
     "supply_burden_keywords",
@@ -114,8 +134,16 @@ KEYWORD_RULES: List[Tuple[str, str, int]] = [
     ("시간외매매", "블록딜/시간외매매", 2),
     ("대량보유", "대량보유", 1),
     ("주식등의대량보유상황보고서", "대량보유", 1),
-    ("임원ㆍ주요주주특정증권등소유상황보고서", "주요주주변동", 1),
-    ("임원·주요주주특정증권등소유상황보고서", "주요주주변동", 1),
+    (
+        "임원ㆍ주요주주특정증권등소유상황보고서",
+        "주요주주변동",
+        1,
+    ),
+    (
+        "임원·주요주주특정증권등소유상황보고서",
+        "주요주주변동",
+        1,
+    ),
     ("최대주주 변경", "최대주주변경", 2),
     ("최대주주변경", "최대주주변경", 2),
     ("감자", "감자", 3),
@@ -139,27 +167,8 @@ def now_kst() -> datetime:
     return datetime.now(ZoneInfo("Asia/Seoul"))
 
 
-def effective_whole_market_lookback_days(requested_days: int, max_days: int = DART_WHOLE_MARKET_MAX_LOOKBACK_DAYS) -> int:
-    """
-    OpenDART 공시검색 API는 corp_code 없이 전체시장 검색할 때 검색기간을 3개월 이내로 제한한다.
-    사용자가 180일처럼 긴 기간을 넣어도 전체검색에서는 자동으로 90일 이하로 줄인다.
-    """
-    try:
-        requested = int(requested_days)
-    except Exception:
-        requested = max_days
-
-    try:
-        max_allowed = int(max_days)
-    except Exception:
-        max_allowed = DART_WHOLE_MARKET_MAX_LOOKBACK_DAYS
-
-    if requested < 1:
-        requested = 1
-    if max_allowed < 1:
-        max_allowed = DART_WHOLE_MARKET_MAX_LOOKBACK_DAYS
-
-    return min(requested, max_allowed)
+def now_kst_text() -> str:
+    return now_kst().isoformat(timespec="seconds")
 
 
 def ensure_dir(path: Path) -> None:
@@ -169,39 +178,128 @@ def ensure_dir(path: Path) -> None:
 def normalize_code(value: object) -> Optional[str]:
     if value is None:
         return None
+
     text = str(value).strip()
-    if not text or text.lower() == "nan":
+    if not text or text.lower() in {
+        "nan",
+        "none",
+        "null",
+    }:
         return None
+
+    if text.endswith(".0"):
+        text = text[:-2]
+
     digits = re.sub(r"[^0-9]", "", text)
-    if len(digits) == 6:
+    if len(digits) == 6 and digits != "000000":
         return digits
     if 0 < len(digits) < 6:
-        return digits.zfill(6)
+        code = digits.zfill(6)
+        return code if code != "000000" else None
     return None
 
 
 def read_csv_safe(path: Path) -> pd.DataFrame:
     if not path.exists():
         return pd.DataFrame()
-    try:
-        return pd.read_csv(path, encoding="utf-8-sig", dtype=str).fillna("")
-    except UnicodeDecodeError:
+
+    for encoding in ("utf-8-sig", "utf-8", "cp949"):
         try:
-            return pd.read_csv(path, dtype=str).fillna("")
-        except Exception:
+            return pd.read_csv(
+                path,
+                encoding=encoding,
+                dtype=str,
+            ).fillna("")
+        except UnicodeDecodeError:
+            continue
+        except pd.errors.EmptyDataError:
             return pd.DataFrame()
-    except Exception:
-        return pd.DataFrame()
+        except Exception:
+            continue
+
+    return pd.DataFrame()
 
 
-def find_col(df: pd.DataFrame, candidates: Iterable[str]) -> Optional[str]:
-    for col in candidates:
-        if col in df.columns:
-            return col
+def write_csv_atomically(
+    df: pd.DataFrame,
+    path: Path,
+) -> None:
+    ensure_dir(path.parent)
+
+    handle, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=str(path.parent),
+    )
+    os.close(handle)
+    temporary_path = Path(temporary_name)
+
+    try:
+        df.to_csv(
+            temporary_path,
+            index=False,
+            encoding="utf-8-sig",
+        )
+        temporary_path.replace(path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
+def find_col(
+    df: pd.DataFrame,
+    candidates: Iterable[str],
+) -> Optional[str]:
+    for column in candidates:
+        if column in df.columns:
+            return column
     return None
 
 
-def collect_target_tickers(output_dir: Path, target_files: List[str]) -> Tuple[Dict[str, str], Dict[str, List[str]], Dict[str, int]]:
+def generate_target_files() -> List[str]:
+    filenames = set(BASE_TARGET_FILES)
+
+    for base in BASE_TARGET_FILES:
+        if not base.endswith("_latest.csv"):
+            continue
+
+        stem = base[: -len("_latest.csv")]
+        for suffix in VARIANT_SUFFIXES:
+            if not suffix:
+                continue
+            filenames.add(
+                f"{stem}{suffix}_latest.csv"
+            )
+
+    return sorted(filenames)
+
+
+def effective_whole_market_lookback_days(
+    requested_days: int,
+    max_days: int = DART_WHOLE_MARKET_MAX_LOOKBACK_DAYS,
+) -> int:
+    try:
+        requested = int(requested_days)
+    except Exception:
+        requested = max_days
+
+    try:
+        maximum = int(max_days)
+    except Exception:
+        maximum = DART_WHOLE_MARKET_MAX_LOOKBACK_DAYS
+
+    requested = max(1, requested)
+    maximum = max(1, maximum)
+    return min(requested, maximum)
+
+
+def collect_target_tickers(
+    output_dir: Path,
+    target_files: Sequence[str],
+) -> Tuple[
+    Dict[str, str],
+    Dict[str, List[str]],
+    Dict[str, int],
+]:
     name_map: Dict[str, str] = {}
     file_map: Dict[str, List[str]] = defaultdict(list)
     file_rows: Dict[str, int] = {}
@@ -210,89 +308,123 @@ def collect_target_tickers(output_dir: Path, target_files: List[str]) -> Tuple[D
         path = output_dir / filename
         df = read_csv_safe(path)
         file_rows[filename] = int(len(df)) if not df.empty else 0
+
         if df.empty:
             continue
 
-        code_col = find_col(df, CODE_COLUMNS)
-        name_col = find_col(df, NAME_COLUMNS)
-        if code_col is None:
+        code_column = find_col(df, CODE_COLUMNS)
+        name_column = find_col(df, NAME_COLUMNS)
+        if code_column is None:
             continue
 
         for _, row in df.iterrows():
-            code = normalize_code(row.get(code_col, ""))
+            code = normalize_code(row.get(code_column, ""))
             if not code:
                 continue
+
             file_map[code].append(filename)
-            if name_col:
-                name = str(row.get(name_col, "")).strip()
+
+            if name_column:
+                name = str(
+                    row.get(name_column, "")
+                ).strip()
                 if name and code not in name_map:
                     name_map[code] = name
 
     return name_map, dict(file_map), file_rows
 
 
-def dart_get_json(params: Dict[str, Any], timeout: int = 25) -> Dict[str, Any]:
-    url = "https://opendart.fss.or.kr/api/list.json?" + urllib.parse.urlencode(params)
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req, timeout=timeout) as response:
-        data = response.read().decode("utf-8", errors="replace")
+def dart_get_json(
+    params: Dict[str, Any],
+    timeout: int = 25,
+) -> Dict[str, Any]:
+    url = (
+        "https://opendart.fss.or.kr/api/list.json?"
+        + urllib.parse.urlencode(params)
+    )
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": "Mozilla/5.0"},
+    )
+    with urllib.request.urlopen(
+        request,
+        timeout=timeout,
+    ) as response:
+        data = response.read().decode(
+            "utf-8",
+            errors="replace",
+        )
     return json.loads(data)
 
 
-def classify_report(report_name: str) -> Tuple[bool, List[str], int, bool]:
+def classify_report(
+    report_name: str,
+) -> Tuple[bool, List[str], int, bool]:
     title = str(report_name or "")
     matched: List[str] = []
     severity = 0
 
-    for keyword, label, sev in KEYWORD_RULES:
+    for keyword, label, level in KEYWORD_RULES:
         if keyword in title:
             matched.append(label)
-            severity = max(severity, sev)
+            severity = max(severity, level)
 
-    relief = any(keyword in title for keyword in RELIEF_KEYWORDS)
-    return bool(matched), sorted(set(matched)), severity, relief
+    relief = any(
+        keyword in title
+        for keyword in RELIEF_KEYWORDS
+    )
+
+    return (
+        bool(matched),
+        sorted(set(matched)),
+        severity,
+        relief,
+    )
 
 
-def severity_to_level(severity: int, count: int) -> str:
+def severity_to_level(
+    severity: int,
+    count: int,
+) -> str:
     if severity >= 3:
         return "위험"
     if severity == 2:
-        if count >= 3:
-            return "위험"
-        return "경계"
+        return "위험" if count >= 3 else "경계"
     if severity == 1:
-        if count >= 3:
-            return "경계"
-        return "주의"
+        return "경계" if count >= 3 else "주의"
     return "없음"
 
 
 def fetch_dart_reports(
+    *,
     api_key: str,
     target_codes: set[str],
     lookback_days: int,
     max_pages: int,
     sleep_seconds: float,
+    timeout: int,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-    end_dt = now_kst().date()
-    begin_dt = end_dt - timedelta(days=lookback_days)
-    bgn_de = begin_dt.strftime("%Y%m%d")
-    end_de = end_dt.strftime("%Y%m%d")
+    end_date = now_kst().date()
+    begin_date = end_date - timedelta(
+        days=lookback_days
+    )
 
-    all_hits: List[Dict[str, Any]] = []
-    status = {
-        "bgn_de": bgn_de,
-        "end_de": end_de,
+    status: Dict[str, Any] = {
+        "bgn_de": begin_date.strftime("%Y%m%d"),
+        "end_de": end_date.strftime("%Y%m%d"),
         "lookback_days": lookback_days,
         "corp_cls": {},
         "api_calls": 0,
         "api_errors": [],
     }
 
-    for corp_cls in ["Y", "K"]:
-        page_no = 1
-        total_page = None
-        corp_stats = {
+    hits: List[Dict[str, Any]] = []
+
+    for corp_class in ("Y", "K"):
+        page_number = 1
+        total_pages: Optional[int] = None
+
+        class_status = {
             "pages_requested": 0,
             "total_page": None,
             "raw_reports": 0,
@@ -300,268 +432,634 @@ def fetch_dart_reports(
             "matched_reports": 0,
         }
 
-        while page_no <= max_pages:
+        while page_number <= max_pages:
             params = {
                 "crtfc_key": api_key,
-                "bgn_de": bgn_de,
-                "end_de": end_de,
-                "corp_cls": corp_cls,
-                "page_no": page_no,
+                "bgn_de": status["bgn_de"],
+                "end_de": status["end_de"],
+                "corp_cls": corp_class,
+                "page_no": page_number,
                 "page_count": 100,
             }
+
             try:
-                payload = dart_get_json(params)
+                payload = dart_get_json(
+                    params,
+                    timeout=timeout,
+                )
                 status["api_calls"] += 1
-                corp_stats["pages_requested"] += 1
+                class_status["pages_requested"] += 1
             except Exception as exc:
-                status["api_errors"].append(f"corp_cls={corp_cls}, page={page_no}, error={type(exc).__name__}: {exc}")
+                status["api_errors"].append(
+                    "corp_cls="
+                    f"{corp_class},page={page_number},"
+                    f"error={type(exc).__name__}:{exc}"
+                )
                 break
 
-            dart_status = str(payload.get("status", ""))
+            dart_status = str(
+                payload.get("status", "")
+            )
+            message = str(
+                payload.get("message", "")
+            )
+
             if dart_status == "013":
-                # 조회된 데이터 없음
                 break
+
             if dart_status != "000":
-                message = payload.get("message", "")
-                status["api_errors"].append(f"corp_cls={corp_cls}, page={page_no}, dart_status={dart_status}, message={message}")
+                status["api_errors"].append(
+                    "corp_cls="
+                    f"{corp_class},page={page_number},"
+                    f"dart_status={dart_status},"
+                    f"message={message}"
+                )
                 break
 
             try:
-                total_page = int(payload.get("total_page", 1))
+                total_pages = int(
+                    payload.get("total_page", 1)
+                )
             except Exception:
-                total_page = 1
-            corp_stats["total_page"] = total_page
+                total_pages = 1
+
+            class_status["total_page"] = total_pages
 
             reports = payload.get("list", []) or []
-            corp_stats["raw_reports"] += len(reports)
+            class_status["raw_reports"] += len(reports)
 
             for item in reports:
-                stock_code = normalize_code(item.get("stock_code", ""))
-                if not stock_code or stock_code not in target_codes:
+                stock_code = normalize_code(
+                    item.get("stock_code", "")
+                )
+                if (
+                    not stock_code
+                    or stock_code not in target_codes
+                ):
                     continue
 
-                corp_stats["target_reports"] += 1
-                report_name = str(item.get("report_nm", ""))
-                is_risk, labels, severity, relief = classify_report(report_name)
+                class_status["target_reports"] += 1
+
+                report_name = str(
+                    item.get("report_nm", "")
+                )
+                (
+                    is_risk,
+                    labels,
+                    severity,
+                    relief,
+                ) = classify_report(report_name)
+
                 if not is_risk:
                     continue
 
-                corp_stats["matched_reports"] += 1
-                all_hits.append(
+                class_status["matched_reports"] += 1
+                hits.append(
                     {
                         "stock_code": stock_code,
-                        "corp_name": str(item.get("corp_name", "")),
+                        "corp_name": str(
+                            item.get("corp_name", "")
+                        ),
                         "report_name": report_name,
-                        "rcept_dt": str(item.get("rcept_dt", "")),
-                        "rcept_no": str(item.get("rcept_no", "")),
-                        "corp_cls": corp_cls,
+                        "rcept_dt": str(
+                            item.get("rcept_dt", "")
+                        ),
+                        "rcept_no": str(
+                            item.get("rcept_no", "")
+                        ),
+                        "corp_cls": corp_class,
                         "keywords": ",".join(labels),
                         "severity": severity,
                         "relief_flag": relief,
                     }
                 )
 
-            if total_page is not None and page_no >= total_page:
+            if (
+                total_pages is not None
+                and page_number >= total_pages
+            ):
                 break
-            page_no += 1
+
+            page_number += 1
             if sleep_seconds > 0:
                 time.sleep(sleep_seconds)
 
-        status["corp_cls"][corp_cls] = corp_stats
+        status["corp_cls"][corp_class] = class_status
 
-    return all_hits, status
+    return hits, status
+
+
+def determine_check_state(
+    *,
+    api_key_present: bool,
+    target_codes_present: bool,
+    requested_days: int,
+    effective_days: int,
+    api_errors: Sequence[str],
+) -> Tuple[str, str, str]:
+    """
+    반환:
+    - status: OK / LIMITED / FAILED
+    - scope
+    - reason
+    """
+    scope = f"DART 최근 {effective_days}일 공시 제목 기준"
+
+    if not api_key_present:
+        return (
+            "FAILED",
+            scope,
+            "NO_DART_API_KEY",
+        )
+
+    if not target_codes_present:
+        return (
+            "FAILED",
+            scope,
+            "NO_TARGET_TICKERS",
+        )
+
+    reasons: List[str] = []
+
+    if effective_days < requested_days:
+        reasons.append(
+            "DART_WHOLE_MARKET_LOOKBACK_CAPPED_"
+            f"{effective_days}D_FROM_{requested_days}D"
+        )
+
+    if api_errors:
+        reasons.append(
+            "DART_PARTIAL_ERROR_COUNT_"
+            f"{len(api_errors)}"
+        )
+
+    if reasons:
+        return (
+            "LIMITED",
+            scope,
+            ";".join(reasons),
+        )
+
+    return "OK", scope, ""
 
 
 def build_summary(
-    target_codes: List[str],
+    *,
+    target_codes: Sequence[str],
     name_map: Dict[str, str],
     file_map: Dict[str, List[str]],
-    hits: List[Dict[str, Any]],
+    hits: Sequence[Dict[str, Any]],
     checked_at: str,
-    limited_reason: str = "",
+    check_status: str,
+    check_scope: str,
+    limited_reason: str,
 ) -> pd.DataFrame:
-    hits_by_code: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    hits_by_code: Dict[
+        str,
+        List[Dict[str, Any]],
+    ] = defaultdict(list)
+
     for hit in hits:
-        code = normalize_code(hit.get("stock_code", ""))
+        code = normalize_code(
+            hit.get("stock_code", "")
+        )
         if code:
-            hits_by_code[code].append(hit)
+            hits_by_code[code].append(dict(hit))
 
     rows: List[Dict[str, Any]] = []
-    for code in sorted(target_codes):
-        code_hits = sorted(hits_by_code.get(code, []), key=lambda x: str(x.get("rcept_dt", "")), reverse=True)
-        count = len(code_hits)
-        max_severity = max([int(item.get("severity", 0) or 0) for item in code_hits], default=0)
-        level = severity_to_level(max_severity, count)
-        keywords = sorted(set(
-            label.strip()
-            for item in code_hits
-            for label in str(item.get("keywords", "")).split(",")
-            if label.strip()
-        ))
-        latest = code_hits[0] if code_hits else {}
 
-        if limited_reason:
-            flag = "CHECK_LIMITED"
-            level_out = "확인제한"
-        else:
-            flag = "TRUE" if count > 0 else "FALSE"
-            level_out = level
+    for code in sorted(target_codes):
+        code_hits = sorted(
+            hits_by_code.get(code, []),
+            key=lambda item: str(
+                item.get("rcept_dt", "")
+            ),
+            reverse=True,
+        )
+
+        report_count = len(code_hits)
+        maximum_severity = max(
+            [
+                int(
+                    item.get("severity", 0)
+                    or 0
+                )
+                for item in code_hits
+            ],
+            default=0,
+        )
+
+        detected = report_count > 0
+        level = severity_to_level(
+            maximum_severity,
+            report_count,
+        )
+
+        keywords = sorted(
+            {
+                label.strip()
+                for item in code_hits
+                for label in str(
+                    item.get("keywords", "")
+                ).split(",")
+                if label.strip()
+            }
+        )
+
+        latest = code_hits[0] if code_hits else {}
 
         rows.append(
             {
                 "ticker": code,
                 "name": name_map.get(code, ""),
-                "supply_burden_flag": flag,
-                "supply_burden_level": level_out,
-                "supply_burden_keywords": ",".join(keywords),
-                "supply_burden_latest_report_date": str(latest.get("rcept_dt", "")),
-                "supply_burden_latest_report_name": str(latest.get("report_name", "")),
-                "supply_burden_report_count": count,
-                "source_files": ",".join(sorted(set(file_map.get(code, [])))),
-                "supply_burden_checked_at_kst": checked_at,
-                "limited_reason": limited_reason,
+                "supply_check_status": check_status,
+                "supply_check_scope": check_scope,
+                "supply_check_limited_reason": (
+                    limited_reason
+                ),
+                "supply_burden_detected": (
+                    "TRUE" if detected else "FALSE"
+                ),
+                # 기존 호환 필드도 TRUE/FALSE만 허용한다.
+                "supply_burden_flag": (
+                    "TRUE" if detected else "FALSE"
+                ),
+                "supply_burden_level": level,
+                "supply_burden_keywords": (
+                    ",".join(keywords)
+                ),
+                "supply_burden_latest_report_date": str(
+                    latest.get("rcept_dt", "")
+                ),
+                "supply_burden_latest_report_name": str(
+                    latest.get("report_name", "")
+                ),
+                "supply_burden_report_count": (
+                    report_count
+                ),
+                "source_files": ",".join(
+                    sorted(
+                        set(file_map.get(code, []))
+                    )
+                ),
+                "supply_burden_checked_at_kst": (
+                    checked_at
+                ),
             }
         )
 
     return pd.DataFrame(rows)
 
 
-def enrich_file(output_dir: Path, filename: str, summary_map: Dict[str, Dict[str, Any]], checked_at: str) -> Dict[str, Any]:
+def enrich_file(
+    *,
+    output_dir: Path,
+    filename: str,
+    summary_map: Dict[str, Dict[str, Any]],
+) -> Dict[str, Any]:
     path = output_dir / filename
     df = read_csv_safe(path)
-    result = {
+
+    result: Dict[str, Any] = {
         "file": filename,
         "status": "UNKNOWN",
         "rows": 0,
         "matched_rows": 0,
-        "flagged_rows": 0,
+        "burden_detected_rows": 0,
+        "check_limited_rows": 0,
+        "check_failed_rows": 0,
         "note": "",
     }
 
     if df.empty:
-        result.update({"status": "EMPTY_OR_MISSING", "note": "file missing or empty"})
+        result.update(
+            {
+                "status": "EMPTY_OR_MISSING",
+                "note": "file missing or empty",
+            }
+        )
         return result
 
-    code_col = find_col(df, CODE_COLUMNS)
-    if code_col is None:
-        result.update({"status": "NO_CODE_COLUMN", "rows": len(df)})
+    code_column = find_col(df, CODE_COLUMNS)
+    if code_column is None:
+        result.update(
+            {
+                "status": "NO_CODE_COLUMN",
+                "rows": len(df),
+            }
+        )
         return result
 
-    out = df.copy()
-    for col in SUPPLY_COLUMNS:
-        if col not in out.columns:
-            out[col] = ""
+    output = df.copy()
 
-    matched_rows = 0
-    flagged_rows = 0
-    for idx, row in out.iterrows():
-        code = normalize_code(row.get(code_col, ""))
+    for column in SUPPLY_COLUMNS:
+        if column not in output.columns:
+            output[column] = ""
+
+    matched = 0
+    burden_detected = 0
+    limited = 0
+    failed = 0
+
+    for index, row in output.iterrows():
+        code = normalize_code(
+            row.get(code_column, "")
+        )
         if not code:
             continue
+
         info = summary_map.get(code)
         if not info:
             continue
-        matched_rows += 1
-        flag = str(info.get("supply_burden_flag", ""))
-        if flag == "TRUE":
-            flagged_rows += 1
-        for col in SUPPLY_COLUMNS:
-            out.at[idx, col] = str(info.get(col, "")) if col != "supply_burden_checked_at_kst" else checked_at
 
-    out.to_csv(path, index=False, encoding="utf-8-sig")
+        matched += 1
+
+        if str(
+            info.get(
+                "supply_burden_detected",
+                "",
+            )
+        ) == "TRUE":
+            burden_detected += 1
+
+        check_status = str(
+            info.get("supply_check_status", "")
+        )
+        if check_status == "LIMITED":
+            limited += 1
+        elif check_status == "FAILED":
+            failed += 1
+
+        for column in SUPPLY_COLUMNS:
+            output.at[index, column] = str(
+                info.get(column, "")
+            )
+
+    # CHECK_LIMITED가 실제 부담 필드에 남아 있으면 저장하지 않는다.
+    invalid_flags = output[
+        "supply_burden_flag"
+    ].astype(str).isin(
+        ["CHECK_LIMITED", "LIMITED", "FAILED"]
+    )
+    if invalid_flags.any():
+        raise RuntimeError(
+            f"INVALID_SUPPLY_FLAG file={filename}"
+        )
+
+    mismatch = (
+        output["supply_burden_flag"].astype(str)
+        != output[
+            "supply_burden_detected"
+        ].astype(str)
+    )
+    if mismatch.any():
+        raise RuntimeError(
+            f"SUPPLY_FLAG_DETECTED_MISMATCH file={filename}"
+        )
+
+    write_csv_atomically(output, path)
+
     result.update(
         {
             "status": "OK",
-            "rows": len(out),
-            "matched_rows": matched_rows,
-            "flagged_rows": flagged_rows,
+            "rows": len(output),
+            "matched_rows": matched,
+            "burden_detected_rows": burden_detected,
+            "check_limited_rows": limited,
+            "check_failed_rows": failed,
         }
     )
     return result
 
 
+def run_self_test() -> int:
+    hits = [
+        {
+            "stock_code": "005930",
+            "report_name": "전환사채권발행결정",
+            "rcept_dt": "20260701",
+            "keywords": "CB발행",
+            "severity": 2,
+        }
+    ]
+
+    # 조회 제한이 있어도 실제 부담 필드는 TRUE/FALSE로만 유지한다.
+    limited = build_summary(
+        target_codes=["005930", "000660"],
+        name_map={
+            "005930": "삼성전자",
+            "000660": "SK하이닉스",
+        },
+        file_map={},
+        hits=hits,
+        checked_at="2026-07-01T16:00:00+09:00",
+        check_status="LIMITED",
+        check_scope="DART 최근 90일 공시 제목 기준",
+        limited_reason=(
+            "DART_WHOLE_MARKET_LOOKBACK_CAPPED_"
+            "90D_FROM_180D"
+        ),
+    )
+
+    samsung = limited[
+        limited["ticker"].eq("005930")
+    ].iloc[0]
+    hynix = limited[
+        limited["ticker"].eq("000660")
+    ].iloc[0]
+
+    assert samsung["supply_check_status"] == "LIMITED"
+    assert samsung["supply_burden_detected"] == "TRUE"
+    assert samsung["supply_burden_flag"] == "TRUE"
+    assert samsung["supply_burden_level"] == "경계"
+
+    assert hynix["supply_check_status"] == "LIMITED"
+    assert hynix["supply_burden_detected"] == "FALSE"
+    assert hynix["supply_burden_flag"] == "FALSE"
+    assert hynix["supply_burden_level"] == "없음"
+
+    assert "CHECK_LIMITED" not in set(
+        limited["supply_burden_flag"]
+    )
+
+    status = determine_check_state(
+        api_key_present=True,
+        target_codes_present=True,
+        requested_days=90,
+        effective_days=90,
+        api_errors=[],
+    )
+    assert status == (
+        "OK",
+        "DART 최근 90일 공시 제목 기준",
+        "",
+    )
+
+    status = determine_check_state(
+        api_key_present=True,
+        target_codes_present=True,
+        requested_days=180,
+        effective_days=90,
+        api_errors=[],
+    )
+    assert status[0] == "LIMITED"
+    assert "LOOKBACK_CAPPED" in status[2]
+
+    status = determine_check_state(
+        api_key_present=False,
+        target_codes_present=True,
+        requested_days=90,
+        effective_days=90,
+        api_errors=[],
+    )
+    assert status[0] == "FAILED"
+
+    print("SELF_TEST_STATUS=OK")
+    print(
+        "TESTED="
+        "check_status_separation,"
+        "limited_without_false_burden,"
+        "actual_burden_detection,"
+        "check_limited_removed_from_flag"
+    )
+    return 0
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output-dir", default="latest")
-    parser.add_argument("--lookback-days", type=int, default=180)
+
+    parser.add_argument(
+        "--output-dir",
+        default="latest",
+    )
+    parser.add_argument(
+        "--lookback-days",
+        type=int,
+        default=90,
+    )
     parser.add_argument(
         "--dart-whole-market-max-days",
         type=int,
         default=DART_WHOLE_MARKET_MAX_LOOKBACK_DAYS,
-        help="corp_code 없는 DART 전체시장 검색의 최대 조회일수. 기본 90일.",
     )
-    parser.add_argument("--sleep-seconds", type=float, default=0.12)
-    parser.add_argument("--max-pages", type=int, default=500)
-    parser.add_argument("--target-files", nargs="*", default=TARGET_FILES)
+    parser.add_argument(
+        "--sleep-seconds",
+        type=float,
+        default=0.12,
+    )
+    parser.add_argument(
+        "--max-pages",
+        type=int,
+        default=500,
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=25,
+    )
+    parser.add_argument(
+        "--target-files",
+        nargs="*",
+        default=None,
+    )
+    parser.add_argument(
+        "--self-test",
+        action="store_true",
+    )
+
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+
+    if args.self_test:
+        return run_self_test()
+
     output_dir = Path(args.output_dir)
     ensure_dir(output_dir)
 
-    checked_at = now_kst().isoformat(timespec="seconds")
-    original_lookback_days = int(args.lookback_days)
-    effective_lookback_days = effective_whole_market_lookback_days(
-        original_lookback_days,
-        args.dart_whole_market_max_days,
+    target_files = (
+        list(args.target_files)
+        if args.target_files
+        else generate_target_files()
     )
-    lookback_capped = effective_lookback_days != original_lookback_days
 
-    log_lines: List[str] = [
-        f"script={SCRIPT_NAME}",
-        f"run_at_kst={checked_at}",
-        f"output_dir={output_dir}",
-        f"original_lookback_days={original_lookback_days}",
-        f"effective_lookback_days={effective_lookback_days}",
-        f"dart_whole_market_max_days={args.dart_whole_market_max_days}",
-        f"lookback_capped={lookback_capped}",
-        f"max_pages={args.max_pages}",
-        f"sleep_seconds={args.sleep_seconds}",
-    ]
+    checked_at = now_kst_text()
+    requested_days = int(args.lookback_days)
+    effective_days = (
+        effective_whole_market_lookback_days(
+            requested_days,
+            args.dart_whole_market_max_days,
+        )
+    )
 
-    api_key = os.environ.get("DART_API_KEY", "").strip()
-    name_map, file_map, file_rows = collect_target_tickers(output_dir, args.target_files)
+    api_key = os.environ.get(
+        "DART_API_KEY",
+        "",
+    ).strip()
+
+    (
+        name_map,
+        file_map,
+        file_rows,
+    ) = collect_target_tickers(
+        output_dir,
+        target_files,
+    )
+
     target_codes = sorted(file_map.keys())
 
-    log_lines.append(f"target_tickers={len(target_codes)}")
-    log_lines.append(f"target_files={','.join(args.target_files)}")
-    for filename, rows in file_rows.items():
-        log_lines.append(f"TARGET_FILE {filename}: rows={rows}")
+    log_lines: List[str] = [
+        f"SCRIPT_NAME={SCRIPT_NAME}",
+        f"POLICY_VERSION={POLICY_VERSION}",
+        f"RUN_AT_KST={checked_at}",
+        f"OUTPUT_DIR={output_dir}",
+        f"REQUESTED_LOOKBACK_DAYS={requested_days}",
+        f"EFFECTIVE_LOOKBACK_DAYS={effective_days}",
+        "DART_WHOLE_MARKET_MAX_LOOKBACK_DAYS="
+        f"{args.dart_whole_market_max_days}",
+        f"TARGET_TICKERS={len(target_codes)}",
+        f"TARGET_FILE_COUNT={len(target_files)}",
+        f"DART_API_KEY_PRESENT={'true' if api_key else 'false'}",
+    ]
+
+    for filename, row_count in file_rows.items():
+        log_lines.append(
+            f"TARGET_FILE={filename}|rows={row_count}"
+        )
 
     hits: List[Dict[str, Any]] = []
-    dart_status: Dict[str, Any] = {}
-    limited_reason = ""
+    dart_status: Dict[str, Any] = {
+        "api_calls": 0,
+        "api_errors": [],
+    }
 
-    if lookback_capped:
-        limited_reason = f"DART_WHOLE_MARKET_LOOKBACK_CAPPED_{effective_lookback_days}D_FROM_{original_lookback_days}D"
-        log_lines.append(f"LOOKBACK_CAP_APPLIED original={original_lookback_days}, effective={effective_lookback_days}")
-
-    if not api_key:
-        status = "WARN_NO_DART_API_KEY"
-        limited_reason = "NO_DART_API_KEY"
-        log_lines.append("status=WARN_NO_DART_API_KEY")
-    elif not target_codes:
-        status = "WARN_NO_TARGET_TICKERS"
-        limited_reason = "NO_TARGET_TICKERS"
-        log_lines.append("status=WARN_NO_TARGET_TICKERS")
-    else:
+    if api_key and target_codes:
         hits, dart_status = fetch_dart_reports(
             api_key=api_key,
             target_codes=set(target_codes),
-            lookback_days=effective_lookback_days,
+            lookback_days=effective_days,
             max_pages=args.max_pages,
             sleep_seconds=args.sleep_seconds,
+            timeout=args.timeout,
         )
-        if dart_status.get("api_errors"):
-            status = "WARN_DART_PARTIAL_ERROR"
-        else:
-            status = "OK"
-        log_lines.append(f"dart_api_calls={dart_status.get('api_calls', 0)}")
-        log_lines.append(f"dart_api_error_count={len(dart_status.get('api_errors', []))}")
-        for error in dart_status.get("api_errors", [])[:20]:
-            log_lines.append(f"DART_ERROR {error}")
+
+    api_errors = list(
+        dart_status.get("api_errors", [])
+    )
+
+    (
+        check_status,
+        check_scope,
+        limited_reason,
+    ) = determine_check_state(
+        api_key_present=bool(api_key),
+        target_codes_present=bool(target_codes),
+        requested_days=requested_days,
+        effective_days=effective_days,
+        api_errors=api_errors,
+    )
 
     summary_df = build_summary(
         target_codes=target_codes,
@@ -569,44 +1067,106 @@ def main() -> int:
         file_map=file_map,
         hits=hits,
         checked_at=checked_at,
+        check_status=check_status,
+        check_scope=check_scope,
         limited_reason=limited_reason,
     )
 
     summary_map = {
         str(row["ticker"]): row.to_dict()
         for _, row in summary_df.iterrows()
-    } if not summary_df.empty else {}
+    }
 
-    enrich_results = [enrich_file(output_dir, filename, summary_map, checked_at) for filename in args.target_files]
+    enrich_results = [
+        enrich_file(
+            output_dir=output_dir,
+            filename=filename,
+            summary_map=summary_map,
+        )
+        for filename in target_files
+    ]
 
     hits_df = pd.DataFrame(hits)
-    summary_csv = output_dir / "supply_burden_summary_latest.csv"
-    hits_csv = output_dir / "supply_burden_hits_latest.csv"
-    json_path = output_dir / "supply_burden_latest.json"
-    log_path = output_dir / "supply_burden_run_log_latest.txt"
-
-    summary_df.to_csv(summary_csv, index=False, encoding="utf-8-sig")
     if hits_df.empty:
-        hits_df = pd.DataFrame(columns=["stock_code", "corp_name", "report_name", "rcept_dt", "rcept_no", "corp_cls", "keywords", "severity", "relief_flag"])
-    hits_df.to_csv(hits_csv, index=False, encoding="utf-8-sig")
+        hits_df = pd.DataFrame(
+            columns=[
+                "stock_code",
+                "corp_name",
+                "report_name",
+                "rcept_dt",
+                "rcept_no",
+                "corp_cls",
+                "keywords",
+                "severity",
+                "relief_flag",
+            ]
+        )
 
-    flagged_count = int((summary_df.get("supply_burden_flag") == "TRUE").sum()) if not summary_df.empty else 0
-    danger_count = int((summary_df.get("supply_burden_level") == "위험").sum()) if not summary_df.empty else 0
-    warning_count = int((summary_df.get("supply_burden_level") == "경계").sum()) if not summary_df.empty else 0
-    caution_count = int((summary_df.get("supply_burden_level") == "주의").sum()) if not summary_df.empty else 0
+    summary_csv = (
+        output_dir
+        / "supply_burden_summary_latest.csv"
+    )
+    hits_csv = (
+        output_dir
+        / "supply_burden_hits_latest.csv"
+    )
+    json_path = (
+        output_dir
+        / "supply_burden_latest.json"
+    )
+    log_path = (
+        output_dir
+        / "supply_burden_run_log_latest.txt"
+    )
+
+    write_csv_atomically(summary_df, summary_csv)
+    write_csv_atomically(hits_df, hits_csv)
+
+    if summary_df.empty:
+        detected_count = 0
+        danger_count = 0
+        warning_count = 0
+        caution_count = 0
+    else:
+        detected_count = int(
+            summary_df[
+                "supply_burden_detected"
+            ].eq("TRUE").sum()
+        )
+        danger_count = int(
+            summary_df[
+                "supply_burden_level"
+            ].eq("위험").sum()
+        )
+        warning_count = int(
+            summary_df[
+                "supply_burden_level"
+            ].eq("경계").sum()
+        )
+        caution_count = int(
+            summary_df[
+                "supply_burden_level"
+            ].eq("주의").sum()
+        )
 
     payload = {
         "script": SCRIPT_NAME,
+        "policy_version": POLICY_VERSION,
         "run_at_kst": checked_at,
-        "status": status,
+        "status": check_status,
+        "check_scope": check_scope,
+        "check_limited_reason": limited_reason,
         "output_dir": str(output_dir),
-        "original_lookback_days": original_lookback_days,
-        "effective_lookback_days": effective_lookback_days,
-        "dart_whole_market_max_days": args.dart_whole_market_max_days,
-        "lookback_capped": lookback_capped,
+        "requested_lookback_days": requested_days,
+        "effective_lookback_days": effective_days,
+        "dart_whole_market_max_days": (
+            args.dart_whole_market_max_days
+        ),
         "target_tickers": len(target_codes),
         "hit_reports": len(hits),
-        "flagged_tickers": flagged_count,
+        "supply_burden_detected_tickers": (
+            detected_count
+        ),
         "danger_tickers": danger_count,
         "warning_tickers": warning_count,
         "caution_tickers": caution_count,
@@ -618,39 +1178,92 @@ def main() -> int:
             "json": str(json_path),
             "log": str(log_path),
         },
-        "note": "공시 제목 기반 1차 수급부담 탐지. 본문 수량/발행가/행사비율 정밀판독 아님.",
+        "field_policy": {
+            "supply_check_status": (
+                "OK/LIMITED/FAILED"
+            ),
+            "supply_burden_detected": (
+                "TRUE/FALSE only"
+            ),
+            "supply_burden_flag": (
+                "TRUE/FALSE compatibility only"
+            ),
+            "check_limited_is_not_burden": True,
+        },
+        "note": (
+            "공시 제목 기반 1차 탐지이며 "
+            "공시 본문 수량·행사가격·잠재물량 "
+            "정밀판독은 후속 단계에서 수행합니다."
+        ),
     }
 
-    json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    json_path.write_text(
+        json.dumps(
+            payload,
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     log_lines.extend(
         [
-            f"status={status}",
-            f"summary_rows={len(summary_df)}",
-            f"hit_reports={len(hits)}",
-            f"flagged_tickers={flagged_count}",
-            f"danger_tickers={danger_count}",
-            f"warning_tickers={warning_count}",
-            f"caution_tickers={caution_count}",
-            f"output_summary={summary_csv}",
-            f"output_hits={hits_csv}",
-            f"output_json={json_path}",
+            f"SUPPLY_CHECK_STATUS={check_status}",
+            f"SUPPLY_CHECK_SCOPE={check_scope}",
+            "SUPPLY_CHECK_LIMITED_REASON="
+            f"{limited_reason}",
+            "DART_API_CALLS="
+            f"{dart_status.get('api_calls', 0)}",
+            f"DART_API_ERROR_COUNT={len(api_errors)}",
+            f"SUMMARY_ROWS={len(summary_df)}",
+            f"HIT_REPORTS={len(hits)}",
+            "SUPPLY_BURDEN_DETECTED_TICKERS="
+            f"{detected_count}",
+            f"DANGER_TICKERS={danger_count}",
+            f"WARNING_TICKERS={warning_count}",
+            f"CAUTION_TICKERS={caution_count}",
+            "CHECK_LIMITED_IN_BURDEN_FLAG=0",
+            f"OUTPUT_SUMMARY={summary_csv}",
+            f"OUTPUT_HITS={hits_csv}",
+            f"OUTPUT_JSON={json_path}",
         ]
     )
 
+    for error in api_errors[:20]:
+        log_lines.append(f"DART_ERROR={error}")
+
     for result in enrich_results:
         log_lines.append(
-            "ENRICH_FILE "
-            f"{result.get('file')}: "
-            f"status={result.get('status')}, "
-            f"rows={result.get('rows')}, "
-            f"matched_rows={result.get('matched_rows')}, "
-            f"flagged_rows={result.get('flagged_rows')}, "
-            f"note={result.get('note', '')}"
+            "ENRICH_FILE="
+            f"{result.get('file')}"
+            f"|status={result.get('status')}"
+            f"|rows={result.get('rows')}"
+            f"|matched_rows={result.get('matched_rows')}"
+            "|burden_detected_rows="
+            f"{result.get('burden_detected_rows')}"
+            "|check_limited_rows="
+            f"{result.get('check_limited_rows')}"
+            "|check_failed_rows="
+            f"{result.get('check_failed_rows')}"
+            f"|note={result.get('note', '')}"
         )
 
-    log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
-    print(json.dumps(payload, ensure_ascii=False, indent=2), flush=True)
+    log_path.write_text(
+        "\n".join(log_lines) + "\n",
+        encoding="utf-8",
+    )
+
+    print(
+        json.dumps(
+            payload,
+            ensure_ascii=False,
+            indent=2,
+        ),
+        flush=True,
+    )
+
+    # API 제한 또는 일부 오류는 자료상태로 표시하므로
+    # 파일 생성 자체가 성공했으면 종료코드는 0으로 유지한다.
     return 0
 
 

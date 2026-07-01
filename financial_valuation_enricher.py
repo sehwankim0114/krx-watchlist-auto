@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-financial_valuation_enricher.py v1.0.0
+financial_valuation_enricher.py v1.1.0-corp-identity-fix
 
 목적
-- 기존 OpenDART 기업코드 캐시와 단일회사 주요계정 API를 재사용한다.
+- OpenDART 공식 기업코드표를 우선 내려받고 회사명까지 검증한다.
 - 표에 필요한 최근 확정 실적·재무상태를 수집한다.
 - KRX 시가총액·상장주식수와 결합해 기초 밸류에이션을 계산한다.
 - 기존 임시 시장점수(legacy_market_score)와 v6 최종점수를 혼동하지 않는다.
@@ -46,7 +46,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 
-SCRIPT_VERSION = "financial_valuation_enricher.py v1.0.0"
+SCRIPT_VERSION = "financial_valuation_enricher.py v1.1.0-corp-identity-fix"
 POLICY_VERSION = "2026-07-01-v6.0-score-policy"
 KST = ZoneInfo("Asia/Seoul")
 
@@ -58,10 +58,10 @@ DART_CORP_CODE_URL = "https://opendart.fss.or.kr/api/corpCode.xml"
 CACHE_FILENAME = "financial_valuation_cache_latest.csv"
 RUN_LOG_FILENAME = "financial_valuation_run_log_latest.txt"
 
-CORP_CACHE_CANDIDATES = (
-    "dart_corp_code_cache_latest.csv",
-    "dart_corp_code_map_latest.csv",
-)
+# 기업코드표는 OpenDART 공식 corpCode.xml을 최우선으로 사용한다.
+# dart_corp_code_cache_latest.csv는 기업코드 원본표가 아닐 수 있으므로
+# 재무·밸류에이션 수집에서는 절대 사용하지 않는다.
+CORP_CODE_MAP_FILENAME = "dart_corp_code_map_latest.csv"
 
 # 전체 KOSPI/KOSDAQ 유니버스는 시가총액·상장주식수 보조자료로만 읽는다.
 MARKET_METRIC_FILES = (
@@ -111,6 +111,9 @@ OUTPUT_COLUMNS = [
     "market",
     "corp_code",
     "corp_name",
+    "corp_code_source",
+    "corp_identity_status",
+    "corp_identity_reason",
     "financial_data_status",
     "financial_source_status",
     "financial_basis",
@@ -150,6 +153,11 @@ OUTPUT_COLUMNS = [
 ]
 
 ENRICH_COLUMNS = [
+    "corp_code",
+    "corp_name",
+    "corp_code_source",
+    "corp_identity_status",
+    "corp_identity_reason",
     "financial_data_status",
     "financial_source_status",
     "financial_basis",
@@ -311,6 +319,69 @@ def normalize_text(value: Any) -> str:
         return ""
     text = str(value).strip()
     return "" if text.lower() in {"nan", "none", "null"} else text
+
+
+def normalize_company_name(value: Any) -> str:
+    """회사명 비교용 정규화."""
+    text = normalize_text(value).upper()
+    replacements = (
+        "주식회사",
+        "(주)",
+        "㈜",
+        "CO.,LTD.",
+        "CO., LTD.",
+        "CO LTD",
+        "CO.,LTD",
+        "CORPORATION",
+        "CORP.",
+        "CORP",
+        "INC.",
+        "INC",
+        "LIMITED",
+        "LTD.",
+        "LTD",
+    )
+    for token in replacements:
+        text = text.replace(token, "")
+    text = re.sub(r"[^0-9A-Z가-힣]", "", text)
+    return text
+
+
+def evaluate_corp_identity(
+    target_name: Any,
+    corp_name: Any,
+    source: Any,
+) -> Tuple[str, str]:
+    """
+    종목코드와 회사명 연결을 이중 확인한다.
+
+    - 공식 OpenDART corpCode.xml에서 내려받은 종목코드 매핑은
+      종목코드를 우선 신뢰하되 회사명 차이를 기록한다.
+    - 캐시 대체자료에서 회사명이 다르면 사용하지 않는다.
+    """
+    target = normalize_company_name(target_name)
+    corp = normalize_company_name(corp_name)
+    source_text = normalize_text(source)
+
+    if not target:
+        return "NAME_NOT_AVAILABLE", "대상 표에 회사명이 없어 종목코드만 확인"
+    if not corp:
+        return "CORP_NAME_MISSING", "OpenDART 회사명 누락"
+    if target == corp:
+        return "MATCH", "종목코드와 회사명 일치"
+    if target in corp or corp in target:
+        return "MATCH_NORMALIZED", "법인표기 제거 후 회사명 일치"
+
+    if source_text == "OPENDART_OFFICIAL_DOWNLOAD":
+        return (
+            "OFFICIAL_TICKER_NAME_DIFFERENCE",
+            f"공식 종목코드 매핑이나 회사명 차이: {target_name} / {corp_name}",
+        )
+
+    return (
+        "MISMATCH",
+        f"캐시 회사명 불일치: {target_name} / {corp_name}",
+    )
 
 
 def normalize_account_name(value: Any) -> str:
@@ -551,7 +622,86 @@ def download_corp_code_map(
             "corp_name": normalize_text(
                 item.findtext("corp_name")
             ),
+            "source": "OPENDART_OFFICIAL_DOWNLOAD",
+            "modify_date": normalize_text(
+                item.findtext("modify_date")
+            ),
         }
+    return mapping
+
+
+def write_official_corp_code_map(
+    output_dir: Path,
+    mapping: Mapping[str, Mapping[str, Any]],
+) -> None:
+    rows = []
+    for stock_code, info in sorted(mapping.items()):
+        rows.append(
+            {
+                "stock_code": stock_code,
+                "corp_code": normalize_text(
+                    info.get("corp_code", "")
+                ),
+                "corp_name": normalize_text(
+                    info.get("corp_name", "")
+                ),
+                "modify_date": normalize_text(
+                    info.get("modify_date", "")
+                ),
+                "source": "OPENDART_OFFICIAL_DOWNLOAD",
+            }
+        )
+    write_csv_atomically(
+        pd.DataFrame(rows),
+        output_dir / CORP_CODE_MAP_FILENAME,
+    )
+
+
+def load_validated_corp_code_cache(
+    output_dir: Path,
+    log_lines: List[str],
+) -> Dict[str, Dict[str, str]]:
+    path = output_dir / CORP_CODE_MAP_FILENAME
+    if not path.exists():
+        return {}
+
+    try:
+        df = read_csv_safely(path, dtype=str).fillna("")
+    except Exception as exc:
+        log_lines.append(
+            "corp_code_map_cache_warning="
+            f"{type(exc).__name__}:{exc}"
+        )
+        return {}
+
+    if (
+        "stock_code" not in df.columns
+        or "corp_code" not in df.columns
+        or "corp_name" not in df.columns
+    ):
+        log_lines.append(
+            "corp_code_map_cache_warning=INVALID_SCHEMA"
+        )
+        return {}
+
+    mapping: Dict[str, Dict[str, str]] = {}
+    for _, row in df.iterrows():
+        ticker = clean_ticker(row.get("stock_code", ""))
+        corp_code = normalize_text(
+            row.get("corp_code", "")
+        ).zfill(8)
+        corp_name = normalize_text(row.get("corp_name", ""))
+        if not ticker or not corp_code or not corp_name:
+            continue
+        mapping[ticker] = {
+            "corp_code": corp_code,
+            "corp_name": corp_name,
+            "source": "VALIDATED_CORP_CODE_MAP_CACHE",
+            "modify_date": normalize_text(
+                row.get("modify_date", "")
+            ),
+        }
+
     return mapping
 
 
@@ -561,42 +711,25 @@ def load_corp_code_map(
     timeout: int,
     log_lines: List[str],
 ) -> Dict[str, Dict[str, str]]:
-    for filename in CORP_CACHE_CANDIDATES:
-        path = output_dir / filename
-        if not path.exists():
-            continue
+    """
+    공식 OpenDART 기업코드표를 최우선으로 사용한다.
+
+    과거의 dart_corp_code_cache_latest.csv는 다른 목적의 캐시일 수
+    있으므로 이 함수에서 읽지 않는다.
+    """
+    if api_key:
         try:
-            df = read_csv_safely(path, dtype=str).fillna("")
-            stock_column = (
-                "stock_code"
-                if "stock_code" in df.columns
-                else "ticker"
-                if "ticker" in df.columns
-                else None
+            mapping = download_corp_code_map(
+                api_key,
+                timeout,
             )
-            if (
-                stock_column is None
-                or "corp_code" not in df.columns
-            ):
-                continue
-
-            mapping: Dict[str, Dict[str, str]] = {}
-            for _, row in df.iterrows():
-                ticker = clean_ticker(row.get(stock_column, ""))
-                corp_code = normalize_text(
-                    row.get("corp_code", "")
-                ).zfill(8)
-                if ticker and corp_code:
-                    mapping[ticker] = {
-                        "corp_code": corp_code,
-                        "corp_name": normalize_text(
-                            row.get("corp_name", "")
-                        ),
-                    }
-
             if mapping:
+                write_official_corp_code_map(
+                    output_dir,
+                    mapping,
+                )
                 log_lines.append(
-                    f"corp_code_source={filename}"
+                    "corp_code_source=OPENDART_OFFICIAL_DOWNLOAD"
                 )
                 log_lines.append(
                     f"corp_code_rows={len(mapping)}"
@@ -604,18 +737,26 @@ def load_corp_code_map(
                 return mapping
         except Exception as exc:
             log_lines.append(
-                "corp_code_cache_warning="
-                f"{filename}:{type(exc).__name__}:{exc}"
+                "corp_code_official_download_warning="
+                f"{type(exc).__name__}:{exc}"
             )
+
+    mapping = load_validated_corp_code_cache(
+        output_dir,
+        log_lines,
+    )
+    if mapping:
+        log_lines.append(
+            "corp_code_source=VALIDATED_CORP_CODE_MAP_CACHE"
+        )
+        log_lines.append(f"corp_code_rows={len(mapping)}")
+        return mapping
 
     if not api_key:
         log_lines.append("corp_code_source=NONE_NO_API_KEY")
-        return {}
-
-    mapping = download_corp_code_map(api_key, timeout)
-    log_lines.append("corp_code_source=OPENDART_DOWNLOAD")
-    log_lines.append(f"corp_code_rows={len(mapping)}")
-    return mapping
+    else:
+        log_lines.append("corp_code_source=NONE_DOWNLOAD_FAILED")
+    return {}
 
 
 def collect_target_metadata(
@@ -1085,6 +1226,15 @@ def blank_record(
             "corp_name": normalize_text(
                 corp_info.get("corp_name", "")
             ),
+            "corp_code_source": normalize_text(
+                corp_info.get("source", "")
+            ),
+            "corp_identity_status": (
+                "NO_CORP_CODE"
+                if not normalize_text(corp_info.get("corp_code", ""))
+                else "NOT_VERIFIED"
+            ),
+            "corp_identity_reason": source_status,
             "financial_data_status": "LIMITED",
             "financial_source_status": source_status,
             "financial_basis": "",
@@ -1126,6 +1276,23 @@ def fetch_financial_record(
             source_status="NO_CORP_CODE",
             target_key=target_key,
         )
+
+    identity_status, identity_reason = evaluate_corp_identity(
+        metadata.get("name", ""),
+        corp_info.get("corp_name", ""),
+        corp_info.get("source", ""),
+    )
+    if identity_status == "MISMATCH":
+        result = blank_record(
+            ticker=ticker,
+            metadata=metadata,
+            corp_info=corp_info,
+            source_status="CORP_IDENTITY_MISMATCH",
+            target_key=target_key,
+        )
+        result["corp_identity_status"] = identity_status
+        result["corp_identity_reason"] = identity_reason
+        return result
 
     last_status = "NO_FINANCIAL_DATA"
 
@@ -1194,6 +1361,11 @@ def fetch_financial_record(
                 "corp_name": normalize_text(
                     corp_info.get("corp_name", "")
                 ),
+                "corp_code_source": normalize_text(
+                    corp_info.get("source", "")
+                ),
+                "corp_identity_status": identity_status,
+                "corp_identity_reason": identity_reason,
                 "financial_data_status": financial_status,
                 "financial_source_status": "OK",
                 "financial_basis": report_label(
@@ -1515,8 +1687,22 @@ def run_self_test() -> int:
         == "PARTIAL_LOSS_PER_NA"
     )
 
+    status, _ = evaluate_corp_identity(
+        "DB하이텍",
+        "(주)DB하이텍",
+        "OPENDART_OFFICIAL_DOWNLOAD",
+    )
+    assert status in {"MATCH", "MATCH_NORMALIZED"}
+
+    status, _ = evaluate_corp_identity(
+        "DB하이텍",
+        "IBKS제25호스팩",
+        "VALIDATED_CORP_CODE_MAP_CACHE",
+    )
+    assert status == "MISMATCH"
+
     print("SELF_TEST_STATUS=OK")
-    print("TESTED=account_selection,financial_status,ratios,valuation")
+    print("TESTED=account_selection,financial_status,ratios,valuation,corp_identity")
     return 0
 
 
@@ -1736,6 +1922,11 @@ def main() -> int:
         .value_counts(dropna=False)
         .to_dict()
     )
+    identity_counts = (
+        cache_df["corp_identity_status"]
+        .value_counts(dropna=False)
+        .to_dict()
+    )
 
     log_lines.append(f"CACHE_OUTPUT_ROWS={len(cache_df)}")
     log_lines.append(f"SOURCE_STATUS_COUNTS={source_counts}")
@@ -1744,6 +1935,9 @@ def main() -> int:
     )
     log_lines.append(
         f"VALUATION_STATUS_COUNTS={valuation_counts}"
+    )
+    log_lines.append(
+        f"CORP_IDENTITY_STATUS_COUNTS={identity_counts}"
     )
 
     enriched_count = 0

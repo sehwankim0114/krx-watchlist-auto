@@ -1,0 +1,68 @@
+{
+  "script_version": "request_time_explanation_refresher.py v1.1.0-production-column-compatibility",
+  "policy_version": "2026-07-01-v6.0-request-time-explanation-refresh-v2",
+  "purpose": "요청시점 현재가 적용 뒤 가격 의존 설명을 기존 문장에 덧붙이지 않고 처음부터 다시 생성",
+  "preserve_fields": [
+    "final_score",
+    "legacy_market_score",
+    "financial_*",
+    "valuation_*",
+    "supply_*",
+    "operating_loss_*",
+    "official period low/high",
+    "value buy range",
+    "take profit range"
+  ],
+  "refresh_fields": [
+    "request_time_price",
+    "request_time_gap_pct",
+    "request_time_position_pct",
+    "request_time_position_label",
+    "request_time_price_zone",
+    "request_time_price_mark",
+    "request_time_final_recommendation_mark",
+    "request_time_price_explanation",
+    "request_time_position_explanation",
+    "request_time_day_move_explanation",
+    "request_time_final_reason"
+  ],
+  "position_thresholds_pct": {
+    "저점권": "<=20",
+    "저점권반등초입": ">20 and <=35",
+    "중간권": ">35 and <=65",
+    "중상단권": ">65 and <=80",
+    "상단권부담": ">80 and <=92",
+    "고점권과열": ">92"
+  },
+  "price_zone_order": [
+    "BELOW_BUY_ZONE",
+    "BUY_ZONE",
+    "ABOVE_BUY_ZONE",
+    "TAKE_PROFIT_ZONE",
+    "ABOVE_TARGET"
+  ],
+  "recommendation_policy": {
+    "principle": "가격은 정적 기업위험 등급을 개선할 수 없고 유지 또는 하향만 가능",
+    "buy_zone": "기본등급 유지 가능",
+    "below_buy_zone": "🟡 또는 기존보다 보수적",
+    "above_buy_zone": "🟡 눌림대기",
+    "take_profit_zone": "🔻 신규매수 부적합",
+    "above_target": "🔻 신규매수 부적합",
+    "quote_failed": "현재가 의존 판정 확인 불가"
+  },
+  "quote_failure_policy": {
+    "use_static_price_as_request_time_price": false,
+    "delete_failed_row": false,
+    "price_dependent_judgment": "확인 불가"
+  },
+  "text_policy": {
+    "append_old_reason_note": false,
+    "reuse_old_price_dependent_sentence": false,
+    "rewrite_dynamic_explanation_from_scratch": true,
+    "final_reason_order": [
+      "static score",
+      "verified static non-price reason",
+      "new request-time dynamic explanation"
+    ]
+  }
+}

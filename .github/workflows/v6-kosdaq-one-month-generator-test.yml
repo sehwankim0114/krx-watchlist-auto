@@ -1,0 +1,982 @@
+name: V6 KOSDAQ One-Month Generator Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-kosdaq-one-month-generator-test-main
+  cancel-in-progress: false
+
+jobs:
+  test-kosdaq-one-month-generator:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Python packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install pandas numpy
+
+      - name: Check generator and current summary prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f kosdaq_one_month.py
+          test -f latest/kosdaq_universe_summary_latest.csv
+
+          grep -q \
+            'v1.0.0-complete-one-month-fields-only' \
+            kosdaq_one_month.py
+
+          grep -q \
+            'RECOMMEND_SOURCE=candidate_top_10' \
+            kosdaq_one_month.py
+
+          grep -q \
+            'RECOMMEND_OUTSIDE_CANDIDATES=0' \
+            kosdaq_one_month.py
+
+          SUMMARY_BYTES="$(wc -c < latest/kosdaq_universe_summary_latest.csv)"
+          if [ "$SUMMARY_BYTES" -lt 1000 ]; then
+            echo "SUMMARY_FILE_TOO_SMALL_BYTES=$SUMMARY_BYTES"
+            exit 1
+          fi
+
+          echo "GENERATOR_VERSION=v1.0.0-complete-one-month-fields-only"
+          echo "SUMMARY_SOURCE=latest/kosdaq_universe_summary_latest.csv"
+          echo "SUMMARY_FILE_BYTES=$SUMMARY_BYTES"
+          echo "EMPTY_RAW_HISTORY_NOT_USED=true"
+          echo "KOSDAQ_ONE_MONTH_TEST_PREREQUISITES=OK"
+
+      - name: Compile and run generator self-test
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m py_compile kosdaq_one_month.py
+
+          python kosdaq_one_month.py --self-test \
+            | tee /tmp/kospi_one_month_self_test.txt
+
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/kospi_one_month_self_test.txt
+
+          grep -q \
+            'candidate_30' \
+            /tmp/kospi_one_month_self_test.txt
+
+          grep -q \
+            'recommend_7' \
+            /tmp/kospi_one_month_self_test.txt
+
+          grep -q \
+            'recommend_selected_only_from_top30' \
+            /tmp/kospi_one_month_self_test.txt
+
+          grep -q \
+            'one_month_position' \
+            /tmp/kospi_one_month_self_test.txt
+
+          echo "KOSDAQ_ONE_MONTH_GENERATOR_SELF_TEST=OK"
+
+      - name: Snapshot production files before isolated test
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf .test_kosdaq_one_month
+          mkdir -p .test_kosdaq_one_month/output
+
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+
+          protected = [
+              Path("latest/kosdaq_candidates_10_latest.csv"),
+              Path("latest/kosdaq_recommend_5_latest.csv"),
+              Path("latest/kosdaq_universe_summary_latest.csv"),
+              Path("latest/kosdaq_raw_history_latest.csv"),
+              Path("latest/kosdaq_1m_candidates_10_latest.csv"),
+              Path("latest/kosdaq_1m_recommend_5_latest.csv"),
+              Path("latest/kosdaq_1m_run_log_latest.txt"),
+              Path("latest/kosdaq_1m_status_latest.json"),
+          ]
+
+          def digest(path):
+              if not path.exists():
+                  return None
+              return hashlib.sha256(
+                  path.read_bytes()
+              ).hexdigest()
+
+          snapshot = {
+              str(path): digest(path)
+              for path in protected
+          }
+
+          Path(
+              ".test_kosdaq_one_month/"
+              "production_snapshot_before.json"
+          ).write_text(
+              json.dumps(snapshot, indent=2) + "\n",
+              encoding="utf-8",
+          )
+
+          print(
+              "PROTECTED_FILE_COUNT="
+              + str(len(protected))
+          )
+          print(
+              "PROTECTED_EXISTING_FILE_COUNT="
+              + str(
+                  sum(
+                      path.exists()
+                      for path in protected
+                  )
+              )
+          )
+          print("PRODUCTION_SNAPSHOT_BEFORE=OK")
+          PY
+
+      - name: Validate and copy current KOSDAQ summary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import pandas as pd
+
+          source_path = Path(
+              "latest/kosdaq_universe_summary_latest.csv"
+          )
+          test_path = Path(
+              ".test_kosdaq_one_month/"
+              "kosdaq_universe_summary_test.csv"
+          )
+
+          summary = pd.read_csv(
+              source_path,
+              encoding="utf-8-sig",
+              dtype={"ticker": str},
+          )
+
+          if summary.empty:
+              raise SystemExit(
+                  "KOSDAQ universe summary is empty"
+              )
+
+          required = {
+              "name",
+              "ticker",
+              "market",
+              "status",
+              "last_date",
+              "current_close",
+              "avg_daily_move_abs",
+              "avg_daily_move_pct",
+              "avg_wave_days",
+              "low_1m_intraday",
+              "high_1m_intraday",
+              "low_1m_close",
+              "high_1m_close",
+              "range_1m_pct",
+              "position_in_1m_range_pct",
+              "data_rows_1m",
+              "low_3m_intraday",
+              "high_3m_intraday",
+              "position_in_3m_range_pct",
+              "return_1m_pct",
+              "return_3m_pct",
+              "last_volume",
+              "avg20_trading_value",
+              "low_liquidity",
+              "market_cap",
+          }
+
+          missing = sorted(
+              required - set(summary.columns)
+          )
+          if missing:
+              raise SystemExit(
+                  "summary missing columns: "
+                  + ",".join(missing)
+              )
+
+          market = (
+              summary["market"]
+              .astype(str)
+              .str.upper()
+              .str.strip()
+          )
+          status = (
+              summary["status"]
+              .astype(str)
+              .str.upper()
+              .str.strip()
+          )
+          data_rows = pd.to_numeric(
+              summary["data_rows_1m"],
+              errors="coerce",
+          ).fillna(0)
+
+          usable = summary[
+              market.eq("KOSDAQ")
+              & status.eq("OK")
+              & data_rows.ge(15)
+          ].copy()
+
+          if len(usable) < 30:
+              raise SystemExit(
+                  "usable one-month rows below 30: "
+                  + str(len(usable))
+              )
+
+          numeric_fields = [
+              "low_1m_intraday",
+              "high_1m_intraday",
+              "range_1m_pct",
+              "position_in_1m_range_pct",
+              "return_1m_pct",
+          ]
+          numeric = {
+              field: pd.to_numeric(
+                  usable[field],
+                  errors="coerce",
+              )
+              for field in numeric_fields
+          }
+
+          complete_mask = pd.Series(
+              True,
+              index=usable.index,
+              dtype=bool,
+          )
+          for values in numeric.values():
+              complete_mask &= values.notna()
+
+          complete_mask &= numeric[
+              "low_1m_intraday"
+          ].gt(0)
+          complete_mask &= numeric[
+              "high_1m_intraday"
+          ].gt(
+              numeric["low_1m_intraday"]
+          )
+          complete_mask &= numeric[
+              "range_1m_pct"
+          ].gt(0)
+          complete_mask &= numeric[
+              "position_in_1m_range_pct"
+          ].between(
+              0,
+              100,
+              inclusive="both",
+          )
+
+          source_incomplete = int(
+              (~complete_mask).sum()
+          )
+          source_complete = int(
+              complete_mask.sum()
+          )
+
+          if source_complete < 10:
+              raise SystemExit(
+                  "complete one-month source rows below 10: "
+                  + str(source_complete)
+              )
+
+          source_versions = sorted(
+              set(
+                  usable.get(
+                      "source_used",
+                      pd.Series(dtype=str),
+                  )
+                  .astype(str)
+                  .dropna()
+              )
+          )
+          if source_versions and not any(
+              "one_month_metrics_v6" in version
+              for version in source_versions
+          ):
+              raise SystemExit(
+                  "summary was not produced by "
+                  "one_month_metrics_v6 collector"
+              )
+
+          summary.to_csv(
+              test_path,
+              index=False,
+              encoding="utf-8-sig",
+          )
+
+          dates = sorted(
+              set(
+                  usable["last_date"]
+                  .astype(str)
+                  .str.strip()
+              )
+          )
+
+          print(
+              f"CURRENT_SUMMARY_ROWS={len(summary)}"
+          )
+          print(
+              f"USABLE_ONE_MONTH_ROWS={len(usable)}"
+          )
+          print(
+              "SOURCE_INCOMPLETE_ONE_MONTH_ROWS="
+              + str(source_incomplete)
+          )
+          print(
+              "SOURCE_COMPLETE_ONE_MONTH_ROWS="
+              + str(source_complete)
+          )
+          print(
+              "CURRENT_SUMMARY_LAST_DATES="
+              + ",".join(dates[-5:])
+          )
+          print(
+              "ONE_MONTH_FIELD_COUNT=7"
+          )
+          print(
+              "ONE_MONTH_METRICS_COLLECTOR_VERSION_FOUND=true"
+          )
+          print(
+              "CURRENT_KOSDAQ_SUMMARY_VALIDATION=OK"
+          )
+          PY
+
+      - name: Run generator on isolated current KOSDAQ summary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python kosdaq_one_month.py \
+            --input \
+            .test_kosdaq_one_month/kosdaq_universe_summary_test.csv \
+            --output-dir \
+            .test_kosdaq_one_month/output \
+            --candidate-n 10 \
+            --recommend-n 5 \
+            | tee /tmp/kospi_one_month_live_test.txt
+
+          grep -q \
+            'KOSDAQ_ONE_MONTH_STATUS=OK' \
+            /tmp/kospi_one_month_live_test.txt
+
+          grep -q \
+            'ROWS_EXCLUDED_INCOMPLETE_ONE_MONTH=' \
+            /tmp/kospi_one_month_live_test.txt
+
+          grep -q \
+            'COMPLETE_ONE_MONTH_FIELDS_REQUIRED=' \
+            /tmp/kospi_one_month_live_test.txt
+
+          grep -q \
+            'CANDIDATE_ROWS=10' \
+            /tmp/kospi_one_month_live_test.txt
+
+          grep -q \
+            'RECOMMEND_ROWS=5' \
+            /tmp/kospi_one_month_live_test.txt
+
+          grep -q \
+            'POSITION_PERIOD=1개월' \
+            /tmp/kospi_one_month_live_test.txt
+
+          grep -q \
+            'THREE_MONTH_POSITION_REUSED=false' \
+            /tmp/kospi_one_month_live_test.txt
+
+          grep -q \
+            'RECOMMEND_SOURCE=candidate_top_10' \
+            /tmp/kospi_one_month_live_test.txt
+
+          grep -q \
+            'RECOMMEND_OUTSIDE_CANDIDATES=0' \
+            /tmp/kospi_one_month_live_test.txt
+
+          echo "ISOLATED_CURRENT_KOSDAQ_ONE_MONTH_GENERATION=OK"
+
+      - name: Verify candidate and recommendation outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import re
+          import pandas as pd
+
+          root = Path(".test_kosdaq_one_month")
+          output = root / "output"
+
+          summary = pd.read_csv(
+              root / "kosdaq_universe_summary_test.csv",
+              encoding="utf-8-sig",
+              dtype={"ticker": str},
+          )
+          candidates = pd.read_csv(
+              output / "kosdaq_1m_candidates_10_latest.csv",
+              encoding="utf-8-sig",
+              dtype={"code": str},
+          )
+          recommends = pd.read_csv(
+              output / "kosdaq_1m_recommend_5_latest.csv",
+              encoding="utf-8-sig",
+              dtype={"code": str},
+          )
+          status = json.loads(
+              (
+                  output / "kosdaq_1m_status_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+          log_text = (
+              output / "kosdaq_1m_run_log_latest.txt"
+          ).read_text(encoding="utf-8")
+
+          if len(candidates) != 10:
+              raise SystemExit(
+                  f"candidate count: {len(candidates)}"
+              )
+          if len(recommends) != 5:
+              raise SystemExit(
+                  f"recommend count: {len(recommends)}"
+              )
+
+          if not candidates["code"].is_unique:
+              raise SystemExit(
+                  "candidate codes are duplicated"
+              )
+          if not recommends["code"].is_unique:
+              raise SystemExit(
+                  "recommend codes are duplicated"
+              )
+
+          candidates["code"] = (
+              candidates["code"]
+              .astype(str)
+              .str.zfill(6)
+          )
+          recommends["code"] = (
+              recommends["code"]
+              .astype(str)
+              .str.zfill(6)
+          )
+
+          candidate_codes = set(
+              candidates["code"]
+          )
+          recommend_codes = set(
+              recommends["code"]
+          )
+          flagged_codes = set(
+              candidates.loc[
+                  candidates["recommend_flag"].eq("✅"),
+                  "code",
+              ]
+          )
+
+          if not recommend_codes.issubset(
+              candidate_codes
+          ):
+              raise SystemExit(
+                  "recommend row outside candidate 10"
+              )
+          if flagged_codes != recommend_codes:
+              raise SystemExit(
+                  "candidate checkmarks and "
+                  "recommend file differ"
+              )
+          if len(flagged_codes) != 5:
+              raise SystemExit(
+                  "candidate checkmark count: "
+                  + str(len(flagged_codes))
+              )
+
+          required_candidate_fields = {
+              "rank",
+              "recommend_flag",
+              "code",
+              "name",
+              "market",
+              "asof_date",
+              "close",
+              "buy_range",
+              "sell_range",
+              "low_1m",
+              "high_1m",
+              "range_1m_pct",
+              "position_in_1m_range_pct",
+              "current_position_period",
+              "return_1m_pct",
+              "avg_trading_value",
+              "one_month_market_score",
+              "one_month_market_reason",
+              "legacy_market_score",
+              "legacy_market_reason",
+          }
+          missing = sorted(
+              required_candidate_fields
+              - set(candidates.columns)
+          )
+          if missing:
+              raise SystemExit(
+                  "candidate fields missing: "
+                  + ",".join(missing)
+              )
+
+          if not candidates[
+              "current_position_period"
+          ].eq("1개월").all():
+              raise SystemExit(
+                  "current position period is not 1개월"
+              )
+
+          if not candidates[
+              "one_month_market_score"
+          ].between(0, 100).all():
+              raise SystemExit(
+                  "one-month score outside 0~100"
+              )
+
+          if not (
+              candidates["legacy_market_score"]
+              == candidates["one_month_market_score"]
+          ).all():
+              raise SystemExit(
+                  "legacy score alias mismatch"
+              )
+
+          if not (
+              candidates["legacy_market_reason"]
+              == candidates["one_month_market_reason"]
+          ).all():
+              raise SystemExit(
+                  "legacy reason alias mismatch"
+              )
+
+          source = summary.copy()
+          source["ticker"] = (
+              source["ticker"]
+              .astype(str)
+              .str.zfill(6)
+          )
+          source = source.drop_duplicates(
+              subset=["ticker"],
+              keep="first",
+          ).set_index("ticker")
+
+          compared = 0
+          differs_from_3m = 0
+
+          for _, row in candidates.iterrows():
+              code = row["code"]
+              if code not in source.index:
+                  raise SystemExit(
+                      f"candidate absent from source: {code}"
+                  )
+
+              src = source.loc[code]
+
+              expected_low = int(
+                  round(float(src["low_1m_intraday"]))
+              )
+              expected_high = int(
+                  round(float(src["high_1m_intraday"]))
+              )
+              actual_low = int(
+                  round(float(row["low_1m"]))
+              )
+              actual_high = int(
+                  round(float(row["high_1m"]))
+              )
+
+              if actual_low != expected_low:
+                  raise SystemExit(
+                      f"{code} one-month low mismatch: "
+                      f"{actual_low}!={expected_low}"
+                  )
+              if actual_high != expected_high:
+                  raise SystemExit(
+                      f"{code} one-month high mismatch: "
+                      f"{actual_high}!={expected_high}"
+                  )
+
+              expected_position = round(
+                  float(
+                      src[
+                          "position_in_1m_range_pct"
+                      ]
+                  ),
+                  2,
+              )
+              actual_position = round(
+                  float(
+                      row[
+                          "position_in_1m_range_pct"
+                      ]
+                  ),
+                  2,
+              )
+
+              if abs(
+                  actual_position - expected_position
+              ) > 0.01:
+                  raise SystemExit(
+                      f"{code} one-month position mismatch"
+                  )
+
+              three_month_position = pd.to_numeric(
+                  pd.Series(
+                      [
+                          src.get(
+                              "position_in_3m_range_pct"
+                          )
+                      ]
+                  ),
+                  errors="coerce",
+              ).iloc[0]
+
+              if (
+                  pd.notna(three_month_position)
+                  and abs(
+                      actual_position
+                      - float(three_month_position)
+                  )
+                  > 0.01
+              ):
+                  differs_from_3m += 1
+
+              compared += 1
+
+          if compared != 10:
+              raise SystemExit(
+                  "source comparison count: "
+                  + str(compared)
+              )
+          if differs_from_3m < 1:
+              raise SystemExit(
+                  "one-month position could not be "
+                  "distinguished from three-month position"
+              )
+
+          range_pattern = re.compile(
+              r"^\d{1,3}(?:,\d{3})*원~"
+              r"\d{1,3}(?:,\d{3})*원$"
+          )
+          for field in ("buy_range", "sell_range"):
+              invalid = [
+                  value
+                  for value in candidates[field].astype(str)
+                  if not range_pattern.match(value)
+              ]
+              if invalid:
+                  raise SystemExit(
+                      f"invalid {field}: {invalid[:3]}"
+                  )
+
+          if status.get("status") != "OK":
+              raise SystemExit(
+                  "status JSON is not OK"
+              )
+          if status.get("candidate_rows") != 10:
+              raise SystemExit(
+                  "status candidate_rows mismatch"
+              )
+          if status.get("recommend_rows") != 5:
+              raise SystemExit(
+                  "status recommend_rows mismatch"
+              )
+          if (
+              status.get("recommend_source")
+              != "candidate_top_10"
+          ):
+              raise SystemExit(
+                  "status recommend_source mismatch"
+              )
+          if (
+              status.get(
+                  "recommend_outside_candidates"
+              )
+              != 0
+          ):
+              raise SystemExit(
+                  "outside recommendation count mismatch"
+              )
+
+          excluded_incomplete = int(
+              status.get(
+                  "rows_excluded_incomplete_one_month",
+                  -1,
+              )
+          )
+          complete_pool = int(
+              status.get(
+                  "rows_after_one_month_data_filter",
+                  0,
+              )
+          )
+          required_complete_fields = status.get(
+              "complete_one_month_fields_required",
+              [],
+          )
+
+          if excluded_incomplete < 1:
+              raise SystemExit(
+                  "generator did not report excluded "
+                  "incomplete one-month rows"
+              )
+          if complete_pool < 10:
+              raise SystemExit(
+                  "complete candidate pool below 10"
+              )
+
+          expected_complete_fields = {
+              "low_1m_intraday",
+              "high_1m_intraday",
+              "range_1m_pct",
+              "position_in_1m_range_pct",
+              "return_1m_pct",
+          }
+          if set(required_complete_fields) != (
+              expected_complete_fields
+          ):
+              raise SystemExit(
+                  "complete one-month field contract mismatch"
+              )
+
+          for field in (
+              "low_1m",
+              "high_1m",
+              "range_1m_pct",
+              "position_in_1m_range_pct",
+          ):
+              if candidates[field].isna().any():
+                  raise SystemExit(
+                      f"candidate contains missing {field}"
+                  )
+
+          required_log = [
+              "POSITION_PERIOD=1개월",
+              "THREE_MONTH_POSITION_REUSED=false",
+              "RECOMMEND_SOURCE=candidate_top_10",
+              "RECOMMEND_OUTSIDE_CANDIDATES=0",
+              "ROWS_EXCLUDED_INCOMPLETE_ONE_MONTH=",
+              "COMPLETE_ONE_MONTH_FIELDS_REQUIRED=",
+              "CANDIDATE_ROWS=10",
+              "RECOMMEND_ROWS=5",
+          ]
+          for marker in required_log:
+              if marker not in log_text:
+                  raise SystemExit(
+                      f"run log missing: {marker}"
+                  )
+
+          print("CURRENT_CANDIDATE_ROWS=10")
+          print("CURRENT_RECOMMEND_ROWS=5")
+          print("CURRENT_CANDIDATE_UNIQUE_CODES=10")
+          print("CURRENT_RECOMMEND_UNIQUE_CODES=5")
+          print("CANDIDATE_CHECKMARK_COUNT=5")
+          print("RECOMMEND_OUTSIDE_CANDIDATES=0")
+          print(
+              "GENERATOR_EXCLUDED_INCOMPLETE_ONE_MONTH_ROWS="
+              + str(excluded_incomplete)
+          )
+          print(
+              "GENERATOR_COMPLETE_ONE_MONTH_POOL="
+              + str(complete_pool)
+          )
+          print(
+              "CANDIDATE_ONE_MONTH_MISSING_FIELDS=0"
+          )
+          print("ONE_MONTH_SOURCE_COMPARISON_ROWS=10")
+          print(
+              "ROWS_PROVING_ONE_MONTH_DIFFERS_FROM_3M="
+              + str(differs_from_3m)
+          )
+          print("ONE_MONTH_LOW_HIGH_MATCH_SOURCE=OK")
+          print("ONE_MONTH_POSITION_MATCH_SOURCE=OK")
+          print("PRICE_RANGE_FORMAT=OK")
+          print(
+              "CURRENT_KOSDAQ_ONE_MONTH_OUTPUT_VERIFICATION=OK"
+          )
+          PY
+
+      - name: Verify production files were not changed
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+
+          before = json.loads(
+              Path(
+                  ".test_kosdaq_one_month/"
+                  "production_snapshot_before.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          def digest(path):
+              if not path.exists():
+                  return None
+              return hashlib.sha256(
+                  path.read_bytes()
+              ).hexdigest()
+
+          changed = []
+          for name, expected in before.items():
+              actual = digest(Path(name))
+              if actual != expected:
+                  changed.append(
+                      {
+                          "path": name,
+                          "before": expected,
+                          "after": actual,
+                      }
+                  )
+
+          if changed:
+              raise SystemExit(
+                  "production files changed during "
+                  "isolated test: "
+                  + json.dumps(changed)
+              )
+
+          print("PRODUCTION_FILE_CHANGE_COUNT=0")
+          print("PRODUCTION_TABLES_CHANGED=false")
+          print("ISOLATED_TEST_BOUNDARY=OK")
+          PY
+
+      - name: Publish isolated KOSDAQ one-month test evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cp \
+            .test_kosdaq_one_month/output/kosdaq_1m_candidates_10_latest.csv \
+            latest/kosdaq_1m_generator_test_candidates_10_latest.csv
+
+          cp \
+            .test_kosdaq_one_month/output/kosdaq_1m_recommend_5_latest.csv \
+            latest/kosdaq_1m_generator_test_recommend_5_latest.csv
+
+          cp \
+            .test_kosdaq_one_month/output/kosdaq_1m_status_latest.json \
+            latest/kosdaq_1m_generator_test_status_latest.json
+
+          {
+            echo "SCRIPT_VERSION=v1.0.0-complete-one-month-fields-only"
+            echo "TEST_SCOPE=isolated_current_kospi_universe_summary"
+            echo "SOURCE_FILE=latest/kosdaq_universe_summary_latest.csv"
+            echo "EMPTY_RAW_HISTORY_NOT_USED=true"
+            echo "POSITION_PERIOD=1개월"
+            echo "ONE_MONTH_LOW_HIGH_SOURCE=low_1m_intraday,high_1m_intraday"
+            echo "ONE_MONTH_POSITION_SOURCE=position_in_1m_range_pct"
+            echo "THREE_MONTH_POSITION_REUSED=false"
+            echo "CANDIDATE_ROWS=10"
+            echo "RECOMMEND_ROWS=5"
+            echo "CANDIDATE_CHECKMARK_COUNT=5"
+            echo "RECOMMEND_SOURCE=candidate_top_10"
+            echo "RECOMMEND_OUTSIDE_CANDIDATES=0"
+            echo "INCOMPLETE_ONE_MONTH_ROWS_EXCLUDED=true"
+            echo "CANDIDATE_ONE_MONTH_MISSING_FIELDS=0"
+            echo "PRODUCTION_TABLES_CHANGED=false"
+            echo "LIVE_TEST_STATUS=OK"
+          } > \
+            latest/kosdaq_1m_generator_test_report_latest.txt
+
+          echo "----- KOSDAQ one-month corrected test report -----"
+          cat \
+            latest/kosdaq_1m_generator_test_report_latest.txt
+
+          echo "----- KOSDAQ one-month candidates sample -----"
+          head -n 8 \
+            latest/kosdaq_1m_generator_test_candidates_10_latest.csv
+
+          echo "----- KOSDAQ one-month recommendations -----"
+          cat \
+            latest/kosdaq_1m_generator_test_recommend_5_latest.csv
+
+      - name: Commit and push isolated test evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email \
+            "github-actions@users.noreply.github.com"
+
+          git add \
+            latest/kosdaq_1m_generator_test_candidates_10_latest.csv \
+            latest/kosdaq_1m_generator_test_recommend_5_latest.csv \
+            latest/kosdaq_1m_generator_test_status_latest.json \
+            latest/kosdaq_1m_generator_test_report_latest.txt
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            exit 0
+          fi
+
+          echo "CHANGED_FILES_BEGIN"
+          git diff --cached --name-status
+          echo "CHANGED_FILES_END"
+
+          git commit -m \
+            "Test KOSDAQ one-month candidate generator"
+
+          PUSHED=false
+          for attempt in 1 2 3; do
+            echo "PUSH_ATTEMPT=$attempt"
+            git fetch origin main
+
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              echo "REBASE_FAILED=true"
+              sleep $((attempt * 5))
+              continue
+            fi
+
+            if git push origin HEAD:main; then
+              PUSHED=true
+              break
+            fi
+
+            sleep $((attempt * 5))
+          done
+
+          if [ "$PUSHED" != "true" ]; then
+            echo "PUSH_SUCCESS=false"
+            exit 1
+          fi
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"

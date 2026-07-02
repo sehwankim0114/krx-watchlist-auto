@@ -43,7 +43,7 @@ jobs:
           test -f latest/kospi_universe_summary_latest.csv
 
           grep -q \
-            'v1.1.0-candidate-contained-recommendations' \
+            'v1.2.0-complete-one-month-fields-only' \
             kospi_one_month.py
 
           grep -q \
@@ -60,7 +60,7 @@ jobs:
             exit 1
           fi
 
-          echo "GENERATOR_VERSION=v1.1.0-candidate-contained-recommendations"
+          echo "GENERATOR_VERSION=v1.2.0-complete-one-month-fields-only"
           echo "SUMMARY_SOURCE=latest/kospi_universe_summary_latest.csv"
           echo "SUMMARY_FILE_BYTES=$SUMMARY_BYTES"
           echo "EMPTY_RAW_HISTORY_NOT_USED=true"
@@ -257,36 +257,54 @@ jobs:
               "high_1m_intraday",
               "range_1m_pct",
               "position_in_1m_range_pct",
+              "return_1m_pct",
           ]
-          for field in numeric_fields:
-              missing_count = int(
-                  pd.to_numeric(
-                      usable[field],
-                      errors="coerce",
-                  ).isna().sum()
-              )
-              if missing_count:
-                  raise SystemExit(
-                      f"{field} missing in usable rows: "
-                      f"{missing_count}"
-                  )
-
-          invalid_range = pd.to_numeric(
-              usable["high_1m_intraday"],
-              errors="coerce",
-          ).le(
-              pd.to_numeric(
-                  usable["low_1m_intraday"],
+          numeric = {
+              field: pd.to_numeric(
+                  usable[field],
                   errors="coerce",
               )
+              for field in numeric_fields
+          }
+
+          complete_mask = pd.Series(
+              True,
+              index=usable.index,
+              dtype=bool,
           )
-          invalid_range_count = int(
-              invalid_range.sum()
+          for values in numeric.values():
+              complete_mask &= values.notna()
+
+          complete_mask &= numeric[
+              "low_1m_intraday"
+          ].gt(0)
+          complete_mask &= numeric[
+              "high_1m_intraday"
+          ].gt(
+              numeric["low_1m_intraday"]
           )
-          if invalid_range_count:
+          complete_mask &= numeric[
+              "range_1m_pct"
+          ].gt(0)
+          complete_mask &= numeric[
+              "position_in_1m_range_pct"
+          ].between(
+              0,
+              100,
+              inclusive="both",
+          )
+
+          source_incomplete = int(
+              (~complete_mask).sum()
+          )
+          source_complete = int(
+              complete_mask.sum()
+          )
+
+          if source_complete < 30:
               raise SystemExit(
-                  "invalid one-month high/low rows: "
-                  + str(invalid_range_count)
+                  "complete one-month source rows below 30: "
+                  + str(source_complete)
               )
 
           source_versions = sorted(
@@ -329,6 +347,14 @@ jobs:
               f"USABLE_ONE_MONTH_ROWS={len(usable)}"
           )
           print(
+              "SOURCE_INCOMPLETE_ONE_MONTH_ROWS="
+              + str(source_incomplete)
+          )
+          print(
+              "SOURCE_COMPLETE_ONE_MONTH_ROWS="
+              + str(source_complete)
+          )
+          print(
               "CURRENT_SUMMARY_LAST_DATES="
               + ",".join(dates[-5:])
           )
@@ -359,6 +385,14 @@ jobs:
 
           grep -q \
             'KOSPI_ONE_MONTH_STATUS=OK' \
+            /tmp/kospi_one_month_live_test.txt
+
+          grep -q \
+            'ROWS_EXCLUDED_INCOMPLETE_ONE_MONTH=' \
+            /tmp/kospi_one_month_live_test.txt
+
+          grep -q \
+            'COMPLETE_ONE_MONTH_FIELDS_REQUIRED=' \
             /tmp/kospi_one_month_live_test.txt
 
           grep -q \
@@ -695,11 +729,65 @@ jobs:
                   "outside recommendation count mismatch"
               )
 
+          excluded_incomplete = int(
+              status.get(
+                  "rows_excluded_incomplete_one_month",
+                  -1,
+              )
+          )
+          complete_pool = int(
+              status.get(
+                  "rows_after_one_month_data_filter",
+                  0,
+              )
+          )
+          required_complete_fields = status.get(
+              "complete_one_month_fields_required",
+              [],
+          )
+
+          if excluded_incomplete < 1:
+              raise SystemExit(
+                  "generator did not report excluded "
+                  "incomplete one-month rows"
+              )
+          if complete_pool < 30:
+              raise SystemExit(
+                  "complete candidate pool below 30"
+              )
+
+          expected_complete_fields = {
+              "low_1m_intraday",
+              "high_1m_intraday",
+              "range_1m_pct",
+              "position_in_1m_range_pct",
+              "return_1m_pct",
+          }
+          if set(required_complete_fields) != (
+              expected_complete_fields
+          ):
+              raise SystemExit(
+                  "complete one-month field contract mismatch"
+              )
+
+          for field in (
+              "low_1m",
+              "high_1m",
+              "range_1m_pct",
+              "position_in_1m_range_pct",
+          ):
+              if candidates[field].isna().any():
+                  raise SystemExit(
+                      f"candidate contains missing {field}"
+                  )
+
           required_log = [
               "POSITION_PERIOD=1개월",
               "THREE_MONTH_POSITION_REUSED=false",
               "RECOMMEND_SOURCE=candidate_top_30",
               "RECOMMEND_OUTSIDE_CANDIDATES=0",
+              "ROWS_EXCLUDED_INCOMPLETE_ONE_MONTH=",
+              "COMPLETE_ONE_MONTH_FIELDS_REQUIRED=",
               "CANDIDATE_ROWS=30",
               "RECOMMEND_ROWS=7",
           ]
@@ -715,6 +803,17 @@ jobs:
           print("CURRENT_RECOMMEND_UNIQUE_CODES=7")
           print("CANDIDATE_CHECKMARK_COUNT=7")
           print("RECOMMEND_OUTSIDE_CANDIDATES=0")
+          print(
+              "GENERATOR_EXCLUDED_INCOMPLETE_ONE_MONTH_ROWS="
+              + str(excluded_incomplete)
+          )
+          print(
+              "GENERATOR_COMPLETE_ONE_MONTH_POOL="
+              + str(complete_pool)
+          )
+          print(
+              "CANDIDATE_ONE_MONTH_MISSING_FIELDS=0"
+          )
           print("ONE_MONTH_SOURCE_COMPARISON_ROWS=30")
           print(
               "ROWS_PROVING_ONE_MONTH_DIFFERS_FROM_3M="
@@ -794,7 +893,7 @@ jobs:
             latest/kospi_1m_generator_test_status_latest.json
 
           {
-            echo "SCRIPT_VERSION=v1.1.0-candidate-contained-recommendations"
+            echo "SCRIPT_VERSION=v1.2.0-complete-one-month-fields-only"
             echo "TEST_SCOPE=isolated_current_kospi_universe_summary"
             echo "SOURCE_FILE=latest/kospi_universe_summary_latest.csv"
             echo "EMPTY_RAW_HISTORY_NOT_USED=true"
@@ -807,6 +906,8 @@ jobs:
             echo "CANDIDATE_CHECKMARK_COUNT=7"
             echo "RECOMMEND_SOURCE=candidate_top_30"
             echo "RECOMMEND_OUTSIDE_CANDIDATES=0"
+            echo "INCOMPLETE_ONE_MONTH_ROWS_EXCLUDED=true"
+            echo "CANDIDATE_ONE_MONTH_MISSING_FIELDS=0"
             echo "PRODUCTION_TABLES_CHANGED=false"
             echo "LIVE_TEST_STATUS=OK"
           } > \

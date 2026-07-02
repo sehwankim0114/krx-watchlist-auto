@@ -32,16 +32,15 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          pip install pandas numpy requests python-dateutil python-dotenv
+          pip install pandas numpy
 
-      - name: Check generator and one-month collector prerequisites
+      - name: Check generator and current summary prerequisites
         shell: bash
         run: |
           set -euo pipefail
 
           test -f kospi_one_month.py
-          test -f collect_universe.py
-          test -f latest/kospi_raw_history_latest.csv
+          test -f latest/kospi_universe_summary_latest.csv
 
           grep -q \
             'v1.1.0-candidate-contained-recommendations' \
@@ -55,28 +54,16 @@ jobs:
             'RECOMMEND_OUTSIDE_CANDIDATES=0' \
             kospi_one_month.py
 
-          grep -q \
-            '"low_1m_intraday",' \
-            collect_universe.py
-
-          grep -q \
-            '"high_1m_intraday",' \
-            collect_universe.py
-
-          grep -q \
-            '"position_in_1m_range_pct",' \
-            collect_universe.py
-
-          grep -q \
-            '"data_rows_1m",' \
-            collect_universe.py
-
-          grep -q \
-            'def build_market_summary' \
-            collect_universe.py
+          SUMMARY_BYTES="$(wc -c < latest/kospi_universe_summary_latest.csv)"
+          if [ "$SUMMARY_BYTES" -lt 1000 ]; then
+            echo "SUMMARY_FILE_TOO_SMALL_BYTES=$SUMMARY_BYTES"
+            exit 1
+          fi
 
           echo "GENERATOR_VERSION=v1.1.0-candidate-contained-recommendations"
-          echo "COLLECTOR_ONE_MONTH_FIELDS=7"
+          echo "SUMMARY_SOURCE=latest/kospi_universe_summary_latest.csv"
+          echo "SUMMARY_FILE_BYTES=$SUMMARY_BYTES"
+          echo "EMPTY_RAW_HISTORY_NOT_USED=true"
           echo "KOSPI_ONE_MONTH_TEST_PREREQUISITES=OK"
 
       - name: Compile and run generator self-test
@@ -85,7 +72,6 @@ jobs:
           set -euo pipefail
 
           python -m py_compile kospi_one_month.py
-          python -m py_compile collect_universe.py
 
           python kospi_one_month.py --self-test \
             | tee /tmp/kospi_one_month_self_test.txt
@@ -130,9 +116,6 @@ jobs:
               Path("latest/kospi_recommend_7_latest.csv"),
               Path("latest/kospi_universe_summary_latest.csv"),
               Path("latest/kospi_raw_history_latest.csv"),
-          ]
-
-          optional_future = [
               Path("latest/kospi_1m_candidates_30_latest.csv"),
               Path("latest/kospi_1m_recommend_7_latest.csv"),
               Path("latest/kospi_1m_run_log_latest.txt"),
@@ -142,11 +125,13 @@ jobs:
           def digest(path):
               if not path.exists():
                   return None
-              return hashlib.sha256(path.read_bytes()).hexdigest()
+              return hashlib.sha256(
+                  path.read_bytes()
+              ).hexdigest()
 
           snapshot = {
               str(path): digest(path)
-              for path in protected + optional_future
+              for path in protected
           }
 
           Path(
@@ -158,6 +143,10 @@ jobs:
           )
 
           print(
+              "PROTECTED_FILE_COUNT="
+              + str(len(protected))
+          )
+          print(
               "PROTECTED_EXISTING_FILE_COUNT="
               + str(
                   sum(
@@ -166,96 +155,38 @@ jobs:
                   )
               )
           )
-          print(
-              "FUTURE_PRODUCTION_FILE_COUNT_BEFORE="
-              + str(
-                  sum(
-                      path.exists()
-                      for path in optional_future
-                  )
-              )
-          )
           print("PRODUCTION_SNAPSHOT_BEFORE=OK")
           PY
 
-      - name: Rebuild isolated real KOSPI one-month summary
+      - name: Validate and copy current KOSPI summary
         shell: bash
         run: |
           set -euo pipefail
 
           python - <<'PY'
           from pathlib import Path
-          import importlib.util
-          import json
           import pandas as pd
 
-          raw_path = Path(
-              "latest/kospi_raw_history_latest.csv"
+          source_path = Path(
+              "latest/kospi_universe_summary_latest.csv"
           )
-          output_path = Path(
+          test_path = Path(
               ".test_kospi_one_month/"
               "kospi_universe_summary_test.csv"
           )
-          log_path = Path(
-              ".test_kospi_one_month/"
-              "summary_rebuild_log.txt"
-          )
 
-          raw = pd.read_csv(
-              raw_path,
+          summary = pd.read_csv(
+              source_path,
               encoding="utf-8-sig",
               dtype={"ticker": str},
           )
 
-          if raw.empty:
-              raise SystemExit(
-                  "real KOSPI raw history is empty"
-              )
-
-          required_raw = {
-              "date",
-              "ticker",
-              "name",
-              "market",
-              "close",
-              "low",
-              "high",
-              "volume",
-              "trading_value",
-              "market_cap",
-              "listed_shares",
-          }
-          missing_raw = sorted(
-              required_raw - set(raw.columns)
-          )
-          if missing_raw:
-              raise SystemExit(
-                  "raw history missing columns: "
-                  + ",".join(missing_raw)
-              )
-
-          spec = importlib.util.spec_from_file_location(
-              "collect_universe",
-              "collect_universe.py",
-          )
-          module = importlib.util.module_from_spec(spec)
-          assert spec.loader is not None
-          spec.loader.exec_module(module)
-
-          log_lines = []
-          summary = module.build_market_summary(
-              raw,
-              "KOSPI",
-              5_000_000_000,
-              log_lines,
-          )
-
           if summary.empty:
               raise SystemExit(
-                  "isolated KOSPI summary rebuild is empty"
+                  "KOSPI universe summary is empty"
               )
 
-          required_summary = {
+          required = {
               "name",
               "ticker",
               "market",
@@ -282,45 +213,52 @@ jobs:
               "low_liquidity",
               "market_cap",
           }
-          missing_summary = sorted(
-              required_summary - set(summary.columns)
+
+          missing = sorted(
+              required - set(summary.columns)
           )
-          if missing_summary:
+          if missing:
               raise SystemExit(
-                  "rebuilt summary missing fields: "
-                  + ",".join(missing_summary)
+                  "summary missing columns: "
+                  + ",".join(missing)
               )
 
-          summary.to_csv(
-              output_path,
-              index=False,
-              encoding="utf-8-sig",
+          market = (
+              summary["market"]
+              .astype(str)
+              .str.upper()
+              .str.strip()
           )
-          log_path.write_text(
-              "\n".join(log_lines) + "\n",
-              encoding="utf-8",
+          status = (
+              summary["status"]
+              .astype(str)
+              .str.upper()
+              .str.strip()
           )
+          data_rows = pd.to_numeric(
+              summary["data_rows_1m"],
+              errors="coerce",
+          ).fillna(0)
 
           usable = summary[
-              summary["status"].astype(str).eq("OK")
-              & pd.to_numeric(
-                  summary["data_rows_1m"],
-                  errors="coerce",
-              ).fillna(0).ge(15)
+              market.eq("KOSPI")
+              & status.eq("OK")
+              & data_rows.ge(15)
           ].copy()
 
           if len(usable) < 30:
               raise SystemExit(
-                  "fewer than 30 usable KOSPI rows: "
+                  "usable one-month rows below 30: "
                   + str(len(usable))
               )
 
-          for field in (
+          numeric_fields = [
               "low_1m_intraday",
               "high_1m_intraday",
               "range_1m_pct",
               "position_in_1m_range_pct",
-          ):
+          ]
+          for field in numeric_fields:
               missing_count = int(
                   pd.to_numeric(
                       usable[field],
@@ -333,44 +271,79 @@ jobs:
                       f"{missing_count}"
                   )
 
-          date_values = pd.to_datetime(
-              raw["date"],
+          invalid_range = pd.to_numeric(
+              usable["high_1m_intraday"],
               errors="coerce",
-          ).dropna()
+          ).le(
+              pd.to_numeric(
+                  usable["low_1m_intraday"],
+                  errors="coerce",
+              )
+          )
+          invalid_range_count = int(
+              invalid_range.sum()
+          )
+          if invalid_range_count:
+              raise SystemExit(
+                  "invalid one-month high/low rows: "
+                  + str(invalid_range_count)
+              )
+
+          source_versions = sorted(
+              set(
+                  usable.get(
+                      "source_used",
+                      pd.Series(dtype=str),
+                  )
+                  .astype(str)
+                  .dropna()
+              )
+          )
+          if source_versions and not any(
+              "one_month_metrics_v6" in version
+              for version in source_versions
+          ):
+              raise SystemExit(
+                  "summary was not produced by "
+                  "one_month_metrics_v6 collector"
+              )
+
+          summary.to_csv(
+              test_path,
+              index=False,
+              encoding="utf-8-sig",
+          )
+
+          dates = sorted(
+              set(
+                  usable["last_date"]
+                  .astype(str)
+                  .str.strip()
+              )
+          )
 
           print(
-              f"REAL_RAW_HISTORY_ROWS={len(raw)}"
+              f"CURRENT_SUMMARY_ROWS={len(summary)}"
           )
           print(
-              "REAL_RAW_HISTORY_TICKERS="
-              f"{raw['ticker'].nunique()}"
+              f"USABLE_ONE_MONTH_ROWS={len(usable)}"
           )
           print(
-              "REAL_RAW_HISTORY_FIRST_DATE="
-              f"{date_values.min().date()}"
+              "CURRENT_SUMMARY_LAST_DATES="
+              + ",".join(dates[-5:])
           )
           print(
-              "REAL_RAW_HISTORY_LAST_DATE="
-              f"{date_values.max().date()}"
+              "ONE_MONTH_FIELD_COUNT=7"
           )
           print(
-              f"REBUILT_KOSPI_SUMMARY_ROWS="
-              f"{len(summary)}"
+              "ONE_MONTH_METRICS_COLLECTOR_VERSION_FOUND=true"
           )
           print(
-              f"USABLE_ONE_MONTH_ROWS="
-              f"{len(usable)}"
-          )
-          print(
-              "ONE_MONTH_SUMMARY_SOURCE="
-              "latest/kospi_raw_history_latest.csv"
-          )
-          print(
-              "ISOLATED_REAL_KOSPI_SUMMARY_REBUILD=OK"
+              "CURRENT_KOSPI_SUMMARY_VALIDATION=OK"
           )
           PY
 
-      - name: Run generator on isolated real KOSPI summary
+      - name: Run generator on isolated current KOSPI summary
         shell: bash
         run: |
           set -euo pipefail
@@ -412,9 +385,9 @@ jobs:
             'RECOMMEND_OUTSIDE_CANDIDATES=0' \
             /tmp/kospi_one_month_live_test.txt
 
-          echo "ISOLATED_REAL_KOSPI_ONE_MONTH_GENERATION=OK"
+          echo "ISOLATED_CURRENT_KOSPI_ONE_MONTH_GENERATION=OK"
 
-      - name: Verify real candidate and recommendation outputs
+      - name: Verify candidate and recommendation outputs
         shell: bash
         run: |
           set -euo pipefail
@@ -470,33 +443,45 @@ jobs:
                   "recommend codes are duplicated"
               )
 
+          candidates["code"] = (
+              candidates["code"]
+              .astype(str)
+              .str.zfill(6)
+          )
+          recommends["code"] = (
+              recommends["code"]
+              .astype(str)
+              .str.zfill(6)
+          )
+
           candidate_codes = set(
-              candidates["code"].str.zfill(6)
+              candidates["code"]
           )
           recommend_codes = set(
-              recommends["code"].str.zfill(6)
+              recommends["code"]
           )
           flagged_codes = set(
               candidates.loc[
                   candidates["recommend_flag"].eq("✅"),
                   "code",
-              ].str.zfill(6)
+              ]
           )
 
           if not recommend_codes.issubset(
               candidate_codes
           ):
               raise SystemExit(
-                  "recommend row exists outside candidate 30"
+                  "recommend row outside candidate 30"
               )
           if flagged_codes != recommend_codes:
               raise SystemExit(
-                  "candidate checkmarks and recommend file differ"
+                  "candidate checkmarks and "
+                  "recommend file differ"
               )
           if len(flagged_codes) != 7:
               raise SystemExit(
-                  f"candidate checkmark count: "
-                  f"{len(flagged_codes)}"
+                  "candidate checkmark count: "
+                  + str(len(flagged_codes))
               )
 
           required_candidate_fields = {
@@ -552,6 +537,7 @@ jobs:
               raise SystemExit(
                   "legacy score alias mismatch"
               )
+
           if not (
               candidates["legacy_market_reason"]
               == candidates["one_month_market_reason"]
@@ -562,23 +548,26 @@ jobs:
 
           source = summary.copy()
           source["ticker"] = (
-              source["ticker"].astype(str).str.zfill(6)
+              source["ticker"]
+              .astype(str)
+              .str.zfill(6)
           )
-          source = source.set_index("ticker")
+          source = source.drop_duplicates(
+              subset=["ticker"],
+              keep="first",
+          ).set_index("ticker")
 
           compared = 0
-          different_from_3m = 0
+          differs_from_3m = 0
 
           for _, row in candidates.iterrows():
-              code = str(row["code"]).zfill(6)
+              code = row["code"]
               if code not in source.index:
                   raise SystemExit(
                       f"candidate absent from source: {code}"
                   )
 
               src = source.loc[code]
-              if isinstance(src, pd.DataFrame):
-                  src = src.iloc[0]
 
               expected_low = int(
                   round(float(src["low_1m_intraday"]))
@@ -586,8 +575,12 @@ jobs:
               expected_high = int(
                   round(float(src["high_1m_intraday"]))
               )
-              actual_low = int(round(float(row["low_1m"])))
-              actual_high = int(round(float(row["high_1m"])))
+              actual_low = int(
+                  round(float(row["low_1m"]))
+              )
+              actual_high = int(
+                  round(float(row["high_1m"]))
+              )
 
               if actual_low != expected_low:
                   raise SystemExit(
@@ -616,6 +609,7 @@ jobs:
                   ),
                   2,
               )
+
               if abs(
                   actual_position - expected_position
               ) > 0.01:
@@ -633,6 +627,7 @@ jobs:
                   ),
                   errors="coerce",
               ).iloc[0]
+
               if (
                   pd.notna(three_month_position)
                   and abs(
@@ -641,18 +636,19 @@ jobs:
                   )
                   > 0.01
               ):
-                  different_from_3m += 1
+                  differs_from_3m += 1
 
               compared += 1
 
           if compared != 30:
               raise SystemExit(
-                  f"source comparison count: {compared}"
+                  "source comparison count: "
+                  + str(compared)
               )
-          if different_from_3m < 1:
+          if differs_from_3m < 1:
               raise SystemExit(
-                  "could not prove one-month position differs "
-                  "from three-month position"
+                  "one-month position could not be "
+                  "distinguished from three-month position"
               )
 
           range_pattern = re.compile(
@@ -713,21 +709,23 @@ jobs:
                       f"run log missing: {marker}"
                   )
 
-          print("REAL_CANDIDATE_ROWS=30")
-          print("REAL_RECOMMEND_ROWS=7")
-          print("REAL_CANDIDATE_UNIQUE_CODES=30")
-          print("REAL_RECOMMEND_UNIQUE_CODES=7")
+          print("CURRENT_CANDIDATE_ROWS=30")
+          print("CURRENT_RECOMMEND_ROWS=7")
+          print("CURRENT_CANDIDATE_UNIQUE_CODES=30")
+          print("CURRENT_RECOMMEND_UNIQUE_CODES=7")
           print("CANDIDATE_CHECKMARK_COUNT=7")
           print("RECOMMEND_OUTSIDE_CANDIDATES=0")
           print("ONE_MONTH_SOURCE_COMPARISON_ROWS=30")
           print(
               "ROWS_PROVING_ONE_MONTH_DIFFERS_FROM_3M="
-              + str(different_from_3m)
+              + str(differs_from_3m)
           )
           print("ONE_MONTH_LOW_HIGH_MATCH_SOURCE=OK")
           print("ONE_MONTH_POSITION_MATCH_SOURCE=OK")
           print("PRICE_RANGE_FORMAT=OK")
-          print("REAL_KOSPI_ONE_MONTH_OUTPUT_VERIFICATION=OK")
+          print(
+              "CURRENT_KOSPI_ONE_MONTH_OUTPUT_VERIFICATION=OK"
+          )
           PY
 
       - name: Verify production files were not changed
@@ -768,7 +766,8 @@ jobs:
 
           if changed:
               raise SystemExit(
-                  "production files changed during isolated test: "
+                  "production files changed during "
+                  "isolated test: "
                   + json.dumps(changed)
               )
 
@@ -796,9 +795,9 @@ jobs:
 
           {
             echo "SCRIPT_VERSION=v1.1.0-candidate-contained-recommendations"
-            echo "TEST_SCOPE=isolated_real_kospi_raw_history"
-            echo "SOURCE_FILE=latest/kospi_raw_history_latest.csv"
-            echo "SUMMARY_REBUILT_WITH=collect_universe.build_market_summary"
+            echo "TEST_SCOPE=isolated_current_kospi_universe_summary"
+            echo "SOURCE_FILE=latest/kospi_universe_summary_latest.csv"
+            echo "EMPTY_RAW_HISTORY_NOT_USED=true"
             echo "POSITION_PERIOD=1개월"
             echo "ONE_MONTH_LOW_HIGH_SOURCE=low_1m_intraday,high_1m_intraday"
             echo "ONE_MONTH_POSITION_SOURCE=position_in_1m_range_pct"
@@ -813,11 +812,11 @@ jobs:
           } > \
             latest/kospi_1m_generator_test_report_latest.txt
 
-          echo "----- KOSPI one-month test report -----"
+          echo "----- KOSPI one-month corrected test report -----"
           cat \
             latest/kospi_1m_generator_test_report_latest.txt
 
-          echo "----- KOSPI one-month candidates -----"
+          echo "----- KOSPI one-month candidates sample -----"
           head -n 8 \
             latest/kospi_1m_generator_test_candidates_30_latest.csv
 

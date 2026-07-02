@@ -74,27 +74,27 @@ jobs:
           python -m py_compile kosdaq_one_month.py
 
           python kosdaq_one_month.py --self-test \
-            | tee /tmp/kospi_one_month_self_test.txt
+            | tee /tmp/kosdaq_one_month_self_test.txt
 
           grep -q \
             'SELF_TEST_STATUS=OK' \
-            /tmp/kospi_one_month_self_test.txt
+            /tmp/kosdaq_one_month_self_test.txt
 
           grep -q \
-            'candidate_30' \
-            /tmp/kospi_one_month_self_test.txt
+            'candidate_10' \
+            /tmp/kosdaq_one_month_self_test.txt
 
           grep -q \
-            'recommend_7' \
-            /tmp/kospi_one_month_self_test.txt
+            'recommend_5' \
+            /tmp/kosdaq_one_month_self_test.txt
 
           grep -q \
-            'recommend_selected_only_from_top30' \
-            /tmp/kospi_one_month_self_test.txt
+            'recommend_selected_only_from_top10' \
+            /tmp/kosdaq_one_month_self_test.txt
 
           grep -q \
             'one_month_position' \
-            /tmp/kospi_one_month_self_test.txt
+            /tmp/kosdaq_one_month_self_test.txt
 
           echo "KOSDAQ_ONE_MONTH_GENERATOR_SELF_TEST=OK"
 
@@ -246,9 +246,9 @@ jobs:
               & data_rows.ge(15)
           ].copy()
 
-          if len(usable) < 30:
+          if len(usable) < 10:
               raise SystemExit(
-                  "usable one-month rows below 30: "
+                  "usable one-month rows below 10: "
                   + str(len(usable))
               )
 
@@ -381,43 +381,43 @@ jobs:
             .test_kosdaq_one_month/output \
             --candidate-n 10 \
             --recommend-n 5 \
-            | tee /tmp/kospi_one_month_live_test.txt
+            | tee /tmp/kosdaq_one_month_live_test.txt
 
           grep -q \
             'KOSDAQ_ONE_MONTH_STATUS=OK' \
-            /tmp/kospi_one_month_live_test.txt
+            /tmp/kosdaq_one_month_live_test.txt
 
           grep -q \
             'ROWS_EXCLUDED_INCOMPLETE_ONE_MONTH=' \
-            /tmp/kospi_one_month_live_test.txt
+            /tmp/kosdaq_one_month_live_test.txt
 
           grep -q \
             'COMPLETE_ONE_MONTH_FIELDS_REQUIRED=' \
-            /tmp/kospi_one_month_live_test.txt
+            /tmp/kosdaq_one_month_live_test.txt
 
           grep -q \
             'CANDIDATE_ROWS=10' \
-            /tmp/kospi_one_month_live_test.txt
+            /tmp/kosdaq_one_month_live_test.txt
 
           grep -q \
             'RECOMMEND_ROWS=5' \
-            /tmp/kospi_one_month_live_test.txt
+            /tmp/kosdaq_one_month_live_test.txt
 
           grep -q \
             'POSITION_PERIOD=1개월' \
-            /tmp/kospi_one_month_live_test.txt
+            /tmp/kosdaq_one_month_live_test.txt
 
           grep -q \
             'THREE_MONTH_POSITION_REUSED=false' \
-            /tmp/kospi_one_month_live_test.txt
+            /tmp/kosdaq_one_month_live_test.txt
 
           grep -q \
             'RECOMMEND_SOURCE=candidate_top_10' \
-            /tmp/kospi_one_month_live_test.txt
+            /tmp/kosdaq_one_month_live_test.txt
 
           grep -q \
             'RECOMMEND_OUTSIDE_CANDIDATES=0' \
-            /tmp/kospi_one_month_live_test.txt
+            /tmp/kosdaq_one_month_live_test.txt
 
           echo "ISOLATED_CURRENT_KOSDAQ_ONE_MONTH_GENERATION=OK"
 
@@ -894,7 +894,7 @@ jobs:
 
           {
             echo "SCRIPT_VERSION=v1.0.0-complete-one-month-fields-only"
-            echo "TEST_SCOPE=isolated_current_kospi_universe_summary"
+            echo "TEST_SCOPE=isolated_current_kosdaq_universe_summary"
             echo "SOURCE_FILE=latest/kosdaq_universe_summary_latest.csv"
             echo "EMPTY_RAW_HISTORY_NOT_USED=true"
             echo "POSITION_PERIOD=1개월"

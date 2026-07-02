@@ -38,8 +38,8 @@ import numpy as np
 import pandas as pd
 
 
-SCRIPT_VERSION = "kospi_one_month.py v1.1.0-candidate-contained-recommendations"
-POLICY_VERSION = "2026-07-02-v6.0-kospi-one-month-value-candidates-v2"
+SCRIPT_VERSION = "kospi_one_month.py v1.2.0-complete-one-month-fields-only"
+POLICY_VERSION = "2026-07-03-v6.0-kospi-one-month-value-candidates-v3"
 KST = timezone(timedelta(hours=9))
 
 OUTPUT_COLUMNS = [
@@ -96,6 +96,14 @@ REQUIRED_INPUT_COLUMNS = {
     "market_cap",
     "data_rows_1m",
 }
+
+COMPLETE_ONE_MONTH_NUMERIC_FIELDS = (
+    "low_1m_intraday",
+    "high_1m_intraday",
+    "range_1m_pct",
+    "position_in_1m_range_pct",
+    "return_1m_pct",
+)
 
 
 def now_kst() -> str:
@@ -617,17 +625,58 @@ def build_candidates(
     ].copy()
     after_exclusion = len(frame)
 
+    data_rows_1m = pd.to_numeric(
+        frame["data_rows_1m"],
+        errors="coerce",
+    ).fillna(0)
     frame = frame[
-        pd.to_numeric(
-            frame["data_rows_1m"],
-            errors="coerce",
-        ).fillna(0) >= 15
+        data_rows_1m >= 15
     ].copy()
-    after_data_filter = len(frame)
+    after_data_rows_filter = len(frame)
+
+    # 후보 점수와 매수·익절구간에 필요한 1개월 수치가
+    # 하나라도 비어 있으면 후보 모집단에서 명시적으로 제외한다.
+    numeric_1m = {
+        field: pd.to_numeric(
+            frame[field],
+            errors="coerce",
+        )
+        for field in COMPLETE_ONE_MONTH_NUMERIC_FIELDS
+    }
+    complete_mask = pd.Series(
+        True,
+        index=frame.index,
+        dtype=bool,
+    )
+    for values in numeric_1m.values():
+        complete_mask &= values.notna()
+
+    complete_mask &= numeric_1m[
+        "low_1m_intraday"
+    ].gt(0)
+    complete_mask &= numeric_1m[
+        "high_1m_intraday"
+    ].gt(
+        numeric_1m["low_1m_intraday"]
+    )
+    complete_mask &= numeric_1m[
+        "range_1m_pct"
+    ].gt(0)
+    complete_mask &= numeric_1m[
+        "position_in_1m_range_pct"
+    ].between(0, 100, inclusive="both")
+
+    incomplete_one_month_rows = int(
+        (~complete_mask).sum()
+    )
+    frame = frame[
+        complete_mask
+    ].copy()
+    after_complete_filter = len(frame)
 
     if len(frame) < candidate_n:
         raise ValueError(
-            f"Usable KOSPI one-month rows are insufficient: "
+            "Complete KOSPI one-month rows are insufficient: "
             f"{len(frame)} < {candidate_n}"
         )
 
@@ -744,8 +793,17 @@ def build_candidates(
         "input_rows": int(len(summary)),
         "kospi_ok_rows_before_exclusion": int(before_exclusion),
         "rows_after_security_exclusion": int(after_exclusion),
+        "rows_after_data_rows_filter": int(
+            after_data_rows_filter
+        ),
+        "rows_excluded_incomplete_one_month": int(
+            incomplete_one_month_rows
+        ),
         "rows_after_one_month_data_filter": int(
-            after_data_filter
+            after_complete_filter
+        ),
+        "complete_one_month_fields_required": list(
+            COMPLETE_ONE_MONTH_NUMERIC_FIELDS
         ),
         "candidate_rows": int(len(candidates)),
         "recommend_rows": int(len(recommends)),
@@ -829,8 +887,24 @@ def write_outputs(
             f"{metadata['rows_after_security_exclusion']}"
         ),
         (
+            "ROWS_AFTER_DATA_ROWS_FILTER="
+            f"{metadata['rows_after_data_rows_filter']}"
+        ),
+        (
+            "ROWS_EXCLUDED_INCOMPLETE_ONE_MONTH="
+            f"{metadata['rows_excluded_incomplete_one_month']}"
+        ),
+        (
             "ROWS_AFTER_ONE_MONTH_DATA_FILTER="
             f"{metadata['rows_after_one_month_data_filter']}"
+        ),
+        (
+            "COMPLETE_ONE_MONTH_FIELDS_REQUIRED="
+            + ",".join(
+                metadata[
+                    "complete_one_month_fields_required"
+                ]
+            )
         ),
         f"CANDIDATE_ROWS={len(candidates)}",
         f"RECOMMEND_ROWS={len(recommends)}",
@@ -985,6 +1059,23 @@ def synthetic_summary(rows: int = 80) -> pd.DataFrame:
 def run_self_test() -> int:
     frame = synthetic_summary()
 
+    # 높은 거래대금과 양호한 수익률을 가진 행이라도
+    # 1개월 저가가 없으면 후보 모집단에서 제외되어야 한다.
+    incomplete = frame.iloc[0].copy()
+    incomplete["ticker"] = "999999"
+    incomplete["name"] = "불완전1개월자료"
+    incomplete["low_1m_intraday"] = np.nan
+    incomplete["range_1m_pct"] = np.nan
+    incomplete["avg20_trading_value"] = 500_000_000_000
+    incomplete["return_1m_pct"] = 5.0
+    frame = pd.concat(
+        [
+            frame,
+            pd.DataFrame([incomplete]),
+        ],
+        ignore_index=True,
+    )
+
     candidates, recommends, metadata = build_candidates(
         frame,
         candidate_n=30,
@@ -1023,6 +1114,10 @@ def run_self_test() -> int:
     assert metadata["position_period"] == "1개월"
     assert metadata["recommend_source"] == "candidate_top_30"
     assert metadata["recommend_outside_candidates"] == 0
+    assert metadata[
+        "rows_excluded_incomplete_one_month"
+    ] >= 1
+    assert "999999" not in set(candidates["code"])
     assert set(recommends["code"]).issubset(
         set(candidates["code"])
     )
@@ -1068,6 +1163,7 @@ def run_self_test() -> int:
         "recommend_7,"
         "one_month_low_high,"
         "one_month_position,"
+        "incomplete_one_month_rows_excluded,"
         "score_0_100,"
         "recommend_subset,"
         "recommend_selected_only_from_top30,"
@@ -1121,8 +1217,24 @@ def main() -> int:
     print(f"POLICY_VERSION={POLICY_VERSION}")
     print("KOSPI_ONE_MONTH_STATUS=OK")
     print(
+        f"ROWS_AFTER_DATA_ROWS_FILTER="
+        f"{metadata['rows_after_data_rows_filter']}"
+    )
+    print(
+        "ROWS_EXCLUDED_INCOMPLETE_ONE_MONTH="
+        f"{metadata['rows_excluded_incomplete_one_month']}"
+    )
+    print(
         f"ROWS_AFTER_ONE_MONTH_DATA_FILTER="
         f"{metadata['rows_after_one_month_data_filter']}"
+    )
+    print(
+        "COMPLETE_ONE_MONTH_FIELDS_REQUIRED="
+        + ",".join(
+            metadata[
+                "complete_one_month_fields_required"
+            ]
+        )
     )
     print(f"CANDIDATE_ROWS={metadata['candidate_rows']}")
     print(f"RECOMMEND_ROWS={metadata['recommend_rows']}")

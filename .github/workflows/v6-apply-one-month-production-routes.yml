@@ -216,8 +216,47 @@ jobs:
                       "route regex stopped at an inner tuple"
                   )
 
+          def verify_duplicate_sequence_context():
+              fixture = (
+                  '    if planned_missing != {\n'
+                  '        "kospi_1m",\n'
+                  '        "kosdaq_1m",\n'
+                  '        "holdings",\n'
+                  '        "us_watchlist",\n'
+                  '    }:\n'
+                  '        pass\n'
+                  '    for route_id in (\n'
+                  '        "kospi_1m",\n'
+                  '        "kosdaq_1m",\n'
+                  '        "holdings",\n'
+                  '        "us_watchlist",\n'
+                  '    ):\n'
+                  '        pass\n'
+                  '    payload = {\n'
+                  '        "next_build_order": [\n'
+                  '            "kospi_1m",\n'
+                  '            "kosdaq_1m",\n'
+                  '            "holdings",\n'
+                  '            "us_watchlist",\n'
+                  '        ],\n'
+                  '    }\n'
+              )
+              target = (
+                  '        "next_build_order": [\n'
+                  '            "kospi_1m",\n'
+                  '            "kosdaq_1m",\n'
+                  '            "holdings",\n'
+                  '            "us_watchlist",\n'
+                  '        ],\n'
+              )
+              if fixture.count(target) != 1:
+                  raise RuntimeError(
+                      "next_build_order context self-check failed"
+                  )
+
           def patch_registry(path):
               verify_route_regex_boundary()
+              verify_duplicate_sequence_context()
               text = path.read_text(encoding="utf-8")
               original = text
 
@@ -236,12 +275,16 @@ jobs:
 
               replacements = [
                   (
-                      '        "kospi_1m",\n'
-                      '        "kosdaq_1m",\n'
-                      '        "holdings",\n'
-                      '        "us_watchlist",\n',
-                      '        "holdings",\n'
-                      '        "us_watchlist",\n',
+                      '        "next_build_order": [\n'
+                      '            "kospi_1m",\n'
+                      '            "kosdaq_1m",\n'
+                      '            "holdings",\n'
+                      '            "us_watchlist",\n'
+                      '        ],\n',
+                      '        "next_build_order": [\n'
+                      '            "holdings",\n'
+                      '            "us_watchlist",\n'
+                      '        ],\n',
                       "next_build_order",
                   ),
                   (

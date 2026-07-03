@@ -251,6 +251,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnyObject'
+# HOLDINGS_PRIVATE_RUNTIME_ACTION_V6_BEGIN
+  /sehwankim0114/krx-watchlist-auto/main/api/stock_reference_manifest.json:
+    get:
+      operationId: getHoldingsReferenceManifest
+      summary: Get privacy-safe holdings runtime reference manifest
+      responses:
+        '200':
+          description: Public stock-reference shard manifest with no user holdings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnyObject'
+  /sehwankim0114/krx-watchlist-auto/main/api/stock_reference_shards/{prefix}.json:
+    get:
+      operationId: getStockReferenceShard
+      summary: Get a public stock-reference shard by the first two ticker digits
+      parameters:
+        - name: prefix
+          in: path
+          required: true
+          description: First two digits of a six-digit Korean ticker
+          schema:
+            type: string
+            pattern: '^[0-9]{2}$'
+      responses:
+        '200':
+          description: Public market and company reference rows; no user holdings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnyObject'
+# HOLDINGS_PRIVATE_RUNTIME_ACTION_V6_END
 components:
   schemas:
     AnyObject:

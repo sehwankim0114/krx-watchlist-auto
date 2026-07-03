@@ -45,6 +45,7 @@ from typing import Iterable, Optional
 
 
 # ONE_MONTH_ROUTES_READY_V6
+# HOLDINGS_PRIVATE_RUNTIME_READY_V6
 SCRIPT_VERSION = "table_route_registry.py v1.0.0-thirteen-table-contract"
 POLICY_VERSION = "2026-07-01-v6.0-thirteen-table-route-contract"
 KST = timezone(timedelta(hours=9))
@@ -234,16 +235,23 @@ ROUTES: tuple[RouteContract, ...] = (
         route_id="holdings",
         display_name="보유종목표",
         request_terms=("보유종목표", "보유주식표"),
-        generation_mode="DIRECT",
+        generation_mode="PRIVATE_RUNTIME",
         source_candidates=(
-            "latest/holdings_latest.csv",
+            "holdings_table.py",
+            "build_stock_reference_api.py",
+            "docs/holdings_private_runtime_contract.md",
         ),
-        api_files=("api/holdings.json",),
-        operation_ids=("getHoldings",),
-        planned_missing=True,
+        api_files=(
+            "api/stock_reference_manifest.json",
+        ),
+        operation_ids=(
+            "getHoldingsReferenceManifest",
+            "getStockReferenceShard",
+        ),
+        required_now=True,
         next_step=(
-            "사용자 보유수량·매입가를 별도 입력자료로 관리하고 "
-            "국내 종목 분석자료와 결합하는 생성기 필요"
+            "사용자 보유수량·평균매수가는 대화에서만 사용하고 "
+            "공개 종목 참고 shard와 결합해 응답 시점에 계산한다."
         ),
     ),
     RouteContract(
@@ -395,6 +403,50 @@ def composite_status(
     }
 
 
+def private_runtime_status(
+    contract: RouteContract,
+    schema_text: str,
+) -> dict:
+    source_existing = existing_paths(contract.source_candidates)
+    api_existing = existing_paths(contract.api_files)
+    operation_existing, operation_missing = operation_presence(
+        contract.operation_ids,
+        schema_text,
+    )
+    source_ok = (
+        len(source_existing) == len(contract.source_candidates)
+    )
+    api_ok = len(api_existing) == len(contract.api_files)
+    operation_ok = (
+        len(operation_existing) == len(contract.operation_ids)
+    )
+    if source_ok and api_ok and operation_ok:
+        status = "READY_PRIVATE_RUNTIME"
+    elif contract.required_now:
+        status = "BROKEN"
+    else:
+        status = "MISSING"
+    missing_components = []
+    if not source_ok:
+        missing_components.append("SOURCE")
+    if not api_ok:
+        missing_components.append("API")
+    if not operation_ok:
+        missing_components.append("ACTION")
+    return {
+        "status": status,
+        "source_existing": source_existing,
+        "source_missing": missing_paths(
+            contract.source_candidates
+        ),
+        "api_existing": api_existing,
+        "api_missing": missing_paths(contract.api_files),
+        "operation_existing": operation_existing,
+        "operation_missing": operation_missing,
+        "missing_components": missing_components,
+    }
+
+
 def evaluate_routes() -> list[dict]:
     schema_text = read_text(ACTION_SCHEMA)
     results: list[dict] = []
@@ -431,6 +483,11 @@ def evaluate_routes() -> list[dict]:
                     "operation_missing": [],
                     "missing_components": ["SHARED_ROUTE"],
                 }
+        elif contract.generation_mode == "PRIVATE_RUNTIME":
+            check = private_runtime_status(
+                contract,
+                schema_text,
+            )
         elif contract.generation_mode == "COMPOSITE":
             check = composite_status(contract, schema_text)
         else:
@@ -457,6 +514,10 @@ def write_outputs(results: list[dict]) -> dict:
         "ready_composite": sum(
             row["status"] == "READY_COMPOSITE" for row in results
         ),
+        "ready_private_runtime": sum(
+            row["status"] == "READY_PRIVATE_RUNTIME"
+            for row in results
+        ),
         "missing": sum(
             row["status"] == "MISSING" for row in results
         ),
@@ -468,6 +529,7 @@ def write_outputs(results: list[dict]) -> dict:
         counts["ready_direct"]
         + counts["ready_shared"]
         + counts["ready_composite"]
+        + counts["ready_private_runtime"]
     )
 
     payload = {
@@ -484,7 +546,6 @@ def write_outputs(results: list[dict]) -> dict:
         ),
         "routes": results,
         "next_build_order": [
-            "holdings",
             "us_watchlist",
         ],
     }
@@ -545,13 +606,14 @@ def write_outputs(results: list[dict]) -> dict:
         f"READY_DIRECT_COUNT={counts['ready_direct']}",
         f"READY_SHARED_COUNT={counts['ready_shared']}",
         f"READY_COMPOSITE_COUNT={counts['ready_composite']}",
+        f"READY_PRIVATE_RUNTIME_COUNT={counts['ready_private_runtime']}",
         f"READY_TOTAL_COUNT={counts['ready_total']}",
         f"MISSING_COUNT={counts['missing']}",
         f"BROKEN_COUNT={counts['broken']}",
-        "EXPECTED_CURRENT_READY_COUNT=11",
-        "EXPECTED_CURRENT_MISSING_COUNT=2",
-        "EXPECTED_MISSING_ROUTES=holdings,us_watchlist",
-        "NEXT_BUILD_ORDER=holdings,us_watchlist",
+        "EXPECTED_CURRENT_READY_COUNT=12",
+        "EXPECTED_CURRENT_MISSING_COUNT=1",
+        "EXPECTED_MISSING_ROUTES=us_watchlist",
+        "NEXT_BUILD_ORDER=us_watchlist",
         "ALL_EXISTING_ROUTES_HEALTHY="
         + str(payload["all_existing_routes_healthy"]).lower(),
         "ALL_THIRTEEN_ROUTES_COMPLETE="
@@ -613,11 +675,10 @@ def validate_contract_definition() -> None:
         if route.planned_missing
     }
     if planned_missing != {
-        "holdings",
         "us_watchlist",
     }:
         raise RuntimeError(
-            "Planned missing routes must be exactly two"
+            "Planned missing routes must be exactly one"
         )
 
 
@@ -625,8 +686,8 @@ def run_self_test() -> int:
     validate_contract_definition()
 
     assert len(ROUTES) == 13
-    assert sum(route.required_now for route in ROUTES) == 11
-    assert sum(route.planned_missing for route in ROUTES) == 2
+    assert sum(route.required_now for route in ROUTES) == 12
+    assert sum(route.planned_missing for route in ROUTES) == 1
 
     analysis = next(
         route for route in ROUTES if route.route_id == "analysis"
@@ -642,7 +703,6 @@ def run_self_test() -> int:
     assert len(market.operation_ids) == 3
 
     for route_id in (
-        "holdings",
         "us_watchlist",
     ):
         route = next(
@@ -655,8 +715,8 @@ def run_self_test() -> int:
     print(
         "TESTED="
         "thirteen_route_count,"
-        "eleven_current_routes,"
-        "two_planned_missing_routes,"
+        "twelve_current_routes,"
+        "one_planned_missing_route,"
         "analysis_shared_route,"
         "market_composite_route,"
         "unique_route_ids"
@@ -695,13 +755,13 @@ def main() -> int:
     print(f"OUTPUT_LOG={OUTPUT_LOG}")
 
     if args.strict_current_baseline:
-        if counts["ready_total"] != 11:
+        if counts["ready_total"] != 12:
             raise SystemExit(
-                f"Expected 11 ready routes, got {counts['ready_total']}"
+                f"Expected 12 ready routes, got {counts['ready_total']}"
             )
-        if counts["missing"] != 2:
+        if counts["missing"] != 1:
             raise SystemExit(
-                f"Expected 2 missing routes, got {counts['missing']}"
+                f"Expected 1 missing route, got {counts['missing']}"
             )
         if counts["broken"] != 0:
             raise SystemExit(
@@ -714,7 +774,6 @@ def main() -> int:
             if row["status"] == "MISSING"
         }
         expected_missing = {
-            "holdings",
             "us_watchlist",
         }
         if missing_ids != expected_missing:

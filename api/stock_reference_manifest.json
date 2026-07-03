@@ -1,0 +1,343 @@
+{
+  "status": "OK",
+  "schema_version": "1.0",
+  "script_version": "build_stock_reference_api.py v1.0.0-two-digit-shards",
+  "policy_version": "2026-07-03-v6.0-private-holdings-runtime",
+  "generated_at_kst": "2026-07-03T17:50:38+09:00",
+  "runtime_mode": "user_holdings_stay_in_conversation",
+  "privacy_policy": {
+    "contains_user_holdings": false,
+    "stored_private_fields": [],
+    "never_store": [
+      "account",
+      "account_number",
+      "average_buy_price",
+      "average_price",
+      "cost_basis",
+      "evaluation_profit_loss",
+      "financing_type",
+      "holding_type",
+      "market_value",
+      "quantity",
+      "return_pct_holding",
+      "계좌",
+      "보유수량",
+      "평가손익",
+      "평균매수가"
+    ],
+    "calculation_location": "assistant response runtime only"
+  },
+  "usage": {
+    "step_1": "Read ticker from the user's current message.",
+    "step_2": "Use the first two ticker digits as prefix.",
+    "step_3": "Call getStockReferenceShard(prefix).",
+    "step_4": "Find the exact market+ticker row.",
+    "step_5": "Calculate quantity, cost basis, market value, profit/loss and return only in the conversation.",
+    "cash_credit_rule": "Keep cash and credit lots as separate rows."
+  },
+  "source_files": [
+    "/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kospi_universe_summary_latest.csv",
+    "/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kosdaq_universe_summary_latest.csv"
+  ],
+  "source_rows": {
+    "kospi": 925,
+    "kosdaq": 1791,
+    "total": 2716
+  },
+  "basis_date_min": "2026-04-02",
+  "basis_date_max": "2026-07-02",
+  "public_columns": [
+    "ticker",
+    "name",
+    "market",
+    "status",
+    "last_date",
+    "current_close",
+    "split_buy_low_ref",
+    "split_buy_high_ref",
+    "target1_ref",
+    "target2_ref",
+    "stop_ref",
+    "low_3m_intraday",
+    "high_3m_intraday",
+    "low_3m_close",
+    "high_3m_close",
+    "position_in_3m_range_pct",
+    "return_1m_pct",
+    "return_3m_pct",
+    "low_liquidity",
+    "operating_loss_flag",
+    "operating_loss_basis",
+    "supply_burden_flag",
+    "supply_burden_level",
+    "supply_burden_keywords",
+    "trading_activity_label",
+    "price_elasticity_label",
+    "market_cap"
+  ],
+  "shard_key": "ticker_first_two_digits",
+  "shard_count": 52,
+  "shards": [
+    {
+      "prefix": "00",
+      "api_file": "api/stock_reference_shards/00.json",
+      "row_count": 432
+    },
+    {
+      "prefix": "01",
+      "api_file": "api/stock_reference_shards/01.json",
+      "row_count": 180
+    },
+    {
+      "prefix": "02",
+      "api_file": "api/stock_reference_shards/02.json",
+      "row_count": 97
+    },
+    {
+      "prefix": "03",
+      "api_file": "api/stock_reference_shards/03.json",
+      "row_count": 170
+    },
+    {
+      "prefix": "04",
+      "api_file": "api/stock_reference_shards/04.json",
+      "row_count": 107
+    },
+    {
+      "prefix": "05",
+      "api_file": "api/stock_reference_shards/05.json",
+      "row_count": 106
+    },
+    {
+      "prefix": "06",
+      "api_file": "api/stock_reference_shards/06.json",
+      "row_count": 121
+    },
+    {
+      "prefix": "07",
+      "api_file": "api/stock_reference_shards/07.json",
+      "row_count": 74
+    },
+    {
+      "prefix": "08",
+      "api_file": "api/stock_reference_shards/08.json",
+      "row_count": 95
+    },
+    {
+      "prefix": "09",
+      "api_file": "api/stock_reference_shards/09.json",
+      "row_count": 97
+    },
+    {
+      "prefix": "10",
+      "api_file": "api/stock_reference_shards/10.json",
+      "row_count": 74
+    },
+    {
+      "prefix": "11",
+      "api_file": "api/stock_reference_shards/11.json",
+      "row_count": 37
+    },
+    {
+      "prefix": "12",
+      "api_file": "api/stock_reference_shards/12.json",
+      "row_count": 52
+    },
+    {
+      "prefix": "13",
+      "api_file": "api/stock_reference_shards/13.json",
+      "row_count": 42
+    },
+    {
+      "prefix": "14",
+      "api_file": "api/stock_reference_shards/14.json",
+      "row_count": 35
+    },
+    {
+      "prefix": "15",
+      "api_file": "api/stock_reference_shards/15.json",
+      "row_count": 16
+    },
+    {
+      "prefix": "16",
+      "api_file": "api/stock_reference_shards/16.json",
+      "row_count": 16
+    },
+    {
+      "prefix": "17",
+      "api_file": "api/stock_reference_shards/17.json",
+      "row_count": 24
+    },
+    {
+      "prefix": "18",
+      "api_file": "api/stock_reference_shards/18.json",
+      "row_count": 25
+    },
+    {
+      "prefix": "19",
+      "api_file": "api/stock_reference_shards/19.json",
+      "row_count": 35
+    },
+    {
+      "prefix": "20",
+      "api_file": "api/stock_reference_shards/20.json",
+      "row_count": 36
+    },
+    {
+      "prefix": "21",
+      "api_file": "api/stock_reference_shards/21.json",
+      "row_count": 48
+    },
+    {
+      "prefix": "22",
+      "api_file": "api/stock_reference_shards/22.json",
+      "row_count": 39
+    },
+    {
+      "prefix": "23",
+      "api_file": "api/stock_reference_shards/23.json",
+      "row_count": 27
+    },
+    {
+      "prefix": "24",
+      "api_file": "api/stock_reference_shards/24.json",
+      "row_count": 28
+    },
+    {
+      "prefix": "25",
+      "api_file": "api/stock_reference_shards/25.json",
+      "row_count": 28
+    },
+    {
+      "prefix": "26",
+      "api_file": "api/stock_reference_shards/26.json",
+      "row_count": 37
+    },
+    {
+      "prefix": "27",
+      "api_file": "api/stock_reference_shards/27.json",
+      "row_count": 28
+    },
+    {
+      "prefix": "28",
+      "api_file": "api/stock_reference_shards/28.json",
+      "row_count": 22
+    },
+    {
+      "prefix": "29",
+      "api_file": "api/stock_reference_shards/29.json",
+      "row_count": 43
+    },
+    {
+      "prefix": "30",
+      "api_file": "api/stock_reference_shards/30.json",
+      "row_count": 31
+    },
+    {
+      "prefix": "31",
+      "api_file": "api/stock_reference_shards/31.json",
+      "row_count": 32
+    },
+    {
+      "prefix": "32",
+      "api_file": "api/stock_reference_shards/32.json",
+      "row_count": 19
+    },
+    {
+      "prefix": "33",
+      "api_file": "api/stock_reference_shards/33.json",
+      "row_count": 29
+    },
+    {
+      "prefix": "34",
+      "api_file": "api/stock_reference_shards/34.json",
+      "row_count": 24
+    },
+    {
+      "prefix": "35",
+      "api_file": "api/stock_reference_shards/35.json",
+      "row_count": 33
+    },
+    {
+      "prefix": "36",
+      "api_file": "api/stock_reference_shards/36.json",
+      "row_count": 24
+    },
+    {
+      "prefix": "37",
+      "api_file": "api/stock_reference_shards/37.json",
+      "row_count": 31
+    },
+    {
+      "prefix": "38",
+      "api_file": "api/stock_reference_shards/38.json",
+      "row_count": 29
+    },
+    {
+      "prefix": "39",
+      "api_file": "api/stock_reference_shards/39.json",
+      "row_count": 16
+    },
+    {
+      "prefix": "40",
+      "api_file": "api/stock_reference_shards/40.json",
+      "row_count": 17
+    },
+    {
+      "prefix": "41",
+      "api_file": "api/stock_reference_shards/41.json",
+      "row_count": 28
+    },
+    {
+      "prefix": "42",
+      "api_file": "api/stock_reference_shards/42.json",
+      "row_count": 9
+    },
+    {
+      "prefix": "43",
+      "api_file": "api/stock_reference_shards/43.json",
+      "row_count": 15
+    },
+    {
+      "prefix": "44",
+      "api_file": "api/stock_reference_shards/44.json",
+      "row_count": 19
+    },
+    {
+      "prefix": "45",
+      "api_file": "api/stock_reference_shards/45.json",
+      "row_count": 43
+    },
+    {
+      "prefix": "46",
+      "api_file": "api/stock_reference_shards/46.json",
+      "row_count": 40
+    },
+    {
+      "prefix": "47",
+      "api_file": "api/stock_reference_shards/47.json",
+      "row_count": 45
+    },
+    {
+      "prefix": "48",
+      "api_file": "api/stock_reference_shards/48.json",
+      "row_count": 30
+    },
+    {
+      "prefix": "49",
+      "api_file": "api/stock_reference_shards/49.json",
+      "row_count": 10
+    },
+    {
+      "prefix": "90",
+      "api_file": "api/stock_reference_shards/90.json",
+      "row_count": 12
+    },
+    {
+      "prefix": "95",
+      "api_file": "api/stock_reference_shards/95.json",
+      "row_count": 9
+    }
+  ],
+  "removed_stale_shards": []
+}

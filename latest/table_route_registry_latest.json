@@ -1,16 +1,17 @@
 {
   "script_version": "table_route_registry.py v1.0.0-thirteen-table-contract",
   "policy_version": "2026-07-01-v6.0-thirteen-table-route-contract",
-  "generated_at_kst": "2026-07-03T15:02:17+09:00",
+  "generated_at_kst": "2026-07-03T17:50:39+09:00",
   "contract_table_count": 13,
   "counts": {
     "total": 13,
     "ready_direct": 9,
     "ready_shared": 1,
     "ready_composite": 1,
-    "missing": 2,
+    "ready_private_runtime": 1,
+    "missing": 1,
     "broken": 0,
-    "ready_total": 11
+    "ready_total": 12
   },
   "all_existing_routes_healthy": true,
   "all_thirteen_routes_complete": false,
@@ -436,38 +437,40 @@
         "보유종목표",
         "보유주식표"
       ],
-      "generation_mode": "DIRECT",
+      "generation_mode": "PRIVATE_RUNTIME",
       "source_candidates": [
-        "latest/holdings_latest.csv"
+        "holdings_table.py",
+        "build_stock_reference_api.py",
+        "docs/holdings_private_runtime_contract.md"
       ],
       "api_files": [
-        "api/holdings.json"
+        "api/stock_reference_manifest.json"
       ],
       "operation_ids": [
-        "getHoldings"
+        "getHoldingsReferenceManifest",
+        "getStockReferenceShard"
       ],
       "shared_with": "",
-      "required_now": false,
-      "planned_missing": true,
-      "next_step": "사용자 보유수량·매입가를 별도 입력자료로 관리하고 국내 종목 분석자료와 결합하는 생성기 필요",
-      "status": "MISSING",
-      "source_existing": [],
-      "source_missing": [
-        "latest/holdings_latest.csv"
+      "required_now": true,
+      "planned_missing": false,
+      "next_step": "사용자 보유수량·평균매수가는 대화에서만 사용하고 공개 종목 참고 shard와 결합해 응답 시점에 계산한다.",
+      "status": "READY_PRIVATE_RUNTIME",
+      "source_existing": [
+        "holdings_table.py",
+        "build_stock_reference_api.py",
+        "docs/holdings_private_runtime_contract.md"
       ],
-      "api_existing": [],
-      "api_missing": [
-        "api/holdings.json"
+      "source_missing": [],
+      "api_existing": [
+        "api/stock_reference_manifest.json"
       ],
-      "operation_existing": [],
-      "operation_missing": [
-        "getHoldings"
+      "api_missing": [],
+      "operation_existing": [
+        "getHoldingsReferenceManifest",
+        "getStockReferenceShard"
       ],
-      "missing_components": [
-        "SOURCE",
-        "API",
-        "ACTION"
-      ]
+      "operation_missing": [],
+      "missing_components": []
     },
     {
       "route_id": "us_watchlist",
@@ -511,7 +514,6 @@
     }
   ],
   "next_build_order": [
-    "holdings",
     "us_watchlist"
   ]
 }

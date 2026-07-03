@@ -21,6 +21,7 @@ import hashlib
 import json
 import re
 import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
@@ -34,7 +35,7 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "build_api_json.py v4.2_request_time_price_overlay_one_month_routes_v6"
+SCRIPT_VERSION = "build_api_json.py v4.2_request_time_price_overlay_one_month_routes_v6_holdings_private_runtime_v6"
 SCHEMA_VERSION = "4.2"
 ROOT = Path(__file__).resolve().parent
 LATEST = ROOT / "latest"
@@ -594,7 +595,33 @@ def snapshot_payload(
     }
 
 
+# HOLDINGS_PRIVATE_RUNTIME_BUILD_V6_BEGIN
+def build_holdings_public_reference_api() -> None:
+    command = [
+        sys.executable,
+        str(ROOT / "build_stock_reference_api.py"),
+        "--kospi-summary",
+        str(LATEST / "kospi_universe_summary_latest.csv"),
+        "--kosdaq-summary",
+        str(LATEST / "kosdaq_universe_summary_latest.csv"),
+        "--api-dir",
+        str(API),
+    ]
+    completed = subprocess.run(
+        command,
+        cwd=ROOT,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            "Stock reference API build failed: "
+            f"{completed.returncode}"
+        )
+    print("HOLDINGS_PUBLIC_REFERENCE_API=OK")
+# HOLDINGS_PRIVATE_RUNTIME_BUILD_V6_END
+
 def main() -> int:
+    build_holdings_public_reference_api()
     now = kst_now()
     generated_at = iso_kst(now)
     commit_sha = git_sha()

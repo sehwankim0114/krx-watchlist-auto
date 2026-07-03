@@ -1,0 +1,1075 @@
+name: V6 Apply One-Month Production Routes
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-apply-one-month-production-routes-main
+  cancel-in-progress: false
+
+jobs:
+  apply-one-month-production-routes:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install validation packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install pandas numpy pyyaml
+
+      - name: Check production-route prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required_files=(
+            "patch_one_month_production_routes.py"
+            "kospi_one_month.py"
+            "kosdaq_one_month.py"
+            "build_api_json.py"
+            "table_route_registry.py"
+            ".github/workflows/collect-krx-watchlist.yml"
+            "docs/custom_gpt_action_schema.yaml"
+            "latest/kospi_universe_summary_latest.csv"
+            "latest/kosdaq_universe_summary_latest.csv"
+          )
+
+          for file in "${required_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "::error file=$file::Required file is missing"
+              exit 1
+            fi
+          done
+
+          grep -q \
+            'patch_one_month_production_routes.py.*v1.0.0' \
+            patch_one_month_production_routes.py
+
+          grep -q \
+            'v1.2.0-complete-one-month-fields-only' \
+            kospi_one_month.py
+
+          grep -q \
+            'v1.0.0-complete-one-month-fields-only' \
+            kosdaq_one_month.py
+
+          grep -q \
+            'route_id="kospi_1m"' \
+            table_route_registry.py
+
+          grep -q \
+            'route_id="kosdaq_1m"' \
+            table_route_registry.py
+
+          echo "PATCHER_VERSION=v1.0.0"
+          echo "KOSPI_ONE_MONTH_GENERATOR_VERSION=v1.2.0-complete-one-month-fields-only"
+          echo "KOSDAQ_ONE_MONTH_GENERATOR_VERSION=v1.0.0-complete-one-month-fields-only"
+          echo "ONE_MONTH_PRODUCTION_ROUTE_PREREQUISITES=OK"
+
+      - name: Compile and self-test route patcher
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m py_compile \
+            patch_one_month_production_routes.py
+          python -m py_compile kospi_one_month.py
+          python -m py_compile kosdaq_one_month.py
+          python -m py_compile build_api_json.py
+          python -m py_compile table_route_registry.py
+
+          python patch_one_month_production_routes.py \
+            --self-test \
+            | tee /tmp/one_month_route_patcher_self_test.txt
+
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/one_month_route_patcher_self_test.txt
+
+          grep -q \
+            'collect_workflow_patch' \
+            /tmp/one_month_route_patcher_self_test.txt
+
+          grep -q \
+            'api_table_specs_patch' \
+            /tmp/one_month_route_patcher_self_test.txt
+
+          grep -q \
+            'action_schema_patch' \
+            /tmp/one_month_route_patcher_self_test.txt
+
+          grep -q \
+            'four_operation_ids' \
+            /tmp/one_month_route_patcher_self_test.txt
+
+          echo "ONE_MONTH_ROUTE_PATCHER_SELF_TEST=OK"
+
+      - name: Create registry transition helper
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > /tmp/patch_registry_after_one_month.py <<'PY'
+          #!/usr/bin/env python3
+          from pathlib import Path
+          import argparse
+          import re
+          import subprocess
+          import sys
+
+          MARKER = "# ONE_MONTH_ROUTES_READY_V6"
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(
+                      f"{label}: expected exactly one match, got {count}"
+                  )
+              return text.replace(old, new, 1)
+
+          def patch_route_block(text, route_id):
+              pattern = re.compile(
+                  rf'(?P<block>RouteContract\(\n'
+                  rf'\s*route_id="{re.escape(route_id)}",'
+                  rf'.*?\n\s*\),)',
+                  flags=re.DOTALL,
+              )
+              match = pattern.search(text)
+              if not match:
+                  raise RuntimeError(
+                      f"route block not found: {route_id}"
+                  )
+
+              block = match.group("block")
+              if "required_now=True," in block:
+                  if "planned_missing=True," in block:
+                      raise RuntimeError(
+                          f"{route_id}: both ready and missing flags exist"
+                      )
+                  return text
+
+              if "planned_missing=True," not in block:
+                  raise RuntimeError(
+                      f"{route_id}: planned_missing marker not found"
+                  )
+
+              updated = block.replace(
+                  "planned_missing=True,",
+                  "required_now=True,",
+                  1,
+              )
+              updated = re.sub(
+                  r'\n\s*next_step="[^"]*",',
+                  "",
+                  updated,
+                  count=1,
+              )
+              return (
+                  text[:match.start("block")]
+                  + updated
+                  + text[match.end("block"):]
+              )
+
+          def patch_registry(path):
+              text = path.read_text(encoding="utf-8")
+              original = text
+
+              if MARKER not in text:
+                  insertion = "\n" + MARKER + "\n"
+                  version_anchor = "SCRIPT_VERSION ="
+                  idx = text.find(version_anchor)
+                  if idx < 0:
+                      raise RuntimeError(
+                          "registry SCRIPT_VERSION anchor missing"
+                      )
+                  text = text[:idx] + insertion + text[idx:]
+
+              text = patch_route_block(text, "kospi_1m")
+              text = patch_route_block(text, "kosdaq_1m")
+
+              replacements = [
+                  (
+                      '        "kospi_1m",\n'
+                      '        "kosdaq_1m",\n'
+                      '        "holdings",\n'
+                      '        "us_watchlist",\n',
+                      '        "holdings",\n'
+                      '        "us_watchlist",\n',
+                      "next_build_order",
+                  ),
+                  (
+                      '"EXPECTED_CURRENT_READY_COUNT=9"',
+                      '"EXPECTED_CURRENT_READY_COUNT=11"',
+                      "ready log count",
+                  ),
+                  (
+                      '"EXPECTED_CURRENT_MISSING_COUNT=4"',
+                      '"EXPECTED_CURRENT_MISSING_COUNT=2"',
+                      "missing log count",
+                  ),
+                  (
+                      '"EXPECTED_MISSING_ROUTES=kospi_1m,kosdaq_1m,holdings,us_watchlist"',
+                      '"EXPECTED_MISSING_ROUTES=holdings,us_watchlist"',
+                      "missing log routes",
+                  ),
+                  (
+                      '"NEXT_BUILD_ORDER=kospi_1m,kosdaq_1m,holdings,us_watchlist"',
+                      '"NEXT_BUILD_ORDER=holdings,us_watchlist"',
+                      "next order log",
+                  ),
+                  (
+                      '    if planned_missing != {\n'
+                      '        "kospi_1m",\n'
+                      '        "kosdaq_1m",\n'
+                      '        "holdings",\n'
+                      '        "us_watchlist",\n'
+                      '    }:\n',
+                      '    if planned_missing != {\n'
+                      '        "holdings",\n'
+                      '        "us_watchlist",\n'
+                      '    }:\n',
+                      "planned missing set",
+                  ),
+                  (
+                      '"Planned missing routes must be exactly four"',
+                      '"Planned missing routes must be exactly two"',
+                      "planned missing message",
+                  ),
+                  (
+                      'assert sum(route.required_now for route in ROUTES) == 9',
+                      'assert sum(route.required_now for route in ROUTES) == 11',
+                      "self-test ready count",
+                  ),
+                  (
+                      'assert sum(route.planned_missing for route in ROUTES) == 4',
+                      'assert sum(route.planned_missing for route in ROUTES) == 2',
+                      "self-test missing count",
+                  ),
+                  (
+                      '    for route_id in (\n'
+                      '        "kospi_1m",\n'
+                      '        "kosdaq_1m",\n'
+                      '        "holdings",\n'
+                      '        "us_watchlist",\n'
+                      '    ):\n',
+                      '    for route_id in (\n'
+                      '        "holdings",\n'
+                      '        "us_watchlist",\n'
+                      '    ):\n',
+                      "self-test missing loop",
+                  ),
+                  (
+                      '"nine_current_routes,"',
+                      '"eleven_current_routes,"',
+                      "self-test ready label",
+                  ),
+                  (
+                      '"four_planned_missing_routes,"',
+                      '"two_planned_missing_routes,"',
+                      "self-test missing label",
+                  ),
+                  (
+                      'if counts["ready_total"] != 9:',
+                      'if counts["ready_total"] != 11:',
+                      "strict ready condition",
+                  ),
+                  (
+                      'f"Expected 9 ready routes, got {counts[\'ready_total\']}"',
+                      'f"Expected 11 ready routes, got {counts[\'ready_total\']}"',
+                      "strict ready message",
+                  ),
+                  (
+                      'if counts["missing"] != 4:',
+                      'if counts["missing"] != 2:',
+                      "strict missing condition",
+                  ),
+                  (
+                      'f"Expected 4 missing routes, got {counts[\'missing\']}"',
+                      'f"Expected 2 missing routes, got {counts[\'missing\']}"',
+                      "strict missing message",
+                  ),
+                  (
+                      '        expected_missing = {\n'
+                      '            "kospi_1m",\n'
+                      '            "kosdaq_1m",\n'
+                      '            "holdings",\n'
+                      '            "us_watchlist",\n'
+                      '        }\n',
+                      '        expected_missing = {\n'
+                      '            "holdings",\n'
+                      '            "us_watchlist",\n'
+                      '        }\n',
+                      "strict missing set",
+                  ),
+              ]
+
+              for old, new, label in replacements:
+                  if old in text:
+                      text = replace_once(
+                          text,
+                          old,
+                          new,
+                          label,
+                      )
+                  elif new not in text:
+                      raise RuntimeError(
+                          f"{label}: neither old nor new text found"
+                      )
+
+              required = [
+                  MARKER,
+                  'route_id="kospi_1m"',
+                  'route_id="kosdaq_1m"',
+                  '"EXPECTED_CURRENT_READY_COUNT=11"',
+                  '"EXPECTED_CURRENT_MISSING_COUNT=2"',
+                  '"EXPECTED_MISSING_ROUTES=holdings,us_watchlist"',
+                  '"NEXT_BUILD_ORDER=holdings,us_watchlist"',
+                  'assert sum(route.required_now for route in ROUTES) == 11',
+                  'assert sum(route.planned_missing for route in ROUTES) == 2',
+                  'if counts["ready_total"] != 11:',
+                  'if counts["missing"] != 2:',
+              ]
+              for fragment in required:
+                  if fragment not in text:
+                      raise RuntimeError(
+                          f"registry verification fragment missing: {fragment}"
+                      )
+
+              for route_id in ("kospi_1m", "kosdaq_1m"):
+                  pattern = re.compile(
+                      rf'RouteContract\(\n'
+                      rf'\s*route_id="{route_id}",'
+                      rf'(?P<body>.*?)\n\s*\),',
+                      flags=re.DOTALL,
+                  )
+                  match = pattern.search(text)
+                  if not match:
+                      raise RuntimeError(
+                          f"ready route block missing: {route_id}"
+                      )
+                  body = match.group("body")
+                  if "required_now=True," not in body:
+                      raise RuntimeError(
+                          f"{route_id}: required_now not set"
+                      )
+                  if "planned_missing=True," in body:
+                      raise RuntimeError(
+                          f"{route_id}: still planned missing"
+                      )
+
+              if text != original:
+                  path.write_text(text, encoding="utf-8")
+                  return True
+              return False
+
+          def main():
+              parser = argparse.ArgumentParser()
+              parser.add_argument("path")
+              parser.add_argument(
+                  "--check-only",
+                  action="store_true",
+              )
+              args = parser.parse_args()
+              path = Path(args.path)
+              before = path.read_text(encoding="utf-8")
+              changed = patch_registry(path)
+
+              if args.check_only and changed:
+                  path.write_text(before, encoding="utf-8")
+                  raise SystemExit(
+                      "registry transition was not already applied"
+                  )
+
+              subprocess.run(
+                  [sys.executable, "-m", "py_compile", str(path)],
+                  check=True,
+              )
+              print(
+                  "TABLE_ROUTE_REGISTRY_ONE_MONTH_TRANSITION="
+                  + ("APPLIED" if changed else "NO_CHANGE")
+              )
+              print("EXPECTED_READY_ROUTES=11")
+              print("EXPECTED_MISSING_ROUTES=2")
+              print("REMAINING_MISSING_ROUTE_IDS=holdings,us_watchlist")
+              print("TABLE_ROUTE_REGISTRY_TRANSITION=OK")
+
+          if __name__ == "__main__":
+              main()
+          PY
+
+          python -m py_compile \
+            /tmp/patch_registry_after_one_month.py
+
+          echo "REGISTRY_TRANSITION_HELPER=OK"
+
+      - name: Validate route patches in isolated repository
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf /tmp/one_month_route_repo
+          mkdir -p /tmp/one_month_route_repo
+
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.test_*' \
+            ./ \
+            /tmp/one_month_route_repo/
+
+          cd /tmp/one_month_route_repo
+
+          python patch_one_month_production_routes.py \
+            --root . \
+            --no-backup \
+            | tee /tmp/isolated_one_month_route_patch.txt
+
+          grep -q \
+            'ONE_MONTH_PRODUCTION_ROUTES_PATCH_STATUS=APPLIED' \
+            /tmp/isolated_one_month_route_patch.txt
+
+          grep -q \
+            'COLLECT_WORKFLOW_CHANGED=true' \
+            /tmp/isolated_one_month_route_patch.txt
+
+          grep -q \
+            'BUILD_API_CHANGED=true' \
+            /tmp/isolated_one_month_route_patch.txt
+
+          grep -q \
+            'ACTION_SCHEMA_CHANGED=true' \
+            /tmp/isolated_one_month_route_patch.txt
+
+          python /tmp/patch_registry_after_one_month.py \
+            table_route_registry.py \
+            | tee /tmp/isolated_registry_transition.txt
+
+          grep -q \
+            'TABLE_ROUTE_REGISTRY_TRANSITION=OK' \
+            /tmp/isolated_registry_transition.txt
+
+          python patch_one_month_production_routes.py \
+            --root . \
+            --check-only \
+            | tee /tmp/isolated_one_month_route_check.txt
+
+          grep -q \
+            'ONE_MONTH_PRODUCTION_ROUTES_PATCH_STATUS=ALREADY_APPLIED' \
+            /tmp/isolated_one_month_route_check.txt
+
+          python /tmp/patch_registry_after_one_month.py \
+            table_route_registry.py \
+            --check-only \
+            | tee /tmp/isolated_registry_check.txt
+
+          echo "ISOLATED_ROUTE_PATCH_IDEMPOTENCY=OK"
+
+      - name: Validate patched YAML and Python structure
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd /tmp/one_month_route_repo
+
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          import yaml
+
+          collect_path = Path(
+              ".github/workflows/collect-krx-watchlist.yml"
+          )
+          schema_path = Path(
+              "docs/custom_gpt_action_schema.yaml"
+          )
+          api_path = Path("build_api_json.py")
+          registry_path = Path("table_route_registry.py")
+
+          collect = yaml.safe_load(
+              collect_path.read_text(encoding="utf-8")
+          )
+          schema = yaml.safe_load(
+              schema_path.read_text(encoding="utf-8")
+          )
+
+          if not isinstance(collect, dict):
+              raise SystemExit(
+                  "patched collect workflow is not valid YAML"
+              )
+          if not isinstance(schema, dict):
+              raise SystemExit(
+                  "patched Action schema is not valid YAML"
+              )
+
+          ast.parse(api_path.read_text(encoding="utf-8"))
+          ast.parse(registry_path.read_text(encoding="utf-8"))
+
+          collect_text = collect_path.read_text(
+              encoding="utf-8"
+          )
+          schema_text = schema_path.read_text(
+              encoding="utf-8"
+          )
+          api_text = api_path.read_text(
+              encoding="utf-8"
+          )
+
+          required_collect = [
+              "python kospi_one_month.py",
+              "--candidate-n 30",
+              "--recommend-n 7",
+              "python kosdaq_one_month.py",
+              "--candidate-n 10",
+              "--recommend-n 5",
+          ]
+          for marker in required_collect:
+              if marker not in collect_text:
+                  raise SystemExit(
+                      f"collect workflow marker missing: {marker}"
+                  )
+
+          required_tables = [
+              "kospi_1m_candidates_30",
+              "kospi_1m_recommend_7",
+              "kosdaq_1m_candidates_10",
+              "kosdaq_1m_recommend_5",
+          ]
+          for table_id in required_tables:
+              if api_text.count(f'"{table_id}"') != 1:
+                  raise SystemExit(
+                      f"API TableSpec count error: {table_id}"
+                  )
+
+          required_operations = [
+              "getKospiOneMonthCandidates",
+              "getKospiOneMonthRecommendations",
+              "getKosdaqOneMonthCandidates",
+              "getKosdaqOneMonthRecommendations",
+          ]
+          for operation_id in required_operations:
+              if (
+                  schema_text.count(
+                      f"operationId: {operation_id}"
+                  )
+                  != 1
+              ):
+                  raise SystemExit(
+                      f"operationId count error: {operation_id}"
+                  )
+
+          print("PATCHED_COLLECT_WORKFLOW_YAML=OK")
+          print("PATCHED_ACTION_SCHEMA_YAML=OK")
+          print("PATCHED_BUILD_API_PYTHON=OK")
+          print("PATCHED_ROUTE_REGISTRY_PYTHON=OK")
+          print("ONE_MONTH_TABLE_SPEC_COUNT=4")
+          print("ONE_MONTH_ACTION_OPERATION_COUNT=4")
+          print("ISOLATED_PATCH_STRUCTURE_VERIFICATION=OK")
+          PY
+
+      - name: Build isolated one-month tables and APIs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd /tmp/one_month_route_repo
+
+          python kospi_one_month.py \
+            --input latest/kospi_universe_summary_latest.csv \
+            --output-dir latest \
+            --candidate-n 30 \
+            --recommend-n 7 \
+            | tee /tmp/isolated_kospi_one_month.txt
+
+          python kosdaq_one_month.py \
+            --input latest/kosdaq_universe_summary_latest.csv \
+            --output-dir latest \
+            --candidate-n 10 \
+            --recommend-n 5 \
+            | tee /tmp/isolated_kosdaq_one_month.txt
+
+          grep -q \
+            'CANDIDATE_ROWS=30' \
+            /tmp/isolated_kospi_one_month.txt
+          grep -q \
+            'RECOMMEND_ROWS=7' \
+            /tmp/isolated_kospi_one_month.txt
+          grep -q \
+            'CANDIDATE_ROWS=10' \
+            /tmp/isolated_kosdaq_one_month.txt
+          grep -q \
+            'RECOMMEND_ROWS=5' \
+            /tmp/isolated_kosdaq_one_month.txt
+
+          python build_api_json.py \
+            | tee /tmp/isolated_build_api.txt
+
+          grep -q \
+            'API_SYNC_OK=true' \
+            /tmp/isolated_build_api.txt
+
+          python table_route_registry.py \
+            --self-test \
+            | tee /tmp/isolated_registry_self_test.txt
+
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/isolated_registry_self_test.txt
+          grep -q \
+            'eleven_current_routes' \
+            /tmp/isolated_registry_self_test.txt
+          grep -q \
+            'two_planned_missing_routes' \
+            /tmp/isolated_registry_self_test.txt
+
+          python table_route_registry.py \
+            --strict-current-baseline \
+            | tee /tmp/isolated_registry_live.txt
+
+          grep -q \
+            'READY_TOTAL_COUNT=11' \
+            /tmp/isolated_registry_live.txt
+          grep -q \
+            'MISSING_COUNT=2' \
+            /tmp/isolated_registry_live.txt
+          grep -q \
+            'BROKEN_COUNT=0' \
+            /tmp/isolated_registry_live.txt
+          grep -q \
+            'CURRENT_BASELINE_VERIFICATION=OK' \
+            /tmp/isolated_registry_live.txt
+
+          echo "ISOLATED_ONE_MONTH_PRODUCTION_BUILD=OK"
+
+      - name: Verify isolated output contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd /tmp/one_month_route_repo
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import pandas as pd
+
+          latest_specs = [
+              (
+                  "latest/kospi_1m_candidates_30_latest.csv",
+                  30,
+                  7,
+              ),
+              (
+                  "latest/kospi_1m_recommend_7_latest.csv",
+                  7,
+                  7,
+              ),
+              (
+                  "latest/kosdaq_1m_candidates_10_latest.csv",
+                  10,
+                  5,
+              ),
+              (
+                  "latest/kosdaq_1m_recommend_5_latest.csv",
+                  5,
+                  5,
+              ),
+          ]
+
+          for filename, expected_rows, expected_checks in latest_specs:
+              path = Path(filename)
+              if not path.exists():
+                  raise SystemExit(
+                      f"latest output missing: {filename}"
+                  )
+              frame = pd.read_csv(
+                  path,
+                  encoding="utf-8-sig",
+                  dtype={"code": str},
+              )
+              if len(frame) != expected_rows:
+                  raise SystemExit(
+                      f"{filename}: expected {expected_rows}, "
+                      f"got {len(frame)}"
+                  )
+              if not frame[
+                  "current_position_period"
+              ].eq("1개월").all():
+                  raise SystemExit(
+                      f"{filename}: period is not 1개월"
+                  )
+              for field in (
+                  "low_1m",
+                  "high_1m",
+                  "range_1m_pct",
+                  "position_in_1m_range_pct",
+              ):
+                  if frame[field].isna().any():
+                      raise SystemExit(
+                          f"{filename}: missing {field}"
+                      )
+
+              if "candidates" in filename:
+                  check_count = int(
+                      frame["recommend_flag"].eq("✅").sum()
+                  )
+                  if check_count != expected_checks:
+                      raise SystemExit(
+                          f"{filename}: checkmark count "
+                          f"{check_count}"
+                      )
+
+          api_specs = [
+              ("api/kospi_1m_candidates_30.json", 30, True),
+              ("api/kospi_1m_recommend_7.json", 7, False),
+              ("api/kosdaq_1m_candidates_10.json", 10, True),
+              ("api/kosdaq_1m_recommend_5.json", 5, False),
+          ]
+
+          for filename, expected_rows, default_output in api_specs:
+              path = Path(filename)
+              if not path.exists():
+                  raise SystemExit(
+                      f"API file missing: {filename}"
+                  )
+              payload = json.loads(
+                  path.read_text(encoding="utf-8")
+              )
+              if payload.get("status") != "OK":
+                  raise SystemExit(
+                      f"{filename}: status={payload.get('status')}"
+                  )
+              if payload.get("row_count") != expected_rows:
+                  raise SystemExit(
+                      f"{filename}: row_count="
+                      f"{payload.get('row_count')}"
+                  )
+              if (
+                  payload.get("default_output")
+                  is not default_output
+              ):
+                  raise SystemExit(
+                      f"{filename}: default_output mismatch"
+                  )
+
+          registry = json.loads(
+              Path(
+                  "latest/table_route_registry_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+          routes = {
+              row["route_id"]: row
+              for row in registry["routes"]
+          }
+
+          for route_id in ("kospi_1m", "kosdaq_1m"):
+              if (
+                  routes[route_id]["status"]
+                  != "READY_DIRECT"
+              ):
+                  raise SystemExit(
+                      f"{route_id}: "
+                      f"{routes[route_id]['status']}"
+                  )
+
+          if registry["counts"]["ready_total"] != 11:
+              raise SystemExit(
+                  "registry ready_total is not 11"
+              )
+          if registry["counts"]["missing"] != 2:
+              raise SystemExit(
+                  "registry missing is not 2"
+              )
+
+          missing_ids = {
+              row["route_id"]
+              for row in registry["routes"]
+              if row["status"] == "MISSING"
+          }
+          if missing_ids != {"holdings", "us_watchlist"}:
+              raise SystemExit(
+                  "remaining missing routes differ"
+              )
+
+          print("KOSPI_ONE_MONTH_CANDIDATE_API_ROWS=30")
+          print("KOSPI_ONE_MONTH_RECOMMEND_API_ROWS=7")
+          print("KOSDAQ_ONE_MONTH_CANDIDATE_API_ROWS=10")
+          print("KOSDAQ_ONE_MONTH_RECOMMEND_API_ROWS=5")
+          print("KOSPI_ONE_MONTH_ROUTE=READY_DIRECT")
+          print("KOSDAQ_ONE_MONTH_ROUTE=READY_DIRECT")
+          print("READY_TOTAL_COUNT=11")
+          print("MISSING_COUNT=2")
+          print("REMAINING_MISSING_ROUTES=holdings,us_watchlist")
+          print("ISOLATED_OUTPUT_CONTRACTS=OK")
+          PY
+
+      - name: Apply verified patches to repository
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python patch_one_month_production_routes.py \
+            --root . \
+            --no-backup \
+            | tee /tmp/live_one_month_route_patch.txt
+
+          grep -q \
+            'ONE_MONTH_PRODUCTION_ROUTE_PATCH=OK' \
+            /tmp/live_one_month_route_patch.txt
+
+          python /tmp/patch_registry_after_one_month.py \
+            table_route_registry.py \
+            | tee /tmp/live_registry_transition.txt
+
+          grep -q \
+            'TABLE_ROUTE_REGISTRY_TRANSITION=OK' \
+            /tmp/live_registry_transition.txt
+
+          python patch_one_month_production_routes.py \
+            --root . \
+            --check-only \
+            | tee /tmp/live_one_month_route_check.txt
+
+          python /tmp/patch_registry_after_one_month.py \
+            table_route_registry.py \
+            --check-only \
+            | tee /tmp/live_registry_check.txt
+
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+
+          yaml.safe_load(
+              Path(
+                  ".github/workflows/collect-krx-watchlist.yml"
+              ).read_text(encoding="utf-8")
+          )
+          yaml.safe_load(
+              Path(
+                  "docs/custom_gpt_action_schema.yaml"
+              ).read_text(encoding="utf-8")
+          )
+          print("LIVE_PATCHED_YAML_VALIDATION=OK")
+          PY
+
+          python -m py_compile build_api_json.py
+          python -m py_compile table_route_registry.py
+
+          echo "LIVE_ONE_MONTH_ROUTE_PATCH_APPLICATION=OK"
+
+      - name: Generate live one-month tables and APIs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python kospi_one_month.py \
+            --input latest/kospi_universe_summary_latest.csv \
+            --output-dir latest \
+            --candidate-n 30 \
+            --recommend-n 7 \
+            | tee /tmp/live_kospi_one_month.txt
+
+          python kosdaq_one_month.py \
+            --input latest/kosdaq_universe_summary_latest.csv \
+            --output-dir latest \
+            --candidate-n 10 \
+            --recommend-n 5 \
+            | tee /tmp/live_kosdaq_one_month.txt
+
+          python build_api_json.py \
+            | tee /tmp/live_build_api.txt
+
+          grep -q \
+            'API_SYNC_OK=true' \
+            /tmp/live_build_api.txt
+
+          python table_route_registry.py \
+            --self-test \
+            | tee /tmp/live_registry_self_test.txt
+
+          python table_route_registry.py \
+            --strict-current-baseline \
+            | tee /tmp/live_registry_baseline.txt
+
+          grep -q \
+            'READY_TOTAL_COUNT=11' \
+            /tmp/live_registry_baseline.txt
+          grep -q \
+            'MISSING_COUNT=2' \
+            /tmp/live_registry_baseline.txt
+          grep -q \
+            'BROKEN_COUNT=0' \
+            /tmp/live_registry_baseline.txt
+          grep -q \
+            'CURRENT_BASELINE_VERIFICATION=OK' \
+            /tmp/live_registry_baseline.txt
+
+          echo "LIVE_ONE_MONTH_PRODUCTION_BUILD=OK"
+
+      - name: Verify live API and route status
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          expectations = {
+              "api/kospi_1m_candidates_30.json": 30,
+              "api/kospi_1m_recommend_7.json": 7,
+              "api/kosdaq_1m_candidates_10.json": 10,
+              "api/kosdaq_1m_recommend_5.json": 5,
+          }
+
+          for filename, expected_rows in expectations.items():
+              payload = json.loads(
+                  Path(filename).read_text(
+                      encoding="utf-8"
+                  )
+              )
+              if payload.get("status") != "OK":
+                  raise SystemExit(
+                      f"{filename}: {payload.get('status')}"
+                  )
+              if payload.get("row_count") != expected_rows:
+                  raise SystemExit(
+                      f"{filename}: row_count mismatch"
+                  )
+
+          registry = json.loads(
+              Path(
+                  "latest/table_route_registry_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+          by_id = {
+              row["route_id"]: row
+              for row in registry["routes"]
+          }
+
+          assert by_id["kospi_1m"]["status"] == "READY_DIRECT"
+          assert by_id["kosdaq_1m"]["status"] == "READY_DIRECT"
+          assert registry["counts"]["ready_total"] == 11
+          assert registry["counts"]["missing"] == 2
+          assert registry["counts"]["broken"] == 0
+
+          missing = {
+              row["route_id"]
+              for row in registry["routes"]
+              if row["status"] == "MISSING"
+          }
+          assert missing == {"holdings", "us_watchlist"}
+
+          print("LIVE_KOSPI_ONE_MONTH_API=OK")
+          print("LIVE_KOSDAQ_ONE_MONTH_API=OK")
+          print("LIVE_KOSPI_ONE_MONTH_ROUTE=READY_DIRECT")
+          print("LIVE_KOSDAQ_ONE_MONTH_ROUTE=READY_DIRECT")
+          print("LIVE_READY_TOTAL_COUNT=11")
+          print("LIVE_MISSING_COUNT=2")
+          print("LIVE_BROKEN_COUNT=0")
+          print("LIVE_ONE_MONTH_ROUTE_VERIFICATION=OK")
+          PY
+
+      - name: Write production-route evidence report
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          {
+            echo "PATCHER_VERSION=v1.0.0"
+            echo "PATCH_SCOPE=collect_workflow,build_api,action_schema,route_registry"
+            echo "KOSPI_ONE_MONTH_CANDIDATE_ROWS=30"
+            echo "KOSPI_ONE_MONTH_RECOMMEND_ROWS=7"
+            echo "KOSDAQ_ONE_MONTH_CANDIDATE_ROWS=10"
+            echo "KOSDAQ_ONE_MONTH_RECOMMEND_ROWS=5"
+            echo "ONE_MONTH_CANDIDATE_API_COUNT=2"
+            echo "ONE_MONTH_RECOMMEND_API_COUNT=2"
+            echo "ONE_MONTH_ACTION_OPERATION_COUNT=4"
+            echo "KOSPI_ONE_MONTH_ROUTE=READY_DIRECT"
+            echo "KOSDAQ_ONE_MONTH_ROUTE=READY_DIRECT"
+            echo "READY_TOTAL_COUNT=11"
+            echo "MISSING_COUNT=2"
+            echo "BROKEN_COUNT=0"
+            echo "REMAINING_MISSING_ROUTES=holdings,us_watchlist"
+            echo "OFFICIAL_COLLECTOR_AUTO_GENERATION=true"
+            echo "API_BUILD_INTEGRATION=true"
+            echo "CUSTOM_GPT_ACTION_INTEGRATION=true"
+            echo "LIVE_TEST_STATUS=OK"
+          } > \
+            latest/one_month_production_routes_report_latest.txt
+
+          cat \
+            latest/one_month_production_routes_report_latest.txt
+
+      - name: Commit and push production-route integration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email \
+            "github-actions@users.noreply.github.com"
+
+          git add \
+            .github/workflows/collect-krx-watchlist.yml \
+            build_api_json.py \
+            docs/custom_gpt_action_schema.yaml \
+            table_route_registry.py \
+            latest \
+            api
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            exit 0
+          fi
+
+          echo "CHANGED_FILES_BEGIN"
+          git diff --cached --name-status
+          echo "CHANGED_FILES_END"
+
+          git commit -m \
+            "Connect one-month tables to production routes"
+
+          PUSHED=false
+          for attempt in 1 2 3; do
+            echo "PUSH_ATTEMPT=$attempt"
+            git fetch origin main
+
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              echo "REBASE_FAILED=true"
+              sleep $((attempt * 5))
+              continue
+            fi
+
+            if git push origin HEAD:main; then
+              PUSHED=true
+              break
+            fi
+
+            sleep $((attempt * 5))
+          done
+
+          if [ "$PUSHED" != "true" ]; then
+            echo "PUSH_SUCCESS=false"
+            exit 1
+          fi
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"

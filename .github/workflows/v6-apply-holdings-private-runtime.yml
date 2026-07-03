@@ -1,0 +1,789 @@
+name: V6 Apply Holdings Private Runtime
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-apply-holdings-private-runtime-main
+  cancel-in-progress: false
+
+jobs:
+  apply-holdings-private-runtime:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install validation packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install pandas numpy pyyaml
+
+      - name: Check prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required_files=(
+            "holdings_table.py"
+            "build_stock_reference_api.py"
+            "patch_holdings_private_runtime_routes.py"
+            "build_api_json.py"
+            "table_route_registry.py"
+            "docs/custom_gpt_action_schema.yaml"
+            "latest/kospi_universe_summary_latest.csv"
+            "latest/kosdaq_universe_summary_latest.csv"
+            "latest/holdings_generator_test_report_latest.txt"
+          )
+
+          for file in "${required_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "::error file=$file::Required file is missing"
+              exit 1
+            fi
+          done
+
+          grep -q \
+            'v1.0.0-separate-cash-credit-lots' \
+            holdings_table.py
+          grep -q \
+            'v1.0.0-two-digit-shards' \
+            build_stock_reference_api.py
+          grep -q \
+            'v1.0.0' \
+            patch_holdings_private_runtime_routes.py
+          grep -q \
+            'LIVE_TEST_STATUS=OK' \
+            latest/holdings_generator_test_report_latest.txt
+          grep -q \
+            'REAL_USER_HOLDINGS_USED=false' \
+            latest/holdings_generator_test_report_latest.txt
+
+          echo "HOLDINGS_GENERATOR_TEST_EVIDENCE=OK"
+          echo "PRIVATE_RUNTIME_PREREQUISITES=OK"
+
+      - name: Compile and self-test all holdings programs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m py_compile holdings_table.py
+          python -m py_compile build_stock_reference_api.py
+          python -m py_compile \
+            patch_holdings_private_runtime_routes.py
+          python -m py_compile build_api_json.py
+          python -m py_compile table_route_registry.py
+
+          python holdings_table.py \
+            --self-test \
+            | tee /tmp/holdings_table_self_test.txt
+
+          python build_stock_reference_api.py \
+            --self-test \
+            | tee /tmp/stock_reference_self_test.txt
+
+          python patch_holdings_private_runtime_routes.py \
+            --self-test \
+            | tee /tmp/holdings_route_patch_self_test.txt
+
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/holdings_table_self_test.txt
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/stock_reference_self_test.txt
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/holdings_route_patch_self_test.txt
+          grep -q \
+            'private_fields_excluded' \
+            /tmp/stock_reference_self_test.txt
+          grep -q \
+            'private_runtime_registry' \
+            /tmp/holdings_route_patch_self_test.txt
+
+          echo "HOLDINGS_PRIVATE_RUNTIME_SELF_TESTS=OK"
+
+      - name: Snapshot all workflow files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          find .github/workflows \
+            -maxdepth 1 \
+            -type f \
+            -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > /tmp/workflows_before.sha256
+
+          echo "WORKFLOW_SNAPSHOT_BEFORE=OK"
+
+      - name: Validate complete patch in isolated repository
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf /tmp/holdings_private_runtime_repo
+          mkdir -p /tmp/holdings_private_runtime_repo
+
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.test_*' \
+            ./ \
+            /tmp/holdings_private_runtime_repo/
+
+          cd /tmp/holdings_private_runtime_repo
+
+          find .github/workflows \
+            -maxdepth 1 \
+            -type f \
+            -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > /tmp/isolated_workflows_before.sha256
+
+          python patch_holdings_private_runtime_routes.py \
+            --root . \
+            | tee /tmp/isolated_holdings_patch.txt
+
+          grep -q \
+            'HOLDINGS_PRIVATE_RUNTIME_PATCH_STATUS=APPLIED' \
+            /tmp/isolated_holdings_patch.txt
+          grep -q \
+            'STATIC_HOLDINGS_API_CREATED=false' \
+            /tmp/isolated_holdings_patch.txt
+          grep -q \
+            'USER_HOLDINGS_PERSISTED=false' \
+            /tmp/isolated_holdings_patch.txt
+
+          python patch_holdings_private_runtime_routes.py \
+            --root . \
+            --check-only \
+            | tee /tmp/isolated_holdings_patch_check.txt
+
+          grep -q \
+            'HOLDINGS_PRIVATE_RUNTIME_PATCH_STATUS=ALREADY_APPLIED' \
+            /tmp/isolated_holdings_patch_check.txt
+
+          find .github/workflows \
+            -maxdepth 1 \
+            -type f \
+            -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > /tmp/isolated_workflows_after.sha256
+
+          diff -u \
+            /tmp/isolated_workflows_before.sha256 \
+            /tmp/isolated_workflows_after.sha256
+
+          echo "ISOLATED_WORKFLOW_FILE_CHANGE_COUNT=0"
+          echo "ISOLATED_HOLDINGS_PATCH=OK"
+
+      - name: Build isolated public reference API
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/holdings_private_runtime_repo
+
+          rm -rf api/stock_reference_shards
+          rm -f api/stock_reference_manifest.json
+
+          python build_stock_reference_api.py \
+            --kospi-summary \
+              latest/kospi_universe_summary_latest.csv \
+            --kosdaq-summary \
+              latest/kosdaq_universe_summary_latest.csv \
+            --api-dir api \
+            | tee /tmp/isolated_stock_reference_build.txt
+
+          grep -q \
+            'STOCK_REFERENCE_API_STATUS=OK' \
+            /tmp/isolated_stock_reference_build.txt
+          grep -q \
+            'CONTAINS_USER_HOLDINGS=false' \
+            /tmp/isolated_stock_reference_build.txt
+          grep -q \
+            'PRIVATE_FIELDS_STORED=0' \
+            /tmp/isolated_stock_reference_build.txt
+
+          echo "ISOLATED_STOCK_REFERENCE_BUILD=OK"
+
+      - name: Verify isolated public-reference privacy and coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/holdings_private_runtime_repo
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import pandas as pd
+
+          kospi = pd.read_csv(
+              "latest/kospi_universe_summary_latest.csv",
+              encoding="utf-8-sig",
+          )
+          kosdaq = pd.read_csv(
+              "latest/kosdaq_universe_summary_latest.csv",
+              encoding="utf-8-sig",
+          )
+          expected_total = len(kospi) + len(kosdaq)
+
+          manifest_path = Path(
+              "api/stock_reference_manifest.json"
+          )
+          if not manifest_path.exists():
+              raise SystemExit("stock reference manifest missing")
+
+          manifest = json.loads(
+              manifest_path.read_text(encoding="utf-8")
+          )
+          if manifest.get("status") != "OK":
+              raise SystemExit("manifest status is not OK")
+          if manifest["source_rows"]["total"] != expected_total:
+              raise SystemExit(
+                  "manifest total differs from source summaries"
+              )
+          if expected_total < 2000:
+              raise SystemExit(
+                  "unexpectedly small public reference universe"
+              )
+          if (
+              manifest["privacy_policy"]
+              ["contains_user_holdings"]
+              is not False
+          ):
+              raise SystemExit(
+                  "manifest claims user holdings are present"
+              )
+          if manifest["privacy_policy"]["stored_private_fields"]:
+              raise SystemExit(
+                  "manifest contains stored private fields"
+              )
+
+          forbidden = {
+              "quantity",
+              "average_price",
+              "average_buy_price",
+              "cost_basis",
+              "market_value",
+              "evaluation_profit_loss",
+              "holding_type",
+              "financing_type",
+              "account",
+              "account_number",
+          }
+          public_columns = set(manifest["public_columns"])
+          if forbidden & public_columns:
+              raise SystemExit(
+                  "private column leaked to manifest: "
+                  + str(sorted(forbidden & public_columns))
+              )
+
+          shard_dir = Path("api/stock_reference_shards")
+          shard_files = sorted(shard_dir.glob("*.json"))
+          if len(shard_files) != manifest["shard_count"]:
+              raise SystemExit("shard file count mismatch")
+          if not (1 <= len(shard_files) <= 100):
+              raise SystemExit("shard count outside 1..100")
+
+          counted_rows = 0
+          for shard_path in shard_files:
+              payload = json.loads(
+                  shard_path.read_text(encoding="utf-8")
+              )
+              if payload.get("status") != "OK":
+                  raise SystemExit(
+                      f"bad shard status: {shard_path.name}"
+                  )
+              if payload.get("contains_user_holdings") is not False:
+                  raise SystemExit(
+                      f"holdings leakage flag: {shard_path.name}"
+                  )
+              if not payload["prefix"].isdigit():
+                  raise SystemExit(
+                      f"bad prefix: {shard_path.name}"
+                  )
+              if len(payload["prefix"]) != 2:
+                  raise SystemExit(
+                      f"bad prefix length: {shard_path.name}"
+                  )
+              counted_rows += payload["row_count"]
+              for row in payload["rows"]:
+                  leaked = forbidden & set(row)
+                  if leaked:
+                      raise SystemExit(
+                          f"private fields in {shard_path.name}: "
+                          + str(sorted(leaked))
+                      )
+
+          if counted_rows != expected_total:
+              raise SystemExit(
+                  "shard row total differs from source summaries"
+              )
+
+          for forbidden_path in (
+              Path("api/holdings.json"),
+              Path("latest/holdings_latest.csv"),
+              Path("input/holdings_input.csv"),
+          ):
+              if forbidden_path.exists():
+                  raise SystemExit(
+                      f"private holdings path unexpectedly exists: "
+                      f"{forbidden_path}"
+                  )
+
+          print(f"PUBLIC_REFERENCE_ROWS={expected_total}")
+          print(f"STOCK_REFERENCE_SHARDS={len(shard_files)}")
+          print("PRIVATE_COLUMNS_STORED=0")
+          print("STATIC_HOLDINGS_API_CREATED=false")
+          print("USER_HOLDINGS_PERSISTED=false")
+          print("ISOLATED_REFERENCE_PRIVACY=OK")
+          PY
+
+      - name: Run isolated API build and route registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/holdings_private_runtime_repo
+
+          python build_api_json.py \
+            | tee /tmp/isolated_build_api.txt
+
+          grep -q \
+            'HOLDINGS_PUBLIC_REFERENCE_API=OK' \
+            /tmp/isolated_build_api.txt
+          grep -q \
+            'API_SYNC_OK=true' \
+            /tmp/isolated_build_api.txt
+
+          python table_route_registry.py \
+            --self-test \
+            | tee /tmp/isolated_registry_self_test.txt
+
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/isolated_registry_self_test.txt
+          grep -q \
+            'twelve_current_routes' \
+            /tmp/isolated_registry_self_test.txt
+          grep -q \
+            'one_planned_missing_route' \
+            /tmp/isolated_registry_self_test.txt
+
+          python table_route_registry.py \
+            --strict-current-baseline \
+            | tee /tmp/isolated_registry_live.txt
+
+          grep -q \
+            'READY_TOTAL_COUNT=12' \
+            /tmp/isolated_registry_live.txt
+          grep -q \
+            'MISSING_COUNT=1' \
+            /tmp/isolated_registry_live.txt
+          grep -q \
+            'BROKEN_COUNT=0' \
+            /tmp/isolated_registry_live.txt
+          grep -q \
+            'CURRENT_BASELINE_VERIFICATION=OK' \
+            /tmp/isolated_registry_live.txt
+
+          echo "ISOLATED_API_AND_REGISTRY=OK"
+
+      - name: Verify isolated private-runtime route contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/holdings_private_runtime_repo
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import yaml
+
+          schema = yaml.safe_load(
+              Path(
+                  "docs/custom_gpt_action_schema.yaml"
+              ).read_text(encoding="utf-8")
+          )
+          if not isinstance(schema, dict):
+              raise SystemExit("Action schema is invalid")
+
+          schema_text = Path(
+              "docs/custom_gpt_action_schema.yaml"
+          ).read_text(encoding="utf-8")
+          for operation_id in (
+              "getHoldingsReferenceManifest",
+              "getStockReferenceShard",
+          ):
+              if (
+                  schema_text.count(
+                      f"operationId: {operation_id}"
+                  )
+                  != 1
+              ):
+                  raise SystemExit(
+                      f"operationId count error: {operation_id}"
+                  )
+
+          registry = json.loads(
+              Path(
+                  "latest/table_route_registry_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+          by_id = {
+              item["route_id"]: item
+              for item in registry["routes"]
+          }
+          holdings = by_id["holdings"]
+          if holdings["status"] != "READY_PRIVATE_RUNTIME":
+              raise SystemExit(
+                  f"holdings status: {holdings['status']}"
+              )
+          if holdings["generation_mode"] != "PRIVATE_RUNTIME":
+              raise SystemExit("holdings generation mode mismatch")
+          if registry["counts"]["ready_total"] != 12:
+              raise SystemExit("ready total is not 12")
+          if registry["counts"]["missing"] != 1:
+              raise SystemExit("missing count is not 1")
+          if registry["counts"]["broken"] != 0:
+              raise SystemExit("broken routes exist")
+
+          missing = {
+              item["route_id"]
+              for item in registry["routes"]
+              if item["status"] == "MISSING"
+          }
+          if missing != {"us_watchlist"}:
+              raise SystemExit(
+                  "remaining missing route differs"
+              )
+
+          contract = Path(
+              "docs/holdings_private_runtime_contract.md"
+          ).read_text(encoding="utf-8")
+          required_contract = [
+              "holdings_private_runtime_contract v1.0.0",
+              "보유수량",
+              "평균매수가",
+              "공개 GitHub 저장소",
+              "READY_PRIVATE_RUNTIME",
+          ]
+          for marker in required_contract:
+              if marker not in contract:
+                  raise SystemExit(
+                      f"privacy contract marker missing: {marker}"
+                  )
+
+          print("HOLDINGS_ROUTE=READY_PRIVATE_RUNTIME")
+          print("READY_TOTAL_COUNT=12")
+          print("MISSING_COUNT=1")
+          print("BROKEN_COUNT=0")
+          print("REMAINING_MISSING_ROUTES=us_watchlist")
+          print("PRIVACY_CONTRACT=OK")
+          print("ISOLATED_PRIVATE_RUNTIME_CONTRACT=OK")
+          PY
+
+      - name: Apply verified private-runtime patch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python patch_holdings_private_runtime_routes.py \
+            --root . \
+            | tee /tmp/live_holdings_patch.txt
+
+          grep -q \
+            'HOLDINGS_PRIVATE_RUNTIME_PATCH=OK' \
+            /tmp/live_holdings_patch.txt
+          grep -q \
+            'STATIC_HOLDINGS_API_CREATED=false' \
+            /tmp/live_holdings_patch.txt
+          grep -q \
+            'USER_HOLDINGS_PERSISTED=false' \
+            /tmp/live_holdings_patch.txt
+
+          python patch_holdings_private_runtime_routes.py \
+            --root . \
+            --check-only \
+            | tee /tmp/live_holdings_patch_check.txt
+
+          find .github/workflows \
+            -maxdepth 1 \
+            -type f \
+            -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > /tmp/workflows_after.sha256
+
+          diff -u \
+            /tmp/workflows_before.sha256 \
+            /tmp/workflows_after.sha256
+
+          echo "LIVE_WORKFLOW_FILE_CHANGE_COUNT=0"
+          echo "LIVE_HOLDINGS_PATCH=OK"
+
+      - name: Build live reference API and registry
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python build_api_json.py \
+            | tee /tmp/live_build_api.txt
+
+          grep -q \
+            'HOLDINGS_PUBLIC_REFERENCE_API=OK' \
+            /tmp/live_build_api.txt
+          grep -q \
+            'API_SYNC_OK=true' \
+            /tmp/live_build_api.txt
+
+          python table_route_registry.py \
+            --self-test \
+            | tee /tmp/live_registry_self_test.txt
+
+          python table_route_registry.py \
+            --strict-current-baseline \
+            | tee /tmp/live_registry_live.txt
+
+          grep -q \
+            'READY_TOTAL_COUNT=12' \
+            /tmp/live_registry_live.txt
+          grep -q \
+            'MISSING_COUNT=1' \
+            /tmp/live_registry_live.txt
+          grep -q \
+            'BROKEN_COUNT=0' \
+            /tmp/live_registry_live.txt
+          grep -q \
+            'CURRENT_BASELINE_VERIFICATION=OK' \
+            /tmp/live_registry_live.txt
+
+          echo "LIVE_HOLDINGS_PRIVATE_RUNTIME_BUILD=OK"
+
+      - name: Verify live privacy and route status
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          manifest = json.loads(
+              Path(
+                  "api/stock_reference_manifest.json"
+              ).read_text(encoding="utf-8")
+          )
+          if manifest.get("status") != "OK":
+              raise SystemExit("live manifest not OK")
+          if (
+              manifest["privacy_policy"]
+              ["contains_user_holdings"]
+              is not False
+          ):
+              raise SystemExit("user holdings leakage flag")
+          if manifest["privacy_policy"]["stored_private_fields"]:
+              raise SystemExit("private fields stored")
+
+          for forbidden_path in (
+              Path("api/holdings.json"),
+              Path("latest/holdings_latest.csv"),
+              Path("input/holdings_input.csv"),
+          ):
+              if forbidden_path.exists():
+                  raise SystemExit(
+                      f"private holdings file exists: {forbidden_path}"
+                  )
+
+          registry = json.loads(
+              Path(
+                  "latest/table_route_registry_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+          route = next(
+              item
+              for item in registry["routes"]
+              if item["route_id"] == "holdings"
+          )
+          assert route["status"] == "READY_PRIVATE_RUNTIME"
+          assert registry["counts"]["ready_total"] == 12
+          assert registry["counts"]["missing"] == 1
+          assert registry["counts"]["broken"] == 0
+
+          print(
+              "LIVE_PUBLIC_REFERENCE_ROWS="
+              f"{manifest['source_rows']['total']}"
+          )
+          print(
+              "LIVE_STOCK_REFERENCE_SHARDS="
+              f"{manifest['shard_count']}"
+          )
+          print("LIVE_PRIVATE_FIELDS_STORED=0")
+          print("LIVE_STATIC_HOLDINGS_API_CREATED=false")
+          print("LIVE_USER_HOLDINGS_PERSISTED=false")
+          print("LIVE_HOLDINGS_ROUTE=READY_PRIVATE_RUNTIME")
+          print("LIVE_READY_TOTAL_COUNT=12")
+          print("LIVE_MISSING_COUNT=1")
+          print("LIVE_BROKEN_COUNT=0")
+          print("LIVE_HOLDINGS_PRIVACY_VERIFICATION=OK")
+          PY
+
+      - name: Write holdings private-runtime evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PUBLIC_ROWS="$(
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(
+              Path(
+                  "api/stock_reference_manifest.json"
+              ).read_text(encoding="utf-8")
+          )
+          print(data["source_rows"]["total"])
+          PY
+          )"
+
+          SHARD_COUNT="$(
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(
+              Path(
+                  "api/stock_reference_manifest.json"
+              ).read_text(encoding="utf-8")
+          )
+          print(data["shard_count"])
+          PY
+          )"
+
+          {
+            echo "RUNTIME_MODE=private_user_input_plus_public_reference_shards"
+            echo "HOLDINGS_ROUTE=READY_PRIVATE_RUNTIME"
+            echo "PUBLIC_REFERENCE_ROWS=$PUBLIC_ROWS"
+            echo "STOCK_REFERENCE_SHARDS=$SHARD_COUNT"
+            echo "STATIC_HOLDINGS_API_CREATED=false"
+            echo "USER_HOLDINGS_PERSISTED=false"
+            echo "PRIVATE_FIELDS_STORED=0"
+            echo "CASH_CREDIT_LOTS_SEPARATE=true"
+            echo "ACTION_GET_MANIFEST=getHoldingsReferenceManifest"
+            echo "ACTION_GET_SHARD=getStockReferenceShard"
+            echo "READY_TOTAL_COUNT=12"
+            echo "MISSING_COUNT=1"
+            echo "BROKEN_COUNT=0"
+            echo "REMAINING_MISSING_ROUTES=us_watchlist"
+            echo "WORKFLOW_FILES_CHANGED=false"
+            echo "LIVE_TEST_STATUS=OK"
+          } > \
+            latest/holdings_private_runtime_report_latest.txt
+
+          cat \
+            latest/holdings_private_runtime_report_latest.txt
+
+      - name: Commit and push holdings private-runtime integration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email \
+            "github-actions@users.noreply.github.com"
+
+          git add \
+            build_api_json.py \
+            table_route_registry.py \
+            docs/custom_gpt_action_schema.yaml \
+            docs/holdings_private_runtime_contract.md \
+            api \
+            latest/table_route_registry_latest.csv \
+            latest/table_route_registry_latest.json \
+            latest/table_route_registry_run_log_latest.txt \
+            latest/holdings_private_runtime_report_latest.txt
+
+          WORKFLOW_STAGED_COUNT="$(
+            git diff --cached --name-only \
+              | grep -c '^\.github/workflows/' \
+              || true
+          )"
+
+          PRIVATE_FILE_STAGED_COUNT="$(
+            git diff --cached --name-only \
+              | grep -E -c \
+                '(^|/)(holdings_input|holdings_latest|holdings\.json)' \
+              || true
+          )"
+
+          echo "WORKFLOW_STAGED_COUNT=$WORKFLOW_STAGED_COUNT"
+          echo "PRIVATE_FILE_STAGED_COUNT=$PRIVATE_FILE_STAGED_COUNT"
+
+          if [ "$WORKFLOW_STAGED_COUNT" -ne 0 ]; then
+            echo "::error::Workflow file staged unexpectedly"
+            exit 1
+          fi
+          if [ "$PRIVATE_FILE_STAGED_COUNT" -ne 0 ]; then
+            echo "::error::Private holdings file staged unexpectedly"
+            exit 1
+          fi
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            exit 0
+          fi
+
+          echo "CHANGED_FILES_BEGIN"
+          git diff --cached --name-status
+          echo "CHANGED_FILES_END"
+
+          git commit -m \
+            "Connect privacy-safe holdings runtime"
+
+          PUSHED=false
+          for attempt in 1 2 3; do
+            echo "PUSH_ATTEMPT=$attempt"
+            git fetch origin main
+
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              echo "REBASE_FAILED=true"
+              sleep $((attempt * 5))
+              continue
+            fi
+
+            if git push origin HEAD:main; then
+              PUSHED=true
+              break
+            fi
+
+            sleep $((attempt * 5))
+          done
+
+          if [ "$PUSHED" != "true" ]; then
+            echo "PUSH_SUCCESS=false"
+            exit 1
+          fi
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "WORKFLOW_FILES_CHANGED=false"
+          echo "USER_HOLDINGS_PERSISTED=false"
+          echo "PUSH_SUCCESS=true"

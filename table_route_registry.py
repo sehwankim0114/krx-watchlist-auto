@@ -44,6 +44,7 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 
+# ONE_MONTH_ROUTES_READY_V6
 SCRIPT_VERSION = "table_route_registry.py v1.0.0-thirteen-table-contract"
 POLICY_VERSION = "2026-07-01-v6.0-thirteen-table-route-contract"
 KST = timezone(timedelta(hours=9))
@@ -130,8 +131,7 @@ ROUTES: tuple[RouteContract, ...] = (
         ),
         api_files=("api/kospi_1m_candidates_30.json",),
         operation_ids=("getKospiOneMonthCandidates",),
-        planned_missing=True,
-        next_step="코스피 전체를 최근 1개월 기준으로 재산출하는 전용 생성기 필요",
+        required_now=True,
     ),
     RouteContract(
         route_id="kosdaq",
@@ -157,8 +157,7 @@ ROUTES: tuple[RouteContract, ...] = (
         ),
         api_files=("api/kosdaq_1m_candidates_10.json",),
         operation_ids=("getKosdaqOneMonthCandidates",),
-        planned_missing=True,
-        next_step="코스닥 전체를 최근 1개월 기준으로 재산출하는 전용 생성기 필요",
+        required_now=True,
     ),
     RouteContract(
         route_id="kospi_gainers",
@@ -485,8 +484,6 @@ def write_outputs(results: list[dict]) -> dict:
         ),
         "routes": results,
         "next_build_order": [
-            "kospi_1m",
-            "kosdaq_1m",
             "holdings",
             "us_watchlist",
         ],
@@ -551,10 +548,10 @@ def write_outputs(results: list[dict]) -> dict:
         f"READY_TOTAL_COUNT={counts['ready_total']}",
         f"MISSING_COUNT={counts['missing']}",
         f"BROKEN_COUNT={counts['broken']}",
-        "EXPECTED_CURRENT_READY_COUNT=9",
-        "EXPECTED_CURRENT_MISSING_COUNT=4",
-        "EXPECTED_MISSING_ROUTES=kospi_1m,kosdaq_1m,holdings,us_watchlist",
-        "NEXT_BUILD_ORDER=kospi_1m,kosdaq_1m,holdings,us_watchlist",
+        "EXPECTED_CURRENT_READY_COUNT=11",
+        "EXPECTED_CURRENT_MISSING_COUNT=2",
+        "EXPECTED_MISSING_ROUTES=holdings,us_watchlist",
+        "NEXT_BUILD_ORDER=holdings,us_watchlist",
         "ALL_EXISTING_ROUTES_HEALTHY="
         + str(payload["all_existing_routes_healthy"]).lower(),
         "ALL_THIRTEEN_ROUTES_COMPLETE="
@@ -616,13 +613,11 @@ def validate_contract_definition() -> None:
         if route.planned_missing
     }
     if planned_missing != {
-        "kospi_1m",
-        "kosdaq_1m",
         "holdings",
         "us_watchlist",
     }:
         raise RuntimeError(
-            "Planned missing routes must be exactly four"
+            "Planned missing routes must be exactly two"
         )
 
 
@@ -630,8 +625,8 @@ def run_self_test() -> int:
     validate_contract_definition()
 
     assert len(ROUTES) == 13
-    assert sum(route.required_now for route in ROUTES) == 9
-    assert sum(route.planned_missing for route in ROUTES) == 4
+    assert sum(route.required_now for route in ROUTES) == 11
+    assert sum(route.planned_missing for route in ROUTES) == 2
 
     analysis = next(
         route for route in ROUTES if route.route_id == "analysis"
@@ -647,8 +642,6 @@ def run_self_test() -> int:
     assert len(market.operation_ids) == 3
 
     for route_id in (
-        "kospi_1m",
-        "kosdaq_1m",
         "holdings",
         "us_watchlist",
     ):
@@ -662,8 +655,8 @@ def run_self_test() -> int:
     print(
         "TESTED="
         "thirteen_route_count,"
-        "nine_current_routes,"
-        "four_planned_missing_routes,"
+        "eleven_current_routes,"
+        "two_planned_missing_routes,"
         "analysis_shared_route,"
         "market_composite_route,"
         "unique_route_ids"
@@ -702,13 +695,13 @@ def main() -> int:
     print(f"OUTPUT_LOG={OUTPUT_LOG}")
 
     if args.strict_current_baseline:
-        if counts["ready_total"] != 9:
+        if counts["ready_total"] != 11:
             raise SystemExit(
-                f"Expected 9 ready routes, got {counts['ready_total']}"
+                f"Expected 11 ready routes, got {counts['ready_total']}"
             )
-        if counts["missing"] != 4:
+        if counts["missing"] != 2:
             raise SystemExit(
-                f"Expected 4 missing routes, got {counts['missing']}"
+                f"Expected 2 missing routes, got {counts['missing']}"
             )
         if counts["broken"] != 0:
             raise SystemExit(
@@ -721,8 +714,6 @@ def main() -> int:
             if row["status"] == "MISSING"
         }
         expected_missing = {
-            "kospi_1m",
-            "kosdaq_1m",
             "holdings",
             "us_watchlist",
         }

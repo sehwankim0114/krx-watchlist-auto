@@ -1,8 +1,8 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260703T133648+0900-8268be9cfd",
-  "generated_at_kst": "2026-07-03T13:36:48+09:00",
-  "source_commit_sha": "8268be9cfde3ca675c9c3fb78fa663df105901d3",
+  "build_id": "20260703T150217+0900-d3b2843e9a",
+  "generated_at_kst": "2026-07-03T15:02:17+09:00",
+  "source_commit_sha": "d3b2843e9ac17659471c9c3e9a36fd7fd1c01331",
   "status": "READY",
   "api_sync_ok": true,
   "safe_to_analyze_as_latest": true,
@@ -227,6 +227,182 @@
       "api_file": "api/kosdaq_recommend_5.json",
       "source_file": "latest/kosdaq_recommend_5_latest.csv",
       "overlay_source_file": "latest/kosdaq_candidates_10_current_basis_latest.csv",
+      "status": "OK",
+      "row_count": 5,
+      "required": false,
+      "default_output": false,
+      "explicit_request_only": true,
+      "presentation_policy": {
+        "default_output_mode": "single_main_table",
+        "separate_recommendation_table_default": false,
+        "recommendation_markings_embedded_in_main_table": true,
+        "explicit_shortlist_request": "filter main candidate rows and output only the shortlist table",
+        "duplicate_rows_across_main_and_shortlist_tables": false
+      },
+      "request_time_price_policy": {
+        "enabled": true,
+        "mode": "request_time_dynamic_overlay",
+        "lookup_scope": "all_rows_in_requested_table",
+        "action_operation_id": "getRequestTimePrices",
+        "health_operation_id": "getRequestTimePriceHealth",
+        "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
+        "max_batch_size": 50,
+        "quote_key_fields": [
+          "ticker",
+          "code",
+          "종목코드"
+        ],
+        "market_fields": [
+          "market",
+          "시장",
+          "exchange",
+          "country"
+        ],
+        "preserve_official_history": true,
+        "allow_last_confirmed_official_when_delayed": true,
+        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+      },
+      "current_basis_selected": false
+    },
+    {
+      "table_id": "kospi_1m_candidates_30",
+      "display_name": "코피표1개월 후보 30",
+      "api_file": "api/kospi_1m_candidates_30.json",
+      "source_file": "latest/kospi_1m_candidates_30_latest.csv",
+      "overlay_source_file": null,
+      "status": "OK",
+      "row_count": 30,
+      "required": true,
+      "default_output": true,
+      "explicit_request_only": false,
+      "presentation_policy": {
+        "default_output_mode": "single_main_table",
+        "separate_recommendation_table_default": false,
+        "recommendation_markings_embedded_in_main_table": true,
+        "explicit_shortlist_request": "filter main candidate rows and output only the shortlist table",
+        "duplicate_rows_across_main_and_shortlist_tables": false
+      },
+      "request_time_price_policy": {
+        "enabled": true,
+        "mode": "request_time_dynamic_overlay",
+        "lookup_scope": "all_rows_in_requested_table",
+        "action_operation_id": "getRequestTimePrices",
+        "health_operation_id": "getRequestTimePriceHealth",
+        "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
+        "max_batch_size": 50,
+        "quote_key_fields": [
+          "ticker",
+          "code",
+          "종목코드"
+        ],
+        "market_fields": [
+          "market",
+          "시장",
+          "exchange",
+          "country"
+        ],
+        "preserve_official_history": true,
+        "allow_last_confirmed_official_when_delayed": true,
+        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+      },
+      "current_basis_selected": false
+    },
+    {
+      "table_id": "kospi_1m_recommend_7",
+      "display_name": "별도 요청용 코피표1개월 추천 7",
+      "api_file": "api/kospi_1m_recommend_7.json",
+      "source_file": "latest/kospi_1m_recommend_7_latest.csv",
+      "overlay_source_file": null,
+      "status": "OK",
+      "row_count": 7,
+      "required": false,
+      "default_output": false,
+      "explicit_request_only": true,
+      "presentation_policy": {
+        "default_output_mode": "single_main_table",
+        "separate_recommendation_table_default": false,
+        "recommendation_markings_embedded_in_main_table": true,
+        "explicit_shortlist_request": "filter main candidate rows and output only the shortlist table",
+        "duplicate_rows_across_main_and_shortlist_tables": false
+      },
+      "request_time_price_policy": {
+        "enabled": true,
+        "mode": "request_time_dynamic_overlay",
+        "lookup_scope": "all_rows_in_requested_table",
+        "action_operation_id": "getRequestTimePrices",
+        "health_operation_id": "getRequestTimePriceHealth",
+        "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
+        "max_batch_size": 50,
+        "quote_key_fields": [
+          "ticker",
+          "code",
+          "종목코드"
+        ],
+        "market_fields": [
+          "market",
+          "시장",
+          "exchange",
+          "country"
+        ],
+        "preserve_official_history": true,
+        "allow_last_confirmed_official_when_delayed": true,
+        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+      },
+      "current_basis_selected": false
+    },
+    {
+      "table_id": "kosdaq_1m_candidates_10",
+      "display_name": "코닥표1개월 후보 10",
+      "api_file": "api/kosdaq_1m_candidates_10.json",
+      "source_file": "latest/kosdaq_1m_candidates_10_latest.csv",
+      "overlay_source_file": null,
+      "status": "OK",
+      "row_count": 10,
+      "required": true,
+      "default_output": true,
+      "explicit_request_only": false,
+      "presentation_policy": {
+        "default_output_mode": "single_main_table",
+        "separate_recommendation_table_default": false,
+        "recommendation_markings_embedded_in_main_table": true,
+        "explicit_shortlist_request": "filter main candidate rows and output only the shortlist table",
+        "duplicate_rows_across_main_and_shortlist_tables": false
+      },
+      "request_time_price_policy": {
+        "enabled": true,
+        "mode": "request_time_dynamic_overlay",
+        "lookup_scope": "all_rows_in_requested_table",
+        "action_operation_id": "getRequestTimePrices",
+        "health_operation_id": "getRequestTimePriceHealth",
+        "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
+        "max_batch_size": 50,
+        "quote_key_fields": [
+          "ticker",
+          "code",
+          "종목코드"
+        ],
+        "market_fields": [
+          "market",
+          "시장",
+          "exchange",
+          "country"
+        ],
+        "preserve_official_history": true,
+        "allow_last_confirmed_official_when_delayed": true,
+        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+      },
+      "current_basis_selected": false
+    },
+    {
+      "table_id": "kosdaq_1m_recommend_5",
+      "display_name": "별도 요청용 코닥표1개월 추천 5",
+      "api_file": "api/kosdaq_1m_recommend_5.json",
+      "source_file": "latest/kosdaq_1m_recommend_5_latest.csv",
+      "overlay_source_file": null,
       "status": "OK",
       "row_count": 5,
       "required": false,

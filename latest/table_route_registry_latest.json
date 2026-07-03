@@ -1,16 +1,16 @@
 {
   "script_version": "table_route_registry.py v1.0.0-thirteen-table-contract",
   "policy_version": "2026-07-01-v6.0-thirteen-table-route-contract",
-  "generated_at_kst": "2026-07-01T21:14:06+09:00",
+  "generated_at_kst": "2026-07-03T15:02:17+09:00",
   "contract_table_count": 13,
   "counts": {
     "total": 13,
-    "ready_direct": 7,
+    "ready_direct": 9,
     "ready_shared": 1,
     "ready_composite": 1,
-    "missing": 4,
+    "missing": 2,
     "broken": 0,
-    "ready_total": 9
+    "ready_total": 11
   },
   "all_existing_routes_healthy": true,
   "all_thirteen_routes_complete": false,
@@ -141,28 +141,25 @@
         "getKospiOneMonthCandidates"
       ],
       "shared_with": "",
-      "required_now": false,
-      "planned_missing": true,
-      "next_step": "코스피 전체를 최근 1개월 기준으로 재산출하는 전용 생성기 필요",
-      "status": "MISSING",
-      "source_existing": [],
-      "source_missing": [
-        "latest/kospi_1m_candidates_30_current_basis_latest.csv",
+      "required_now": true,
+      "planned_missing": false,
+      "next_step": "",
+      "status": "READY_DIRECT",
+      "source_existing": [
         "latest/kospi_1m_candidates_30_latest.csv"
       ],
-      "api_existing": [],
-      "api_missing": [
+      "source_missing": [
+        "latest/kospi_1m_candidates_30_current_basis_latest.csv"
+      ],
+      "api_existing": [
         "api/kospi_1m_candidates_30.json"
       ],
-      "operation_existing": [],
-      "operation_missing": [
+      "api_missing": [],
+      "operation_existing": [
         "getKospiOneMonthCandidates"
       ],
-      "missing_components": [
-        "SOURCE",
-        "API",
-        "ACTION"
-      ]
+      "operation_missing": [],
+      "missing_components": []
     },
     {
       "route_id": "kosdaq",
@@ -222,28 +219,25 @@
         "getKosdaqOneMonthCandidates"
       ],
       "shared_with": "",
-      "required_now": false,
-      "planned_missing": true,
-      "next_step": "코스닥 전체를 최근 1개월 기준으로 재산출하는 전용 생성기 필요",
-      "status": "MISSING",
-      "source_existing": [],
-      "source_missing": [
-        "latest/kosdaq_1m_candidates_10_current_basis_latest.csv",
+      "required_now": true,
+      "planned_missing": false,
+      "next_step": "",
+      "status": "READY_DIRECT",
+      "source_existing": [
         "latest/kosdaq_1m_candidates_10_latest.csv"
       ],
-      "api_existing": [],
-      "api_missing": [
+      "source_missing": [
+        "latest/kosdaq_1m_candidates_10_current_basis_latest.csv"
+      ],
+      "api_existing": [
         "api/kosdaq_1m_candidates_10.json"
       ],
-      "operation_existing": [],
-      "operation_missing": [
+      "api_missing": [],
+      "operation_existing": [
         "getKosdaqOneMonthCandidates"
       ],
-      "missing_components": [
-        "SOURCE",
-        "API",
-        "ACTION"
-      ]
+      "operation_missing": [],
+      "missing_components": []
     },
     {
       "route_id": "kospi_gainers",
@@ -517,8 +511,6 @@
     }
   ],
   "next_build_order": [
-    "kospi_1m",
-    "kosdaq_1m",
     "holdings",
     "us_watchlist"
   ]

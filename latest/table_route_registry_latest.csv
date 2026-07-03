@@ -2,9 +2,9 @@
 watchlist,관종표,DIRECT,READY_DIRECT,,,"latest/watchlist_summary_current_basis_latest.csv,latest/watchlist_summary_latest.csv",api/watchlist.json,getWatchlist,
 analysis,분석표,SHARED,READY_SHARED,watchlist,,"latest/watchlist_summary_current_basis_latest.csv,latest/watchlist_summary_latest.csv",api/watchlist.json,getWatchlist,"관심종목 비교는 관종표 경로를 공유하고, 개별 기업은 같은 행을 심화 해석한다."
 kospi,코피표,DIRECT,READY_DIRECT,,,"latest/kospi_candidates_30_current_basis_latest.csv,latest/kospi_candidates_30_latest.csv",api/kospi_candidates_30.json,getKospiCandidates,
-kospi_1m,코피표1개월,DIRECT,MISSING,,"SOURCE,API,ACTION",,,,코스피 전체를 최근 1개월 기준으로 재산출하는 전용 생성기 필요
+kospi_1m,코피표1개월,DIRECT,READY_DIRECT,,,latest/kospi_1m_candidates_30_latest.csv,api/kospi_1m_candidates_30.json,getKospiOneMonthCandidates,
 kosdaq,코닥표,DIRECT,READY_DIRECT,,,"latest/kosdaq_candidates_10_current_basis_latest.csv,latest/kosdaq_candidates_10_latest.csv",api/kosdaq_candidates_10.json,getKosdaqCandidates,
-kosdaq_1m,코닥표1개월,DIRECT,MISSING,,"SOURCE,API,ACTION",,,,코스닥 전체를 최근 1개월 기준으로 재산출하는 전용 생성기 필요
+kosdaq_1m,코닥표1개월,DIRECT,READY_DIRECT,,,latest/kosdaq_1m_candidates_10_latest.csv,api/kosdaq_1m_candidates_10.json,getKosdaqOneMonthCandidates,
 kospi_gainers,코급표,DIRECT,READY_DIRECT,,,"latest/kospi_gainers_1m_current_basis_latest.csv,latest/kospi_gainers_1m_latest.csv",api/kospi_gainers_1m.json,getKospiGainers,
 monthly_cycle,월사이클표,DIRECT,READY_DIRECT,,,latest/kospi_monthly_cycle_latest.csv,api/kospi_monthly_cycle.json,getMonthlyCycle,
 short_term,단상표,DIRECT,READY_DIRECT,,,latest/kospi_short_term_candidates_30_latest.csv,api/kospi_short_term_candidates_30.json,getShortTermCandidates,

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: KRX Watchlist Auto Read API
-  version: 5.0.0
+  version: 6.0.0
   description: Read-only synchronized KRX strict-contract API. The GPT must call status and rules first, validate build/rules/presentation
     policy, and output one main table without duplicate shortlist tables.
 servers:
@@ -84,6 +84,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnyObject'
+# ONE_MONTH_ACTION_PATHS_V6_BEGIN
+  /sehwankim0114/krx-watchlist-auto/main/api/kospi_1m_candidates_30.json:
+    get:
+      operationId: getKospiOneMonthCandidates
+      summary: Get the single KOSPI one-month candidate table with embedded recommendation markings
+      responses:
+        '200':
+          description: KOSPI one-month candidates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnyObject'
+  /sehwankim0114/krx-watchlist-auto/main/api/kospi_1m_recommend_7.json:
+    get:
+      operationId: getKospiOneMonthRecommendations
+      summary: Get the explicit-request-only KOSPI one-month recommendation shortlist
+      responses:
+        '200':
+          description: KOSPI one-month recommendations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnyObject'
+  /sehwankim0114/krx-watchlist-auto/main/api/kosdaq_1m_candidates_10.json:
+    get:
+      operationId: getKosdaqOneMonthCandidates
+      summary: Get the single KOSDAQ one-month candidate table with embedded recommendation markings
+      responses:
+        '200':
+          description: KOSDAQ one-month candidates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnyObject'
+  /sehwankim0114/krx-watchlist-auto/main/api/kosdaq_1m_recommend_5.json:
+    get:
+      operationId: getKosdaqOneMonthRecommendations
+      summary: Get the explicit-request-only KOSDAQ one-month recommendation shortlist
+      responses:
+        '200':
+          description: KOSDAQ one-month recommendations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnyObject'
+# ONE_MONTH_ACTION_PATHS_V6_END
   /sehwankim0114/krx-watchlist-auto/main/api/kospi_gainers_1m.json:
     get:
       operationId: getKospiGainers

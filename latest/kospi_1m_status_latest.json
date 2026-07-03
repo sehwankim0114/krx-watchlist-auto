@@ -1,0 +1,32 @@
+{
+  "script_version": "kospi_one_month.py v1.2.0-complete-one-month-fields-only",
+  "policy_version": "2026-07-03-v6.0-kospi-one-month-value-candidates-v3",
+  "run_at_kst": "2026-07-03T15:02:16+09:00",
+  "status": "OK",
+  "table_id": "kospi_1m",
+  "display_name": "코피표1개월",
+  "analysis_scope": "코스피 전체 최근 1개월 가치후보 30개·추천 7개",
+  "position_period": "1개월",
+  "candidate_file": "kospi_1m_candidates_30_latest.csv",
+  "recommend_file": "kospi_1m_recommend_7_latest.csv",
+  "input_rows": 925,
+  "kospi_ok_rows_before_exclusion": 925,
+  "rows_after_security_exclusion": 783,
+  "rows_after_data_rows_filter": 783,
+  "rows_excluded_incomplete_one_month": 9,
+  "rows_after_one_month_data_filter": 774,
+  "complete_one_month_fields_required": [
+    "low_1m_intraday",
+    "high_1m_intraday",
+    "range_1m_pct",
+    "position_in_1m_range_pct",
+    "return_1m_pct"
+  ],
+  "candidate_rows": 30,
+  "recommend_rows": 7,
+  "candidate_n": 30,
+  "recommend_n": 7,
+  "minimum_data_rows_1m": 15,
+  "recommend_source": "candidate_top_30",
+  "recommend_outside_candidates": 0
+}

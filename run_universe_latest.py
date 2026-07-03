@@ -33,7 +33,7 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "run_universe_latest.py v1.4_publication_cutoff_sync"
+SCRIPT_VERSION = "run_universe_latest.py v1.5_one_month_runtime_hook"
 HOLIDAY_FILE = Path("config/krx_market_holidays.json")
 OFFICIAL_PUBLICATION_CUTOFF_HOUR = 8
 OFFICIAL_PUBLICATION_CUTOFF_MINUTE = 30
@@ -330,6 +330,70 @@ def run_collect_universe(
     return int(completed.returncode)
 
 
+
+# ONE_MONTH_RUNTIME_HOOK_V6_BEGIN
+def run_one_month_tables(output_dir: Path) -> int:
+    # 현재 KOSPI/KOSDAQ 요약으로 두 1개월표를 생성한다.
+    jobs = (
+        (
+            "KOSPI_ONE_MONTH",
+            [
+                sys.executable,
+                "kospi_one_month.py",
+                "--input",
+                str(
+                    output_dir
+                    / "kospi_universe_summary_latest.csv"
+                ),
+                "--output-dir",
+                str(output_dir),
+                "--candidate-n",
+                "30",
+                "--recommend-n",
+                "7",
+            ],
+        ),
+        (
+            "KOSDAQ_ONE_MONTH",
+            [
+                sys.executable,
+                "kosdaq_one_month.py",
+                "--input",
+                str(
+                    output_dir
+                    / "kosdaq_universe_summary_latest.csv"
+                ),
+                "--output-dir",
+                str(output_dir),
+                "--candidate-n",
+                "10",
+                "--recommend-n",
+                "5",
+            ],
+        ),
+    )
+
+    for label, command in jobs:
+        print(
+            f"[{label}] RUN: {' '.join(command)}",
+            flush=True,
+        )
+        completed = subprocess.run(
+            command,
+            check=False,
+        )
+        if completed.returncode != 0:
+            print(
+                f"[{label}] FAILED="
+                f"{completed.returncode}",
+                flush=True,
+            )
+            return int(completed.returncode)
+
+    print("ONE_MONTH_RUNTIME_HOOK=OK", flush=True)
+    return 0
+# ONE_MONTH_RUNTIME_HOOK_V6_END
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--days", type=int, default=180)
@@ -373,6 +437,9 @@ def main() -> int:
         write_status_files(output_dir, skipped)
         append_universe_log(output_dir, skipped, stage="skip")
         print("[SKIP] Official data is already fresh.", flush=True)
+        one_month_return_code = run_one_month_tables(output_dir)
+        if one_month_return_code != 0:
+            return one_month_return_code
         return 0
 
     return_code = run_collect_universe(
@@ -387,6 +454,10 @@ def main() -> int:
     write_status_files(output_dir, after)
     append_universe_log(output_dir, after, stage="after_collect")
     print(json.dumps(after, ensure_ascii=False, indent=2), flush=True)
+
+    one_month_return_code = run_one_month_tables(output_dir)
+    if one_month_return_code != 0:
+        return one_month_return_code
 
     if after.get("status") == "NO_VALID_OUTPUT" and return_code != 0:
         return return_code

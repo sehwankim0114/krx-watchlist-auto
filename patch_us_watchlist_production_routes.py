@@ -20,7 +20,7 @@ from typing import Callable, Tuple
 
 SCRIPT_VERSION = (
     "patch_us_watchlist_production_routes.py "
-    "v1.0.0-r1-flexible-schema-anchor"
+"v1.0.0-thirteen-of-thirteen-r1-flexible-schema-anchor"
 )
 POLICY_VERSION = (
     "2026-07-03-v6.0-us-watchlist-production"

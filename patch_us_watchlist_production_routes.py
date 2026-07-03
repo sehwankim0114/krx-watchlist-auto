@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-'''
-patch_us_watchlist_production_routes.py v1.0.0
+"""
+patch_us_watchlist_production_routes.py
 
-미관종표 운영 API·Custom GPT Action·13개 경로 등록부를 연결한다.
-'''
+미관종표 운영 API, Custom GPT Action 스키마, 13개 표 경로 등록부를
+운영 상태(13개 준비, 누락 0개)로 전환한다.
+"""
 
 from __future__ import annotations
 
@@ -17,14 +18,11 @@ import textwrap
 from pathlib import Path
 from typing import Callable, Tuple
 
-
 SCRIPT_VERSION = (
     "patch_us_watchlist_production_routes.py "
-"v1.0.0-thirteen-of-thirteen-r1-flexible-schema-anchor"
+    "v1.0.0-thirteen-of-thirteen-r2-flexible-registry-anchor"
 )
-POLICY_VERSION = (
-    "2026-07-03-v6.0-us-watchlist-production"
-)
+POLICY_VERSION = "2026-07-03-v6.0-us-watchlist-production"
 
 API_BEGIN = "# US_WATCHLIST_API_TABLE_SPECS_V6_BEGIN"
 API_END = "# US_WATCHLIST_API_TABLE_SPECS_V6_END"
@@ -79,12 +77,7 @@ def patch_build_api(text: str) -> Tuple[str, bool]:
             f"{original.count(anchor)}"
         )
 
-    patched = original.replace(
-        anchor,
-        anchor + api_block(),
-        1,
-    )
-
+    patched = original.replace(anchor, anchor + api_block(), 1)
     if "us_watchlist_v6" not in patched:
         patched = re.sub(
             r'SCRIPT_VERSION\s*=\s*"([^"]+)"',
@@ -116,44 +109,45 @@ def verify_build_api(text: str) -> None:
     ]
     for marker in required:
         if marker not in text:
-            raise PatchError(
-                f"build API 필수 문구 누락: {marker}"
-            )
+            raise PatchError(f"build API 필수 문구 누락: {marker}")
 
     if text.count('"us_watchlist"') != 1:
         raise PatchError("us_watchlist table_id 개수 오류")
     if text.count('"us_watchlist_recommend_7"') != 1:
-        raise PatchError(
-            "us_watchlist_recommend_7 table_id 개수 오류"
-        )
+        raise PatchError("us_watchlist_recommend_7 table_id 개수 오류")
 
 
-def action_block() -> str:
+def action_block(indent: str = "  ") -> str:
+    child = indent + "  "
+    grandchild = child + "  "
+    great = grandchild + "  "
+    deeper = great + "  "
+    deepest = deeper + "  "
     return (
-        f"  {ACTION_BEGIN}\n"
-        "  /sehwankim0114/krx-watchlist-auto/main/api/us_watchlist.json:\n"
-        "    get:\n"
-        "      operationId: getUsWatchlist\n"
-        "      summary: Get the S&P500 candidate table with seven embedded recommendation markings\n"
-        "      responses:\n"
-        "        '200':\n"
-        "          description: US S&P500 watchlist candidate rows\n"
-        "          content:\n"
-        "            application/json:\n"
-        "              schema:\n"
-        "                $ref: '#/components/schemas/AnyObject'\n"
-        "  /sehwankim0114/krx-watchlist-auto/main/api/us_watchlist_recommend_7.json:\n"
-        "    get:\n"
-        "      operationId: getUsWatchlistRecommendations\n"
-        "      summary: Get the explicit-request-only US S&P500 recommendation shortlist\n"
-        "      responses:\n"
-        "        '200':\n"
-        "          description: US S&P500 recommendation rows\n"
-        "          content:\n"
-        "            application/json:\n"
-        "              schema:\n"
-        "                $ref: '#/components/schemas/AnyObject'\n"
-        f"  {ACTION_END}\n"
+        f"{indent}{ACTION_BEGIN}\n"
+        f"{indent}/sehwankim0114/krx-watchlist-auto/main/api/us_watchlist.json:\n"
+        f"{child}get:\n"
+        f"{grandchild}operationId: getUsWatchlist\n"
+        f"{grandchild}summary: Get the S&P500 candidate table with seven embedded recommendation markings\n"
+        f"{grandchild}responses:\n"
+        f"{great}'200':\n"
+        f"{deeper}description: US S&P500 watchlist candidate rows\n"
+        f"{deeper}content:\n"
+        f"{deepest}application/json:\n"
+        f"{deepest}  schema:\n"
+        f"{deepest}    $ref: '#/components/schemas/AnyObject'\n"
+        f"{indent}/sehwankim0114/krx-watchlist-auto/main/api/us_watchlist_recommend_7.json:\n"
+        f"{child}get:\n"
+        f"{grandchild}operationId: getUsWatchlistRecommendations\n"
+        f"{grandchild}summary: Get the explicit-request-only US S&P500 recommendation shortlist\n"
+        f"{grandchild}responses:\n"
+        f"{great}'200':\n"
+        f"{deeper}description: US S&P500 recommendation rows\n"
+        f"{deeper}content:\n"
+        f"{deepest}application/json:\n"
+        f"{deepest}  schema:\n"
+        f"{deepest}    $ref: '#/components/schemas/AnyObject'\n"
+        f"{indent}{ACTION_END}\n"
     )
 
 
@@ -163,11 +157,8 @@ def patch_action_schema(text: str) -> Tuple[str, bool]:
         verify_action_schema(original)
         return original, False
 
-    # 특정 주석과 들여쓰기에 의존하지 않는다.
-    # 최상위 또는 fixture 내부의 components: 직전에
-    # 미관종표 paths 항목을 삽입한다.
     components_pattern = re.compile(
-        r"^[ \t]*components:\s*$",
+        r"^(?P<indent>[ \t]*)components:\s*$",
         flags=re.MULTILINE,
     )
     matches = list(components_pattern.finditer(original))
@@ -178,12 +169,12 @@ def patch_action_schema(text: str) -> Tuple[str, bool]:
         )
 
     match = matches[0]
+    indent = match.group("indent")
     patched = (
-        original[:match.start()]
-        + action_block()
-        + original[match.start():]
+        original[: match.start()]
+        + action_block(indent)
+        + original[match.start() :]
     )
-
     verify_action_schema(patched)
     return patched, True
 
@@ -199,9 +190,7 @@ def verify_action_schema(text: str) -> None:
     ]
     for marker in required:
         if marker not in text:
-            raise PatchError(
-                f"Action 스키마 필수 문구 누락: {marker}"
-            )
+            raise PatchError(f"Action 스키마 필수 문구 누락: {marker}")
 
     for operation_id in (
         "getUsWatchlist",
@@ -209,66 +198,100 @@ def verify_action_schema(text: str) -> None:
     ):
         count = len(
             re.findall(
-                rf"^\s*operationId:\s*"
-                rf"{re.escape(operation_id)}\s*$",
+                rf"^\s*operationId:\s*{re.escape(operation_id)}\s*$",
                 text,
                 flags=re.MULTILINE,
             )
         )
         if count != 1:
             raise PatchError(
-                f"operationId 개수 오류: "
-                f"{operation_id}={count}"
+                f"operationId 개수 오류: {operation_id}={count}"
             )
 
 
-def route_pattern() -> re.Pattern[str]:
-    return re.compile(
-        r'(?P<block>^    RouteContract\(\n'
-        r'        route_id="us_watchlist",'
-        r'.*?^    \),$)',
-        flags=re.DOTALL | re.MULTILINE,
+def _find_us_route_span(text: str) -> tuple[int, int]:
+    lines = text.splitlines(keepends=True)
+    route_line = next(
+        (
+            index
+            for index, line in enumerate(lines)
+            if 'route_id="us_watchlist"' in line
+            or "route_id='us_watchlist'" in line
+        ),
+        None,
     )
+    if route_line is None:
+        raise PatchError("us_watchlist RouteContract 블록 누락")
+
+    start = None
+    for index in range(route_line, -1, -1):
+        if lines[index].strip() == "RouteContract(":
+            start = index
+            break
+    if start is None:
+        raise PatchError("us_watchlist RouteContract 시작점 누락")
+
+    indent = lines[start][: len(lines[start]) - len(lines[start].lstrip())]
+    end = None
+    for index in range(route_line + 1, len(lines)):
+        if lines[index].rstrip("\n") == indent + "),":
+            end = index + 1
+            break
+    if end is None:
+        raise PatchError("us_watchlist RouteContract 종료점 누락")
+
+    offsets = [0]
+    for line in lines:
+        offsets.append(offsets[-1] + len(line))
+    return offsets[start], offsets[end]
+
+
+def _remove_next_step(block: str) -> str:
+    lines = block.splitlines(keepends=True)
+    start = next(
+        (
+            index
+            for index, line in enumerate(lines)
+            if line.strip().startswith("next_step=")
+        ),
+        None,
+    )
+    if start is None:
+        return block
+
+    if "(" not in lines[start]:
+        return "".join(lines[:start] + lines[start + 1 :])
+
+    indent = lines[start][: len(lines[start]) - len(lines[start].lstrip())]
+    end = None
+    for index in range(start + 1, len(lines)):
+        if lines[index].rstrip("\n") == indent + "),":
+            end = index + 1
+            break
+    if end is None:
+        raise PatchError("us_watchlist next_step 종료점 누락")
+    return "".join(lines[:start] + lines[end:])
 
 
 def patch_us_route(text: str) -> str:
-    match = route_pattern().search(text)
-    if not match:
-        raise PatchError(
-            "us_watchlist RouteContract 블록 누락"
-        )
+    start, end = _find_us_route_span(text)
+    block = text[start:end]
 
-    block = match.group("block")
     if "required_now=True," in block:
         if "planned_missing=True," in block:
-            raise PatchError(
-                "us_watchlist ready/missing 동시 존재"
-            )
+            raise PatchError("us_watchlist ready/missing 동시 존재")
         return text
 
     if "planned_missing=True," not in block:
-        raise PatchError(
-            "us_watchlist planned_missing 기준점 누락"
-        )
+        raise PatchError("us_watchlist planned_missing 기준점 누락")
 
     updated = block.replace(
         "planned_missing=True,",
         "required_now=True,",
         1,
     )
-    updated = re.sub(
-        r'\n        next_step=\(\n.*?\n        \),',
-        "",
-        updated,
-        count=1,
-        flags=re.DOTALL,
-    )
-
-    return (
-        text[:match.start("block")]
-        + updated
-        + text[match.end("block"):]
-    )
+    updated = _remove_next_step(updated)
+    return text[:start] + updated + text[end:]
 
 
 def replace_once_or_done(
@@ -283,9 +306,181 @@ def replace_once_or_done(
     if count == 0 and new in text:
         return text
     raise PatchError(
-        f"{label}: old_count={count}, "
-        f"new_present={new in text}"
+        f"{label}: old_count={count}, new_present={new in text}"
     )
+
+
+def _replace_next_build_order(text: str) -> str:
+    pattern = re.compile(
+        r'(?P<indent>^[ \t]*)"next_build_order"\s*:\s*\[\s*'
+        r'"us_watchlist"\s*,?\s*\]',
+        flags=re.MULTILINE,
+    )
+    matches = list(pattern.finditer(text))
+    if len(matches) == 1:
+        return pattern.sub(
+            lambda m: m.group("indent") + '"next_build_order": []',
+            text,
+            count=1,
+        )
+    if len(matches) == 0 and '"next_build_order": []' in text:
+        return text
+    raise PatchError(
+        "next_build_order 기준점 오류: "
+        f"matches={len(matches)}"
+    )
+
+
+def _replace_expected_missing_set(text: str) -> str:
+    pattern = re.compile(
+        r'^(?P<indent>[ \t]+)expected_missing\s*=\s*\{\s*\n'
+        r'(?P=indent)[ \t]+["\']us_watchlist["\']\s*,?\s*\n'
+        r'(?P=indent)\}\s*$',
+        flags=re.MULTILINE,
+    )
+    matches = list(pattern.finditer(text))
+    if len(matches) == 1:
+        return pattern.sub(
+            lambda m: m.group("indent") + "expected_missing = set()",
+            text,
+            count=1,
+        )
+    if len(matches) == 0 and "expected_missing = set()" in text:
+        return text
+    raise PatchError(
+        "strict expected missing 기준점 오류: "
+        f"matches={len(matches)}"
+    )
+
+
+def _find_same_indent_line(
+    lines: list[str],
+    start: int,
+    indent: str,
+    stripped_text: str,
+) -> int | None:
+    for index in range(start, len(lines)):
+        if (
+            lines[index][: len(lines[index]) - len(lines[index].lstrip())]
+            == indent
+            and lines[index].strip() == stripped_text
+        ):
+            return index
+    return None
+
+
+def _replace_planned_missing_validation(text: str) -> str:
+    if "No planned missing routes are allowed" in text:
+        return text
+
+    lines = text.splitlines(keepends=True)
+    start = next(
+        (
+            index
+            for index, line in enumerate(lines)
+            if line.strip() == "planned_missing = {"
+        ),
+        None,
+    )
+    if start is None:
+        raise PatchError("planned_missing 검증 시작점 누락")
+
+    indent = lines[start][: len(lines[start]) - len(lines[start].lstrip())]
+    set_end = _find_same_indent_line(lines, start + 1, indent, "}")
+    if set_end is None:
+        raise PatchError("planned_missing 집합 종료점 누락")
+
+    if_start = _find_same_indent_line(
+        lines,
+        set_end + 1,
+        indent,
+        "if planned_missing != {",
+    )
+    if if_start is None:
+        raise PatchError("planned_missing 비교 기준점 누락")
+
+    condition_end = _find_same_indent_line(
+        lines,
+        if_start + 1,
+        indent,
+        "}:",
+    )
+    if condition_end is None:
+        raise PatchError("planned_missing 비교 종료점 누락")
+
+    raise_start = _find_same_indent_line(
+        lines,
+        condition_end + 1,
+        indent + "    ",
+        "raise RuntimeError(",
+    )
+    if raise_start is None:
+        raise PatchError("planned_missing 예외 시작점 누락")
+
+    raise_indent = indent + "    "
+    raise_end = _find_same_indent_line(
+        lines,
+        raise_start + 1,
+        raise_indent,
+        ")",
+    )
+    if raise_end is None:
+        raise PatchError("planned_missing 예외 종료점 누락")
+
+    child = indent + "    "
+    grandchild = child + "    "
+    replacement = [
+        f"{indent}planned_missing = {{\n",
+        f"{child}route.route_id\n",
+        f"{child}for route in ROUTES\n",
+        f"{child}if route.planned_missing\n",
+        f"{indent}}}\n",
+        f"{indent}if planned_missing:\n",
+        f"{child}raise RuntimeError(\n",
+        f'{grandchild}"No planned missing routes are allowed"\n',
+        f"{child})\n",
+    ]
+    return "".join(lines[:start] + replacement + lines[raise_end + 1 :])
+
+
+def _replace_us_self_test_loop(text: str) -> str:
+    if "assert us_route.required_now is True" in text:
+        return text
+
+    lines = text.splitlines(keepends=True)
+    start = None
+    for index, line in enumerate(lines):
+        if line.strip() != "for route_id in (":
+            continue
+        probe = "".join(lines[index : min(index + 12, len(lines))])
+        if '"us_watchlist"' in probe or "'us_watchlist'" in probe:
+            start = index
+            break
+    if start is None:
+        raise PatchError("us_watchlist 자체시험 시작점 누락")
+
+    indent = lines[start][: len(lines[start]) - len(lines[start].lstrip())]
+    end = next(
+        (
+            index
+            for index in range(start + 1, len(lines))
+            if lines[index].strip() == "assert route.next_step"
+        ),
+        None,
+    )
+    if end is None:
+        raise PatchError("us_watchlist 자체시험 종료점 누락")
+
+    child = indent + "    "
+    replacement = [
+        f"{indent}us_route = next(\n",
+        f"{child}item for item in ROUTES\n",
+        f'{child}if item.route_id == "us_watchlist"\n',
+        f"{indent})\n",
+        f"{indent}assert us_route.required_now is True\n",
+        f"{indent}assert us_route.planned_missing is False\n",
+    ]
+    return "".join(lines[:start] + replacement + lines[end + 1 :])
 
 
 def patch_registry(text: str) -> Tuple[str, bool]:
@@ -295,9 +490,7 @@ def patch_registry(text: str) -> Tuple[str, bool]:
     if REGISTRY_MARKER not in patched:
         anchor = "# HOLDINGS_PRIVATE_RUNTIME_READY_V6\n"
         if patched.count(anchor) != 1:
-            raise PatchError(
-                "registry marker 삽입 기준점 오류"
-            )
+            raise PatchError("registry marker 삽입 기준점 오류")
         patched = patched.replace(
             anchor,
             anchor + REGISTRY_MARKER + "\n",
@@ -305,15 +498,9 @@ def patch_registry(text: str) -> Tuple[str, bool]:
         )
 
     patched = patch_us_route(patched)
+    patched = _replace_next_build_order(patched)
 
     replacements = [
-        (
-            '        "next_build_order": [\n'
-            '            "us_watchlist",\n'
-            '        ],\n',
-            '        "next_build_order": [],\n',
-            "next_build_order",
-        ),
         (
             '"EXPECTED_CURRENT_READY_COUNT=12"',
             '"EXPECTED_CURRENT_READY_COUNT=13"',
@@ -360,10 +547,8 @@ def patch_registry(text: str) -> Tuple[str, bool]:
             "strict ready",
         ),
         (
-            'f"Expected 12 ready routes, got '
-            '{counts[\'ready_total\']}"',
-            'f"Expected 13 ready routes, got '
-            '{counts[\'ready_total\']}"',
+            'f"Expected 12 ready routes, got ',
+            'f"Expected 13 ready routes, got ',
             "strict ready message",
         ),
         (
@@ -372,126 +557,17 @@ def patch_registry(text: str) -> Tuple[str, bool]:
             "strict missing",
         ),
         (
-            'f"Expected 1 missing route, got '
-            '{counts[\'missing\']}"',
-            'f"Expected 0 missing routes, got '
-            '{counts[\'missing\']}"',
+            'f"Expected 1 missing route, got ',
+            'f"Expected 0 missing routes, got ',
             "strict missing message",
         ),
     ]
-
     for old, new, label in replacements:
-        patched = replace_once_or_done(
-            patched,
-            old,
-            new,
-            label,
-        )
+        patched = replace_once_or_done(patched, old, new, label)
 
-    missing_set_pattern = re.compile(
-        r'^(?P<indent>[ \t]+)expected_missing = \{\n'
-        r'(?P=indent)    "us_watchlist",\n'
-        r'(?P=indent)\}\n',
-        flags=re.MULTILINE,
-    )
-    missing_matches = list(missing_set_pattern.finditer(patched))
-    if len(missing_matches) == 1:
-        match = missing_matches[0]
-        replacement = (
-            match.group("indent")
-            + "expected_missing = set()\n"
-        )
-        patched = (
-            patched[:match.start()]
-            + replacement
-            + patched[match.end():]
-        )
-    elif (
-        len(missing_matches) == 0
-        and "expected_missing = set()" not in patched
-    ):
-        raise PatchError(
-            "strict expected missing 기준점 누락"
-        )
-    elif len(missing_matches) > 1:
-        raise PatchError(
-            "strict expected missing 기준점 중복"
-        )
-
-    validate_pattern = re.compile(
-        r'    planned_missing = \{\n'
-        r'        route\.route_id for route in ROUTES\n'
-        r'        if route\.planned_missing\n'
-        r'    \}\n'
-        r'    if planned_missing != \{\n'
-        r'        "us_watchlist",\n'
-        r'    \}:\n'
-        r'        raise RuntimeError\(\n'
-        r'            "Planned missing routes must be exactly one"\n'
-        r'        \)\n',
-        flags=re.MULTILINE,
-    )
-    validate_new = (
-        "    planned_missing = {\n"
-        "        route.route_id for route in ROUTES\n"
-        "        if route.planned_missing\n"
-        "    }\n"
-        "    if planned_missing:\n"
-        "        raise RuntimeError(\n"
-        '            "No planned missing routes are allowed"\n'
-        "        )\n"
-    )
-    matches = validate_pattern.findall(patched)
-    if len(matches) == 1:
-        patched = validate_pattern.sub(
-            validate_new,
-            patched,
-            count=1,
-        )
-    elif (
-        len(matches) == 0
-        and "No planned missing routes are allowed"
-        not in patched
-    ):
-        raise PatchError(
-            "planned_missing 검증 기준점 누락"
-        )
-
-    self_pattern = re.compile(
-        r'    for route_id in \(\n'
-        r'        "us_watchlist",\n'
-        r'    \):\n'
-        r'        route = next\(\n'
-        r'            item for item in ROUTES\n'
-        r'            if item\.route_id == route_id\n'
-        r'        \)\n'
-        r'        assert route\.planned_missing is True\n'
-        r'        assert route\.next_step\n',
-        flags=re.MULTILINE,
-    )
-    self_new = (
-        '    us_route = next(\n'
-        '        item for item in ROUTES\n'
-        '        if item.route_id == "us_watchlist"\n'
-        '    )\n'
-        '    assert us_route.required_now is True\n'
-        '    assert us_route.planned_missing is False\n'
-    )
-    matches = self_pattern.findall(patched)
-    if len(matches) == 1:
-        patched = self_pattern.sub(
-            self_new,
-            patched,
-            count=1,
-        )
-    elif (
-        len(matches) == 0
-        and "assert us_route.required_now is True"
-        not in patched
-    ):
-        raise PatchError(
-            "us_watchlist 자체시험 기준점 누락"
-        )
+    patched = _replace_expected_missing_set(patched)
+    patched = _replace_planned_missing_validation(patched)
+    patched = _replace_us_self_test_loop(patched)
 
     verify_registry(patched)
     return patched, patched != original
@@ -513,25 +589,18 @@ def verify_registry(text: str) -> None:
         "expected_missing = set()",
         "No planned missing routes are allowed",
         "assert us_route.required_now is True",
+        "assert us_route.planned_missing is False",
     ]
     for marker in required:
         if marker not in text:
-            raise PatchError(
-                f"registry 필수 문구 누락: {marker}"
-            )
+            raise PatchError(f"registry 필수 문구 누락: {marker}")
 
-    match = route_pattern().search(text)
-    if not match:
-        raise PatchError("us route ready 블록 누락")
-    block = match.group("block")
+    start, end = _find_us_route_span(text)
+    block = text[start:end]
     if "required_now=True," not in block:
-        raise PatchError(
-            "us route required_now=True 누락"
-        )
+        raise PatchError("us route required_now=True 누락")
     if "planned_missing=True," in block:
-        raise PatchError(
-            "us route planned_missing 잔존"
-        )
+        raise PatchError("us route planned_missing 잔존")
 
 
 def compile_python(path: Path) -> None:
@@ -542,8 +611,7 @@ def compile_python(path: Path) -> None:
     )
     if result.returncode != 0:
         raise PatchError(
-            f"Python 문법검사 실패: {path}\n"
-            + result.stderr
+            f"Python 문법검사 실패: {path}\n{result.stderr}"
         )
 
 
@@ -564,16 +632,14 @@ def apply_patch(
 
     if check_only:
         if changed:
-            raise PatchError(
-                f"아직 패치되지 않은 파일: {path}"
-            )
+            raise PatchError(f"아직 패치되지 않은 파일: {path}")
         if compile_after:
             compile_python(path)
         return False
 
     if changed:
         temp = path.with_suffix(path.suffix + ".us.tmp")
-        temp.write_text(patched, encoding="utf-8")
+        temp.write_text(patched, encoding="utf-8", newline="\n")
         if compile_after:
             compile_python(temp)
         temp.replace(path)
@@ -594,7 +660,7 @@ def build_api_fixture() -> str:
                 pass
 
         TABLE_SPECS = (
-            # ONE_MONTH_API_TABLE_SPECS_V6_END
+        # ONE_MONTH_API_TABLE_SPECS_V6_END
             TableSpec(
                 "kospi_gainers_1m",
                 "코급표",
@@ -684,7 +750,8 @@ def registry_fixture() -> str:
 
         def validate_contract_definition():
             planned_missing = {
-                route.route_id for route in ROUTES
+                route.route_id
+                for route in ROUTES
                 if route.planned_missing
             }
             if planned_missing != {
@@ -697,17 +764,14 @@ def registry_fixture() -> str:
         def run_self_test():
             assert sum(route.required_now for route in ROUTES) == 12
             assert sum(route.planned_missing for route in ROUTES) == 1
-
             for route_id in (
                 "us_watchlist",
             ):
                 route = next(
-                    item for item in ROUTES
-                    if item.route_id == route_id
+                    item for item in ROUTES if item.route_id == route_id
                 )
                 assert route.planned_missing is True
                 assert route.next_step
-
             tested = (
                 "twelve_current_routes,"
                 "one_planned_missing_route,"
@@ -724,7 +788,8 @@ def registry_fixture() -> str:
                     f"Expected 1 missing route, got {counts['missing']}"
                 )
             missing_ids = {
-                row["route_id"] for row in results
+                row["route_id"]
+                for row in results
                 if row["status"] == "MISSING"
             }
             expected_missing = {
@@ -737,21 +802,9 @@ def registry_fixture() -> str:
 
 def run_self_test() -> int:
     cases = (
-        (
-            build_api_fixture(),
-            patch_build_api,
-            verify_build_api,
-        ),
-        (
-            schema_fixture(),
-            patch_action_schema,
-            verify_action_schema,
-        ),
-        (
-            registry_fixture(),
-            patch_registry,
-            verify_registry,
-        ),
+        (build_api_fixture(), patch_build_api, verify_build_api),
+        (schema_fixture(), patch_action_schema, verify_action_schema),
+        (registry_fixture(), patch_registry, verify_registry),
     )
 
     for original, patcher, verifier in cases:
@@ -769,18 +822,9 @@ def run_self_test() -> int:
         schema_path = root / "schema.yaml"
         registry_path = root / "table_route_registry.py"
 
-        api_path.write_text(
-            build_api_fixture(),
-            encoding="utf-8",
-        )
-        schema_path.write_text(
-            schema_fixture(),
-            encoding="utf-8",
-        )
-        registry_path.write_text(
-            registry_fixture(),
-            encoding="utf-8",
-        )
+        api_path.write_text(build_api_fixture(), encoding="utf-8")
+        schema_path.write_text(schema_fixture(), encoding="utf-8")
+        registry_path.write_text(registry_fixture(), encoding="utf-8")
 
         apply_patch(
             api_path,
@@ -853,7 +897,6 @@ def main() -> int:
         return run_self_test()
 
     root = Path(args.root).resolve()
-
     api_changed = apply_patch(
         root / "build_api_json.py",
         patch_build_api,
@@ -881,35 +924,17 @@ def main() -> int:
         if args.check_only
         else (
             "APPLIED"
-            if any(
-                (
-                    api_changed,
-                    schema_changed,
-                    registry_changed,
-                )
-            )
+            if any((api_changed, schema_changed, registry_changed))
             else "NO_CHANGE"
         )
     )
 
-    print(
-        "US_WATCHLIST_PRODUCTION_PATCH_STATUS="
-        + status
-    )
+    print("US_WATCHLIST_PRODUCTION_PATCH_STATUS=" + status)
     print(f"PATCH_SCRIPT_VERSION={SCRIPT_VERSION}")
     print(f"PATCH_POLICY_VERSION={POLICY_VERSION}")
-    print(
-        "BUILD_API_CHANGED="
-        + str(api_changed).lower()
-    )
-    print(
-        "ACTION_SCHEMA_CHANGED="
-        + str(schema_changed).lower()
-    )
-    print(
-        "TABLE_ROUTE_REGISTRY_CHANGED="
-        + str(registry_changed).lower()
-    )
+    print("BUILD_API_CHANGED=" + str(api_changed).lower())
+    print("ACTION_SCHEMA_CHANGED=" + str(schema_changed).lower())
+    print("TABLE_ROUTE_REGISTRY_CHANGED=" + str(registry_changed).lower())
     print("EXPECTED_READY_ROUTES=13")
     print("EXPECTED_MISSING_ROUTES=0")
     print("ALL_THIRTEEN_ROUTES_COMPLETE=true")

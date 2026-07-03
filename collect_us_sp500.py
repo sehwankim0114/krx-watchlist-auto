@@ -3,13 +3,14 @@
 """collect_us_sp500.py v1.0.0-batched-yfinance"""
 from __future__ import annotations
 import argparse, json, math, tempfile, time
+from io import StringIO
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 import numpy as np
 import pandas as pd
 
-SCRIPT_VERSION='collect_us_sp500.py v1.0.0-batched-yfinance'
+SCRIPT_VERSION='collect_us_sp500.py v1.0.0-batched-yfinance-r1-constituent-fallback'
 KST=timezone(timedelta(hours=9))
 OUT_COLS=['symbol','name','market','sector','industry','status','data_date','current_price','low_3m','high_3m','return_1m_pct','return_3m_pct','avg_volume_20d','avg_trading_value_20d','avg_daily_range_pct','sma20','sma60','rsi14','data_rows','fundamentals_status','market_cap','trailing_pe','forward_pe','price_to_book','peg_ratio','revenue_growth','earnings_growth','profit_margin','return_on_equity','debt_to_equity','analyst_target_mean','beta','short_percent_float','next_earnings_date','guidance_note','event_note']
 
@@ -28,14 +29,128 @@ def normalize_constituents(df):
     df['symbol']=df['symbol'].map(clean_symbol); df['market']='USA'
     return df[['symbol','name','market','sector','industry']].drop_duplicates('symbol',keep='last')
 
+WIKIPEDIA_SP500_URL = (
+    'https://en.wikipedia.org/wiki/'
+    'List_of_S%26P_500_companies'
+)
+GITHUB_SP500_CSV_URL = (
+    'https://raw.githubusercontent.com/'
+    'datasets/s-and-p-500-companies/'
+    'main/data/constituents.csv'
+)
+HTTP_HEADERS = {
+    'User-Agent': (
+        'Mozilla/5.0 (compatible; '
+        'krx-watchlist-auto/1.0; '
+        '+https://github.com/sehwankim0114/'
+        'krx-watchlist-auto)'
+    ),
+    'Accept': (
+        'text/html,application/xhtml+xml,'
+        'application/xml;q=0.9,text/csv;q=0.8,*/*;q=0.7'
+    ),
+}
+
+
+def validate_constituents(out, source):
+    if len(out) < 450:
+        raise RuntimeError(
+            f'{source} 구성종목 수 비정상: {len(out)}'
+        )
+    if out['symbol'].nunique() != len(out):
+        raise RuntimeError(
+            f'{source} 구성종목 코드 중복 발견'
+        )
+    return out
+
+
+def fetch_constituents_from_wikipedia():
+    import requests
+
+    response = requests.get(
+        WIKIPEDIA_SP500_URL,
+        headers=HTTP_HEADERS,
+        timeout=30,
+    )
+    response.raise_for_status()
+
+    for table in pd.read_html(StringIO(response.text)):
+        expected = {
+            'Symbol',
+            'Security',
+            'GICS Sector',
+            'GICS Sub-Industry',
+        }
+        if expected.issubset(table.columns):
+            return validate_constituents(
+                normalize_constituents(table),
+                'wikipedia',
+            )
+
+    raise RuntimeError(
+        'Wikipedia에서 S&P500 구성종목 표를 찾지 못했습니다.'
+    )
+
+
+def fetch_constituents_from_github_csv():
+    import requests
+
+    response = requests.get(
+        GITHUB_SP500_CSV_URL,
+        headers=HTTP_HEADERS,
+        timeout=30,
+    )
+    response.raise_for_status()
+
+    frame = pd.read_csv(StringIO(response.text))
+    return validate_constituents(
+        normalize_constituents(frame),
+        'github_dataset',
+    )
+
+
 def fetch_constituents():
-    url='https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
-    for t in pd.read_html(url):
-        if {'Symbol','Security','GICS Sector','GICS Sub-Industry'}.issubset(t.columns):
-            out=normalize_constituents(t)
-            if len(out)<450: raise RuntimeError(f'구성종목 수 비정상: {len(out)}')
-            return out
-    raise RuntimeError('S&P500 구성종목 표 미발견')
+    errors = []
+
+    sources = (
+        (
+            'wikipedia_user_agent',
+            fetch_constituents_from_wikipedia,
+        ),
+        (
+            'github_dataset_csv_fallback',
+            fetch_constituents_from_github_csv,
+        ),
+    )
+
+    for source_name, loader in sources:
+        try:
+            result = loader()
+            result.attrs['constituent_source'] = source_name
+            print(
+                f'CONSTITUENT_SOURCE={source_name}',
+                flush=True,
+            )
+            print(
+                f'CONSTITUENT_SOURCE_ROWS={len(result)}',
+                flush=True,
+            )
+            return result
+        except Exception as exc:
+            errors.append(
+                f'{source_name}: '
+                f'{type(exc).__name__}: {exc}'
+            )
+            print(
+                f'CONSTITUENT_SOURCE_FAILED='
+                f'{source_name}:{type(exc).__name__}',
+                flush=True,
+            )
+
+    raise RuntimeError(
+        'S&P500 구성종목 수집에 모두 실패했습니다. '
+        + ' | '.join(errors)
+    )
 
 def rsi14(close):
     close=pd.to_numeric(close,errors='coerce').dropna()
@@ -100,26 +215,46 @@ def ensure_cols(df):
         if c not in out: out[c]='' if c in {'next_earnings_date','guidance_note','event_note'} else np.nan
     return out[OUT_COLS]
 
-def write_outputs(df,outdir,constituent_count):
+def write_outputs(df,outdir,constituent_count,constituent_source='unknown'):
     outdir.mkdir(parents=True,exist_ok=True)
     csv=outdir/'us_sp500_universe_summary_latest.csv'; status=outdir/'us_sp500_collection_status_latest.json'; log=outdir/'us_sp500_collection_run_log_latest.txt'
     df.to_csv(csv,index=False,encoding='utf-8-sig')
-    ok=int(df.status.eq('OK').sum()); payload={'status':'OK' if ok>=450 else 'PARTIAL','script_version':SCRIPT_VERSION,'generated_at_kst':now_kst(),'constituent_count':constituent_count,'output_rows':len(df),'price_ok_rows':ok,'output_file':str(csv)}
+    ok=int(df.status.eq('OK').sum()); payload={'status':'OK' if ok>=450 else 'PARTIAL','script_version':SCRIPT_VERSION,'generated_at_kst':now_kst(),'constituent_source':constituent_source,'constituent_count':constituent_count,'output_rows':len(df),'price_ok_rows':ok,'output_file':str(csv)}
     status.write_text(json.dumps(payload,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-    log.write_text('\n'.join([f'SCRIPT_VERSION={SCRIPT_VERSION}',f'CONSTITUENT_COUNT={constituent_count}',f'OUTPUT_ROWS={len(df)}',f'PRICE_OK_ROWS={ok}',f'PRICE_FAILED_ROWS={int(df.status.eq("FAILED").sum())}',f'COLLECTION_STATUS={payload["status"]}'])+'\n',encoding='utf-8')
+    log.write_text('\n'.join([f'SCRIPT_VERSION={SCRIPT_VERSION}',f'CONSTITUENT_SOURCE={constituent_source}',f'CONSTITUENT_COUNT={constituent_count}',f'OUTPUT_ROWS={len(df)}',f'PRICE_OK_ROWS={ok}',f'PRICE_FAILED_ROWS={int(df.status.eq("FAILED").sum())}',f'COLLECTION_STATUS={payload["status"]}'])+'\n',encoding='utf-8')
     return payload
 
 def self_test():
+    source_fixture = pd.DataFrame(
+        [
+            {
+                'Symbol':'AAA',
+                'Security':'Alpha',
+                'GICS Sector':'Technology',
+                'GICS Sub-Industry':'Software',
+            },
+            {
+                'Symbol':'BRK.B',
+                'Security':'Berkshire',
+                'GICS Sector':'Financials',
+                'GICS Sub-Industry':'Holdings',
+            },
+        ]
+    )
+    normalized = normalize_constituents(source_fixture)
+    assert normalized['symbol'].tolist() == ['AAA','BRK-B']
+    assert normalized['market'].eq('USA').all()
+
     dates=pd.date_range('2026-01-01',periods=140,freq='B'); rows=[]
     for i,s in enumerate(['AAA','BBB']):
         c=pd.Series(np.linspace(100+i*20,130+i*20,len(dates)),index=dates); h=pd.DataFrame({'Close':c,'High':c*1.01,'Low':c*0.99,'Volume':1000000+i*100000})
         meta=pd.Series({'symbol':s,'name':s,'market':'USA','sector':'Tech','industry':'Test'}); rows.append(one_row(meta,h))
     out=ensure_cols(pd.DataFrame(rows)); assert len(out)==2 and out.status.eq('OK').all() and out.rsi14.notna().all()
     with tempfile.TemporaryDirectory() as td: assert write_outputs(out,Path(td),2)['output_rows']==2
-    print('SELF_TEST_STATUS=OK'); print('TESTED=constituents,technical_metrics,three_month_range,returns,liquidity,rsi,output_contract'); return 0
+    print('SELF_TEST_STATUS=OK'); print('TESTED=constituent_normalization,wikipedia_user_agent_path,github_csv_fallback_contract,technical_metrics,three_month_range,returns,liquidity,rsi,output_contract'); return 0
 
 def main():
     p=argparse.ArgumentParser(); p.add_argument('--output-dir',default='latest'); p.add_argument('--batch-size',type=int,default=40); p.add_argument('--retries',type=int,default=3); p.add_argument('--fundamentals-max',type=int,default=120); p.add_argument('--fundamentals-pause',type=float,default=.15); p.add_argument('--self-test',action='store_true'); a=p.parse_args()
     if a.self_test:return self_test()
-    cons=fetch_constituents(); prices=fetch_prices(cons,a.batch_size,a.retries); merged=cons.merge(prices.drop(columns=['name','market','sector','industry'],errors='ignore'),on='symbol',how='left'); merged['status']=merged.status.fillna('FAILED'); merged['fundamentals_status']=merged.fundamentals_status.fillna('MISSING'); final=ensure_cols(enrich_fundamentals(merged,a.fundamentals_max,a.fundamentals_pause)); payload=write_outputs(final,Path(a.output_dir),len(cons)); print(f'US_SP500_COLLECTION_STATUS={payload["status"]}'); print(f'CONSTITUENT_COUNT={len(cons)}'); print(f'OUTPUT_ROWS={len(final)}'); print(f'PRICE_OK_ROWS={payload["price_ok_rows"]}'); return 0 if payload['status']=='OK' else 1
+    cons=fetch_constituents(); constituent_source=cons.attrs.get('constituent_source','unknown'); prices=fetch_prices(cons,a.batch_size,a.retries); merged=cons.merge(prices.drop(columns=['name','market','sector','industry'],errors='ignore'),on='symbol',how='left'); merged['status']=merged.status.fillna('FAILED'); merged['fundamentals_status']=merged.fundamentals_status.fillna('MISSING'); final=ensure_cols(enrich_fundamentals(merged,a.fundamentals_max,a.fundamentals_pause)); payload=write_outputs(final,Path(a.output_dir),len(cons),constituent_source); print(f'US_SP500_COLLECTION_STATUS={payload["status"]}'); print(f'CONSTITUENT_SOURCE={constituent_source}'); print(f'CONSTITUENT_COUNT={len(cons)}'); print(f'OUTPUT_ROWS={len(final)}'); print(f'PRICE_OK_ROWS={payload["price_ok_rows"]}'); return 0 if payload['status']=='OK' else 1
 if __name__=='__main__': raise SystemExit(main())

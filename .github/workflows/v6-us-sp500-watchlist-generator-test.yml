@@ -1,0 +1,668 @@
+name: V6 US S&P500 Watchlist Generator Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-us-sp500-watchlist-generator-test-main
+  cancel-in-progress: false
+
+jobs:
+  test-us-sp500-watchlist-generator:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install test packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install pandas numpy
+
+      - name: Check generator
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ ! -f us_sp500_watchlist.py ]; then
+            echo "::error::us_sp500_watchlist.py is missing"
+            exit 1
+          fi
+
+          grep -q \
+            'v1.0.0-sp500-candidate30-recommend7' \
+            us_sp500_watchlist.py
+
+          python -m py_compile us_sp500_watchlist.py
+
+          echo "GENERATOR_VERSION=v1.0.0-sp500-candidate30-recommend7"
+          echo "US_WATCHLIST_GENERATOR_PREREQUISITES=OK"
+
+      - name: Run generator self-test
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python us_sp500_watchlist.py \
+            --self-test \
+            | tee /tmp/us_watchlist_self_test.txt
+
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/us_watchlist_self_test.txt
+          grep -q \
+            'sp500_candidate_30' \
+            /tmp/us_watchlist_self_test.txt
+          grep -q \
+            'recommend_7' \
+            /tmp/us_watchlist_self_test.txt
+          grep -q \
+            'recommend_subset' \
+            /tmp/us_watchlist_self_test.txt
+          grep -q \
+            'single_table_policy' \
+            /tmp/us_watchlist_self_test.txt
+          grep -q \
+            'hard_red_exclusion' \
+            /tmp/us_watchlist_self_test.txt
+
+          echo "US_WATCHLIST_GENERATOR_SELF_TEST=OK"
+
+      - name: Snapshot production US outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          files=(
+            "latest/us_sp500_universe_summary_latest.csv"
+            "latest/us_sp500_watchlist_latest.csv"
+            "latest/us_sp500_recommend_7_latest.csv"
+            "latest/us_sp500_status_latest.json"
+            "latest/us_sp500_run_log_latest.txt"
+            "api/us_watchlist.json"
+          )
+
+          : > /tmp/us_production_before.sha256
+          for file in "${files[@]}"; do
+            if [ -f "$file" ]; then
+              sha256sum "$file" \
+                >> /tmp/us_production_before.sha256
+            else
+              echo "MISSING  $file" \
+                >> /tmp/us_production_before.sha256
+            fi
+          done
+
+          cat /tmp/us_production_before.sha256
+          echo "PRODUCTION_US_OUTPUT_SNAPSHOT=OK"
+
+      - name: Create isolated synthetic S&P500-format universe
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf .test_us_watchlist
+          mkdir -p \
+            .test_us_watchlist/input \
+            .test_us_watchlist/output
+
+          python - <<'PY'
+          from datetime import datetime, timedelta, timezone
+          from pathlib import Path
+          import pandas as pd
+
+          rows = []
+          base_date = datetime(
+              2026,
+              7,
+              2,
+              tzinfo=timezone.utc,
+          )
+          sectors = [
+              "Information Technology",
+              "Health Care",
+              "Financials",
+              "Industrials",
+              "Consumer Discretionary",
+          ]
+
+          for index in range(120):
+              current = 50 + index * 1.25
+              low = current * (
+                  0.72 + (index % 5) * 0.01
+              )
+              high = current * (
+                  1.18 + (index % 4) * 0.01
+              )
+              forward_pe = 14 + (
+                  index % 20
+              ) * 1.1
+
+              rows.append(
+                  {
+                      "symbol": f"T{index:03d}",
+                      "name": (
+                          f"미국테스트기업{index:03d}"
+                      ),
+                      "market": (
+                          "NASDAQ"
+                          if index % 2 == 0
+                          else "NYSE"
+                      ),
+                      "sector": sectors[
+                          index % len(sectors)
+                      ],
+                      "industry": (
+                          f"테스트산업{index % 9}"
+                      ),
+                      "status": "OK",
+                      "data_date": "2026-07-02",
+                      "current_price": current,
+                      "low_3m": low,
+                      "high_3m": high,
+                      "return_1m_pct": (
+                          -5 + (index % 18) * 1.1
+                      ),
+                      "return_3m_pct": (
+                          -8 + (index % 22) * 1.7
+                      ),
+                      "avg_volume_20d": (
+                          2_000_000
+                          + index * 15_000
+                      ),
+                      "avg_trading_value_20d": (
+                          120_000_000
+                          + index * 25_000_000
+                      ),
+                      "avg_daily_range_pct": (
+                          1.4 + (index % 8) * 0.25
+                      ),
+                      "sma20": current * 0.985,
+                      "sma60": current * 0.955,
+                      "rsi14": 43 + index % 24,
+                      "data_rows": 130,
+                      "fundamentals_status": (
+                          "READY"
+                          if index < 105
+                          else "LIMITED"
+                      ),
+                      "market_cap": (
+                          8_000_000_000
+                          + index * 250_000_000
+                      ),
+                      "trailing_pe": (
+                          forward_pe + 2
+                      ),
+                      "forward_pe": forward_pe,
+                      "price_to_book": (
+                          2.0 + index % 5
+                      ),
+                      "peg_ratio": (
+                          1.1
+                          + (index % 5) * 0.2
+                      ),
+                      "revenue_growth": (
+                          0.04
+                          + (index % 16) * 0.015
+                      ),
+                      "earnings_growth": (
+                          0.03
+                          + (index % 18) * 0.017
+                      ),
+                      "profit_margin": (
+                          0.12
+                          + (index % 10) * 0.012
+                      ),
+                      "return_on_equity": (
+                          0.14
+                          + (index % 10) * 0.015
+                      ),
+                      "debt_to_equity": (
+                          40 + index % 80
+                      ),
+                      "analyst_target_mean": (
+                          current
+                          * (
+                              1.08
+                              + (index % 6) * 0.015
+                          )
+                      ),
+                      "beta": (
+                          0.8
+                          + (index % 8) * 0.08
+                      ),
+                      "short_percent_float": (
+                          0.01
+                          + (index % 4) * 0.008
+                      ),
+                      "next_earnings_date": (
+                          base_date
+                          + timedelta(
+                              days=20 + index % 40
+                          )
+                      ).date().isoformat(),
+                      "guidance_note": (
+                          "최근 가이던스 유지"
+                          if index % 3
+                          else "가이던스 상향 여부 확인"
+                      ),
+                      "event_note": "",
+                  }
+              )
+
+          output = Path(
+              ".test_us_watchlist/input/"
+              "us_sp500_universe_summary_latest.csv"
+          )
+          pd.DataFrame(rows).to_csv(
+              output,
+              index=False,
+              encoding="utf-8-sig",
+          )
+
+          print("SYNTHETIC_SP500_FORMAT_ROWS=120")
+          print("SYNTHETIC_MARKETS=NASDAQ,NYSE")
+          print("SYNTHETIC_US_UNIVERSE=OK")
+          PY
+
+      - name: Run isolated US watchlist generator
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python us_sp500_watchlist.py \
+            --input \
+              .test_us_watchlist/input/us_sp500_universe_summary_latest.csv \
+            --output-dir \
+              .test_us_watchlist/output \
+            --candidate-n 30 \
+            --recommend-n 7 \
+            | tee /tmp/us_watchlist_live_test.txt
+
+          grep -q \
+            'US_WATCHLIST_STATUS=OK' \
+            /tmp/us_watchlist_live_test.txt
+          grep -q \
+            'INPUT_ROWS=120' \
+            /tmp/us_watchlist_live_test.txt
+          grep -q \
+            'VALID_ROWS=120' \
+            /tmp/us_watchlist_live_test.txt
+          grep -q \
+            'CANDIDATE_ROWS=30' \
+            /tmp/us_watchlist_live_test.txt
+          grep -q \
+            'RECOMMEND_ROWS=7' \
+            /tmp/us_watchlist_live_test.txt
+          grep -q \
+            'CANDIDATE_CHECKMARK_COUNT=7' \
+            /tmp/us_watchlist_live_test.txt
+          grep -q \
+            'RECOMMEND_SOURCE=candidate_top_30' \
+            /tmp/us_watchlist_live_test.txt
+          grep -q \
+            'RECOMMEND_OUTSIDE_CANDIDATES=0' \
+            /tmp/us_watchlist_live_test.txt
+          grep -q \
+            'HARD_RED_RECOMMENDED=0' \
+            /tmp/us_watchlist_live_test.txt
+          grep -q \
+            'SINGLE_TABLE_POLICY=true' \
+            /tmp/us_watchlist_live_test.txt
+
+          echo "ISOLATED_US_WATCHLIST_GENERATION=OK"
+
+      - name: Verify US watchlist output contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import math
+          import pandas as pd
+
+          output_dir = Path(
+              ".test_us_watchlist/output"
+          )
+          candidate_path = (
+              output_dir
+              / "us_sp500_watchlist_latest.csv"
+          )
+          recommend_path = (
+              output_dir
+              / "us_sp500_recommend_7_latest.csv"
+          )
+          status_path = (
+              output_dir
+              / "us_sp500_status_latest.json"
+          )
+          log_path = (
+              output_dir
+              / "us_sp500_run_log_latest.txt"
+          )
+
+          for path in (
+              candidate_path,
+              recommend_path,
+              status_path,
+              log_path,
+          ):
+              if not path.exists():
+                  raise SystemExit(
+                      f"missing output: {path}"
+                  )
+
+          candidates = pd.read_csv(
+              candidate_path,
+              encoding="utf-8-sig",
+          )
+          recommends = pd.read_csv(
+              recommend_path,
+              encoding="utf-8-sig",
+          )
+          status = json.loads(
+              status_path.read_text(
+                  encoding="utf-8"
+              )
+          )
+          log_text = log_path.read_text(
+              encoding="utf-8"
+          )
+
+          if len(candidates) != 30:
+              raise SystemExit(
+                  "candidate row count mismatch"
+              )
+          if len(recommends) != 7:
+              raise SystemExit(
+                  "recommend row count mismatch"
+              )
+          if candidates["symbol"].nunique() != 30:
+              raise SystemExit(
+                  "candidate duplicate symbol"
+              )
+          if recommends["symbol"].nunique() != 7:
+              raise SystemExit(
+                  "recommend duplicate symbol"
+              )
+
+          checkmarks = int(
+              candidates[
+                  "recommend_flag"
+              ].eq("✅").sum()
+          )
+          if checkmarks != 7:
+              raise SystemExit(
+                  f"checkmark count={checkmarks}"
+              )
+
+          candidate_symbols = set(
+              candidates["symbol"]
+          )
+          recommend_symbols = set(
+              recommends["symbol"]
+          )
+          if not recommend_symbols.issubset(
+              candidate_symbols
+          ):
+              raise SystemExit(
+                  "recommend outside candidate"
+              )
+
+          if recommends[
+              "hard_red_flag"
+          ].astype(bool).any():
+              raise SystemExit(
+                  "hard-red row was recommended"
+              )
+
+          numeric_fields = [
+              "current_price",
+              "value_buy_low",
+              "value_buy_high",
+              "target1_low",
+              "target1_high",
+              "low_3m",
+              "high_3m",
+              "return_1m_pct",
+              "avg_trading_value_20d",
+              "position_in_3m_range_pct",
+              "avg_daily_range_amount",
+              "avg_daily_range_pct",
+              "score",
+          ]
+          for field in numeric_fields:
+              if candidates[field].isna().any():
+                  raise SystemExit(
+                      f"missing numeric field: {field}"
+                  )
+
+          if not candidates[
+              "position_in_3m_range_pct"
+          ].between(0, 100).all():
+              raise SystemExit(
+                  "position outside 0~100"
+              )
+          if not candidates[
+              "score"
+          ].between(0, 100).all():
+              raise SystemExit(
+                  "score outside 0~100"
+              )
+          if not (
+              candidates["value_buy_low"]
+              <= candidates["value_buy_high"]
+          ).all():
+              raise SystemExit(
+                  "value-buy range reversed"
+              )
+          if not (
+              candidates["target1_low"]
+              <= candidates["target1_high"]
+          ).all():
+              raise SystemExit(
+                  "target range reversed"
+              )
+
+          required_display = [
+              "recommend_display",
+              "current_price_display",
+              "value_buy_range",
+              "target1_range",
+              "three_month_range",
+              "return_1m_display",
+              "liquidity_display",
+              "current_position",
+              "avg_daily_range_display",
+              "earnings_guidance_event",
+              "valuation_growth",
+              "score_recommendation_reason",
+              "market_ticker",
+              "sector_theme",
+          ]
+          for field in required_display:
+              if (
+                  field not in candidates.columns
+                  or candidates[field]
+                  .fillna("")
+                  .astype(str)
+                  .str.len()
+                  .eq(0)
+                  .any()
+              ):
+                  raise SystemExit(
+                      f"display contract failure: {field}"
+                  )
+
+          expected_header = [
+              "추천/종목",
+              "현재가",
+              "가치매수구간",
+              "1차 매도/익절가",
+              "3개월저~고",
+              "1개월 등락률",
+              "평균거래대금/유동성",
+              "현재위치",
+              "하루평균 변동폭",
+              "실적·가이던스/이벤트",
+              "밸류에이션·성장성",
+              "점수·추천·주의사유",
+              "시장·티커",
+              "섹터/테마",
+          ]
+          if status.get(
+              "header_contract"
+          ) != expected_header:
+              raise SystemExit(
+                  "US header contract mismatch"
+              )
+
+          summary = status["summary"]
+          expected_summary = {
+              "candidate_rows": 30,
+              "recommend_rows": 7,
+              "checkmark_count": 7,
+              "unique_candidate_symbols": 30,
+              "unique_recommend_symbols": 7,
+              "recommend_outside_candidates": 0,
+              "hard_red_recommended": 0,
+          }
+          for key, expected in expected_summary.items():
+              if summary.get(key) != expected:
+                  raise SystemExit(
+                      f"status {key} mismatch: "
+                      f"{summary.get(key)}"
+                  )
+
+          required_logs = [
+              "CANDIDATE_ROWS=30",
+              "RECOMMEND_ROWS=7",
+              "CANDIDATE_CHECKMARK_COUNT=7",
+              "RECOMMEND_SOURCE=candidate_top_30",
+              "RECOMMEND_OUTSIDE_CANDIDATES=0",
+              "HARD_RED_RECOMMENDED=0",
+              "SINGLE_TABLE_POLICY=true",
+              "US_WATCHLIST_STATUS=OK",
+          ]
+          for marker in required_logs:
+              if marker not in log_text:
+                  raise SystemExit(
+                      f"log marker missing: {marker}"
+                  )
+
+          print("US_CANDIDATE_ROWS=30")
+          print("US_RECOMMEND_ROWS=7")
+          print("US_CHECKMARK_COUNT=7")
+          print("US_RECOMMEND_SUBSET=true")
+          print("US_HARD_RED_RECOMMENDED=0")
+          print("US_SINGLE_TABLE_POLICY=true")
+          print("US_POSITION_RANGE=0_100")
+          print("US_PRICE_RANGES_VALID=true")
+          print("US_HEADER_CONTRACT=OK")
+          print("US_OUTPUT_CONTRACTS=OK")
+          PY
+
+      - name: Verify production US outputs unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          files=(
+            "latest/us_sp500_universe_summary_latest.csv"
+            "latest/us_sp500_watchlist_latest.csv"
+            "latest/us_sp500_recommend_7_latest.csv"
+            "latest/us_sp500_status_latest.json"
+            "latest/us_sp500_run_log_latest.txt"
+            "api/us_watchlist.json"
+          )
+
+          : > /tmp/us_production_after.sha256
+          for file in "${files[@]}"; do
+            if [ -f "$file" ]; then
+              sha256sum "$file" \
+                >> /tmp/us_production_after.sha256
+            else
+              echo "MISSING  $file" \
+                >> /tmp/us_production_after.sha256
+            fi
+          done
+
+          diff -u \
+            /tmp/us_production_before.sha256 \
+            /tmp/us_production_after.sha256
+
+          echo "PRODUCTION_US_OUTPUT_CHANGED=false"
+
+      - name: Write non-production generator evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          {
+            echo "GENERATOR_VERSION=v1.0.0-sp500-candidate30-recommend7"
+            echo "TEST_SOURCE=synthetic_sp500_format_universe"
+            echo "SYNTHETIC_UNIVERSE_ROWS=120"
+            echo "CANDIDATE_ROWS=30"
+            echo "RECOMMEND_ROWS=7"
+            echo "CANDIDATE_CHECKMARK_COUNT=7"
+            echo "RECOMMEND_SOURCE=candidate_top_30"
+            echo "RECOMMEND_OUTSIDE_CANDIDATES=0"
+            echo "HARD_RED_RECOMMENDED=0"
+            echo "SINGLE_TABLE_POLICY=true"
+            echo "POSITION_RANGE=0_100"
+            echo "PRICE_RANGES_VALID=true"
+            echo "HEADER_CONTRACT=OK"
+            echo "PRODUCTION_US_OUTPUT_CHANGED=false"
+            echo "LIVE_TEST_STATUS=OK"
+          } > \
+            latest/us_watchlist_generator_test_report_latest.txt
+
+          cat \
+            latest/us_watchlist_generator_test_report_latest.txt
+
+      - name: Commit and push test evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf .test_us_watchlist
+
+          git config user.name "github-actions"
+          git config user.email \
+            "github-actions@users.noreply.github.com"
+
+          git add \
+            latest/us_watchlist_generator_test_report_latest.txt
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            exit 0
+          fi
+
+          git commit -m \
+            "Validate US S&P500 watchlist generator"
+
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"

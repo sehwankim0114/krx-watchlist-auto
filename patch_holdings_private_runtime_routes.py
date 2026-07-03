@@ -24,7 +24,7 @@ from typing import Callable, Tuple
 
 SCRIPT_VERSION = (
     "patch_holdings_private_runtime_routes.py "
-    "v1.0.0"
+    "v1.0.0-r1-flexible-count-anchor"
 )
 POLICY_VERSION = (
     "2026-07-03-v6.0-holdings-private-runtime"
@@ -395,23 +395,25 @@ def patch_registry(text: str) -> Tuple[str, bool]:
 
     if '"ready_private_runtime": sum(' not in patched:
         pattern = re.compile(
-            r'(?P<block>^[ \t]+"ready_composite": sum\(\n'
-            r'^[ \t]+row\["status"\] == "READY_COMPOSITE"\n'
-            r'^[ \t]+for row in results\n'
-            r'^[ \t]+\),\n)',
+            r'(?P<block>'
+            r'^(?P<indent>[ \t]+)'
+            r'"ready_composite": sum\(\n'
+            r'(?P<inner>[ \t]+)'
+            r'row\["status"\] == "READY_COMPOSITE"'
+            r'(?:[ \t]+|\n[ \t]+)'
+            r'for row in results\n'
+            r'(?P=indent)\),\n'
+            r')',
             flags=re.MULTILINE,
         )
         match = pattern.search(patched)
         if not match:
-            raise PatchError("private count insertion anchor missing")
-        indent_match = re.match(
-            r'(?P<indent>[ \t]+)',
-            match.group("block"),
-        )
-        if not indent_match:
-            raise PatchError("private count indentation missing")
-        indent = indent_match.group("indent")
-        inner = indent + "    "
+            raise PatchError(
+                "private count insertion anchor missing: "
+                "READY_COMPOSITE one-line/split-line forms not found"
+            )
+        indent = match.group("indent")
+        inner = match.group("inner")
         addition = (
             f'{indent}"ready_private_runtime": sum(\n'
             f'{inner}row["status"] == "READY_PRIVATE_RUNTIME"\n'

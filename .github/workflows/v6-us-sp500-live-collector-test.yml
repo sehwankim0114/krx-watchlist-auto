@@ -1,0 +1,204 @@
+name: V6 US S&P500 Live Collector Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-us-sp500-live-collector-test-main
+  cancel-in-progress: false
+
+jobs:
+  test-live-us-collector:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install pandas numpy yfinance lxml html5lib beautifulsoup4
+
+      - name: Check programs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f collect_us_sp500.py
+          test -f us_sp500_watchlist.py
+          grep -q 'v1.0.0-batched-yfinance' collect_us_sp500.py
+          grep -q 'v1.0.0-sp500-candidate30-recommend7' us_sp500_watchlist.py
+          python -m py_compile collect_us_sp500.py us_sp500_watchlist.py
+          python collect_us_sp500.py --self-test | tee /tmp/collector_self_test.txt
+          python us_sp500_watchlist.py --self-test | tee /tmp/generator_self_test.txt
+          grep -q 'SELF_TEST_STATUS=OK' /tmp/collector_self_test.txt
+          grep -q 'SELF_TEST_STATUS=OK' /tmp/generator_self_test.txt
+          echo 'US_COLLECTOR_AND_GENERATOR_SELF_TEST=OK'
+
+      - name: Snapshot production US outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            latest/us_sp500_universe_summary_latest.csv
+            latest/us_sp500_watchlist_latest.csv
+            latest/us_sp500_recommend_7_latest.csv
+            latest/us_sp500_status_latest.json
+            latest/us_sp500_run_log_latest.txt
+          )
+          : > /tmp/us_before.sha256
+          for f in "${files[@]}"; do
+            if [ -f "$f" ]; then sha256sum "$f" >> /tmp/us_before.sha256; else echo "MISSING  $f" >> /tmp/us_before.sha256; fi
+          done
+
+      - name: Collect live S&P500 data in isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .test_us_live
+          mkdir -p .test_us_live/latest
+          python collect_us_sp500.py \
+            --output-dir .test_us_live/latest \
+            --batch-size 40 \
+            --retries 3 \
+            --fundamentals-max 120 \
+            --fundamentals-pause 0.10 \
+            | tee /tmp/us_live_collect.txt
+          grep -q 'US_SP500_COLLECTION_STATUS=OK' /tmp/us_live_collect.txt
+          echo 'LIVE_US_SP500_COLLECTION=OK'
+
+      - name: Validate live universe
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import pandas as pd
+          p=Path('.test_us_live/latest/us_sp500_universe_summary_latest.csv')
+          s=Path('.test_us_live/latest/us_sp500_collection_status_latest.json')
+          if not p.exists() or not s.exists(): raise SystemExit('live collector outputs missing')
+          df=pd.read_csv(p,encoding='utf-8-sig')
+          st=json.loads(s.read_text(encoding='utf-8'))
+          ok=int(df['status'].eq('OK').sum())
+          if len(df)<450: raise SystemExit(f'too few constituents: {len(df)}')
+          if ok<450: raise SystemExit(f'too few price OK rows: {ok}')
+          if df['symbol'].nunique()<450: raise SystemExit('too few unique symbols')
+          required=['current_price','low_3m','high_3m','return_1m_pct','return_3m_pct','avg_trading_value_20d','avg_daily_range_pct','sma20','sma60','rsi14']
+          valid=df.loc[df['status'].eq('OK')]
+          for c in required:
+              if valid[c].isna().mean()>0.05: raise SystemExit(f'excessive missing {c}')
+          print(f'LIVE_CONSTITUENT_ROWS={len(df)}')
+          print(f'LIVE_PRICE_OK_ROWS={ok}')
+          print(f'LIVE_UNIQUE_SYMBOLS={df.symbol.nunique()}')
+          print('LIVE_US_UNIVERSE_VALIDATION=OK')
+          PY
+
+      - name: Generate live candidate 30 and recommend 7
+        shell: bash
+        run: |
+          set -euo pipefail
+          python us_sp500_watchlist.py \
+            --input .test_us_live/latest/us_sp500_universe_summary_latest.csv \
+            --output-dir .test_us_live/latest \
+            --candidate-n 30 \
+            --recommend-n 7 \
+            | tee /tmp/us_live_generate.txt
+          grep -q 'US_WATCHLIST_STATUS=OK' /tmp/us_live_generate.txt
+          grep -q 'CANDIDATE_ROWS=30' /tmp/us_live_generate.txt
+          grep -q 'RECOMMEND_ROWS=7' /tmp/us_live_generate.txt
+          grep -q 'RECOMMEND_OUTSIDE_CANDIDATES=0' /tmp/us_live_generate.txt
+          grep -q 'HARD_RED_RECOMMENDED=0' /tmp/us_live_generate.txt
+          echo 'LIVE_US_WATCHLIST_GENERATION=OK'
+
+      - name: Validate live watchlist contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import pandas as pd
+          from pathlib import Path
+          root=Path('.test_us_live/latest')
+          c=pd.read_csv(root/'us_sp500_watchlist_latest.csv',encoding='utf-8-sig')
+          r=pd.read_csv(root/'us_sp500_recommend_7_latest.csv',encoding='utf-8-sig')
+          s=json.loads((root/'us_sp500_status_latest.json').read_text(encoding='utf-8'))
+          assert len(c)==30 and len(r)==7
+          assert c['recommend_flag'].eq('✅').sum()==7
+          assert set(r.symbol).issubset(set(c.symbol))
+          assert not r['hard_red_flag'].astype(bool).any()
+          assert c['position_in_3m_range_pct'].between(0,100).all()
+          assert c['score'].between(0,100).all()
+          assert s['summary']['recommend_outside_candidates']==0
+          print('LIVE_US_CANDIDATE_ROWS=30')
+          print('LIVE_US_RECOMMEND_ROWS=7')
+          print('LIVE_US_RECOMMEND_SUBSET=true')
+          print('LIVE_US_HARD_RED_RECOMMENDED=0')
+          print('LIVE_US_WATCHLIST_CONTRACT=OK')
+          PY
+
+      - name: Verify production outputs unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            latest/us_sp500_universe_summary_latest.csv
+            latest/us_sp500_watchlist_latest.csv
+            latest/us_sp500_recommend_7_latest.csv
+            latest/us_sp500_status_latest.json
+            latest/us_sp500_run_log_latest.txt
+          )
+          : > /tmp/us_after.sha256
+          for f in "${files[@]}"; do
+            if [ -f "$f" ]; then sha256sum "$f" >> /tmp/us_after.sha256; else echo "MISSING  $f" >> /tmp/us_after.sha256; fi
+          done
+          diff -u /tmp/us_before.sha256 /tmp/us_after.sha256
+          echo 'PRODUCTION_US_OUTPUT_CHANGED=false'
+
+      - name: Write live collector evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo 'COLLECTOR_VERSION=v1.0.0-batched-yfinance'
+            echo 'GENERATOR_VERSION=v1.0.0-sp500-candidate30-recommend7'
+            grep '^LIVE_' /tmp/us_live_collect.txt || true
+            echo 'LIVE_COLLECTION_SOURCE=wikipedia_constituents_and_yfinance_market_data'
+            echo 'CANDIDATE_ROWS=30'
+            echo 'RECOMMEND_ROWS=7'
+            echo 'RECOMMEND_OUTSIDE_CANDIDATES=0'
+            echo 'HARD_RED_RECOMMENDED=0'
+            echo 'PRODUCTION_US_OUTPUT_CHANGED=false'
+            echo 'LIVE_TEST_STATUS=OK'
+          } > latest/us_sp500_live_collector_test_report_latest.txt
+          cat latest/us_sp500_live_collector_test_report_latest.txt
+
+      - name: Commit evidence only
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .test_us_live
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          git add latest/us_sp500_live_collector_test_report_latest.txt
+          if git diff --cached --quiet; then echo 'NO_CHANGES_TO_COMMIT=true'; echo 'PUSH_SUCCESS=true'; exit 0; fi
+          git commit -m 'Validate live S&P500 collector'
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo 'PUSH_SUCCESS=true'

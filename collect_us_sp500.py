@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-SCRIPT_VERSION='collect_us_sp500.py v1.0.0-batched-yfinance-r1-constituent-fallback'
+SCRIPT_VERSION='collect_us_sp500.py v1.0.0-batched-yfinance-r2-symbol-index-safe'
 KST=timezone(timedelta(hours=9))
 OUT_COLS=['symbol','name','market','sector','industry','status','data_date','current_price','low_3m','high_3m','return_1m_pct','return_3m_pct','avg_volume_20d','avg_trading_value_20d','avg_daily_range_pct','sma20','sma60','rsi14','data_rows','fundamentals_status','market_cap','trailing_pe','forward_pe','price_to_book','peg_ratio','revenue_growth','earnings_growth','profit_margin','return_on_equity','debt_to_equity','analyst_target_mean','beta','short_percent_float','next_earnings_date','guidance_note','event_note']
 
@@ -165,8 +165,21 @@ def pctret(close,days):
     if len(close)<=days or close.iloc[-days-1]<=0: return None
     return float((close.iloc[-1]/close.iloc[-days-1]-1)*100)
 
-def one_row(meta,h):
-    base={k:meta[k] for k in ['symbol','name','market','sector','industry']}
+def one_row(meta,h,symbol=None):
+    resolved_symbol = (
+        clean_symbol(symbol)
+        if symbol is not None
+        else clean_symbol(meta.get('symbol',''))
+    )
+    if not resolved_symbol:
+        raise RuntimeError('가격행 종목코드를 확인할 수 없습니다.')
+    base={
+        'symbol':resolved_symbol,
+        'name':meta.get('name',''),
+        'market':meta.get('market','USA'),
+        'sector':meta.get('sector',''),
+        'industry':meta.get('industry',''),
+    }
     if h.empty: return {**base,'status':'FAILED','fundamentals_status':'MISSING'}
     h=h.rename(columns={c:str(c).title() for c in h.columns}).dropna(subset=['Close'])
     if len(h)<60: return {**base,'status':'LIMITED','data_rows':len(h),'fundamentals_status':'MISSING'}
@@ -184,7 +197,7 @@ def extract(d,symbol):
 
 def fetch_prices(cons,batch_size,retries):
     import yfinance as yf
-    rows=[]; meta=cons.set_index('symbol'); syms=cons.symbol.tolist()
+    rows=[]; meta=cons.set_index('symbol',drop=False); syms=cons.symbol.tolist()
     for i in range(0,len(syms),batch_size):
         batch=syms[i:i+batch_size]; d=pd.DataFrame()
         for attempt in range(retries):
@@ -192,7 +205,7 @@ def fetch_prices(cons,batch_size,retries):
                 d=yf.download(batch,period='8mo',interval='1d',group_by='ticker',auto_adjust=False,threads=True,progress=False,timeout=30)
                 if not d.empty: break
             except Exception: time.sleep(2*(attempt+1))
-        for s in batch: rows.append(one_row(meta.loc[s],extract(d,s)))
+        for s in batch: rows.append(one_row(meta.loc[s],extract(d,s),s))
     return pd.DataFrame(rows)
 
 def enrich_fundamentals(df,max_rows,pause):
@@ -248,10 +261,10 @@ def self_test():
     dates=pd.date_range('2026-01-01',periods=140,freq='B'); rows=[]
     for i,s in enumerate(['AAA','BBB']):
         c=pd.Series(np.linspace(100+i*20,130+i*20,len(dates)),index=dates); h=pd.DataFrame({'Close':c,'High':c*1.01,'Low':c*0.99,'Volume':1000000+i*100000})
-        meta=pd.Series({'symbol':s,'name':s,'market':'USA','sector':'Tech','industry':'Test'}); rows.append(one_row(meta,h))
+        meta_frame=pd.DataFrame([{'symbol':s,'name':s,'market':'USA','sector':'Tech','industry':'Test'}]).set_index('symbol'); meta=meta_frame.loc[s]; assert 'symbol' not in meta.index; rows.append(one_row(meta,h,s))
     out=ensure_cols(pd.DataFrame(rows)); assert len(out)==2 and out.status.eq('OK').all() and out.rsi14.notna().all()
     with tempfile.TemporaryDirectory() as td: assert write_outputs(out,Path(td),2)['output_rows']==2
-    print('SELF_TEST_STATUS=OK'); print('TESTED=constituent_normalization,wikipedia_user_agent_path,github_csv_fallback_contract,technical_metrics,three_month_range,returns,liquidity,rsi,output_contract'); return 0
+    print('SELF_TEST_STATUS=OK'); print('TESTED=constituent_normalization,wikipedia_user_agent_path,github_csv_fallback_contract,symbol_index_drop_regression,technical_metrics,three_month_range,returns,liquidity,rsi,output_contract'); return 0
 
 def main():
     p=argparse.ArgumentParser(); p.add_argument('--output-dir',default='latest'); p.add_argument('--batch-size',type=int,default=40); p.add_argument('--retries',type=int,default=3); p.add_argument('--fundamentals-max',type=int,default=120); p.add_argument('--fundamentals-pause',type=float,default=.15); p.add_argument('--self-test',action='store_true'); a=p.parse_args()

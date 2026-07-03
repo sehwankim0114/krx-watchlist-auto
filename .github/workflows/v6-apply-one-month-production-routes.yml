@@ -146,10 +146,10 @@ jobs:
 
           def patch_route_block(text, route_id):
               pattern = re.compile(
-                  rf'(?P<block>RouteContract\(\n'
-                  rf'\s*route_id="{re.escape(route_id)}",'
-                  rf'.*?\n\s*\),)',
-                  flags=re.DOTALL,
+                  rf'(?P<block>^    RouteContract\(\n'
+                  rf'        route_id="{re.escape(route_id)}",'
+                  rf'.*?^    \),$)',
+                  flags=re.DOTALL | re.MULTILINE,
               )
               match = pattern.search(text)
               if not match:
@@ -187,7 +187,37 @@ jobs:
                   + text[match.end("block"):]
               )
 
+          def verify_route_regex_boundary():
+              fixture = (
+                  '    RouteContract(\n'
+                  '        route_id="sample_1m",\n'
+                  '        source_candidates=(\n'
+                  '            "latest/sample.csv",\n'
+                  '        ),\n'
+                  '        api_files=("api/sample.json",),\n'
+                  '        planned_missing=True,\n'
+                  '        next_step="sample",\n'
+                  '    ),\n'
+              )
+              pattern = re.compile(
+                  r'(?P<block>^    RouteContract\(\n'
+                  r'        route_id="sample_1m",'
+                  r'.*?^    \),$)',
+                  flags=re.DOTALL | re.MULTILINE,
+              )
+              match = pattern.search(fixture)
+              if not match:
+                  raise RuntimeError(
+                      "route regex boundary self-check failed"
+                  )
+              block = match.group("block")
+              if "planned_missing=True," not in block:
+                  raise RuntimeError(
+                      "route regex stopped at an inner tuple"
+                  )
+
           def patch_registry(path):
+              verify_route_regex_boundary()
               text = path.read_text(encoding="utf-8")
               original = text
 
@@ -354,10 +384,10 @@ jobs:
 
               for route_id in ("kospi_1m", "kosdaq_1m"):
                   pattern = re.compile(
-                      rf'RouteContract\(\n'
-                      rf'\s*route_id="{route_id}",'
-                      rf'(?P<body>.*?)\n\s*\),',
-                      flags=re.DOTALL,
+                      rf'^    RouteContract\(\n'
+                      rf'        route_id="{route_id}",'
+                      rf'(?P<body>.*?)^    \),$',
+                      flags=re.DOTALL | re.MULTILINE,
                   )
                   match = pattern.search(text)
                   if not match:

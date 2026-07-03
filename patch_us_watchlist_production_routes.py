@@ -20,7 +20,7 @@ from typing import Callable, Tuple
 
 SCRIPT_VERSION = (
     "patch_us_watchlist_production_routes.py "
-    "v1.0.0-thirteen-of-thirteen"
+    "v1.0.0-r1-flexible-schema-anchor"
 )
 POLICY_VERSION = (
     "2026-07-03-v6.0-us-watchlist-production"
@@ -163,18 +163,27 @@ def patch_action_schema(text: str) -> Tuple[str, bool]:
         verify_action_schema(original)
         return original, False
 
-    anchor = "  # HOLDINGS_PRIVATE_RUNTIME_ACTION_V6_BEGIN\n"
-    if original.count(anchor) != 1:
+    # 특정 주석과 들여쓰기에 의존하지 않는다.
+    # 최상위 또는 fixture 내부의 components: 직전에
+    # 미관종표 paths 항목을 삽입한다.
+    components_pattern = re.compile(
+        r"^[ \t]*components:\s*$",
+        flags=re.MULTILINE,
+    )
+    matches = list(components_pattern.finditer(original))
+    if len(matches) != 1:
         raise PatchError(
-            "Action 스키마 삽입 기준점 오류: "
-            f"{original.count(anchor)}"
+            "Action 스키마 components 기준점 오류: "
+            f"{len(matches)}"
         )
 
-    patched = original.replace(
-        anchor,
-        action_block() + anchor,
-        1,
+    match = matches[0]
+    patched = (
+        original[:match.start()]
+        + action_block()
+        + original[match.start():]
     )
+
     verify_action_schema(patched)
     return patched, True
 

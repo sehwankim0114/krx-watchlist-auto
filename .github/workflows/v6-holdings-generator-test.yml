@@ -1,0 +1,619 @@
+name: V6 Holdings Generator Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-holdings-generator-test-main
+  cancel-in-progress: false
+
+jobs:
+  test-holdings-generator:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install test packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install pandas numpy
+
+      - name: Check generator and current summaries
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required_files=(
+            "holdings_table.py"
+            "latest/kospi_universe_summary_latest.csv"
+            "latest/kosdaq_universe_summary_latest.csv"
+          )
+
+          for file in "${required_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "::error file=$file::Required file is missing"
+              exit 1
+            fi
+          done
+
+          grep -q \
+            'v1.0.0-separate-cash-credit-lots' \
+            holdings_table.py
+
+          python -m py_compile holdings_table.py
+
+          echo "GENERATOR_VERSION=v1.0.0-separate-cash-credit-lots"
+          echo "HOLDINGS_GENERATOR_PREREQUISITES=OK"
+
+      - name: Run generator self-test
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python holdings_table.py \
+            --self-test \
+            | tee /tmp/holdings_self_test.txt
+
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/holdings_self_test.txt
+
+          grep -q \
+            'cash_credit_separate_rows' \
+            /tmp/holdings_self_test.txt
+          grep -q \
+            'duplicate_ticker_lots' \
+            /tmp/holdings_self_test.txt
+          grep -q \
+            'credit_additional_buy_block' \
+            /tmp/holdings_self_test.txt
+          grep -q \
+            'portfolio_totals' \
+            /tmp/holdings_self_test.txt
+
+          echo "HOLDINGS_GENERATOR_SELF_TEST=OK"
+
+      - name: Validate source rows and required columns
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import pandas as pd
+
+          required = {
+              "name",
+              "ticker",
+              "market",
+              "status",
+              "last_date",
+              "current_close",
+              "split_buy_low_ref",
+              "split_buy_high_ref",
+              "target1_ref",
+              "target2_ref",
+              "stop_ref",
+              "low_3m_intraday",
+              "high_3m_intraday",
+              "low_3m_close",
+              "high_3m_close",
+              "return_1m_pct",
+              "return_3m_pct",
+              "low_liquidity",
+              "operating_loss_flag",
+              "supply_burden_flag",
+              "supply_burden_level",
+              "supply_burden_keywords",
+              "trading_activity_label",
+              "price_elasticity_label",
+          }
+
+          kospi = pd.read_csv(
+              "latest/kospi_universe_summary_latest.csv",
+              encoding="utf-8-sig",
+              dtype={"ticker": str},
+          )
+          kosdaq = pd.read_csv(
+              "latest/kosdaq_universe_summary_latest.csv",
+              encoding="utf-8-sig",
+              dtype={"ticker": str},
+          )
+
+          for label, frame in (
+              ("KOSPI", kospi),
+              ("KOSDAQ", kosdaq),
+          ):
+              missing = required - set(frame.columns)
+              if missing:
+                  raise SystemExit(
+                      f"{label} missing columns: "
+                      + ",".join(sorted(missing))
+                  )
+
+          expected = {
+              ("KOSPI", "000660", "SK하이닉스"),
+              ("KOSPI", "009150", "삼성전기"),
+              ("KOSDAQ", "012210", "삼미금속"),
+              ("KOSDAQ", "049630", "재영솔루텍"),
+          }
+
+          combined = pd.concat(
+              [kospi, kosdaq],
+              ignore_index=True,
+          )
+          combined["ticker"] = (
+              combined["ticker"]
+              .astype(str)
+              .str.replace(r"\.0$", "", regex=True)
+              .str.zfill(6)
+          )
+
+          found = {
+              (
+                  str(row.market),
+                  str(row.ticker),
+                  str(row.name),
+              )
+              for row in combined.itertuples()
+              if (
+                  str(row.market),
+                  str(row.ticker),
+                  str(row.name),
+              )
+              in expected
+          }
+
+          if found != expected:
+              raise SystemExit(
+                  "Expected source stocks missing: "
+                  + str(sorted(expected - found))
+              )
+
+          print(f"KOSPI_SOURCE_ROWS={len(kospi)}")
+          print(f"KOSDAQ_SOURCE_ROWS={len(kosdaq)}")
+          print("TEST_SOURCE_TICKERS_FOUND=4")
+          print("CURRENT_SUMMARY_VALIDATION=OK")
+          PY
+
+      - name: Snapshot production holdings outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          files=(
+            "latest/holdings_latest.csv"
+            "latest/holdings_status_latest.json"
+            "latest/holdings_run_log_latest.txt"
+            "api/holdings.json"
+          )
+
+          : > /tmp/holdings_production_before.sha256
+          for file in "${files[@]}"; do
+            if [ -f "$file" ]; then
+              sha256sum "$file" \
+                >> /tmp/holdings_production_before.sha256
+            else
+              echo "MISSING  $file" \
+                >> /tmp/holdings_production_before.sha256
+            fi
+          done
+
+          cat /tmp/holdings_production_before.sha256
+          echo "PRODUCTION_HOLDINGS_SNAPSHOT=OK"
+
+      - name: Create isolated synthetic holdings input
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf .test_holdings
+          mkdir -p \
+            .test_holdings/input \
+            .test_holdings/output
+
+          cat > \
+            .test_holdings/input/holdings_input.csv <<'CSV'
+          ticker,name,market,quantity,average_price,financing_type,sector_theme
+          000660,SK하이닉스,KOSPI,2,2000000,현금,반도체/HBM
+          000660,SK하이닉스,KOSPI,3,2100000,자기융자,반도체/HBM
+          009150,삼성전기,KOSPI,4,1800000,자기융자,전자부품/MLCC
+          012210,삼미금속,KOSDAQ,5,7000,현금,단조/원전·방산
+          049630,재영솔루텍,KOSDAQ,1,8000,현금,카메라모듈
+          CSV
+
+          echo "SYNTHETIC_POSITION_ROWS=5"
+          echo "SYNTHETIC_UNIQUE_TICKERS=4"
+          echo "REAL_USER_HOLDINGS_USED=false"
+          echo "SYNTHETIC_HOLDINGS_INPUT=OK"
+
+      - name: Run isolated holdings generator
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python holdings_table.py \
+            --holdings-input \
+              .test_holdings/input/holdings_input.csv \
+            --kospi-summary \
+              latest/kospi_universe_summary_latest.csv \
+            --kosdaq-summary \
+              latest/kosdaq_universe_summary_latest.csv \
+            --output-dir \
+              .test_holdings/output \
+            | tee /tmp/holdings_live_test.txt
+
+          grep -q \
+            'HOLDINGS_TABLE_STATUS=OK' \
+            /tmp/holdings_live_test.txt
+          grep -q \
+            'POSITION_ROWS=5' \
+            /tmp/holdings_live_test.txt
+          grep -q \
+            'UNIQUE_TICKERS=4' \
+            /tmp/holdings_live_test.txt
+          grep -q \
+            'CASH_ROWS=3' \
+            /tmp/holdings_live_test.txt
+          grep -q \
+            'CREDIT_ROWS=2' \
+            /tmp/holdings_live_test.txt
+
+          echo "ISOLATED_HOLDINGS_GENERATION=OK"
+
+      - name: Verify holdings output contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import math
+          import pandas as pd
+
+          output_dir = Path(".test_holdings/output")
+          csv_path = output_dir / "holdings_latest.csv"
+          status_path = (
+              output_dir / "holdings_status_latest.json"
+          )
+          log_path = (
+              output_dir / "holdings_run_log_latest.txt"
+          )
+
+          for path in (csv_path, status_path, log_path):
+              if not path.exists():
+                  raise SystemExit(
+                      f"Expected output missing: {path}"
+                  )
+
+          frame = pd.read_csv(
+              csv_path,
+              encoding="utf-8-sig",
+              dtype={"code": str},
+          )
+          status = json.loads(
+              status_path.read_text(encoding="utf-8")
+          )
+          log_text = log_path.read_text(encoding="utf-8")
+
+          if len(frame) != 5:
+              raise SystemExit(
+                  f"row count mismatch: {len(frame)}"
+              )
+          if frame["code"].nunique() != 4:
+              raise SystemExit(
+                  "unique ticker count mismatch"
+              )
+
+          hynix = frame.loc[frame["code"].eq("000660")]
+          if len(hynix) != 2:
+              raise SystemExit(
+                  "cash/credit Hynix lots were merged"
+              )
+          if set(hynix["holding_type"]) != {
+              "현금",
+              "신용(자기융자)",
+          }:
+              raise SystemExit(
+                  "Hynix holding types mismatch"
+              )
+
+          credit = frame.loc[
+              frame["holding_type"].str.startswith("신용")
+          ]
+          if len(credit) != 2:
+              raise SystemExit(
+                  "credit row count mismatch"
+              )
+          if not credit[
+              "additional_buy_range"
+          ].str.contains(
+              "신용 추가매수 금지",
+              regex=False,
+          ).all():
+              raise SystemExit(
+                  "credit additional-buy block missing"
+              )
+
+          numeric_required = [
+              "quantity",
+              "average_buy_price",
+              "current_price",
+              "cost_basis",
+              "market_value",
+              "evaluation_profit_loss",
+              "return_pct",
+              "low_3m",
+              "high_3m",
+              "position_in_3m_range_pct",
+          ]
+          for field in numeric_required:
+              if frame[field].isna().any():
+                  raise SystemExit(
+                      f"missing numeric field: {field}"
+                  )
+
+          for row in frame.itertuples():
+              expected_cost = (
+                  float(row.quantity)
+                  * float(row.average_buy_price)
+              )
+              expected_market = (
+                  float(row.quantity)
+                  * float(row.current_price)
+              )
+              expected_pnl = (
+                  expected_market - expected_cost
+              )
+              expected_return = (
+                  expected_pnl / expected_cost * 100
+              )
+
+              if not math.isclose(
+                  float(row.cost_basis),
+                  expected_cost,
+                  abs_tol=0.01,
+              ):
+                  raise SystemExit(
+                      f"cost basis mismatch: {row.name}"
+                  )
+              if not math.isclose(
+                  float(row.market_value),
+                  expected_market,
+                  abs_tol=0.01,
+              ):
+                  raise SystemExit(
+                      f"market value mismatch: {row.name}"
+                  )
+              if not math.isclose(
+                  float(row.evaluation_profit_loss),
+                  expected_pnl,
+                  abs_tol=0.01,
+              ):
+                  raise SystemExit(
+                      f"profit/loss mismatch: {row.name}"
+                  )
+              if not math.isclose(
+                  float(row.return_pct),
+                  round(expected_return, 2),
+                  abs_tol=0.01,
+              ):
+                  raise SystemExit(
+                      f"return mismatch: {row.name}"
+                  )
+
+          source_frames = []
+          for filename in (
+              "latest/kospi_universe_summary_latest.csv",
+              "latest/kosdaq_universe_summary_latest.csv",
+          ):
+              source = pd.read_csv(
+                  filename,
+                  encoding="utf-8-sig",
+                  dtype={"ticker": str},
+              )
+              source["ticker"] = (
+                  source["ticker"]
+                  .astype(str)
+                  .str.replace(
+                      r"\.0$",
+                      "",
+                      regex=True,
+                  )
+                  .str.zfill(6)
+              )
+              source_frames.append(source)
+
+          source = pd.concat(
+              source_frames,
+              ignore_index=True,
+          ).drop_duplicates(
+              ["market", "ticker"],
+              keep="last",
+          )
+          close_lookup = {
+              (str(row.market), str(row.ticker)): (
+                  float(row.current_close)
+              )
+              for row in source.itertuples()
+          }
+
+          for row in frame.itertuples():
+              expected_close = close_lookup[
+                  (str(row.market), str(row.code))
+              ]
+              if float(row.current_price) != expected_close:
+                  raise SystemExit(
+                      f"source close mismatch: {row.name}"
+                  )
+
+          expected_header = [
+              "보유/종목",
+              "보유수량",
+              "평균매수가",
+              "현재가",
+              "평가손익",
+              "수익률",
+              "추가매수구간",
+              "1차 매도/익절가",
+              "손절/비중축소 기준",
+              "3개월저~고",
+              "현재위치",
+              "수급부담",
+              "기업가치/흐름 평가",
+              "보유·추가매수·매도 판단",
+              "시장·티커",
+              "섹터/테마",
+          ]
+          if status.get("header_contract") != expected_header:
+              raise SystemExit(
+                  "holdings header contract mismatch"
+              )
+
+          totals = status["portfolio_totals"]
+          if totals["position_rows"] != 5:
+              raise SystemExit(
+                  "status position count mismatch"
+              )
+          if totals["unique_tickers"] != 4:
+              raise SystemExit(
+                  "status unique ticker mismatch"
+              )
+          if totals["cash_rows"] != 3:
+              raise SystemExit(
+                  "status cash count mismatch"
+              )
+          if totals["credit_rows"] != 2:
+              raise SystemExit(
+                  "status credit count mismatch"
+              )
+
+          required_logs = [
+              "POSITION_ROWS=5",
+              "UNIQUE_TICKERS=4",
+              "CASH_ROWS=3",
+              "CREDIT_ROWS=2",
+              "DUPLICATE_TICKER_LOTS_PRESERVED=true",
+              "ALL_SUMMARY_STATUS_OK=true",
+              "HOLDINGS_TABLE_STATUS=OK",
+          ]
+          for marker in required_logs:
+              if marker not in log_text:
+                  raise SystemExit(
+                      f"log marker missing: {marker}"
+                  )
+
+          print("HOLDINGS_ROW_COUNT=5")
+          print("HOLDINGS_UNIQUE_TICKERS=4")
+          print("CASH_CREDIT_LOTS_SEPARATE=true")
+          print("DUPLICATE_TICKER_LOTS_PRESERVED=true")
+          print("CREDIT_ADDITIONAL_BUY_BLOCKED=true")
+          print("CURRENT_PRICE_MATCH_SOURCE=OK")
+          print("PROFIT_LOSS_FORMULA=OK")
+          print("THREE_MONTH_POSITION_MISSING=0")
+          print("HOLDINGS_HEADER_CONTRACT=OK")
+          print("HOLDINGS_OUTPUT_CONTRACTS=OK")
+          PY
+
+      - name: Verify production holdings files unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          files=(
+            "latest/holdings_latest.csv"
+            "latest/holdings_status_latest.json"
+            "latest/holdings_run_log_latest.txt"
+            "api/holdings.json"
+          )
+
+          : > /tmp/holdings_production_after.sha256
+          for file in "${files[@]}"; do
+            if [ -f "$file" ]; then
+              sha256sum "$file" \
+                >> /tmp/holdings_production_after.sha256
+            else
+              echo "MISSING  $file" \
+                >> /tmp/holdings_production_after.sha256
+            fi
+          done
+
+          diff -u \
+            /tmp/holdings_production_before.sha256 \
+            /tmp/holdings_production_after.sha256
+
+          echo "PRODUCTION_HOLDINGS_CHANGED=false"
+
+      - name: Write non-sensitive test evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          {
+            echo "GENERATOR_VERSION=v1.0.0-separate-cash-credit-lots"
+            echo "TEST_DATA=synthetic_positions_with_current_public_market_summary"
+            echo "REAL_USER_HOLDINGS_USED=false"
+            echo "POSITION_ROWS=5"
+            echo "UNIQUE_TICKERS=4"
+            echo "CASH_ROWS=3"
+            echo "CREDIT_ROWS=2"
+            echo "CASH_CREDIT_LOTS_SEPARATE=true"
+            echo "DUPLICATE_TICKER_LOTS_PRESERVED=true"
+            echo "CREDIT_ADDITIONAL_BUY_BLOCKED=true"
+            echo "CURRENT_PRICE_MATCH_SOURCE=OK"
+            echo "PROFIT_LOSS_FORMULA=OK"
+            echo "THREE_MONTH_POSITION_MISSING=0"
+            echo "HOLDINGS_HEADER_CONTRACT=OK"
+            echo "PRODUCTION_HOLDINGS_CHANGED=false"
+            echo "LIVE_TEST_STATUS=OK"
+          } > \
+            latest/holdings_generator_test_report_latest.txt
+
+          cat \
+            latest/holdings_generator_test_report_latest.txt
+
+      - name: Commit and push test evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf .test_holdings
+
+          git config user.name "github-actions"
+          git config user.email \
+            "github-actions@users.noreply.github.com"
+
+          git add \
+            latest/holdings_generator_test_report_latest.txt
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            exit 0
+          fi
+
+          git commit -m \
+            "Validate holdings table generator"
+
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"

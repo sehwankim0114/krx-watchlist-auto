@@ -1,10 +1,10 @@
 SCRIPT_VERSION=market_metric_labels_enricher.py v1.0.0-fixed-standards
 POLICY_VERSION=2026-07-01-v6.0-market-metric-standards
-RUN_AT_KST=2026-07-03T13:36:46+09:00
-SCANNED_FILE_COUNT=59
-UPDATED_FILE_COUNT=26
+RUN_AT_KST=2026-07-03T18:48:09+09:00
+SCANNED_FILE_COUNT=63
+UPDATED_FILE_COUNT=30
 FAILED_FILE_COUNT=0
-READY_ROW_COUNT=3073
+READY_ROW_COUNT=3125
 PARTIAL_ROW_COUNT=641
 LIMITED_ROW_COUNT=385019
 TRADING_ACTIVITY_THRESHOLDS=100B/30B/5B/1B_KRW
@@ -24,14 +24,18 @@ FILE=kofia_credit_history_latest.csv|status=NO_IDENTIFIER|rows=2019|ready=0|part
 FILE=kofia_macro_bridge_latest.csv|status=NO_IDENTIFIER|rows=2144|ready=0|partial=0|limited=0
 FILE=kofia_market_funds_history_latest.csv|status=NO_IDENTIFIER|rows=2019|ready=0|partial=0|limited=0
 FILE=kofia_market_funds_summary_latest.csv|status=NO_IDENTIFIER|rows=14|ready=0|partial=0|limited=0
+FILE=kosdaq_1m_candidates_10_latest.csv|status=UPDATED|rows=10|ready=10|partial=0|limited=0
+FILE=kosdaq_1m_recommend_5_latest.csv|status=UPDATED|rows=5|ready=5|partial=0|limited=0
 FILE=kosdaq_candidates_10_current_basis_latest.csv|status=UPDATED|rows=10|ready=10|partial=0|limited=0
 FILE=kosdaq_candidates_10_latest.csv|status=UPDATED|rows=10|ready=10|partial=0|limited=0
 FILE=kosdaq_candidates_10_supplemented_latest.csv|status=UPDATED|rows=10|ready=10|partial=0|limited=0
 FILE=kosdaq_raw_history_latest.csv|status=EMPTY|rows=0|ready=0|partial=0|limited=0
 FILE=kosdaq_recommend_5_latest.csv|status=UPDATED|rows=5|ready=5|partial=0|limited=0
 FILE=kosdaq_universe_summary_latest.csv|status=UPDATED|rows=1791|ready=1734|partial=57|limited=0
+FILE=kospi_1m_candidates_30_latest.csv|status=UPDATED|rows=30|ready=30|partial=0|limited=0
 FILE=kospi_1m_generator_test_candidates_30_latest.csv|status=UPDATED|rows=30|ready=30|partial=0|limited=0
 FILE=kospi_1m_generator_test_recommend_7_latest.csv|status=UPDATED|rows=7|ready=7|partial=0|limited=0
+FILE=kospi_1m_recommend_7_latest.csv|status=UPDATED|rows=7|ready=7|partial=0|limited=0
 FILE=kospi_candidates_30_current_basis_latest.csv|status=UPDATED|rows=30|ready=30|partial=0|limited=0
 FILE=kospi_candidates_30_latest.csv|status=UPDATED|rows=30|ready=30|partial=0|limited=0
 FILE=kospi_candidates_30_supplemented_latest.csv|status=UPDATED|rows=30|ready=30|partial=0|limited=0

@@ -1,0 +1,683 @@
+name: V6 Apply One-Month Routes Without Workflow Write
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-one-month-routes-no-workflow-write-main
+  cancel-in-progress: false
+
+jobs:
+  apply-one-month-routes:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install validation packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install pandas numpy pyyaml
+
+      - name: Check prerequisites and existing automation chain
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required_files=(
+            "patch_one_month_production_routes.py"
+            "patch_one_month_runtime_hook_and_registry.py"
+            "kospi_one_month.py"
+            "kosdaq_one_month.py"
+            "run_universe_latest.py"
+            "build_api_json.py"
+            "table_route_registry.py"
+            "docs/custom_gpt_action_schema.yaml"
+            ".github/workflows/collect-krx-watchlist.yml"
+            ".github/workflows/build_api_json.yml"
+            "latest/kospi_universe_summary_latest.csv"
+            "latest/kosdaq_universe_summary_latest.csv"
+          )
+
+          for file in "${required_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "::error file=$file::Required file is missing"
+              exit 1
+            fi
+          done
+
+          grep -q \
+            'python run_universe_latest.py' \
+            .github/workflows/collect-krx-watchlist.yml
+
+          grep -q \
+            'workflows:' \
+            .github/workflows/build_api_json.yml
+          grep -q \
+            'collect-krx-watchlist' \
+            .github/workflows/build_api_json.yml
+          grep -q \
+            'python build_api_json.py' \
+            .github/workflows/build_api_json.yml
+          grep -q \
+            'git add -A api' \
+            .github/workflows/build_api_json.yml
+
+          echo "COLLECT_CALLS_RUN_UNIVERSE=true"
+          echo "BUILD_API_TRIGGERED_AFTER_COLLECT=true"
+          echo "BUILD_API_COMMITS_API_DIRECTORY=true"
+          echo "EXISTING_AUTOMATION_CHAIN=OK"
+
+      - name: Compile and self-test patch programs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m py_compile \
+            patch_one_month_production_routes.py
+          python -m py_compile \
+            patch_one_month_runtime_hook_and_registry.py
+          python -m py_compile kospi_one_month.py
+          python -m py_compile kosdaq_one_month.py
+          python -m py_compile run_universe_latest.py
+          python -m py_compile build_api_json.py
+          python -m py_compile table_route_registry.py
+
+          python patch_one_month_production_routes.py \
+            --self-test \
+            | tee /tmp/base_route_patcher_self_test.txt
+
+          python patch_one_month_runtime_hook_and_registry.py \
+            --self-test \
+            | tee /tmp/runtime_hook_patcher_self_test.txt
+
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/base_route_patcher_self_test.txt
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/runtime_hook_patcher_self_test.txt
+          grep -q \
+            'no_workflow_write' \
+            /tmp/runtime_hook_patcher_self_test.txt
+
+          echo "PATCH_PROGRAM_SELF_TESTS=OK"
+
+      - name: Snapshot all workflow files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          find .github/workflows \
+            -maxdepth 1 \
+            -type f \
+            -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > /tmp/workflows_before.sha256
+
+          cat /tmp/workflows_before.sha256
+          echo "WORKFLOW_SNAPSHOT_BEFORE=OK"
+
+      - name: Validate complete integration in isolated repository
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf /tmp/one_month_no_workflow_repo
+          mkdir -p /tmp/one_month_no_workflow_repo
+
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.test_*' \
+            ./ \
+            /tmp/one_month_no_workflow_repo/
+
+          cd /tmp/one_month_no_workflow_repo
+
+          cp \
+            .github/workflows/collect-krx-watchlist.yml \
+            /tmp/isolated_collect_workflow_original.yml
+
+          find .github/workflows \
+            -maxdepth 1 \
+            -type f \
+            -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > /tmp/isolated_workflows_before.sha256
+
+          python patch_one_month_production_routes.py \
+            --root . \
+            --no-backup \
+            | tee /tmp/isolated_base_patch.txt
+
+          cp \
+            /tmp/isolated_collect_workflow_original.yml \
+            .github/workflows/collect-krx-watchlist.yml
+
+          python patch_one_month_runtime_hook_and_registry.py \
+            --root . \
+            | tee /tmp/isolated_runtime_patch.txt
+
+          grep -q \
+            'ONE_MONTH_PRODUCTION_ROUTE_PATCH=OK' \
+            /tmp/isolated_base_patch.txt
+          grep -q \
+            'ONE_MONTH_RUNTIME_HOOK_PATCH=OK' \
+            /tmp/isolated_runtime_patch.txt
+          grep -q \
+            'WORKFLOW_FILES_CHANGED=false' \
+            /tmp/isolated_runtime_patch.txt
+
+          find .github/workflows \
+            -maxdepth 1 \
+            -type f \
+            -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > /tmp/isolated_workflows_after.sha256
+
+          diff -u \
+            /tmp/isolated_workflows_before.sha256 \
+            /tmp/isolated_workflows_after.sha256
+
+          python patch_one_month_runtime_hook_and_registry.py \
+            --root . \
+            --check-only \
+            | tee /tmp/isolated_runtime_check.txt
+
+          grep -q \
+            'ONE_MONTH_RUNTIME_HOOK_PATCH_STATUS=ALREADY_APPLIED' \
+            /tmp/isolated_runtime_check.txt
+
+          echo "ISOLATED_WORKFLOW_FILE_CHANGE_COUNT=0"
+          echo "ISOLATED_PATCH_APPLICATION=OK"
+
+      - name: Validate isolated patched structures
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/one_month_no_workflow_repo
+
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          import yaml
+
+          files = {
+              "runner": Path("run_universe_latest.py"),
+              "api": Path("build_api_json.py"),
+              "registry": Path("table_route_registry.py"),
+              "schema": Path(
+                  "docs/custom_gpt_action_schema.yaml"
+              ),
+          }
+
+          ast.parse(
+              files["runner"].read_text(encoding="utf-8")
+          )
+          ast.parse(
+              files["api"].read_text(encoding="utf-8")
+          )
+          ast.parse(
+              files["registry"].read_text(encoding="utf-8")
+          )
+          schema = yaml.safe_load(
+              files["schema"].read_text(encoding="utf-8")
+          )
+          if not isinstance(schema, dict):
+              raise SystemExit(
+                  "Custom GPT schema is not valid YAML"
+              )
+
+          runner = files["runner"].read_text(
+              encoding="utf-8"
+          )
+          api = files["api"].read_text(
+              encoding="utf-8"
+          )
+          registry = files["registry"].read_text(
+              encoding="utf-8"
+          )
+          schema_text = files["schema"].read_text(
+              encoding="utf-8"
+          )
+
+          required_runner = [
+              "# ONE_MONTH_RUNTIME_HOOK_V6_BEGIN",
+              "def run_one_month_tables",
+              '"kospi_one_month.py"',
+              '"kosdaq_one_month.py"',
+              "ONE_MONTH_RUNTIME_HOOK=OK",
+          ]
+          for marker in required_runner:
+              if marker not in runner:
+                  raise SystemExit(
+                      f"runner marker missing: {marker}"
+                  )
+
+          table_ids = [
+              "kospi_1m_candidates_30",
+              "kospi_1m_recommend_7",
+              "kosdaq_1m_candidates_10",
+              "kosdaq_1m_recommend_5",
+          ]
+          for table_id in table_ids:
+              if api.count(f'"{table_id}"') != 1:
+                  raise SystemExit(
+                      f"API table count error: {table_id}"
+                  )
+
+          operation_ids = [
+              "getKospiOneMonthCandidates",
+              "getKospiOneMonthRecommendations",
+              "getKosdaqOneMonthCandidates",
+              "getKosdaqOneMonthRecommendations",
+          ]
+          for operation_id in operation_ids:
+              if (
+                  schema_text.count(
+                      f"operationId: {operation_id}"
+                  )
+                  != 1
+              ):
+                  raise SystemExit(
+                      f"operationId error: {operation_id}"
+                  )
+
+          required_registry = [
+              '"EXPECTED_CURRENT_READY_COUNT=11"',
+              '"EXPECTED_CURRENT_MISSING_COUNT=2"',
+              '"EXPECTED_MISSING_ROUTES=holdings,us_watchlist"',
+              '"NEXT_BUILD_ORDER=holdings,us_watchlist"',
+          ]
+          for marker in required_registry:
+              if marker not in registry:
+                  raise SystemExit(
+                      f"registry marker missing: {marker}"
+                  )
+
+          print("PATCHED_RUN_UNIVERSE_PYTHON=OK")
+          print("PATCHED_BUILD_API_PYTHON=OK")
+          print("PATCHED_ROUTE_REGISTRY_PYTHON=OK")
+          print("PATCHED_ACTION_SCHEMA_YAML=OK")
+          print("ONE_MONTH_API_TABLE_COUNT=4")
+          print("ONE_MONTH_ACTION_OPERATION_COUNT=4")
+          print("ISOLATED_STRUCTURE_VALIDATION=OK")
+          PY
+
+      - name: Build and verify isolated one-month outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/one_month_no_workflow_repo
+
+          python kospi_one_month.py \
+            --input latest/kospi_universe_summary_latest.csv \
+            --output-dir latest \
+            --candidate-n 30 \
+            --recommend-n 7 \
+            | tee /tmp/isolated_kospi_1m.txt
+
+          python kosdaq_one_month.py \
+            --input latest/kosdaq_universe_summary_latest.csv \
+            --output-dir latest \
+            --candidate-n 10 \
+            --recommend-n 5 \
+            | tee /tmp/isolated_kosdaq_1m.txt
+
+          python build_api_json.py \
+            | tee /tmp/isolated_build_api.txt
+
+          python table_route_registry.py \
+            --self-test \
+            | tee /tmp/isolated_registry_self_test.txt
+
+          python table_route_registry.py \
+            --strict-current-baseline \
+            | tee /tmp/isolated_registry_live.txt
+
+          grep -q \
+            'CANDIDATE_ROWS=30' \
+            /tmp/isolated_kospi_1m.txt
+          grep -q \
+            'RECOMMEND_ROWS=7' \
+            /tmp/isolated_kospi_1m.txt
+          grep -q \
+            'CANDIDATE_ROWS=10' \
+            /tmp/isolated_kosdaq_1m.txt
+          grep -q \
+            'RECOMMEND_ROWS=5' \
+            /tmp/isolated_kosdaq_1m.txt
+          grep -q \
+            'API_SYNC_OK=true' \
+            /tmp/isolated_build_api.txt
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/isolated_registry_self_test.txt
+          grep -q \
+            'READY_TOTAL_COUNT=11' \
+            /tmp/isolated_registry_live.txt
+          grep -q \
+            'MISSING_COUNT=2' \
+            /tmp/isolated_registry_live.txt
+          grep -q \
+            'BROKEN_COUNT=0' \
+            /tmp/isolated_registry_live.txt
+          grep -q \
+            'CURRENT_BASELINE_VERIFICATION=OK' \
+            /tmp/isolated_registry_live.txt
+
+          echo "ISOLATED_ONE_MONTH_BUILD=OK"
+
+      - name: Verify isolated API and route contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/one_month_no_workflow_repo
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import pandas as pd
+
+          csv_specs = {
+              "latest/kospi_1m_candidates_30_latest.csv": 30,
+              "latest/kospi_1m_recommend_7_latest.csv": 7,
+              "latest/kosdaq_1m_candidates_10_latest.csv": 10,
+              "latest/kosdaq_1m_recommend_5_latest.csv": 5,
+          }
+          for filename, expected in csv_specs.items():
+              frame = pd.read_csv(
+                  filename,
+                  encoding="utf-8-sig",
+              )
+              if len(frame) != expected:
+                  raise SystemExit(
+                      f"{filename}: rows={len(frame)}"
+                  )
+              if not frame[
+                  "current_position_period"
+              ].eq("1개월").all():
+                  raise SystemExit(
+                      f"{filename}: wrong period"
+                  )
+              for field in (
+                  "low_1m",
+                  "high_1m",
+                  "range_1m_pct",
+                  "position_in_1m_range_pct",
+              ):
+                  if frame[field].isna().any():
+                      raise SystemExit(
+                          f"{filename}: missing {field}"
+                      )
+
+          api_specs = {
+              "api/kospi_1m_candidates_30.json": 30,
+              "api/kospi_1m_recommend_7.json": 7,
+              "api/kosdaq_1m_candidates_10.json": 10,
+              "api/kosdaq_1m_recommend_5.json": 5,
+          }
+          for filename, expected in api_specs.items():
+              payload = json.loads(
+                  Path(filename).read_text(
+                      encoding="utf-8"
+                  )
+              )
+              if payload.get("status") != "OK":
+                  raise SystemExit(
+                      f"{filename}: status not OK"
+                  )
+              if payload.get("row_count") != expected:
+                  raise SystemExit(
+                      f"{filename}: wrong row count"
+                  )
+
+          registry = json.loads(
+              Path(
+                  "latest/table_route_registry_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+          by_id = {
+              item["route_id"]: item
+              for item in registry["routes"]
+          }
+          assert by_id["kospi_1m"]["status"] == "READY_DIRECT"
+          assert by_id["kosdaq_1m"]["status"] == "READY_DIRECT"
+          assert registry["counts"]["ready_total"] == 11
+          assert registry["counts"]["missing"] == 2
+          assert registry["counts"]["broken"] == 0
+
+          missing = {
+              item["route_id"]
+              for item in registry["routes"]
+              if item["status"] == "MISSING"
+          }
+          assert missing == {"holdings", "us_watchlist"}
+
+          print("ISOLATED_KOSPI_ONE_MONTH_API=OK")
+          print("ISOLATED_KOSDAQ_ONE_MONTH_API=OK")
+          print("ISOLATED_READY_TOTAL_COUNT=11")
+          print("ISOLATED_MISSING_COUNT=2")
+          print("ISOLATED_BROKEN_COUNT=0")
+          print("ISOLATED_CONTRACTS=OK")
+          PY
+
+      - name: Apply patches without retaining workflow changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cp \
+            .github/workflows/collect-krx-watchlist.yml \
+            /tmp/live_collect_workflow_original.yml
+
+          python patch_one_month_production_routes.py \
+            --root . \
+            --no-backup \
+            | tee /tmp/live_base_patch.txt
+
+          cp \
+            /tmp/live_collect_workflow_original.yml \
+            .github/workflows/collect-krx-watchlist.yml
+
+          python patch_one_month_runtime_hook_and_registry.py \
+            --root . \
+            | tee /tmp/live_runtime_patch.txt
+
+          grep -q \
+            'ONE_MONTH_PRODUCTION_ROUTE_PATCH=OK' \
+            /tmp/live_base_patch.txt
+          grep -q \
+            'ONE_MONTH_RUNTIME_HOOK_PATCH=OK' \
+            /tmp/live_runtime_patch.txt
+          grep -q \
+            'WORKFLOW_FILES_CHANGED=false' \
+            /tmp/live_runtime_patch.txt
+
+          python patch_one_month_runtime_hook_and_registry.py \
+            --root . \
+            --check-only \
+            | tee /tmp/live_runtime_check.txt
+
+          find .github/workflows \
+            -maxdepth 1 \
+            -type f \
+            -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > /tmp/workflows_after_patch.sha256
+
+          diff -u \
+            /tmp/workflows_before.sha256 \
+            /tmp/workflows_after_patch.sha256
+
+          echo "LIVE_WORKFLOW_FILE_CHANGE_COUNT=0"
+          echo "LIVE_PATCH_WITHOUT_WORKFLOW_WRITE=OK"
+
+      - name: Generate live one-month outputs and APIs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python kospi_one_month.py \
+            --input latest/kospi_universe_summary_latest.csv \
+            --output-dir latest \
+            --candidate-n 30 \
+            --recommend-n 7 \
+            | tee /tmp/live_kospi_1m.txt
+
+          python kosdaq_one_month.py \
+            --input latest/kosdaq_universe_summary_latest.csv \
+            --output-dir latest \
+            --candidate-n 10 \
+            --recommend-n 5 \
+            | tee /tmp/live_kosdaq_1m.txt
+
+          python build_api_json.py \
+            | tee /tmp/live_build_api.txt
+
+          python table_route_registry.py \
+            --self-test \
+            | tee /tmp/live_registry_self_test.txt
+
+          python table_route_registry.py \
+            --strict-current-baseline \
+            | tee /tmp/live_registry_live.txt
+
+          grep -q \
+            'API_SYNC_OK=true' \
+            /tmp/live_build_api.txt
+          grep -q \
+            'READY_TOTAL_COUNT=11' \
+            /tmp/live_registry_live.txt
+          grep -q \
+            'MISSING_COUNT=2' \
+            /tmp/live_registry_live.txt
+          grep -q \
+            'BROKEN_COUNT=0' \
+            /tmp/live_registry_live.txt
+          grep -q \
+            'CURRENT_BASELINE_VERIFICATION=OK' \
+            /tmp/live_registry_live.txt
+
+          echo "LIVE_ONE_MONTH_OUTPUT_BUILD=OK"
+
+      - name: Write no-workflow integration evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          {
+            echo "INTEGRATION_MODE=existing_python_runtime_and_existing_api_workflow"
+            echo "WORKFLOW_FILES_CHANGED=false"
+            echo "COLLECT_CALLS_RUN_UNIVERSE=true"
+            echo "RUN_UNIVERSE_GENERATES_ONE_MONTH_TABLES=true"
+            echo "BUILD_API_TRIGGERED_AFTER_COLLECT=true"
+            echo "BUILD_API_COMMITS_API_DIRECTORY=true"
+            echo "KOSPI_ONE_MONTH_CANDIDATE_ROWS=30"
+            echo "KOSPI_ONE_MONTH_RECOMMEND_ROWS=7"
+            echo "KOSDAQ_ONE_MONTH_CANDIDATE_ROWS=10"
+            echo "KOSDAQ_ONE_MONTH_RECOMMEND_ROWS=5"
+            echo "ONE_MONTH_ACTION_OPERATION_COUNT=4"
+            echo "KOSPI_ONE_MONTH_ROUTE=READY_DIRECT"
+            echo "KOSDAQ_ONE_MONTH_ROUTE=READY_DIRECT"
+            echo "READY_TOTAL_COUNT=11"
+            echo "MISSING_COUNT=2"
+            echo "BROKEN_COUNT=0"
+            echo "REMAINING_MISSING_ROUTES=holdings,us_watchlist"
+            echo "LIVE_TEST_STATUS=OK"
+          } > \
+            latest/one_month_no_workflow_integration_report_latest.txt
+
+          cat \
+            latest/one_month_no_workflow_integration_report_latest.txt
+
+      - name: Commit and push without workflow files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email \
+            "github-actions@users.noreply.github.com"
+
+          git add \
+            run_universe_latest.py \
+            build_api_json.py \
+            docs/custom_gpt_action_schema.yaml \
+            table_route_registry.py \
+            latest \
+            api
+
+          WORKFLOW_STAGED_COUNT="$(
+            git diff --cached --name-only \
+              | grep -c '^\.github/workflows/' \
+              || true
+          )"
+
+          echo "WORKFLOW_STAGED_COUNT=$WORKFLOW_STAGED_COUNT"
+
+          if [ "$WORKFLOW_STAGED_COUNT" -ne 0 ]; then
+            echo "::error::Workflow file was staged unexpectedly"
+            exit 1
+          fi
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            exit 0
+          fi
+
+          echo "CHANGED_FILES_BEGIN"
+          git diff --cached --name-status
+          echo "CHANGED_FILES_END"
+
+          git commit -m \
+            "Connect one-month routes without workflow changes"
+
+          PUSHED=false
+          for attempt in 1 2 3; do
+            echo "PUSH_ATTEMPT=$attempt"
+            git fetch origin main
+
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              echo "REBASE_FAILED=true"
+              sleep $((attempt * 5))
+              continue
+            fi
+
+            if git push origin HEAD:main; then
+              PUSHED=true
+              break
+            fi
+
+            sleep $((attempt * 5))
+          done
+
+          if [ "$PUSHED" != "true" ]; then
+            echo "PUSH_SUCCESS=false"
+            exit 1
+          fi
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "WORKFLOW_FILES_CHANGED=false"
+          echo "PUSH_SUCCESS=true"

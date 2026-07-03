@@ -1,0 +1,830 @@
+name: V6 Apply US S&P500 Production
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 22:20 UTC Monday-Friday
+    # = 07:20 KST Tuesday-Saturday
+    # 미국 정규장 종료 후 서머타임·겨울시간 모두 수용
+    - cron: "20 22 * * 1-5"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-us-sp500-production-main
+  cancel-in-progress: false
+
+jobs:
+  build-us-sp500-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install \
+            pandas \
+            numpy \
+            yfinance \
+            requests \
+            lxml \
+            html5lib \
+            beautifulsoup4 \
+            pyyaml
+
+      - name: Check prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required_files=(
+            "collect_us_sp500.py"
+            "us_sp500_watchlist.py"
+            "patch_us_watchlist_production_routes.py"
+            "build_api_json.py"
+            "table_route_registry.py"
+            "docs/custom_gpt_action_schema.yaml"
+          )
+
+          for file in "${required_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "::error file=$file::Required file is missing"
+              exit 1
+            fi
+          done
+
+          grep -q \
+            'v1.0.0-batched-yfinance' \
+            collect_us_sp500.py
+          grep -q \
+            'v1.0.0-sp500-candidate30-recommend7' \
+            us_sp500_watchlist.py
+          grep -q \
+            'v1.0.0-thirteen-of-thirteen' \
+            patch_us_watchlist_production_routes.py
+
+          python -m py_compile \
+            collect_us_sp500.py \
+            us_sp500_watchlist.py \
+            patch_us_watchlist_production_routes.py \
+            build_api_json.py \
+            table_route_registry.py
+
+          echo "US_PRODUCTION_PREREQUISITES=OK"
+
+      - name: Run program self-tests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python collect_us_sp500.py \
+            --self-test \
+            | tee /tmp/us_collector_self_test.txt
+
+          python us_sp500_watchlist.py \
+            --self-test \
+            | tee /tmp/us_generator_self_test.txt
+
+          python patch_us_watchlist_production_routes.py \
+            --self-test \
+            | tee /tmp/us_patcher_self_test.txt
+
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/us_collector_self_test.txt
+          grep -q \
+            'symbol_index_drop_regression' \
+            /tmp/us_collector_self_test.txt
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/us_generator_self_test.txt
+          grep -q \
+            'recommend_subset' \
+            /tmp/us_generator_self_test.txt
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/us_patcher_self_test.txt
+          grep -q \
+            'thirteen_ready_zero_missing' \
+            /tmp/us_patcher_self_test.txt
+
+          echo "US_PRODUCTION_SELF_TESTS=OK"
+
+      - name: Validate complete build in isolated repository
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf /tmp/us_sp500_production_repo
+          mkdir -p /tmp/us_sp500_production_repo
+
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.us_build' \
+            --exclude='.test_*' \
+            ./ \
+            /tmp/us_sp500_production_repo/
+
+          cd /tmp/us_sp500_production_repo
+
+          python patch_us_watchlist_production_routes.py \
+            --root . \
+            | tee /tmp/isolated_us_patch.txt
+
+          python patch_us_watchlist_production_routes.py \
+            --root . \
+            --check-only \
+            | tee /tmp/isolated_us_patch_check.txt
+
+          grep -q \
+            'US_WATCHLIST_PRODUCTION_PATCH=OK' \
+            /tmp/isolated_us_patch.txt
+          grep -q \
+            'US_WATCHLIST_PRODUCTION_PATCH_STATUS=ALREADY_APPLIED' \
+            /tmp/isolated_us_patch_check.txt
+
+          rm -rf .us_build
+          mkdir -p .us_build/latest
+
+          python collect_us_sp500.py \
+            --output-dir .us_build/latest \
+            --batch-size 40 \
+            --retries 3 \
+            --fundamentals-max 120 \
+            --fundamentals-pause 0.10 \
+            | tee /tmp/isolated_us_collect.txt
+
+          grep -q \
+            'US_SP500_COLLECTION_STATUS=OK' \
+            /tmp/isolated_us_collect.txt
+          grep -q \
+            'CONSTITUENT_COUNT=' \
+            /tmp/isolated_us_collect.txt
+          grep -q \
+            'PRICE_OK_ROWS=' \
+            /tmp/isolated_us_collect.txt
+
+          python us_sp500_watchlist.py \
+            --input \
+              .us_build/latest/us_sp500_universe_summary_latest.csv \
+            --output-dir .us_build/latest \
+            --candidate-n 30 \
+            --recommend-n 7 \
+            | tee /tmp/isolated_us_generate.txt
+
+          grep -q \
+            'US_WATCHLIST_STATUS=OK' \
+            /tmp/isolated_us_generate.txt
+          grep -q \
+            'CANDIDATE_ROWS=30' \
+            /tmp/isolated_us_generate.txt
+          grep -q \
+            'RECOMMEND_ROWS=7' \
+            /tmp/isolated_us_generate.txt
+          grep -q \
+            'RECOMMEND_OUTSIDE_CANDIDATES=0' \
+            /tmp/isolated_us_generate.txt
+          grep -q \
+            'HARD_RED_RECOMMENDED=0' \
+            /tmp/isolated_us_generate.txt
+
+          cp \
+            .us_build/latest/us_sp500_* \
+            latest/
+
+          python build_api_json.py \
+            | tee /tmp/isolated_us_build_api.txt
+
+          python table_route_registry.py \
+            --self-test \
+            | tee /tmp/isolated_us_registry_self_test.txt
+
+          python table_route_registry.py \
+            --strict-current-baseline \
+            | tee /tmp/isolated_us_registry.txt
+
+          grep -q \
+            'API_SYNC_OK=true' \
+            /tmp/isolated_us_build_api.txt
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/isolated_us_registry_self_test.txt
+          grep -q \
+            'READY_TOTAL_COUNT=13' \
+            /tmp/isolated_us_registry.txt
+          grep -q \
+            'MISSING_COUNT=0' \
+            /tmp/isolated_us_registry.txt
+          grep -q \
+            'BROKEN_COUNT=0' \
+            /tmp/isolated_us_registry.txt
+          grep -q \
+            'CURRENT_BASELINE_VERIFICATION=OK' \
+            /tmp/isolated_us_registry.txt
+
+          echo "ISOLATED_US_PRODUCTION_BUILD=OK"
+
+      - name: Verify isolated US contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/us_sp500_production_repo
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import re
+
+          import pandas as pd
+          import yaml
+
+          latest = Path("latest")
+          api = Path("api")
+
+          universe = pd.read_csv(
+              latest
+              / "us_sp500_universe_summary_latest.csv",
+              encoding="utf-8-sig",
+          )
+          candidates = pd.read_csv(
+              latest / "us_sp500_watchlist_latest.csv",
+              encoding="utf-8-sig",
+          )
+          recommends = pd.read_csv(
+              latest
+              / "us_sp500_recommend_7_latest.csv",
+              encoding="utf-8-sig",
+          )
+
+          price_ok = int(
+              universe["status"].eq("OK").sum()
+          )
+          if len(universe) < 450:
+              raise SystemExit(
+                  f"too few constituents: {len(universe)}"
+              )
+          if price_ok < 450:
+              raise SystemExit(
+                  f"too few price OK rows: {price_ok}"
+              )
+          if universe["symbol"].nunique() < 450:
+              raise SystemExit(
+                  "too few unique S&P500 symbols"
+              )
+
+          if len(candidates) != 30:
+              raise SystemExit(
+                  "candidate row count mismatch"
+              )
+          if len(recommends) != 7:
+              raise SystemExit(
+                  "recommend row count mismatch"
+              )
+          if int(
+              candidates["recommend_flag"].eq("✅").sum()
+          ) != 7:
+              raise SystemExit(
+                  "candidate checkmark count mismatch"
+              )
+          if not set(recommends["symbol"]).issubset(
+              set(candidates["symbol"])
+          ):
+              raise SystemExit(
+                  "recommendation outside candidate table"
+              )
+          if recommends[
+              "hard_red_flag"
+          ].astype(bool).any():
+              raise SystemExit(
+                  "hard-red stock was recommended"
+              )
+
+          api_specs = {
+              "us_watchlist.json": 30,
+              "us_watchlist_recommend_7.json": 7,
+          }
+          for filename, expected in api_specs.items():
+              payload = json.loads(
+                  (api / filename).read_text(
+                      encoding="utf-8"
+                  )
+              )
+              if payload.get("status") != "OK":
+                  raise SystemExit(
+                      f"{filename}: status is not OK"
+                  )
+              if payload.get("row_count") != expected:
+                  raise SystemExit(
+                      f"{filename}: row_count mismatch"
+                  )
+
+          schema_path = Path(
+              "docs/custom_gpt_action_schema.yaml"
+          )
+          schema_text = schema_path.read_text(
+              encoding="utf-8"
+          )
+          yaml.safe_load(schema_text)
+
+          for operation_id in (
+              "getUsWatchlist",
+              "getUsWatchlistRecommendations",
+          ):
+              count = len(
+                  re.findall(
+                      rf"^\s*operationId:\s*"
+                      rf"{re.escape(operation_id)}\s*$",
+                      schema_text,
+                      flags=re.MULTILINE,
+                  )
+              )
+              if count != 1:
+                  raise SystemExit(
+                      f"operationId mismatch: "
+                      f"{operation_id}={count}"
+                  )
+
+          registry = json.loads(
+              (
+                  latest
+                  / "table_route_registry_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+          counts = registry["counts"]
+          if counts["ready_total"] != 13:
+              raise SystemExit(
+                  "registry ready_total mismatch"
+              )
+          if counts["missing"] != 0:
+              raise SystemExit(
+                  "registry missing mismatch"
+              )
+          if counts["broken"] != 0:
+              raise SystemExit(
+                  "registry broken mismatch"
+              )
+          if not registry[
+              "all_thirteen_routes_complete"
+          ]:
+              raise SystemExit(
+                  "all_thirteen_routes_complete is false"
+              )
+
+          routes = {
+              row["route_id"]: row
+              for row in registry["routes"]
+          }
+          if (
+              routes["us_watchlist"]["status"]
+              != "READY_DIRECT"
+          ):
+              raise SystemExit(
+                  "US route is not READY_DIRECT"
+              )
+
+          print(
+              f"ISOLATED_US_CONSTITUENT_ROWS={len(universe)}"
+          )
+          print(
+              f"ISOLATED_US_PRICE_OK_ROWS={price_ok}"
+          )
+          print("ISOLATED_US_CANDIDATE_ROWS=30")
+          print("ISOLATED_US_RECOMMEND_ROWS=7")
+          print("ISOLATED_US_API_MAIN=OK")
+          print("ISOLATED_US_API_RECOMMEND=OK")
+          print("ISOLATED_US_ACTION_OPERATIONS=2")
+          print("ISOLATED_US_ROUTE=READY_DIRECT")
+          print("ISOLATED_READY_TOTAL_COUNT=13")
+          print("ISOLATED_MISSING_COUNT=0")
+          print("ISOLATED_BROKEN_COUNT=0")
+          print("ISOLATED_ALL_THIRTEEN_COMPLETE=true")
+          print("ISOLATED_US_CONTRACTS=OK")
+          PY
+
+      - name: Apply production route patch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python patch_us_watchlist_production_routes.py \
+            --root . \
+            | tee /tmp/live_us_patch.txt
+
+          python patch_us_watchlist_production_routes.py \
+            --root . \
+            --check-only \
+            | tee /tmp/live_us_patch_check.txt
+
+          grep -q \
+            'US_WATCHLIST_PRODUCTION_PATCH=OK' \
+            /tmp/live_us_patch.txt
+          grep -q \
+            'US_WATCHLIST_PRODUCTION_PATCH_STATUS=ALREADY_APPLIED' \
+            /tmp/live_us_patch_check.txt
+
+          echo "LIVE_US_ROUTE_PATCH=OK"
+
+      - name: Collect live US production data
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf .us_build
+          mkdir -p .us_build/latest
+
+          python collect_us_sp500.py \
+            --output-dir .us_build/latest \
+            --batch-size 40 \
+            --retries 3 \
+            --fundamentals-max 120 \
+            --fundamentals-pause 0.10 \
+            | tee /tmp/live_us_collect.txt
+
+          grep -q \
+            'US_SP500_COLLECTION_STATUS=OK' \
+            /tmp/live_us_collect.txt
+
+          python us_sp500_watchlist.py \
+            --input \
+              .us_build/latest/us_sp500_universe_summary_latest.csv \
+            --output-dir .us_build/latest \
+            --candidate-n 30 \
+            --recommend-n 7 \
+            | tee /tmp/live_us_generate.txt
+
+          grep -q \
+            'US_WATCHLIST_STATUS=OK' \
+            /tmp/live_us_generate.txt
+          grep -q \
+            'CANDIDATE_ROWS=30' \
+            /tmp/live_us_generate.txt
+          grep -q \
+            'RECOMMEND_ROWS=7' \
+            /tmp/live_us_generate.txt
+          grep -q \
+            'RECOMMEND_OUTSIDE_CANDIDATES=0' \
+            /tmp/live_us_generate.txt
+          grep -q \
+            'HARD_RED_RECOMMENDED=0' \
+            /tmp/live_us_generate.txt
+
+          echo "LIVE_US_COLLECTION_AND_GENERATION=OK"
+
+      - name: Promote verified US outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import pandas as pd
+
+          root = Path(".us_build/latest")
+          universe = pd.read_csv(
+              root
+              / "us_sp500_universe_summary_latest.csv",
+              encoding="utf-8-sig",
+          )
+          candidates = pd.read_csv(
+              root / "us_sp500_watchlist_latest.csv",
+              encoding="utf-8-sig",
+          )
+          recommends = pd.read_csv(
+              root
+              / "us_sp500_recommend_7_latest.csv",
+              encoding="utf-8-sig",
+          )
+          status = json.loads(
+              (
+                  root
+                  / "us_sp500_collection_status_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          price_ok = int(
+              universe["status"].eq("OK").sum()
+          )
+          if len(universe) < 450 or price_ok < 450:
+              raise SystemExit(
+                  "verified US output threshold failed"
+              )
+          if len(candidates) != 30:
+              raise SystemExit(
+                  "verified candidate count failed"
+              )
+          if len(recommends) != 7:
+              raise SystemExit(
+                  "verified recommend count failed"
+              )
+          if status.get("status") != "OK":
+              raise SystemExit(
+                  "collector status is not OK"
+              )
+
+          print(
+              f"LIVE_US_CONSTITUENT_ROWS={len(universe)}"
+          )
+          print(
+              f"LIVE_US_PRICE_OK_ROWS={price_ok}"
+          )
+          print("LIVE_US_CANDIDATE_ROWS=30")
+          print("LIVE_US_RECOMMEND_ROWS=7")
+          print("LIVE_US_PROMOTION_GATE=OK")
+          PY
+
+          cp \
+            .us_build/latest/us_sp500_* \
+            latest/
+
+          echo "LIVE_US_OUTPUTS_PROMOTED=true"
+
+      - name: Build APIs and verify all routes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python build_api_json.py \
+            | tee /tmp/live_us_build_api.txt
+
+          python table_route_registry.py \
+            --self-test \
+            | tee /tmp/live_us_registry_self_test.txt
+
+          python table_route_registry.py \
+            --strict-current-baseline \
+            | tee /tmp/live_us_registry.txt
+
+          grep -q \
+            'API_SYNC_OK=true' \
+            /tmp/live_us_build_api.txt
+          grep -q \
+            'SELF_TEST_STATUS=OK' \
+            /tmp/live_us_registry_self_test.txt
+          grep -q \
+            'READY_TOTAL_COUNT=13' \
+            /tmp/live_us_registry.txt
+          grep -q \
+            'MISSING_COUNT=0' \
+            /tmp/live_us_registry.txt
+          grep -q \
+            'BROKEN_COUNT=0' \
+            /tmp/live_us_registry.txt
+          grep -q \
+            'CURRENT_BASELINE_VERIFICATION=OK' \
+            /tmp/live_us_registry.txt
+
+          echo "LIVE_US_API_AND_ALL_ROUTES=OK"
+
+      - name: Verify final production contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import re
+
+          import pandas as pd
+          import yaml
+
+          latest = Path("latest")
+          api = Path("api")
+
+          universe = pd.read_csv(
+              latest
+              / "us_sp500_universe_summary_latest.csv",
+              encoding="utf-8-sig",
+          )
+          candidates = pd.read_csv(
+              latest / "us_sp500_watchlist_latest.csv",
+              encoding="utf-8-sig",
+          )
+          recommends = pd.read_csv(
+              latest
+              / "us_sp500_recommend_7_latest.csv",
+              encoding="utf-8-sig",
+          )
+
+          price_ok = int(
+              universe["status"].eq("OK").sum()
+          )
+          assert len(universe) >= 450
+          assert price_ok >= 450
+          assert len(candidates) == 30
+          assert len(recommends) == 7
+          assert (
+              candidates["recommend_flag"].eq("✅").sum()
+              == 7
+          )
+          assert set(recommends["symbol"]).issubset(
+              set(candidates["symbol"])
+          )
+          assert not recommends[
+              "hard_red_flag"
+          ].astype(bool).any()
+
+          main_api = json.loads(
+              (api / "us_watchlist.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          recommend_api = json.loads(
+              (
+                  api
+                  / "us_watchlist_recommend_7.json"
+              ).read_text(encoding="utf-8")
+          )
+          assert main_api["status"] == "OK"
+          assert main_api["row_count"] == 30
+          assert recommend_api["status"] == "OK"
+          assert recommend_api["row_count"] == 7
+
+          schema_text = Path(
+              "docs/custom_gpt_action_schema.yaml"
+          ).read_text(encoding="utf-8")
+          yaml.safe_load(schema_text)
+          for operation_id in (
+              "getUsWatchlist",
+              "getUsWatchlistRecommendations",
+          ):
+              assert len(
+                  re.findall(
+                      rf"^\s*operationId:\s*"
+                      rf"{re.escape(operation_id)}\s*$",
+                      schema_text,
+                      flags=re.MULTILINE,
+                  )
+              ) == 1
+
+          registry = json.loads(
+              (
+                  latest
+                  / "table_route_registry_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+          assert registry["counts"]["ready_total"] == 13
+          assert registry["counts"]["missing"] == 0
+          assert registry["counts"]["broken"] == 0
+          assert registry[
+              "all_thirteen_routes_complete"
+          ] is True
+
+          route = next(
+              row
+              for row in registry["routes"]
+              if row["route_id"] == "us_watchlist"
+          )
+          assert route["status"] == "READY_DIRECT"
+
+          print("LIVE_US_API_MAIN=OK")
+          print("LIVE_US_API_RECOMMEND=OK")
+          print("LIVE_US_ACTION_OPERATIONS=2")
+          print("LIVE_US_ROUTE=READY_DIRECT")
+          print("LIVE_READY_TOTAL_COUNT=13")
+          print("LIVE_MISSING_COUNT=0")
+          print("LIVE_BROKEN_COUNT=0")
+          print("LIVE_ALL_THIRTEEN_COMPLETE=true")
+          print("LIVE_US_FINAL_CONTRACTS=OK")
+          PY
+
+      - name: Write final completion evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CONSTITUENT_SOURCE="$(
+            grep '^CONSTITUENT_SOURCE=' \
+              /tmp/live_us_collect.txt \
+              | tail -1 \
+              | cut -d= -f2-
+          )"
+
+          CONSTITUENT_COUNT="$(
+            grep '^CONSTITUENT_COUNT=' \
+              /tmp/live_us_collect.txt \
+              | tail -1 \
+              | cut -d= -f2-
+          )"
+
+          PRICE_OK_ROWS="$(
+            grep '^PRICE_OK_ROWS=' \
+              /tmp/live_us_collect.txt \
+              | tail -1 \
+              | cut -d= -f2-
+          )"
+
+          {
+            echo "TABLE_SYSTEM_VERSION=V6"
+            echo "US_COLLECTION_SCHEDULE_KST=Tuesday-Saturday_07:20"
+            echo "US_CONSTITUENT_SOURCE=$CONSTITUENT_SOURCE"
+            echo "US_CONSTITUENT_COUNT=$CONSTITUENT_COUNT"
+            echo "US_PRICE_OK_ROWS=$PRICE_OK_ROWS"
+            echo "US_CANDIDATE_ROWS=30"
+            echo "US_RECOMMEND_ROWS=7"
+            echo "US_RECOMMEND_OUTSIDE_CANDIDATES=0"
+            echo "US_HARD_RED_RECOMMENDED=0"
+            echo "US_API_MAIN=OK"
+            echo "US_API_RECOMMEND=OK"
+            echo "US_ACTION_OPERATION_COUNT=2"
+            echo "US_WATCHLIST_ROUTE=READY_DIRECT"
+            echo "READY_TOTAL_COUNT=13"
+            echo "MISSING_COUNT=0"
+            echo "BROKEN_COUNT=0"
+            echo "ALL_THIRTEEN_ROUTES_COMPLETE=true"
+            echo "LIVE_TEST_STATUS=OK"
+          } > \
+            latest/us_sp500_production_report_latest.txt
+
+          cat \
+            latest/us_sp500_production_report_latest.txt
+
+      - name: Commit and push production outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf .us_build
+
+          git config user.name "github-actions"
+          git config user.email \
+            "github-actions@users.noreply.github.com"
+
+          git add \
+            build_api_json.py \
+            table_route_registry.py \
+            docs/custom_gpt_action_schema.yaml \
+            latest \
+            api
+
+          WORKFLOW_STAGED_COUNT="$(
+            git diff --cached --name-only \
+              | grep -c '^\.github/workflows/' \
+              || true
+          )"
+
+          echo "WORKFLOW_STAGED_COUNT=$WORKFLOW_STAGED_COUNT"
+
+          if [ "$WORKFLOW_STAGED_COUNT" -ne 0 ]; then
+            echo "::error::Workflow file staged unexpectedly"
+            exit 1
+          fi
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            exit 0
+          fi
+
+          echo "CHANGED_FILES_BEGIN"
+          git diff --cached --name-status
+          echo "CHANGED_FILES_END"
+
+          git commit -m \
+            "Complete US S&P500 production route"
+
+          PUSHED=false
+          for attempt in 1 2 3; do
+            echo "PUSH_ATTEMPT=$attempt"
+            git fetch origin main
+
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              sleep $((attempt * 5))
+              continue
+            fi
+
+            if git push origin HEAD:main; then
+              PUSHED=true
+              break
+            fi
+
+            sleep $((attempt * 5))
+          done
+
+          if [ "$PUSHED" != "true" ]; then
+            echo "PUSH_SUCCESS=false"
+            exit 1
+          fi
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "WORKFLOW_STAGED_COUNT=0"
+          echo "ALL_THIRTEEN_ROUTES_COMPLETE=true"
+          echo "PUSH_SUCCESS=true"

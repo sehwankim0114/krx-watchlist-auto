@@ -1,10 +1,10 @@
 SCRIPT_VERSION=add_legacy_market_score_aliases.py v1.0.0
-STARTED_AT_KST=2026-07-02T20:50:40.403343+09:00
-FINISHED_AT_KST=2026-07-02T20:50:41.822615+09:00
+STARTED_AT_KST=2026-07-03T10:28:10.782629+09:00
+FINISHED_AT_KST=2026-07-03T10:28:12.255099+09:00
 LATEST_DIR=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest
-SCANNED_CSV_COUNT=117
-UPDATED_FILE_COUNT=19
-SKIPPED_FILE_COUNT=98
+SCANNED_CSV_COUNT=121
+UPDATED_FILE_COUNT=21
+SKIPPED_FILE_COUNT=100
 FAILED_FILE_COUNT=0
 STATUS=OK
 
@@ -13,6 +13,8 @@ latest/kosdaq_candidates_10_current_basis_latest.csv rows=10 status=UPDATED
 latest/kosdaq_candidates_10_latest.csv rows=10 status=UPDATED
 latest/kosdaq_candidates_10_supplemented_latest.csv rows=10 status=UPDATED
 latest/kosdaq_recommend_5_latest.csv rows=5 status=UPDATED
+latest/kospi_1m_generator_test_candidates_30_latest.csv rows=30 status=UPDATED
+latest/kospi_1m_generator_test_recommend_7_latest.csv rows=7 status=UPDATED
 latest/kospi_candidates_30_current_basis_latest.csv rows=30 status=UPDATED
 latest/kospi_candidates_30_latest.csv rows=30 status=UPDATED
 latest/kospi_candidates_30_supplemented_latest.csv rows=30 status=UPDATED
@@ -23,30 +25,30 @@ latest/kospi_fx_weakness_recommend_7_latest.csv rows=7 status=UPDATED
 latest/kospi_gainers_1m_current_basis_latest.csv rows=20 status=UPDATED
 latest/kospi_gainers_1m_latest.csv rows=20 status=UPDATED
 latest/kospi_gainers_1m_supplemented_latest.csv rows=20 status=UPDATED
-latest/kospi_monthly_cycle_candidates_latest.csv rows=507 status=UPDATED
+latest/kospi_monthly_cycle_candidates_latest.csv rows=508 status=UPDATED
 latest/kospi_monthly_cycle_latest.csv rows=40 status=UPDATED
 latest/kospi_recommend_7_latest.csv rows=7 status=UPDATED
 latest/kospi_short_term_candidates_30_latest.csv rows=30 status=UPDATED
 latest/kospi_short_term_recommend_7_latest.csv rows=7 status=UPDATED
 
 [SKIPPED]
-latest/bubble_risk_signals_latest.csv rows=7 status=SKIPPED_NO_SCORE_FIELDS
+latest/bubble_risk_signals_latest.csv rows=9 status=SKIPPED_NO_SCORE_FIELDS
 latest/dart_corp_code_cache.csv rows=3933 status=SKIPPED_NO_SCORE_FIELDS
-latest/dart_corp_code_cache_latest.csv rows=118396 status=SKIPPED_NO_SCORE_FIELDS
+latest/dart_corp_code_cache_latest.csv rows=118409 status=SKIPPED_NO_SCORE_FIELDS
 latest/dart_corp_code_map_latest.csv rows=3975 status=SKIPPED_NO_SCORE_FIELDS
 latest/dart_fx_exposure_cache.csv rows=926 status=SKIPPED_NO_SCORE_FIELDS
-latest/financial_valuation_cache_latest.csv rows=145 status=SKIPPED_NO_SCORE_FIELDS
+latest/financial_valuation_cache_latest.csv rows=150 status=SKIPPED_NO_SCORE_FIELDS
 latest/financial_valuation_test_sample_latest.csv rows=5 status=SKIPPED_NO_SCORE_FIELDS
-latest/kofia_cma_history_latest.csv rows=1228 status=SKIPPED_NO_SCORE_FIELDS
-latest/kofia_credit_history_latest.csv rows=2018 status=SKIPPED_NO_SCORE_FIELDS
-latest/kofia_macro_bridge_latest.csv rows=2141 status=SKIPPED_NO_SCORE_FIELDS
-latest/kofia_market_funds_history_latest.csv rows=2018 status=SKIPPED_NO_SCORE_FIELDS
+latest/kofia_cma_history_latest.csv rows=1240 status=SKIPPED_NO_SCORE_FIELDS
+latest/kofia_credit_history_latest.csv rows=2019 status=SKIPPED_NO_SCORE_FIELDS
+latest/kofia_macro_bridge_latest.csv rows=2144 status=SKIPPED_NO_SCORE_FIELDS
+latest/kofia_market_funds_history_latest.csv rows=2019 status=SKIPPED_NO_SCORE_FIELDS
 latest/kofia_market_funds_summary_latest.csv rows=14 status=SKIPPED_NO_SCORE_FIELDS
 latest/kosdaq_raw_history_latest.csv rows=0 status=SKIPPED_EMPTY
 latest/kosdaq_universe_summary_latest.csv rows=1791 status=SKIPPED_NO_SCORE_FIELDS
 latest/kospi_raw_history_latest.csv rows=0 status=SKIPPED_EMPTY
 latest/kospi_universe_summary_latest.csv rows=925 status=SKIPPED_NO_SCORE_FIELDS
-latest/macro_leverage_history_latest.csv rows=1350 status=SKIPPED_NO_SCORE_FIELDS
+latest/macro_leverage_history_latest.csv rows=1351 status=SKIPPED_NO_SCORE_FIELDS
 latest/macro_leverage_signals_latest.csv rows=5 status=SKIPPED_NO_SCORE_FIELDS
 latest/macro_leverage_summary_latest.csv rows=7 status=SKIPPED_NO_SCORE_FIELDS
 latest/market_breadth_history_latest.csv rows=284 status=SKIPPED_NO_SCORE_FIELDS
@@ -86,16 +88,17 @@ latest/raw_history_20260627.csv rows=2855 status=SKIPPED_NO_SCORE_FIELDS
 latest/raw_history_20260630.csv rows=2901 status=SKIPPED_NO_SCORE_FIELDS
 latest/raw_history_20260701.csv rows=2858 status=SKIPPED_NO_SCORE_FIELDS
 latest/raw_history_20260702.csv rows=2860 status=SKIPPED_NO_SCORE_FIELDS
-latest/raw_history_latest.csv rows=2860 status=SKIPPED_NO_SCORE_FIELDS
+latest/raw_history_20260703.csv rows=2862 status=SKIPPED_NO_SCORE_FIELDS
+latest/raw_history_latest.csv rows=2862 status=SKIPPED_NO_SCORE_FIELDS
 latest/request_time_explanation_refresh_test_sample_latest.csv rows=12 status=SKIPPED_NO_SCORE_FIELDS
-latest/supplement_current_prices_latest.csv rows=97 status=SKIPPED_NO_SCORE_FIELDS
+latest/supplement_current_prices_latest.csv rows=100 status=SKIPPED_NO_SCORE_FIELDS
 latest/supply_burden_cache_latest.csv rows=2719 status=SKIPPED_NO_SCORE_FIELDS
-latest/supply_burden_hits_latest.csv rows=11590 status=SKIPPED_NO_SCORE_FIELDS
+latest/supply_burden_hits_latest.csv rows=11625 status=SKIPPED_NO_SCORE_FIELDS
 latest/supply_burden_summary_latest.csv rows=2716 status=SKIPPED_NO_SCORE_FIELDS
 latest/supply_status_separation_test_sample_latest.csv rows=5 status=SKIPPED_NO_SCORE_FIELDS
 latest/table_health_latest.csv rows=13 status=SKIPPED_NO_SCORE_FIELDS
 latest/table_route_registry_latest.csv rows=13 status=SKIPPED_NO_SCORE_FIELDS
-latest/universe_raw_history_latest.csv rows=385054 status=SKIPPED_NO_SCORE_FIELDS
+latest/universe_raw_history_latest.csv rows=385019 status=SKIPPED_NO_SCORE_FIELDS
 latest/watchlist_summary_20260530.csv rows=47 status=SKIPPED_NO_SCORE_FIELDS
 latest/watchlist_summary_20260531.csv rows=47 status=SKIPPED_NO_SCORE_FIELDS
 latest/watchlist_summary_20260601.csv rows=47 status=SKIPPED_NO_SCORE_FIELDS
@@ -125,6 +128,7 @@ latest/watchlist_summary_20260627.csv rows=47 status=SKIPPED_NO_SCORE_FIELDS
 latest/watchlist_summary_20260630.csv rows=47 status=SKIPPED_NO_SCORE_FIELDS
 latest/watchlist_summary_20260701.csv rows=47 status=SKIPPED_NO_SCORE_FIELDS
 latest/watchlist_summary_20260702.csv rows=47 status=SKIPPED_NO_SCORE_FIELDS
+latest/watchlist_summary_20260703.csv rows=47 status=SKIPPED_NO_SCORE_FIELDS
 latest/watchlist_summary_current_basis_latest.csv rows=47 status=SKIPPED_NO_SCORE_FIELDS
 latest/watchlist_summary_latest.csv rows=47 status=SKIPPED_NO_SCORE_FIELDS
 latest/watchlist_summary_supplemented_latest.csv rows=47 status=SKIPPED_NO_SCORE_FIELDS

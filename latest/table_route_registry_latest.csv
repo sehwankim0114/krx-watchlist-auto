@@ -11,4 +11,4 @@ short_term,단상표,DIRECT,READY_DIRECT,,,latest/kospi_short_term_candidates_30
 fx_weakness,환율약세표,DIRECT,READY_DIRECT,,,latest/kospi_fx_weakness_candidates_30_latest.csv,api/kospi_fx_weakness_candidates_30.json,getFxWeaknessCandidates,
 market_status,시장상태표,COMPOSITE,READY_COMPOSITE,,,"latest/data_status_latest.json,latest/macro_leverage_latest.json,latest/bubble_risk_latest.json","api/market_status.json,api/macro_leverage.json,api/bubble_risk.json","getMarketStatus,getMacroLeverage,getBubbleRisk",
 holdings,보유종목표,PRIVATE_RUNTIME,READY_PRIVATE_RUNTIME,,,"holdings_table.py,build_stock_reference_api.py,docs/holdings_private_runtime_contract.md",api/stock_reference_manifest.json,"getHoldingsReferenceManifest,getStockReferenceShard",사용자 보유수량·평균매수가는 대화에서만 사용하고 공개 종목 참고 shard와 결합해 응답 시점에 계산한다.
-us_watchlist,미관종표,DIRECT,MISSING,,"SOURCE,API,ACTION",,,,S&P500 전체 수집·점수화 후 코피표형 후보표를 만드는 미국시장 전용 저장소 또는 생성기 필요
+us_watchlist,미관종표,DIRECT,READY_DIRECT,,,latest/us_sp500_watchlist_latest.csv,api/us_watchlist.json,getUsWatchlist,

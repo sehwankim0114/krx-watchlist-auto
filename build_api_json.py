@@ -35,7 +35,7 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "build_api_json.py v4.2_request_time_price_overlay_one_month_routes_v6_holdings_private_runtime_v6"
+SCRIPT_VERSION = "build_api_json.py v4.2_request_time_price_overlay_one_month_routes_v6_holdings_private_runtime_v6_us_watchlist_v6"
 SCHEMA_VERSION = "4.2"
 ROOT = Path(__file__).resolve().parent
 LATEST = ROOT / "latest"
@@ -154,6 +154,26 @@ TABLE_SPECS: Tuple[TableSpec, ...] = (
         explicit_request_only=True,
     ),
     # ONE_MONTH_API_TABLE_SPECS_V6_END
+# US_WATCHLIST_API_TABLE_SPECS_V6_BEGIN
+    TableSpec(
+        "us_watchlist",
+        "미관종표 S&P500 후보 30",
+        "us_watchlist.json",
+        ("us_sp500_watchlist_latest.csv",),
+        required=True,
+        exact_rows=30,
+    ),
+    TableSpec(
+        "us_watchlist_recommend_7",
+        "별도 요청용 미관종표 추천 7",
+        "us_watchlist_recommend_7.json",
+        ("us_sp500_recommend_7_latest.csv",),
+        required=False,
+        exact_rows=7,
+        default_output=False,
+        explicit_request_only=True,
+    ),
+# US_WATCHLIST_API_TABLE_SPECS_V6_END
     TableSpec(
         "kospi_gainers_1m", "코급표 후보", "kospi_gainers_1m.json",
         ("kospi_gainers_1m_current_basis_latest.csv", "kospi_gainers_1m_latest.csv"),

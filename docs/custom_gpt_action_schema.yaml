@@ -283,6 +283,30 @@ paths:
               schema:
                 $ref: '#/components/schemas/AnyObject'
 # HOLDINGS_PRIVATE_RUNTIME_ACTION_V6_END
+# US_WATCHLIST_ACTION_PATHS_V6_BEGIN
+/sehwankim0114/krx-watchlist-auto/main/api/us_watchlist.json:
+  get:
+    operationId: getUsWatchlist
+    summary: Get the S&P500 candidate table with seven embedded recommendation markings
+    responses:
+      '200':
+        description: US S&P500 watchlist candidate rows
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnyObject'
+/sehwankim0114/krx-watchlist-auto/main/api/us_watchlist_recommend_7.json:
+  get:
+    operationId: getUsWatchlistRecommendations
+    summary: Get the explicit-request-only US S&P500 recommendation shortlist
+    responses:
+      '200':
+        description: US S&P500 recommendation rows
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnyObject'
+# US_WATCHLIST_ACTION_PATHS_V6_END
 components:
   schemas:
     AnyObject:

@@ -46,6 +46,7 @@ from typing import Iterable, Optional
 
 # ONE_MONTH_ROUTES_READY_V6
 # HOLDINGS_PRIVATE_RUNTIME_READY_V6
+# US_WATCHLIST_ROUTE_READY_V6
 SCRIPT_VERSION = "table_route_registry.py v1.0.0-thirteen-table-contract"
 POLICY_VERSION = "2026-07-01-v6.0-thirteen-table-route-contract"
 KST = timezone(timedelta(hours=9))
@@ -264,11 +265,7 @@ ROUTES: tuple[RouteContract, ...] = (
         ),
         api_files=("api/us_watchlist.json",),
         operation_ids=("getUsWatchlist",),
-        planned_missing=True,
-        next_step=(
-            "S&P500 전체 수집·점수화 후 코피표형 후보표를 만드는 "
-            "미국시장 전용 저장소 또는 생성기 필요"
-        ),
+        required_now=True,
     ),
 )
 
@@ -545,9 +542,7 @@ def write_outputs(results: list[dict]) -> dict:
             and counts["broken"] == 0
         ),
         "routes": results,
-        "next_build_order": [
-            "us_watchlist",
-        ],
+        "next_build_order": [],
     }
 
     OUTPUT_JSON.write_text(
@@ -610,10 +605,10 @@ def write_outputs(results: list[dict]) -> dict:
         f"READY_TOTAL_COUNT={counts['ready_total']}",
         f"MISSING_COUNT={counts['missing']}",
         f"BROKEN_COUNT={counts['broken']}",
-        "EXPECTED_CURRENT_READY_COUNT=12",
-        "EXPECTED_CURRENT_MISSING_COUNT=1",
-        "EXPECTED_MISSING_ROUTES=us_watchlist",
-        "NEXT_BUILD_ORDER=us_watchlist",
+        "EXPECTED_CURRENT_READY_COUNT=13",
+        "EXPECTED_CURRENT_MISSING_COUNT=0",
+        "EXPECTED_MISSING_ROUTES=",
+        "NEXT_BUILD_ORDER=",
         "ALL_EXISTING_ROUTES_HEALTHY="
         + str(payload["all_existing_routes_healthy"]).lower(),
         "ALL_THIRTEEN_ROUTES_COMPLETE="
@@ -674,11 +669,9 @@ def validate_contract_definition() -> None:
         for route in ROUTES
         if route.planned_missing
     }
-    if planned_missing != {
-        "us_watchlist",
-    }:
+    if planned_missing:
         raise RuntimeError(
-            "Planned missing routes must be exactly one"
+            "No planned missing routes are allowed"
         )
 
 
@@ -686,8 +679,8 @@ def run_self_test() -> int:
     validate_contract_definition()
 
     assert len(ROUTES) == 13
-    assert sum(route.required_now for route in ROUTES) == 12
-    assert sum(route.planned_missing for route in ROUTES) == 1
+    assert sum(route.required_now for route in ROUTES) == 13
+    assert sum(route.planned_missing for route in ROUTES) == 0
 
     analysis = next(
         route for route in ROUTES if route.route_id == "analysis"
@@ -702,21 +695,19 @@ def run_self_test() -> int:
     assert len(market.api_files) == 3
     assert len(market.operation_ids) == 3
 
-    for route_id in (
-        "us_watchlist",
-    ):
-        route = next(
-            item for item in ROUTES if item.route_id == route_id
-        )
-        assert route.planned_missing is True
-        assert route.next_step
+    us_route = next(
+        item for item in ROUTES
+        if item.route_id == "us_watchlist"
+    )
+    assert us_route.required_now is True
+    assert us_route.planned_missing is False
 
     print("SELF_TEST_STATUS=OK")
     print(
         "TESTED="
         "thirteen_route_count,"
-        "twelve_current_routes,"
-        "one_planned_missing_route,"
+        "thirteen_current_routes,"
+        "zero_planned_missing_routes,"
         "analysis_shared_route,"
         "market_composite_route,"
         "unique_route_ids"
@@ -755,13 +746,13 @@ def main() -> int:
     print(f"OUTPUT_LOG={OUTPUT_LOG}")
 
     if args.strict_current_baseline:
-        if counts["ready_total"] != 12:
+        if counts["ready_total"] != 13:
             raise SystemExit(
-                f"Expected 12 ready routes, got {counts['ready_total']}"
+                f"Expected 13 ready routes, got {counts['ready_total']}"
             )
-        if counts["missing"] != 1:
+        if counts["missing"] != 0:
             raise SystemExit(
-                f"Expected 1 missing route, got {counts['missing']}"
+                f"Expected 0 missing routes, got {counts['missing']}"
             )
         if counts["broken"] != 0:
             raise SystemExit(
@@ -773,9 +764,7 @@ def main() -> int:
             for row in results
             if row["status"] == "MISSING"
         }
-        expected_missing = {
-            "us_watchlist",
-        }
+        expected_missing = set()
         if missing_ids != expected_missing:
             raise SystemExit(
                 "Missing route set differs from expected baseline: "

@@ -1,20 +1,20 @@
 {
   "script_version": "table_route_registry.py v1.0.0-thirteen-table-contract",
   "policy_version": "2026-07-01-v6.0-thirteen-table-route-contract",
-  "generated_at_kst": "2026-07-03T17:50:39+09:00",
+  "generated_at_kst": "2026-07-04T05:23:22+09:00",
   "contract_table_count": 13,
   "counts": {
     "total": 13,
-    "ready_direct": 9,
+    "ready_direct": 10,
     "ready_shared": 1,
     "ready_composite": 1,
     "ready_private_runtime": 1,
-    "missing": 1,
+    "missing": 0,
     "broken": 0,
-    "ready_total": 12
+    "ready_total": 13
   },
   "all_existing_routes_healthy": true,
-  "all_thirteen_routes_complete": false,
+  "all_thirteen_routes_complete": true,
   "routes": [
     {
       "route_id": "watchlist",
@@ -490,30 +490,24 @@
         "getUsWatchlist"
       ],
       "shared_with": "",
-      "required_now": false,
-      "planned_missing": true,
-      "next_step": "S&P500 전체 수집·점수화 후 코피표형 후보표를 만드는 미국시장 전용 저장소 또는 생성기 필요",
-      "status": "MISSING",
-      "source_existing": [],
-      "source_missing": [
+      "required_now": true,
+      "planned_missing": false,
+      "next_step": "",
+      "status": "READY_DIRECT",
+      "source_existing": [
         "latest/us_sp500_watchlist_latest.csv"
       ],
-      "api_existing": [],
-      "api_missing": [
+      "source_missing": [],
+      "api_existing": [
         "api/us_watchlist.json"
       ],
-      "operation_existing": [],
-      "operation_missing": [
+      "api_missing": [],
+      "operation_existing": [
         "getUsWatchlist"
       ],
-      "missing_components": [
-        "SOURCE",
-        "API",
-        "ACTION"
-      ]
+      "operation_missing": [],
+      "missing_components": []
     }
   ],
-  "next_build_order": [
-    "us_watchlist"
-  ]
+  "next_build_order": []
 }

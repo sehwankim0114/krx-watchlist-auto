@@ -1,15 +1,15 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260704T052322+0900-09de142b44",
+  "build_id": "20260704T083406+0900-8482fd4526",
   "script": "build_api_json.py v4.2_request_time_price_overlay_one_month_routes_v6_holdings_private_runtime_v6_us_watchlist_v6",
-  "generated_at_kst": "2026-07-04T05:23:22+09:00",
-  "source_commit_sha": "09de142b4453e7b089862171d7e21d89f2ed7863",
-  "status": "READY",
+  "generated_at_kst": "2026-07-04T08:34:06+09:00",
+  "source_commit_sha": "8482fd4526ee89fbb5b8bee7c24af39cf87db6a0",
+  "status": "STALE_OFFICIAL",
   "api_sync_ok": true,
-  "official_fresh_now": true,
-  "safe_to_analyze_as_latest": true,
+  "official_fresh_now": false,
+  "safe_to_analyze_as_latest": false,
   "confirmed_basis_date": "2026-07-02",
-  "computed_expected_official_trading_date": "2026-07-02",
+  "computed_expected_official_trading_date": "2026-07-03",
   "kospi_actual_date": "2026-07-02",
   "kosdaq_actual_date": "2026-07-02",
   "official_status_source": "official_data_status_latest.json",
@@ -21,7 +21,9 @@
   "required_table_count": 7,
   "generated_table_count": 18,
   "critical_errors": [],
-  "warnings": [],
+  "warnings": [
+    "OFFICIAL_DATA_NOT_FRESH_NOW:expected=2026-07-03,kospi=2026-07-02,kosdaq=2026-07-02"
+  ],
   "presentation_policy": {
     "default_output_mode": "single_main_table",
     "separate_recommendation_table_default": false,

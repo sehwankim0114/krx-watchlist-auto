@@ -153,30 +153,49 @@ def action_block(indent: str = "  ") -> str:
 
 def patch_action_schema(text: str) -> Tuple[str, bool]:
     original = normalize(text)
-    if ACTION_BEGIN in original:
-        verify_action_schema(original)
-        return original, False
+    canonical_block = action_block("  ")
 
-    components_pattern = re.compile(
-        r"^(?P<indent>[ \t]*)components:\s*$",
-        flags=re.MULTILINE,
+    block_pattern = re.compile(
+        rf"^[ \t]*{re.escape(ACTION_BEGIN)}\s*$.*?"
+        rf"^[ \t]*{re.escape(ACTION_END)}\s*$(?:\n)?",
+        flags=re.MULTILINE | re.DOTALL,
     )
-    matches = list(components_pattern.finditer(original))
-    if len(matches) != 1:
+    block_matches = list(block_pattern.finditer(original))
+
+    if len(block_matches) > 1:
         raise PatchError(
-            "Action 스키마 components 기준점 오류: "
-            f"{len(matches)}"
+            "Action 스키마 US 블록 중복: "
+            f"{len(block_matches)}"
         )
 
-    match = matches[0]
-    indent = match.group("indent")
-    patched = (
-        original[: match.start()]
-        + action_block(indent)
-        + original[match.start() :]
-    )
+    if len(block_matches) == 1:
+        match = block_matches[0]
+        patched = (
+            original[: match.start()]
+            + canonical_block
+            + original[match.end() :]
+        )
+    else:
+        components_pattern = re.compile(
+            r"^components:\s*$",
+            flags=re.MULTILINE,
+        )
+        matches = list(components_pattern.finditer(original))
+        if len(matches) != 1:
+            raise PatchError(
+                "Action 스키마 components 기준점 오류: "
+                f"{len(matches)}"
+            )
+
+        match = matches[0]
+        patched = (
+            original[: match.start()]
+            + canonical_block
+            + original[match.start() :]
+        )
+
     verify_action_schema(patched)
-    return patched, True
+    return patched, patched != original
 
 
 def verify_action_schema(text: str) -> None:
@@ -191,6 +210,29 @@ def verify_action_schema(text: str) -> None:
     for marker in required:
         if marker not in text:
             raise PatchError(f"Action 스키마 필수 문구 누락: {marker}")
+
+    canonical_patterns = (
+        r"^  /sehwankim0114/krx-watchlist-auto/main/api/us_watchlist\.json:\s*$"
+        r"\n^    get:\s*$"
+        r"\n^      operationId:\s*getUsWatchlist\s*$",
+        r"^  /sehwankim0114/krx-watchlist-auto/main/api/us_watchlist_recommend_7\.json:\s*$"
+        r"\n^    get:\s*$"
+        r"\n^      operationId:\s*getUsWatchlistRecommendations\s*$",
+    )
+    for pattern in canonical_patterns:
+        if len(re.findall(pattern, text, flags=re.MULTILINE)) != 1:
+            raise PatchError(
+                "Action 스키마 US 경로 들여쓰기 또는 operationId 오류"
+            )
+
+    if re.search(
+        r"^/sehwankim0114/krx-watchlist-auto/main/api/us_watchlist",
+        text,
+        flags=re.MULTILINE,
+    ):
+        raise PatchError(
+            "Action 스키마 US 경로가 paths 밖 최상위에 있음"
+        )
 
     for operation_id in (
         "getUsWatchlist",

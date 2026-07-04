@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260704T094548+0900-d15ebeed35",
+  "build_id": "20260704T111147+0900-fd8c065edf",
   "script": "build_api_json.py v4.2_request_time_price_overlay_one_month_routes_v6_holdings_private_runtime_v6_us_watchlist_v6",
   "table_id": "us_watchlist",
   "display_name": "미관종표 S&P500 후보 30",
-  "generated_at_kst": "2026-07-04T09:45:48+09:00",
-  "source_commit_sha": "d15ebeed35cdd3f958038269382f1aaac052386b",
+  "generated_at_kst": "2026-07-04T11:11:47+09:00",
+  "source_commit_sha": "fd8c065edfe6daee7d0027ce2ee062210209f871",
   "required": true,
   "default_output": true,
   "explicit_request_only": false,
@@ -48,24 +48,24 @@
   },
   "official_data": {
     "source_file": "official_data_status_latest.json",
-    "source_run_at_kst": "2026-07-03T10:05:10+09:00",
-    "source_expected_official_trading_date": "2026-07-02",
+    "source_run_at_kst": "2026-07-04T10:33:32+09:00",
+    "source_expected_official_trading_date": "2026-07-03",
     "computed_expected_official_trading_date": "2026-07-03",
-    "kospi_actual_date": "2026-07-02",
-    "kosdaq_actual_date": "2026-07-02",
-    "basis_date_for_display": "2026-07-02",
+    "kospi_actual_date": "2026-07-03",
+    "kosdaq_actual_date": "2026-07-03",
+    "basis_date_for_display": "2026-07-03",
     "same_market_date": true,
     "official_fresh_at_source": true,
-    "official_fresh_now": false,
+    "official_fresh_now": true,
     "collector_return_code": 0,
     "source_status": "FRESH",
     "source_display_label": "최신 공식판",
     "source_warning": "",
     "kospi_summary_rows": 925,
-    "kosdaq_summary_rows": 1791
+    "kosdaq_summary_rows": 1789
   },
   "current_price_basis": {
-    "current_price_asof_kst": "2026-07-03T20:42:30+09:00",
+    "current_price_asof_kst": "2026-07-04T11:01:35+09:00",
     "current_price_basis_status": "OK",
     "aux_price_count": 100,
     "current_basis_ok_files": 4,
@@ -146,6 +146,7 @@
     "sma20",
     "sma60",
     "score",
+    "legacy_market_score",
     "hard_red_flag",
     "warning_count",
     "recommendation_reason"
@@ -213,6 +214,7 @@
       "sma20": 286.10149536132815,
       "sma60": 283.22433217366535,
       "score": 83.0,
+      "legacy_market_score": 83.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 1개월 상승폭 안정적 / 뚜렷한 단기 경고 제한"
@@ -276,6 +278,7 @@
       "sma20": 358.54400024414065,
       "sma60": 364.0056666056315,
       "score": 80.5,
+      "legacy_market_score": 80.5,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -339,6 +342,7 @@
       "sma20": 1008.0429962158204,
       "sma60": 1037.6001627604169,
       "score": 79.5,
+      "legacy_market_score": 79.5,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -402,6 +406,7 @@
       "sma20": 91.29449882507323,
       "sma60": 91.23899968465167,
       "score": 79.0,
+      "legacy_market_score": 79.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "중기 상승추세 유지 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -465,6 +470,7 @@
       "sma20": 240.24599914550785,
       "sma60": 253.33300018310547,
       "score": 78.0,
+      "legacy_market_score": 78.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -528,6 +534,7 @@
       "sma20": 107.4009994506836,
       "sma60": 116.71716626485188,
       "score": 78.0,
+      "legacy_market_score": 78.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -591,6 +598,7 @@
       "sma20": 90.70200004577636,
       "sma60": 90.62000020345052,
       "score": 77.5,
+      "legacy_market_score": 77.5,
       "hard_red_flag": false,
       "warning_count": 1,
       "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 1개월 상승폭 안정적 / 주의: 이익 성장률 둔화"
@@ -654,6 +662,7 @@
       "sma20": 408.97850494384767,
       "sma60": 400.2058354695638,
       "score": 77.0,
+      "legacy_market_score": 77.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -717,6 +726,7 @@
       "sma20": 384.3155029296875,
       "sma60": 405.2100016276042,
       "score": 76.0,
+      "legacy_market_score": 76.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -780,6 +790,7 @@
       "sma20": 504.21099853515625,
       "sma60": 490.2788350423177,
       "score": 76.0,
+      "legacy_market_score": 76.0,
       "hard_red_flag": false,
       "warning_count": 1,
       "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 매출 성장 양호 / 주의: 일간 변동성 큼"
@@ -843,6 +854,7 @@
       "sma20": 356.4880004882813,
       "sma60": 361.3554987589518,
       "score": 75.5,
+      "legacy_market_score": 75.5,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -906,6 +918,7 @@
       "sma20": 140.0735008239746,
       "sma60": 131.4353328704834,
       "score": 75.5,
+      "legacy_market_score": 75.5,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "1개월 상승폭 안정적 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -969,6 +982,7 @@
       "sma20": 3103.676501464844,
       "sma60": 3311.9821614583334,
       "score": 75.5,
+      "legacy_market_score": 75.5,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 1개월 상승폭 안정적 · 선행 밸류 부담 제한 / 뚜렷한 단기 경고 제한"
@@ -1032,6 +1046,7 @@
       "sma20": 172.34400177001953,
       "sma60": 170.9821673075358,
       "score": 75.5,
+      "legacy_market_score": 75.5,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "중기 상승추세 유지 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -1095,6 +1110,7 @@
       "sma20": 123.46399993896485,
       "sma60": 120.92416699727376,
       "score": 75.5,
+      "legacy_market_score": 75.5,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -1158,6 +1174,7 @@
       "sma20": 214.0620018005371,
       "sma60": 235.8263341267904,
       "score": 75.0,
+      "legacy_market_score": 75.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 선행 밸류 부담 제한 / 뚜렷한 단기 경고 제한"
@@ -1221,6 +1238,7 @@
       "sma20": 203.84350051879883,
       "sma60": 226.97700042724608,
       "score": 75.0,
+      "legacy_market_score": 75.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -1284,6 +1302,7 @@
       "sma20": 119.6305004119873,
       "sma60": 120.661834081014,
       "score": 74.5,
+      "legacy_market_score": 74.5,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 선행 밸류 부담 제한 / 뚜렷한 단기 경고 제한"
@@ -1347,6 +1366,7 @@
       "sma20": 963.453500366211,
       "sma60": 892.1191650390625,
       "score": 74.0,
+      "legacy_market_score": 74.0,
       "hard_red_flag": false,
       "warning_count": 1,
       "recommendation_reason": "중기 상승추세 유지 · 1개월 상승폭 안정적 · 매출 성장 양호 / 주의: 평균 목표가보다 현재가 높음"
@@ -1410,6 +1430,7 @@
       "sma20": 66.66300010681152,
       "sma60": 71.14769999186198,
       "score": 74.0,
+      "legacy_market_score": 74.0,
       "hard_red_flag": false,
       "warning_count": 1,
       "recommendation_reason": "3개월 가치구간 · 1개월 상승폭 안정적 · 매출 성장 양호 / 주의: 일간 변동성 큼"
@@ -1473,6 +1494,7 @@
       "sma20": 158.8530014038086,
       "sma60": 146.07283363342285,
       "score": 73.5,
+      "legacy_market_score": 73.5,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "중기 상승추세 유지 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -1536,6 +1558,7 @@
       "sma20": 280.7350021362305,
       "sma60": 286.2275001525879,
       "score": 73.5,
+      "legacy_market_score": 73.5,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -1599,6 +1622,7 @@
       "sma20": 134.03900070190429,
       "sma60": 137.93783327738444,
       "score": 73.5,
+      "legacy_market_score": 73.5,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -1639,7 +1663,7 @@
       "liquidity_label": "보통",
       "position_in_3m_range_pct": 51.92,
       "position_label": "중간권",
-      "avg_daily_range_amount": 2.8837134563605877,
+      "avg_daily_range_amount": 2.883713456360588,
       "avg_daily_range_pct": 2.96495310818667,
       "earnings_event_risk": false,
       "next_earnings_date": null,
@@ -1662,6 +1686,7 @@
       "sma20": 95.68750038146972,
       "sma60": 95.53050015767415,
       "score": 73.5,
+      "legacy_market_score": 73.5,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 1개월 상승폭 안정적 / 뚜렷한 단기 경고 제한"
@@ -1725,6 +1750,7 @@
       "sma20": 56.2939998626709,
       "sma60": 57.272833315531415,
       "score": 73.0,
+      "legacy_market_score": 73.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 선행 밸류 부담 제한 / 뚜렷한 단기 경고 제한"
@@ -1788,6 +1814,7 @@
       "sma20": 818.9529998779296,
       "sma60": 809.4074991861979,
       "score": 73.0,
+      "legacy_market_score": 73.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -1848,9 +1875,10 @@
       "beta": 0.99,
       "short_percent_float": 0.0175,
       "rsi14": 59.119490195286815,
-      "sma20": 232.90500030517572,
+      "sma20": 232.9050003051757,
       "sma60": 231.35066680908204,
       "score": 73.0,
+      "legacy_market_score": 73.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "중기 상승추세 유지 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -1914,6 +1942,7 @@
       "sma20": 142.43149948120117,
       "sma60": 150.084166208903,
       "score": 73.0,
+      "legacy_market_score": 73.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 이익 성장 양호 · 선행 밸류 부담 제한 / 뚜렷한 단기 경고 제한"
@@ -1977,6 +2006,7 @@
       "sma20": 45.928999710083005,
       "sma60": 53.42600002288818,
       "score": 70.0,
+      "legacy_market_score": 70.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -2040,6 +2070,7 @@
       "sma20": 28.73150005340576,
       "sma60": 27.44550002415975,
       "score": 70.0,
+      "legacy_market_score": 70.0,
       "hard_red_flag": false,
       "warning_count": 1,
       "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 선행 밸류 부담 제한 / 주의: 이익 성장률 둔화"

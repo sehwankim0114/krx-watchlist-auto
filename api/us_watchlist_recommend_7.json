@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260704T094548+0900-d15ebeed35",
+  "build_id": "20260704T111147+0900-fd8c065edf",
   "script": "build_api_json.py v4.2_request_time_price_overlay_one_month_routes_v6_holdings_private_runtime_v6_us_watchlist_v6",
   "table_id": "us_watchlist_recommend_7",
   "display_name": "별도 요청용 미관종표 추천 7",
-  "generated_at_kst": "2026-07-04T09:45:48+09:00",
-  "source_commit_sha": "d15ebeed35cdd3f958038269382f1aaac052386b",
+  "generated_at_kst": "2026-07-04T11:11:47+09:00",
+  "source_commit_sha": "fd8c065edfe6daee7d0027ce2ee062210209f871",
   "required": false,
   "default_output": false,
   "explicit_request_only": true,
@@ -48,24 +48,24 @@
   },
   "official_data": {
     "source_file": "official_data_status_latest.json",
-    "source_run_at_kst": "2026-07-03T10:05:10+09:00",
-    "source_expected_official_trading_date": "2026-07-02",
+    "source_run_at_kst": "2026-07-04T10:33:32+09:00",
+    "source_expected_official_trading_date": "2026-07-03",
     "computed_expected_official_trading_date": "2026-07-03",
-    "kospi_actual_date": "2026-07-02",
-    "kosdaq_actual_date": "2026-07-02",
-    "basis_date_for_display": "2026-07-02",
+    "kospi_actual_date": "2026-07-03",
+    "kosdaq_actual_date": "2026-07-03",
+    "basis_date_for_display": "2026-07-03",
     "same_market_date": true,
     "official_fresh_at_source": true,
-    "official_fresh_now": false,
+    "official_fresh_now": true,
     "collector_return_code": 0,
     "source_status": "FRESH",
     "source_display_label": "최신 공식판",
     "source_warning": "",
     "kospi_summary_rows": 925,
-    "kosdaq_summary_rows": 1791
+    "kosdaq_summary_rows": 1789
   },
   "current_price_basis": {
-    "current_price_asof_kst": "2026-07-03T20:42:30+09:00",
+    "current_price_asof_kst": "2026-07-04T11:01:35+09:00",
     "current_price_basis_status": "OK",
     "aux_price_count": 100,
     "current_basis_ok_files": 4,
@@ -146,6 +146,7 @@
     "sma20",
     "sma60",
     "score",
+    "legacy_market_score",
     "hard_red_flag",
     "warning_count",
     "recommendation_reason"
@@ -213,6 +214,7 @@
       "sma20": 286.10149536132815,
       "sma60": 283.22433217366535,
       "score": 83.0,
+      "legacy_market_score": 83.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 1개월 상승폭 안정적 / 뚜렷한 단기 경고 제한"
@@ -276,6 +278,7 @@
       "sma20": 358.54400024414065,
       "sma60": 364.0056666056315,
       "score": 80.5,
+      "legacy_market_score": 80.5,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -339,6 +342,7 @@
       "sma20": 1008.0429962158204,
       "sma60": 1037.6001627604169,
       "score": 79.5,
+      "legacy_market_score": 79.5,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -402,6 +406,7 @@
       "sma20": 91.29449882507323,
       "sma60": 91.23899968465167,
       "score": 79.0,
+      "legacy_market_score": 79.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "중기 상승추세 유지 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -465,6 +470,7 @@
       "sma20": 240.24599914550785,
       "sma60": 253.33300018310547,
       "score": 78.0,
+      "legacy_market_score": 78.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -528,6 +534,7 @@
       "sma20": 107.4009994506836,
       "sma60": 116.71716626485188,
       "score": 78.0,
+      "legacy_market_score": 78.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -591,6 +598,7 @@
       "sma20": 90.70200004577636,
       "sma60": 90.62000020345052,
       "score": 77.5,
+      "legacy_market_score": 77.5,
       "hard_red_flag": false,
       "warning_count": 1,
       "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 1개월 상승폭 안정적 / 주의: 이익 성장률 둔화"

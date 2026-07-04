@@ -1,11 +1,14 @@
 {
   "script": "validate_api_sync.py v1.3_request_time_price_contract",
-  "validated_at": "2026-07-03T11:48:20Z",
-  "status": "PASS",
-  "build_id": "20260703T204819+0900-16283a3bc4",
-  "api_sync_ok": true,
+  "validated_at": "2026-07-04T02:11:47Z",
+  "status": "FAIL",
+  "build_id": "20260704T111147+0900-fd8c065edf",
+  "api_sync_ok": false,
   "official_fresh_now": true,
-  "safe_to_analyze_as_latest": true,
-  "errors": [],
+  "safe_to_analyze_as_latest": false,
+  "errors": [
+    "us_watchlist: ticker/code column missing for live lookup",
+    "us_watchlist_recommend_7: ticker/code column missing for live lookup"
+  ],
   "warnings": []
 }

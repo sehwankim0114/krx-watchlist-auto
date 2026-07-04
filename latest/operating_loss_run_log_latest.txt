@@ -1,21 +1,21 @@
 script=operating_loss_enricher.py v1.1_syntax_fix_and_fresh_tables
-run_at_kst=2026-07-03T10:05:11+09:00
+run_at_kst=2026-07-04T10:33:34+09:00
 output_dir=latest
 workers=4
 max_api_calls=5000
 candidate_periods=2026_11013,2025_11011,2025_11014,2025_11012,2025_11013,2024_11011
 target_period_key=2026_11013
-target_tickers=2716
+target_tickers=2714
 cache_rows_for_target=2716
 corp_code_map_source=cache, rows=3937
-cache_hit_ok=2621
+cache_hit_ok=2619
 to_fetch=95
-cache_output_rows=2716
-operating_loss_count=993
-source_status_counts={'OK': 2621, 'NO_CORP_CODE': 90, 'API_STATUS_013:조회된 데이타가 없습니다.': 5}
+cache_output_rows=2714
+operating_loss_count=991
+source_status_counts={'OK': 2619, 'NO_CORP_CODE': 90, 'API_STATUS_013:조회된 데이타가 없습니다.': 5}
 ENRICH_FILE watchlist_summary_latest.csv: status=ok, rows=47, matched=44
 ENRICH_FILE kospi_universe_summary_latest.csv: status=ok, rows=925, matched=925
-ENRICH_FILE kosdaq_universe_summary_latest.csv: status=ok, rows=1791, matched=1791
+ENRICH_FILE kosdaq_universe_summary_latest.csv: status=ok, rows=1789, matched=1789
 ENRICH_FILE kospi_candidates_30_latest.csv: status=ok, rows=30, matched=30
 ENRICH_FILE kospi_recommend_7_latest.csv: status=ok, rows=7, matched=7
 ENRICH_FILE kosdaq_candidates_10_latest.csv: status=ok, rows=10, matched=10

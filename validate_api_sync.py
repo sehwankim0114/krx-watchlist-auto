@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
-SCRIPT_VERSION = "validate_api_sync.py v1.3_request_time_price_contract"
+SCRIPT_VERSION = "validate_api_sync.py v1.4_quote_key_aliases_v64"
 
 
 def read_json(path: Path) -> Dict[str, Any]:
@@ -306,7 +306,13 @@ def main() -> int:
                 f"{control_name}: request_time_price_policy mismatch"
             )
 
-    quote_key_candidates = {"ticker", "code", "종목코드"}
+    quote_key_candidates = {
+        "ticker",
+        "symbol",
+        "code",
+        "종목코드",
+        "stock_code",
+    }
     manifest_tables_v51 = manifest.get("tables", [])
     if not isinstance(manifest_tables_v51, list) or not manifest_tables_v51:
         errors.append("manifest tables missing for request-time price validation")
@@ -342,7 +348,7 @@ def main() -> int:
             columns = set(table_payload.get("columns") or [])
             if row_count > 0 and not (columns & quote_key_candidates):
                 errors.append(
-                    f"{table_id}: ticker/code column missing for live lookup"
+                    f"{table_id}: quote key column missing for live lookup (ticker/symbol/code/종목코드/stock_code)"
                 )
 
     live_schema_path = (

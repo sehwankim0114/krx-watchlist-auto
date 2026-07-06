@@ -1,20 +1,56 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260707T083618+0900-10f69c8cbf",
+  "build_id": "20260707T085504+0900-7908f12969",
   "snapshot_id": "macro_leverage",
   "display_name": "거시·레버리지 위험",
-  "generated_at_kst": "2026-07-07T08:36:18+09:00",
-  "source_commit_sha": "10f69c8cbff0b4d1d67148beadfcae83b0dcb7a8",
+  "generated_at_kst": "2026-07-07T08:55:04+09:00",
+  "source_commit_sha": "7908f12969789ea6d89a429923620a5237d4999a",
   "source_file": "latest/macro_leverage_latest.json",
   "status": "OK",
-  "rules_version": "2026-06-30-v5.1-request-time-price-overlay",
-  "rules_sha256": "8acb8a6256d701de48abb417acd78a7ec035785c7d62ab62e9e7c33bc801f897",
+  "rules_version": "2026-07-06-v6.2-explanation-manual-only",
+  "rules_sha256": "81614858ad67e9f056d0b577a3313b63d565970725530061803da2090b1cc26d",
   "presentation_policy": {
+    "format_contract": "improvement_plan_2_final",
     "default_output_mode": "single_main_table",
     "separate_recommendation_table_default": false,
     "recommendation_markings_embedded_in_main_table": true,
     "explicit_shortlist_request": "filter main candidate rows and output only the shortlist table",
-    "duplicate_rows_across_main_and_shortlist_tables": false
+    "duplicate_rows_across_main_and_shortlist_tables": false,
+    "metadata_display_mode": "compact_two_column_table",
+    "bold_price_ranges": true,
+    "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
+    "automatic_weekly_guide": false,
+    "full_manual_trigger": "설명서",
+    "partial_help_trigger_phrases": [
+      "사용법",
+      "해석해줘",
+      "표시 설명",
+      "항목 설명",
+      "용어 설명"
+    ],
+    "full_manual_section_order": [
+      "30초 사용법",
+      "표시 읽는 법",
+      "어떤 표를 사용할지",
+      "항목 읽는 법",
+      "점수·추천·주의사유 해석",
+      "여러 표 연결 방법",
+      "꼭 기억할 원칙",
+      "주요 용어"
+    ],
+    "minimal_notes_allowed": [
+      "symbols_used_in_current_table",
+      "request_time_price_failures_or_partial_results",
+      "after_hours_not_reflected",
+      "short_investment_reference_disclaimer"
+    ],
+    "prohibited_default_extras": [
+      "monday_first_table_guide",
+      "weekly_usage_guide",
+      "full_command_catalog",
+      "full_glossary",
+      "long_explanation_section"
+    ]
   },
   "request_time_price_policy": {
     "enabled": true,
@@ -26,9 +62,22 @@
     "max_batch_size": 50,
     "quote_key_fields": [
       "ticker",
+      "symbol",
       "code",
-      "종목코드"
+      "종목코드",
+      "stock_code"
     ],
+    "quote_key_aliases": {
+      "us": [
+        "ticker",
+        "symbol"
+      ],
+      "kr": [
+        "code",
+        "종목코드",
+        "stock_code"
+      ]
+    },
     "market_fields": [
       "market",
       "시장",
@@ -42,8 +91,8 @@
   },
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-06-30-v5.1-request-time-price-overlay",
-    "sha256": "8acb8a6256d701de48abb417acd78a7ec035785c7d62ab62e9e7c33bc801f897"
+    "version": "2026-07-06-v6.2-explanation-manual-only",
+    "sha256": "81614858ad67e9f056d0b577a3313b63d565970725530061803da2090b1cc26d"
   },
   "data": {
     "script": "macro_leverage_status.py v2.0_ecos_datagokr_official",

@@ -1,16 +1,13 @@
 {
-  "script": "validate_api_sync.py v1.3_request_time_price_contract",
-  "validated_at": "2026-07-06T13:05:12Z",
-  "status": "FAIL",
-  "build_id": "20260706T220511+0900-42eaae0a08",
-  "api_sync_ok": false,
-  "official_fresh_now": true,
+  "script": "validate_api_sync.py v1.4_quote_key_aliases_v64",
+  "validated_at": "2026-07-06T23:55:04Z",
+  "status": "PASS",
+  "build_id": "20260707T085504+0900-7908f12969",
+  "api_sync_ok": true,
+  "official_fresh_now": false,
   "safe_to_analyze_as_latest": false,
-  "errors": [
-    "us_watchlist: ticker/code column missing for live lookup",
-    "us_watchlist_recommend_7: ticker/code column missing for live lookup",
-    "kospi_fx_weakness_candidates_30: ticker/code column missing for live lookup",
-    "kospi_fx_weakness_recommend_7: ticker/code column missing for live lookup"
-  ],
-  "warnings": []
+  "errors": [],
+  "warnings": [
+    "Official data is not fresh for the current expected trading date. API is published with safe_to_analyze_as_latest=false."
+  ]
 }

@@ -1,9 +1,9 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260707T083618+0900-10f69c8cbf",
-  "script": "build_api_json.py v4.2_request_time_price_overlay_one_month_routes_v6_holdings_private_runtime_v6_us_watchlist_v6",
-  "generated_at_kst": "2026-07-07T08:36:18+09:00",
-  "source_commit_sha": "10f69c8cbff0b4d1d67148beadfcae83b0dcb7a8",
+  "build_id": "20260707T085504+0900-7908f12969",
+  "script": "build_api_json.py v4.4_explanation_manual_v62_quote_aliases_v64",
+  "generated_at_kst": "2026-07-07T08:55:04+09:00",
+  "source_commit_sha": "7908f12969789ea6d89a429923620a5237d4999a",
   "status": "STALE_OFFICIAL",
   "api_sync_ok": true,
   "official_fresh_now": false,
@@ -16,8 +16,8 @@
   "official_status_source_run_at_kst": "2026-07-04T10:33:32+09:00",
   "current_price_asof_kst": "2026-07-06T21:58:54+09:00",
   "current_price_basis_status": "OK",
-  "rules_version": "2026-06-30-v5.1-request-time-price-overlay",
-  "rules_sha256": "8acb8a6256d701de48abb417acd78a7ec035785c7d62ab62e9e7c33bc801f897",
+  "rules_version": "2026-07-06-v6.2-explanation-manual-only",
+  "rules_sha256": "81614858ad67e9f056d0b577a3313b63d565970725530061803da2090b1cc26d",
   "required_table_count": 7,
   "generated_table_count": 18,
   "critical_errors": [],
@@ -25,11 +25,47 @@
     "OFFICIAL_DATA_NOT_FRESH_NOW:expected=2026-07-06,kospi=2026-07-03,kosdaq=2026-07-03"
   ],
   "presentation_policy": {
+    "format_contract": "improvement_plan_2_final",
     "default_output_mode": "single_main_table",
     "separate_recommendation_table_default": false,
     "recommendation_markings_embedded_in_main_table": true,
     "explicit_shortlist_request": "filter main candidate rows and output only the shortlist table",
-    "duplicate_rows_across_main_and_shortlist_tables": false
+    "duplicate_rows_across_main_and_shortlist_tables": false,
+    "metadata_display_mode": "compact_two_column_table",
+    "bold_price_ranges": true,
+    "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
+    "automatic_weekly_guide": false,
+    "full_manual_trigger": "설명서",
+    "partial_help_trigger_phrases": [
+      "사용법",
+      "해석해줘",
+      "표시 설명",
+      "항목 설명",
+      "용어 설명"
+    ],
+    "full_manual_section_order": [
+      "30초 사용법",
+      "표시 읽는 법",
+      "어떤 표를 사용할지",
+      "항목 읽는 법",
+      "점수·추천·주의사유 해석",
+      "여러 표 연결 방법",
+      "꼭 기억할 원칙",
+      "주요 용어"
+    ],
+    "minimal_notes_allowed": [
+      "symbols_used_in_current_table",
+      "request_time_price_failures_or_partial_results",
+      "after_hours_not_reflected",
+      "short_investment_reference_disclaimer"
+    ],
+    "prohibited_default_extras": [
+      "monday_first_table_guide",
+      "weekly_usage_guide",
+      "full_command_catalog",
+      "full_glossary",
+      "long_explanation_section"
+    ]
   },
   "request_time_price_policy": {
     "enabled": true,
@@ -41,9 +77,22 @@
     "max_batch_size": 50,
     "quote_key_fields": [
       "ticker",
+      "symbol",
       "code",
-      "종목코드"
+      "종목코드",
+      "stock_code"
     ],
+    "quote_key_aliases": {
+      "us": [
+        "ticker",
+        "symbol"
+      ],
+      "kr": [
+        "code",
+        "종목코드",
+        "stock_code"
+      ]
+    },
     "market_fields": [
       "market",
       "시장",
@@ -55,5 +104,5 @@
     "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
     "large_table_behavior": "split_into_batches_until_all_rows_attempted"
   },
-  "usage_rule": "Custom GPT must call this endpoint first. Only when api_sync_ok and official_fresh_now are both true may it describe the data as the latest official dataset. Default output must be one main table; do not repeat recommended rows in a separate shortlist table. If api_sync_ok is false, stop table analysis."
+  "usage_rule": "Custom GPT must call this endpoint first. Only when api_sync_ok and official_fresh_now are both true may it describe the data as the latest official dataset. Default output must use the improvement-plan-2 final format: one compact metadata table, one main stock table, bold buy/target price ranges, and only minimal necessary notes. Never add a Monday or weekly usage guide automatically. Output the full eight-section manual only when the user requests '설명서'. If api_sync_ok is false, stop table analysis."
 }

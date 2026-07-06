@@ -35,7 +35,7 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "build_api_json.py v4.2_request_time_price_overlay_one_month_routes_v6_holdings_private_runtime_v6_us_watchlist_v6"
+SCRIPT_VERSION = "build_api_json.py v4.4_explanation_manual_v62_quote_aliases_v64"
 SCHEMA_VERSION = "4.2"
 ROOT = Path(__file__).resolve().parent
 LATEST = ROOT / "latest"
@@ -46,14 +46,51 @@ RULES_PATH = DOCS / "stock_table_rules_latest.md"
 API.mkdir(parents=True, exist_ok=True)
 
 PRESENTATION_POLICY: Dict[str, Any] = {
+    "format_contract": "improvement_plan_2_final",
     "default_output_mode": "single_main_table",
     "separate_recommendation_table_default": False,
     "recommendation_markings_embedded_in_main_table": True,
-    "explicit_shortlist_request": "filter main candidate rows and output only the shortlist table",
+    "explicit_shortlist_request": (
+        "filter main candidate rows and output only the shortlist table"
+    ),
     "duplicate_rows_across_main_and_shortlist_tables": False,
+    "metadata_display_mode": "compact_two_column_table",
+    "bold_price_ranges": True,
+    "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
+    "automatic_weekly_guide": False,
+    "full_manual_trigger": "설명서",
+    "partial_help_trigger_phrases": [
+        "사용법",
+        "해석해줘",
+        "표시 설명",
+        "항목 설명",
+        "용어 설명",
+    ],
+    "full_manual_section_order": [
+        "30초 사용법",
+        "표시 읽는 법",
+        "어떤 표를 사용할지",
+        "항목 읽는 법",
+        "점수·추천·주의사유 해석",
+        "여러 표 연결 방법",
+        "꼭 기억할 원칙",
+        "주요 용어",
+    ],
+    "minimal_notes_allowed": [
+        "symbols_used_in_current_table",
+        "request_time_price_failures_or_partial_results",
+        "after_hours_not_reflected",
+        "short_investment_reference_disclaimer",
+    ],
+    "prohibited_default_extras": [
+        "monday_first_table_guide",
+        "weekly_usage_guide",
+        "full_command_catalog",
+        "full_glossary",
+        "long_explanation_section",
+    ],
 }
-
-
+# EXPLANATION_MANUAL_POLICY_V62
 # REQUEST_TIME_PRICE_POLICY_V51_BEGIN
 REQUEST_TIME_PRICE_POLICY: Dict[str, Any] = {
     "enabled": True,
@@ -63,7 +100,17 @@ REQUEST_TIME_PRICE_POLICY: Dict[str, Any] = {
     "health_operation_id": "getRequestTimePriceHealth",
     "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
     "max_batch_size": 50,
-    "quote_key_fields": ["ticker", "code", "종목코드"],
+    "quote_key_fields": [
+        "ticker",
+        "symbol",
+        "code",
+        "종목코드",
+        "stock_code",
+    ],
+    "quote_key_aliases": {
+        "us": ["ticker", "symbol"],
+        "kr": ["code", "종목코드", "stock_code"],
+    },
     "market_fields": ["market", "시장", "exchange", "country"],
     "preserve_official_history": True,
     "allow_last_confirmed_official_when_delayed": True,
@@ -71,6 +118,7 @@ REQUEST_TIME_PRICE_POLICY: Dict[str, Any] = {
     "large_table_behavior": "split_into_batches_until_all_rows_attempted",
 }
 # REQUEST_TIME_PRICE_POLICY_V51_END
+# QUOTE_KEY_ALIASES_V64
 
 @dataclass(frozen=True)
 class TableSpec:
@@ -776,10 +824,14 @@ def main() -> int:
         "request_time_price_policy": REQUEST_TIME_PRICE_POLICY,
         "usage_rule": (
             "Custom GPT must call this endpoint first. "
-            "Only when api_sync_ok and official_fresh_now are both true may it describe "
-            "the data as the latest official dataset. Default output must be one main table; "
-            "do not repeat recommended rows in a separate shortlist table. "
-            "If api_sync_ok is false, stop table analysis."
+            "Only when api_sync_ok and official_fresh_now are both true may it "
+            "describe the data as the latest official dataset. "
+            "Default output must use the improvement-plan-2 final format: "
+            "one compact metadata table, one main stock table, bold buy/target "
+            "price ranges, and only minimal necessary notes. "
+            "Never add a Monday or weekly usage guide automatically. "
+            "Output the full eight-section manual only when the user requests "
+            "'설명서'. If api_sync_ok is false, stop table analysis."
         ),
     }
     write_json(API / "status.json", status_payload)

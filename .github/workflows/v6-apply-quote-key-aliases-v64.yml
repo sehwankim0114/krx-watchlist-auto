@@ -1,0 +1,218 @@
+name: V6 Apply Quote Key Aliases V64
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-apply-quote-key-aliases-v64
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install requirements
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Check required files
+        run: |
+          set -euo pipefail
+          test -f patch_explanation_manual_policy_v62.py
+          test -f patch_quote_key_aliases_v64.py
+          test -f build_api_json.py
+          test -f validate_api_sync.py
+          test -f docs/stock_table_rules_latest.md
+          echo "V64_PREREQUISITES=OK"
+
+      - name: Apply explanation and quote alias patches
+        run: |
+          set -euo pipefail
+          python patch_explanation_manual_policy_v62.py
+          python patch_quote_key_aliases_v64.py
+          python -m py_compile \
+            patch_explanation_manual_policy_v62.py \
+            patch_quote_key_aliases_v64.py \
+            build_api_json.py \
+            validate_api_sync.py
+          echo "V64_PATCHES=OK"
+
+      - name: Build API JSON
+        run: |
+          set -euo pipefail
+          python build_api_json.py
+
+      - name: Precheck actual quote-key columns
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          checks = {
+              "us_watchlist.json": {"ticker", "symbol"},
+              "us_watchlist_recommend_7.json": {"ticker", "symbol"},
+              "kospi_fx_weakness_candidates_30.json": {
+                  "code", "종목코드", "stock_code"
+              },
+              "kospi_fx_weakness_recommend_7.json": {
+                  "code", "종목코드", "stock_code"
+              },
+          }
+
+          for filename, aliases in checks.items():
+              path = Path("api") / filename
+              payload = json.loads(path.read_text(encoding="utf-8"))
+              columns = set(payload.get("columns") or [])
+              found = sorted(columns & aliases)
+              if not found:
+                  raise SystemExit(
+                      f"{filename}: no quote key alias; columns={sorted(columns)}"
+                  )
+              rows = payload.get("rows") or []
+              for index, row in enumerate(rows, start=1):
+                  if not any(row.get(key) not in (None, "") for key in found):
+                      raise SystemExit(
+                          f"{filename}: row {index} quote key empty"
+                      )
+              print(
+                  f"{filename}: QUOTE_KEYS={','.join(found)} "
+                  f"ROWS={len(rows)}"
+              )
+
+          print("QUOTE_KEY_ALIAS_PRECHECK=OK")
+          PY
+
+      - name: Validate API synchronization
+        run: |
+          set -euo pipefail
+          python validate_api_sync.py --api-dir api
+
+      - name: Verify final contracts
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          def load(name):
+              return json.loads(
+                  (Path("api") / name).read_text(encoding="utf-8")
+              )
+
+          status = load("status.json")
+          manifest = load("manifest.json")
+          rules = load("stock_table_rules.json")
+          report = load("validation_report.json")
+
+          expected_version = (
+              "2026-07-06-v6.2-explanation-manual-only"
+          )
+          for name, payload in (
+              ("status", status),
+              ("manifest", manifest),
+              ("rules", rules),
+          ):
+              if payload.get("rules_version") != expected_version:
+                  raise SystemExit(
+                      f"{name}: rules_version={payload.get('rules_version')}"
+                  )
+              policy = payload.get("presentation_policy") or {}
+              if policy.get("format_contract") != (
+                  "improvement_plan_2_final"
+              ):
+                  raise SystemExit(
+                      f"{name}: format_contract invalid"
+                  )
+              if policy.get("automatic_weekly_guide") is not False:
+                  raise SystemExit(
+                      f"{name}: automatic_weekly_guide invalid"
+                  )
+              if policy.get("full_manual_trigger") != "설명서":
+                  raise SystemExit(
+                      f"{name}: full_manual_trigger invalid"
+                  )
+
+              quote_policy = (
+                  payload.get("request_time_price_policy") or {}
+              )
+              fields = set(
+                  quote_policy.get("quote_key_fields") or []
+              )
+              required_fields = {
+                  "ticker",
+                  "symbol",
+                  "code",
+                  "종목코드",
+                  "stock_code",
+              }
+              if not required_fields.issubset(fields):
+                  raise SystemExit(
+                      f"{name}: quote_key_fields={sorted(fields)}"
+                  )
+
+          if report.get("status") != "PASS":
+              raise SystemExit(
+                  f"validation_report={report.get('status')}"
+              )
+
+          print("EXPLANATION_POLICY_CONTRACT=OK")
+          print("AUTOMATIC_WEEKLY_GUIDE=false")
+          print("FULL_MANUAL_TRIGGER=설명서")
+          print("QUOTE_KEY_ALIASES_V64=OK")
+          print("API_VALIDATION_STATUS=PASS")
+          PY
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            patch_explanation_manual_policy_v62.py \
+            patch_quote_key_aliases_v64.py \
+            build_api_json.py \
+            validate_api_sync.py \
+            docs/stock_table_rules_latest.md \
+            api
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            exit 0
+          fi
+
+          git commit -m \
+            "Apply explanation policy and quote key aliases v6.4"
+
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              echo "PUSH_SUCCESS=true"
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed"
+            sleep $((attempt * 5))
+          done
+
+          echo "PUSH_SUCCESS=false"
+          exit 1

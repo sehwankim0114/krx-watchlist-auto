@@ -1,0 +1,212 @@
+name: V6 Apply Explanation Policy and Quote Keys
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-apply-explanation-policy-and-quote-keys
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install requirements
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Check required files
+        run: |
+          set -euo pipefail
+          test -f patch_explanation_manual_policy_v62.py
+          test -f patch_request_time_quote_keys_v63.py
+          test -f docs/stock_table_rules_latest.md
+          test -f build_api_json.py
+          test -f validate_api_sync.py
+          echo "V63_PREREQUISITES=OK"
+
+      - name: Apply explanation and quote-key patches
+        run: |
+          set -euo pipefail
+          python patch_explanation_manual_policy_v62.py
+          python patch_request_time_quote_keys_v63.py
+          python -m py_compile \
+            patch_explanation_manual_policy_v62.py \
+            patch_request_time_quote_keys_v63.py \
+            build_api_json.py \
+            validate_api_sync.py
+          echo "V63_PATCHES=OK"
+
+      - name: Build API JSON
+        run: |
+          set -euo pipefail
+          python build_api_json.py
+
+      - name: Validate API synchronization
+        run: |
+          set -euo pipefail
+          python validate_api_sync.py --api-dir api
+
+      - name: Verify explanation and live lookup contracts
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          expected_rules_version = (
+              "2026-07-06-v6.2-explanation-manual-only"
+          )
+
+          def load(name):
+              path = Path("api") / name
+              if not path.exists():
+                  raise SystemExit(f"missing: {path}")
+              return json.loads(path.read_text(encoding="utf-8"))
+
+          status = load("status.json")
+          manifest = load("manifest.json")
+          rules = load("stock_table_rules.json")
+
+          for name, payload in (
+              ("status", status),
+              ("manifest", manifest),
+              ("rules", rules),
+          ):
+              if payload.get("rules_version") != expected_rules_version:
+                  raise SystemExit(
+                      f"{name}: rules_version="
+                      f"{payload.get('rules_version')}"
+                  )
+              policy = payload.get("presentation_policy") or {}
+              expected_policy = {
+                  "format_contract": "improvement_plan_2_final",
+                  "metadata_display_mode": "compact_two_column_table",
+                  "bold_price_ranges": True,
+                  "automatic_weekly_guide": False,
+                  "full_manual_trigger": "설명서",
+              }
+              for key, expected in expected_policy.items():
+                  if policy.get(key) != expected:
+                      raise SystemExit(
+                          f"{name}: {key}={policy.get(key)!r}"
+                      )
+
+          table_checks = {
+              "us_watchlist.json": ("ticker", "USA", 30),
+              "us_watchlist_recommend_7.json": ("ticker", "USA", 7),
+              "kospi_fx_weakness_candidates_30.json": (
+                  "code",
+                  "KOSPI",
+                  30,
+              ),
+              "kospi_fx_weakness_recommend_7.json": (
+                  "code",
+                  "KOSPI",
+                  7,
+              ),
+          }
+
+          for filename, (key, market, expected_rows) in table_checks.items():
+              payload = load(filename)
+              rows = payload.get("rows") or []
+              columns = payload.get("columns") or []
+              if payload.get("status") != "OK":
+                  raise SystemExit(
+                      f"{filename}: status={payload.get('status')}"
+                  )
+              if len(rows) != expected_rows:
+                  raise SystemExit(
+                      f"{filename}: rows={len(rows)}"
+                  )
+              if key not in columns:
+                  raise SystemExit(
+                      f"{filename}: missing column {key}"
+                  )
+              if "market" not in columns:
+                  raise SystemExit(
+                      f"{filename}: missing column market"
+                  )
+              for index, row in enumerate(rows, start=1):
+                  value = str(row.get(key) or "").strip()
+                  if not value:
+                      raise SystemExit(
+                          f"{filename}: row {index} missing {key}"
+                      )
+                  if key == "code":
+                      if not (len(value) == 6 and value.isdigit()):
+                          raise SystemExit(
+                              f"{filename}: invalid code {value!r}"
+                          )
+                  if str(row.get("market") or "").strip() != market:
+                      raise SystemExit(
+                          f"{filename}: row {index} market="
+                          f"{row.get('market')!r}"
+                      )
+
+          report = load("validation_report.json")
+          if report.get("status") != "PASS":
+              raise SystemExit(
+                  f"validation status={report.get('status')}"
+              )
+
+          print("EXPLANATION_POLICY_CONTRACT=OK")
+          print("AUTOMATIC_WEEKLY_GUIDE=false")
+          print("US_QUOTE_KEYS=30_PLUS_7_OK")
+          print("KOSPI_FX_QUOTE_KEYS=30_PLUS_7_OK")
+          print("API_VALIDATION_STATUS=PASS")
+          PY
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            patch_explanation_manual_policy_v62.py \
+            patch_request_time_quote_keys_v63.py \
+            build_api_json.py \
+            validate_api_sync.py \
+            docs/stock_table_rules_latest.md \
+            api
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            exit 0
+          fi
+
+          git commit -m \
+            "Apply explanation policy and normalize live quote keys"
+
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              echo "PUSH_SUCCESS=true"
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed"
+            sleep $((attempt * 5))
+          done
+
+          echo "PUSH_SUCCESS=false"
+          exit 1

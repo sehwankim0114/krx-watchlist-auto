@@ -1,0 +1,210 @@
+name: V6 Apply Explanation Manual Policy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-apply-explanation-manual-policy
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install requirements
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Check required files
+        run: |
+          set -euo pipefail
+          test -f patch_explanation_manual_policy_v62.py
+          test -f docs/stock_table_rules_latest.md
+          test -f build_api_json.py
+          test -f validate_api_sync.py
+          echo "EXPLANATION_POLICY_PREREQUISITES=OK"
+
+      - name: Apply explanation policy patch
+        run: |
+          set -euo pipefail
+          python patch_explanation_manual_policy_v62.py
+          python -m py_compile \
+            patch_explanation_manual_policy_v62.py \
+            build_api_json.py \
+            validate_api_sync.py
+          echo "EXPLANATION_POLICY_PATCH=OK"
+
+      - name: Build API JSON
+        run: |
+          set -euo pipefail
+          python build_api_json.py
+
+      - name: Validate API synchronization
+        run: |
+          set -euo pipefail
+          python validate_api_sync.py --api-dir api
+
+      - name: Verify explanation contract
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          required_files = [
+              Path("api/status.json"),
+              Path("api/manifest.json"),
+              Path("api/stock_table_rules.json"),
+          ]
+          for path in required_files:
+              if not path.exists():
+                  raise SystemExit(f"missing: {path}")
+
+          status = json.loads(
+              Path("api/status.json").read_text(encoding="utf-8")
+          )
+          manifest = json.loads(
+              Path("api/manifest.json").read_text(encoding="utf-8")
+          )
+          rules = json.loads(
+              Path("api/stock_table_rules.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          expected_version = (
+              "2026-07-06-v6.2-explanation-manual-only"
+          )
+          build_ids = {
+              status.get("build_id"),
+              manifest.get("build_id"),
+              rules.get("build_id"),
+          }
+          if None in build_ids or len(build_ids) != 1:
+              raise SystemExit(
+                  f"build_id mismatch: {build_ids}"
+              )
+
+          for name, payload in (
+              ("status", status),
+              ("manifest", manifest),
+              ("rules", rules),
+          ):
+              if payload.get("rules_version") != expected_version:
+                  raise SystemExit(
+                      f"{name}: rules_version="
+                      f"{payload.get('rules_version')}"
+                  )
+              policy = payload.get("presentation_policy") or {}
+              checks = {
+                  "format_contract": (
+                      "improvement_plan_2_final"
+                  ),
+                  "metadata_display_mode": (
+                      "compact_two_column_table"
+                  ),
+                  "bold_price_ranges": True,
+                  "automatic_weekly_guide": False,
+                  "full_manual_trigger": "설명서",
+              }
+              for key, expected in checks.items():
+                  if policy.get(key) != expected:
+                      raise SystemExit(
+                          f"{name}: {key}="
+                          f"{policy.get(key)!r}, "
+                          f"expected={expected!r}"
+                      )
+              sections = (
+                  policy.get("full_manual_section_order")
+                  or []
+              )
+              if len(sections) != 8:
+                  raise SystemExit(
+                      f"{name}: manual sections="
+                      f"{len(sections)}"
+                  )
+
+          content = rules.get("content_markdown") or ""
+          forbidden = [
+              "매주 월요일 첫 표에는",
+              "같은 주 나머지 요청은",
+          ]
+          for phrase in forbidden:
+              if phrase in content:
+                  raise SystemExit(
+                      f"legacy phrase remains: {phrase}"
+                  )
+
+          required = [
+              "개선안2 최종형",
+              "자동 주간 설명",
+              "30초 사용법",
+              "주요 용어",
+              "EXPLANATION_MANUAL_POLICY_V62",
+          ]
+          for phrase in required:
+              if phrase not in content:
+                  raise SystemExit(
+                      f"required phrase missing: {phrase}"
+                  )
+
+          print("EXPLANATION_POLICY_CONTRACT=OK")
+          print("FULL_MANUAL_SECTIONS=8")
+          print("AUTOMATIC_WEEKLY_GUIDE=false")
+          print(
+              "DEFAULT_OUTPUT="
+              "MAIN_TABLE_PLUS_MINIMAL_NOTES"
+          )
+          PY
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            patch_explanation_manual_policy_v62.py \
+            build_api_json.py \
+            docs/stock_table_rules_latest.md \
+            api
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            exit 0
+          fi
+
+          git commit -m \
+            "Apply manual-only stock table explanation policy"
+
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              echo "PUSH_SUCCESS=true"
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed"
+            sleep $((attempt * 5))
+          done
+
+          echo "PUSH_SUCCESS=false"
+          exit 1

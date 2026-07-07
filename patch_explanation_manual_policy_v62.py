@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parent
 RULES = ROOT / "docs" / "stock_table_rules_latest.md"
 BUILD = ROOT / "build_api_json.py"
 
-RULES_VERSION = "2026-07-06-v6.2-explanation-manual-only"
+RULES_VERSION = "2026-07-07-v6.5-output-order-price-retry"
 PATCH_MARKER = "EXPLANATION_MANUAL_POLICY_V62"
 
 
@@ -291,7 +291,19 @@ def patch_build() -> None:
     "duplicate_rows_across_main_and_shortlist_tables": False,
     "metadata_display_mode": "compact_two_column_table",
     "bold_price_ranges": True,
-    "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
+    "output_sequence": [
+        "title",
+        "metadata_two_column_table",
+        "main_stock_table",
+        "minimal_required_notes",
+    ],
+    "metadata_table_complete_before_main_table": True,
+    "minimal_notes_position": "after_main_table_only",
+    "forbid_notes_inside_metadata_table": True,
+    "forbid_metadata_rows_after_notes": True,
+    "explanation_default_mode": (
+        "main_table_plus_minimal_required_notes_only"
+    ),
     "automatic_weekly_guide": False,
     "full_manual_trigger": "설명서",
     "partial_help_trigger_phrases": [
@@ -323,9 +335,12 @@ def patch_build() -> None:
         "full_command_catalog",
         "full_glossary",
         "long_explanation_section",
+        "notes_between_metadata_rows",
+        "metadata_rows_after_notes",
     ],
 }
 # EXPLANATION_MANUAL_POLICY_V62
+# OUTPUT_ORDER_PRICE_RETRY_V65
 '''
 
     text = (

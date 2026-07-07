@@ -35,7 +35,7 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "build_api_json.py v4.4_explanation_manual_v62_quote_aliases_v64"
+SCRIPT_VERSION = "build_api_json.py v4.5_output_order_price_retry_v65"
 SCHEMA_VERSION = "4.2"
 ROOT = Path(__file__).resolve().parent
 LATEST = ROOT / "latest"
@@ -56,7 +56,19 @@ PRESENTATION_POLICY: Dict[str, Any] = {
     "duplicate_rows_across_main_and_shortlist_tables": False,
     "metadata_display_mode": "compact_two_column_table",
     "bold_price_ranges": True,
-    "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
+    "output_sequence": [
+        "title",
+        "metadata_two_column_table",
+        "main_stock_table",
+        "minimal_required_notes",
+    ],
+    "metadata_table_complete_before_main_table": True,
+    "minimal_notes_position": "after_main_table_only",
+    "forbid_notes_inside_metadata_table": True,
+    "forbid_metadata_rows_after_notes": True,
+    "explanation_default_mode": (
+        "main_table_plus_minimal_required_notes_only"
+    ),
     "automatic_weekly_guide": False,
     "full_manual_trigger": "설명서",
     "partial_help_trigger_phrases": [
@@ -88,9 +100,12 @@ PRESENTATION_POLICY: Dict[str, Any] = {
         "full_command_catalog",
         "full_glossary",
         "long_explanation_section",
+        "notes_between_metadata_rows",
+        "metadata_rows_after_notes",
     ],
 }
 # EXPLANATION_MANUAL_POLICY_V62
+# OUTPUT_ORDER_PRICE_RETRY_V65
 # REQUEST_TIME_PRICE_POLICY_V51_BEGIN
 REQUEST_TIME_PRICE_POLICY: Dict[str, Any] = {
     "enabled": True,
@@ -99,7 +114,19 @@ REQUEST_TIME_PRICE_POLICY: Dict[str, Any] = {
     "action_operation_id": "getRequestTimePrices",
     "health_operation_id": "getRequestTimePriceHealth",
     "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-    "max_batch_size": 50,
+    "max_batch_size": 10,
+    "initial_batch_size": 10,
+    "batch_execution_mode": "sequential",
+    "max_parallel_batches": 1,
+    "retry_failed_quotes": True,
+    "retry_only_failed": True,
+    "retry_rounds": 2,
+    "retry_batch_sizes": [5, 2],
+    "retry_execution_mode": "sequential",
+    "merge_results_by_quote_key": True,
+    "preserve_input_order": True,
+    "deduplicate_quote_keys": True,
+    "final_success_count_after_retries": True,
     "quote_key_fields": [
         "ticker",
         "symbol",
@@ -114,11 +141,25 @@ REQUEST_TIME_PRICE_POLICY: Dict[str, Any] = {
     "market_fields": ["market", "시장", "exchange", "country"],
     "preserve_official_history": True,
     "allow_last_confirmed_official_when_delayed": True,
-    "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-    "large_table_behavior": "split_into_batches_until_all_rows_attempted",
+    "failed_quote_behavior": (
+        "after_all_retries_keep_row_mark_white_circle_do_not_fake_price"
+    ),
+    "large_table_behavior": (
+        "split_into_sequential_batches_until_all_rows_attempted"
+    ),
+    "execution_steps": [
+        "extract_all_quote_keys_in_table_order",
+        "call_initial_sequential_batches_of_at_most_10",
+        "collect_only_failed_quote_keys",
+        "retry_failed_keys_in_batches_of_at_most_5",
+        "retry_still_failed_keys_in_batches_of_at_most_2",
+        "merge_all_successes_and_preserve_original_row_order",
+        "mark_only_final_failures_with_white_circle",
+    ],
 }
 # REQUEST_TIME_PRICE_POLICY_V51_END
 # QUOTE_KEY_ALIASES_V64
+# OUTPUT_ORDER_PRICE_RETRY_V65
 
 @dataclass(frozen=True)
 class TableSpec:

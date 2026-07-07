@@ -1,17 +1,17 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260707T104442+0900-7c1a5170c1",
-  "generated_at_kst": "2026-07-07T10:44:42+09:00",
-  "source_commit_sha": "7c1a5170c10698af6f2b0f0896c865c3d1451489",
+  "build_id": "20260707T122450+0900-76030b2e4a",
+  "generated_at_kst": "2026-07-07T12:24:50+09:00",
+  "source_commit_sha": "76030b2e4ab159ad67db8784e467b606c03c05cd",
   "status": "READY",
   "api_sync_ok": true,
   "safe_to_analyze_as_latest": true,
-  "rules_version": "2026-07-06-v6.2-explanation-manual-only",
-  "rules_sha256": "81614858ad67e9f056d0b577a3313b63d565970725530061803da2090b1cc26d",
+  "rules_version": "2026-07-07-v6.5-output-order-price-retry",
+  "rules_sha256": "e9fbace2d51626647ed342cdc1edf785965791237fda287154d065f7f254bdbf",
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-06-v6.2-explanation-manual-only",
-    "sha256": "81614858ad67e9f056d0b577a3313b63d565970725530061803da2090b1cc26d"
+    "version": "2026-07-07-v6.5-output-order-price-retry",
+    "sha256": "e9fbace2d51626647ed342cdc1edf785965791237fda287154d065f7f254bdbf"
   },
   "presentation_policy": {
     "format_contract": "improvement_plan_2_final",
@@ -22,6 +22,16 @@
     "duplicate_rows_across_main_and_shortlist_tables": false,
     "metadata_display_mode": "compact_two_column_table",
     "bold_price_ranges": true,
+    "output_sequence": [
+      "title",
+      "metadata_two_column_table",
+      "main_stock_table",
+      "minimal_required_notes"
+    ],
+    "metadata_table_complete_before_main_table": true,
+    "minimal_notes_position": "after_main_table_only",
+    "forbid_notes_inside_metadata_table": true,
+    "forbid_metadata_rows_after_notes": true,
     "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
     "automatic_weekly_guide": false,
     "full_manual_trigger": "설명서",
@@ -53,7 +63,9 @@
       "weekly_usage_guide",
       "full_command_catalog",
       "full_glossary",
-      "long_explanation_section"
+      "long_explanation_section",
+      "notes_between_metadata_rows",
+      "metadata_rows_after_notes"
     ]
   },
   "request_time_price_policy": {
@@ -63,7 +75,22 @@
     "action_operation_id": "getRequestTimePrices",
     "health_operation_id": "getRequestTimePriceHealth",
     "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-    "max_batch_size": 50,
+    "max_batch_size": 10,
+    "initial_batch_size": 10,
+    "batch_execution_mode": "sequential",
+    "max_parallel_batches": 1,
+    "retry_failed_quotes": true,
+    "retry_only_failed": true,
+    "retry_rounds": 2,
+    "retry_batch_sizes": [
+      5,
+      2
+    ],
+    "retry_execution_mode": "sequential",
+    "merge_results_by_quote_key": true,
+    "preserve_input_order": true,
+    "deduplicate_quote_keys": true,
+    "final_success_count_after_retries": true,
     "quote_key_fields": [
       "ticker",
       "symbol",
@@ -90,8 +117,17 @@
     ],
     "preserve_official_history": true,
     "allow_last_confirmed_official_when_delayed": true,
-    "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-    "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+    "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+    "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+    "execution_steps": [
+      "extract_all_quote_keys_in_table_order",
+      "call_initial_sequential_batches_of_at_most_10",
+      "collect_only_failed_quote_keys",
+      "retry_failed_keys_in_batches_of_at_most_5",
+      "retry_still_failed_keys_in_batches_of_at_most_2",
+      "merge_all_successes_and_preserve_original_row_order",
+      "mark_only_final_failures_with_white_circle"
+    ]
   },
   "tables": [
     {
@@ -114,6 +150,16 @@
         "duplicate_rows_across_main_and_shortlist_tables": false,
         "metadata_display_mode": "compact_two_column_table",
         "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
         "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
         "automatic_weekly_guide": false,
         "full_manual_trigger": "설명서",
@@ -145,7 +191,9 @@
           "weekly_usage_guide",
           "full_command_catalog",
           "full_glossary",
-          "long_explanation_section"
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
         ]
       },
       "request_time_price_policy": {
@@ -155,7 +203,22 @@
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
         "quote_key_fields": [
           "ticker",
           "symbol",
@@ -182,8 +245,17 @@
         ],
         "preserve_official_history": true,
         "allow_last_confirmed_official_when_delayed": true,
-        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
       },
       "current_basis_selected": true
     },
@@ -207,6 +279,16 @@
         "duplicate_rows_across_main_and_shortlist_tables": false,
         "metadata_display_mode": "compact_two_column_table",
         "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
         "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
         "automatic_weekly_guide": false,
         "full_manual_trigger": "설명서",
@@ -238,7 +320,9 @@
           "weekly_usage_guide",
           "full_command_catalog",
           "full_glossary",
-          "long_explanation_section"
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
         ]
       },
       "request_time_price_policy": {
@@ -248,7 +332,22 @@
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
         "quote_key_fields": [
           "ticker",
           "symbol",
@@ -275,8 +374,17 @@
         ],
         "preserve_official_history": true,
         "allow_last_confirmed_official_when_delayed": true,
-        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
       },
       "current_basis_selected": true
     },
@@ -300,6 +408,16 @@
         "duplicate_rows_across_main_and_shortlist_tables": false,
         "metadata_display_mode": "compact_two_column_table",
         "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
         "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
         "automatic_weekly_guide": false,
         "full_manual_trigger": "설명서",
@@ -331,7 +449,9 @@
           "weekly_usage_guide",
           "full_command_catalog",
           "full_glossary",
-          "long_explanation_section"
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
         ]
       },
       "request_time_price_policy": {
@@ -341,7 +461,22 @@
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
         "quote_key_fields": [
           "ticker",
           "symbol",
@@ -368,8 +503,17 @@
         ],
         "preserve_official_history": true,
         "allow_last_confirmed_official_when_delayed": true,
-        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
       },
       "current_basis_selected": false
     },
@@ -393,6 +537,16 @@
         "duplicate_rows_across_main_and_shortlist_tables": false,
         "metadata_display_mode": "compact_two_column_table",
         "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
         "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
         "automatic_weekly_guide": false,
         "full_manual_trigger": "설명서",
@@ -424,7 +578,9 @@
           "weekly_usage_guide",
           "full_command_catalog",
           "full_glossary",
-          "long_explanation_section"
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
         ]
       },
       "request_time_price_policy": {
@@ -434,7 +590,22 @@
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
         "quote_key_fields": [
           "ticker",
           "symbol",
@@ -461,8 +632,17 @@
         ],
         "preserve_official_history": true,
         "allow_last_confirmed_official_when_delayed": true,
-        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
       },
       "current_basis_selected": true
     },
@@ -486,6 +666,16 @@
         "duplicate_rows_across_main_and_shortlist_tables": false,
         "metadata_display_mode": "compact_two_column_table",
         "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
         "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
         "automatic_weekly_guide": false,
         "full_manual_trigger": "설명서",
@@ -517,7 +707,9 @@
           "weekly_usage_guide",
           "full_command_catalog",
           "full_glossary",
-          "long_explanation_section"
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
         ]
       },
       "request_time_price_policy": {
@@ -527,7 +719,22 @@
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
         "quote_key_fields": [
           "ticker",
           "symbol",
@@ -554,8 +761,17 @@
         ],
         "preserve_official_history": true,
         "allow_last_confirmed_official_when_delayed": true,
-        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
       },
       "current_basis_selected": false
     },
@@ -579,6 +795,16 @@
         "duplicate_rows_across_main_and_shortlist_tables": false,
         "metadata_display_mode": "compact_two_column_table",
         "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
         "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
         "automatic_weekly_guide": false,
         "full_manual_trigger": "설명서",
@@ -610,7 +836,9 @@
           "weekly_usage_guide",
           "full_command_catalog",
           "full_glossary",
-          "long_explanation_section"
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
         ]
       },
       "request_time_price_policy": {
@@ -620,7 +848,22 @@
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
         "quote_key_fields": [
           "ticker",
           "symbol",
@@ -647,8 +890,17 @@
         ],
         "preserve_official_history": true,
         "allow_last_confirmed_official_when_delayed": true,
-        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
       },
       "current_basis_selected": false
     },
@@ -672,6 +924,16 @@
         "duplicate_rows_across_main_and_shortlist_tables": false,
         "metadata_display_mode": "compact_two_column_table",
         "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
         "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
         "automatic_weekly_guide": false,
         "full_manual_trigger": "설명서",
@@ -703,7 +965,9 @@
           "weekly_usage_guide",
           "full_command_catalog",
           "full_glossary",
-          "long_explanation_section"
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
         ]
       },
       "request_time_price_policy": {
@@ -713,7 +977,22 @@
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
         "quote_key_fields": [
           "ticker",
           "symbol",
@@ -740,8 +1019,17 @@
         ],
         "preserve_official_history": true,
         "allow_last_confirmed_official_when_delayed": true,
-        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
       },
       "current_basis_selected": false
     },
@@ -765,6 +1053,16 @@
         "duplicate_rows_across_main_and_shortlist_tables": false,
         "metadata_display_mode": "compact_two_column_table",
         "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
         "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
         "automatic_weekly_guide": false,
         "full_manual_trigger": "설명서",
@@ -796,7 +1094,9 @@
           "weekly_usage_guide",
           "full_command_catalog",
           "full_glossary",
-          "long_explanation_section"
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
         ]
       },
       "request_time_price_policy": {
@@ -806,7 +1106,22 @@
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
         "quote_key_fields": [
           "ticker",
           "symbol",
@@ -833,8 +1148,17 @@
         ],
         "preserve_official_history": true,
         "allow_last_confirmed_official_when_delayed": true,
-        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
       },
       "current_basis_selected": false
     },
@@ -858,6 +1182,16 @@
         "duplicate_rows_across_main_and_shortlist_tables": false,
         "metadata_display_mode": "compact_two_column_table",
         "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
         "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
         "automatic_weekly_guide": false,
         "full_manual_trigger": "설명서",
@@ -889,7 +1223,9 @@
           "weekly_usage_guide",
           "full_command_catalog",
           "full_glossary",
-          "long_explanation_section"
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
         ]
       },
       "request_time_price_policy": {
@@ -899,7 +1235,22 @@
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
         "quote_key_fields": [
           "ticker",
           "symbol",
@@ -926,8 +1277,17 @@
         ],
         "preserve_official_history": true,
         "allow_last_confirmed_official_when_delayed": true,
-        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
       },
       "current_basis_selected": false
     },
@@ -951,6 +1311,16 @@
         "duplicate_rows_across_main_and_shortlist_tables": false,
         "metadata_display_mode": "compact_two_column_table",
         "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
         "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
         "automatic_weekly_guide": false,
         "full_manual_trigger": "설명서",
@@ -982,7 +1352,9 @@
           "weekly_usage_guide",
           "full_command_catalog",
           "full_glossary",
-          "long_explanation_section"
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
         ]
       },
       "request_time_price_policy": {
@@ -992,7 +1364,22 @@
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
         "quote_key_fields": [
           "ticker",
           "symbol",
@@ -1019,8 +1406,17 @@
         ],
         "preserve_official_history": true,
         "allow_last_confirmed_official_when_delayed": true,
-        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
       },
       "current_basis_selected": false
     },
@@ -1044,6 +1440,16 @@
         "duplicate_rows_across_main_and_shortlist_tables": false,
         "metadata_display_mode": "compact_two_column_table",
         "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
         "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
         "automatic_weekly_guide": false,
         "full_manual_trigger": "설명서",
@@ -1075,7 +1481,9 @@
           "weekly_usage_guide",
           "full_command_catalog",
           "full_glossary",
-          "long_explanation_section"
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
         ]
       },
       "request_time_price_policy": {
@@ -1085,7 +1493,22 @@
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
         "quote_key_fields": [
           "ticker",
           "symbol",
@@ -1112,8 +1535,17 @@
         ],
         "preserve_official_history": true,
         "allow_last_confirmed_official_when_delayed": true,
-        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
       },
       "current_basis_selected": false
     },
@@ -1137,6 +1569,16 @@
         "duplicate_rows_across_main_and_shortlist_tables": false,
         "metadata_display_mode": "compact_two_column_table",
         "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
         "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
         "automatic_weekly_guide": false,
         "full_manual_trigger": "설명서",
@@ -1168,7 +1610,9 @@
           "weekly_usage_guide",
           "full_command_catalog",
           "full_glossary",
-          "long_explanation_section"
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
         ]
       },
       "request_time_price_policy": {
@@ -1178,7 +1622,22 @@
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
         "quote_key_fields": [
           "ticker",
           "symbol",
@@ -1205,8 +1664,17 @@
         ],
         "preserve_official_history": true,
         "allow_last_confirmed_official_when_delayed": true,
-        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
       },
       "current_basis_selected": true
     },
@@ -1230,6 +1698,16 @@
         "duplicate_rows_across_main_and_shortlist_tables": false,
         "metadata_display_mode": "compact_two_column_table",
         "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
         "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
         "automatic_weekly_guide": false,
         "full_manual_trigger": "설명서",
@@ -1261,7 +1739,9 @@
           "weekly_usage_guide",
           "full_command_catalog",
           "full_glossary",
-          "long_explanation_section"
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
         ]
       },
       "request_time_price_policy": {
@@ -1271,7 +1751,22 @@
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
         "quote_key_fields": [
           "ticker",
           "symbol",
@@ -1298,8 +1793,17 @@
         ],
         "preserve_official_history": true,
         "allow_last_confirmed_official_when_delayed": true,
-        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
       },
       "current_basis_selected": false
     },
@@ -1323,6 +1827,16 @@
         "duplicate_rows_across_main_and_shortlist_tables": false,
         "metadata_display_mode": "compact_two_column_table",
         "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
         "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
         "automatic_weekly_guide": false,
         "full_manual_trigger": "설명서",
@@ -1354,7 +1868,9 @@
           "weekly_usage_guide",
           "full_command_catalog",
           "full_glossary",
-          "long_explanation_section"
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
         ]
       },
       "request_time_price_policy": {
@@ -1364,7 +1880,22 @@
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
         "quote_key_fields": [
           "ticker",
           "symbol",
@@ -1391,8 +1922,17 @@
         ],
         "preserve_official_history": true,
         "allow_last_confirmed_official_when_delayed": true,
-        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
       },
       "current_basis_selected": false
     },
@@ -1416,6 +1956,16 @@
         "duplicate_rows_across_main_and_shortlist_tables": false,
         "metadata_display_mode": "compact_two_column_table",
         "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
         "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
         "automatic_weekly_guide": false,
         "full_manual_trigger": "설명서",
@@ -1447,7 +1997,9 @@
           "weekly_usage_guide",
           "full_command_catalog",
           "full_glossary",
-          "long_explanation_section"
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
         ]
       },
       "request_time_price_policy": {
@@ -1457,7 +2009,22 @@
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
         "quote_key_fields": [
           "ticker",
           "symbol",
@@ -1484,8 +2051,17 @@
         ],
         "preserve_official_history": true,
         "allow_last_confirmed_official_when_delayed": true,
-        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
       },
       "current_basis_selected": false
     },
@@ -1509,6 +2085,16 @@
         "duplicate_rows_across_main_and_shortlist_tables": false,
         "metadata_display_mode": "compact_two_column_table",
         "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
         "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
         "automatic_weekly_guide": false,
         "full_manual_trigger": "설명서",
@@ -1540,7 +2126,9 @@
           "weekly_usage_guide",
           "full_command_catalog",
           "full_glossary",
-          "long_explanation_section"
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
         ]
       },
       "request_time_price_policy": {
@@ -1550,7 +2138,22 @@
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
         "quote_key_fields": [
           "ticker",
           "symbol",
@@ -1577,8 +2180,17 @@
         ],
         "preserve_official_history": true,
         "allow_last_confirmed_official_when_delayed": true,
-        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
       },
       "current_basis_selected": false
     },
@@ -1602,6 +2214,16 @@
         "duplicate_rows_across_main_and_shortlist_tables": false,
         "metadata_display_mode": "compact_two_column_table",
         "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
         "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
         "automatic_weekly_guide": false,
         "full_manual_trigger": "설명서",
@@ -1633,7 +2255,9 @@
           "weekly_usage_guide",
           "full_command_catalog",
           "full_glossary",
-          "long_explanation_section"
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
         ]
       },
       "request_time_price_policy": {
@@ -1643,7 +2267,22 @@
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
         "quote_key_fields": [
           "ticker",
           "symbol",
@@ -1670,8 +2309,17 @@
         ],
         "preserve_official_history": true,
         "allow_last_confirmed_official_when_delayed": true,
-        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
       },
       "current_basis_selected": false
     },
@@ -1695,6 +2343,16 @@
         "duplicate_rows_across_main_and_shortlist_tables": false,
         "metadata_display_mode": "compact_two_column_table",
         "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
         "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
         "automatic_weekly_guide": false,
         "full_manual_trigger": "설명서",
@@ -1726,7 +2384,9 @@
           "weekly_usage_guide",
           "full_command_catalog",
           "full_glossary",
-          "long_explanation_section"
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
         ]
       },
       "request_time_price_policy": {
@@ -1736,7 +2396,22 @@
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
         "quote_key_fields": [
           "ticker",
           "symbol",
@@ -1763,8 +2438,17 @@
         ],
         "preserve_official_history": true,
         "allow_last_confirmed_official_when_delayed": true,
-        "failed_quote_behavior": "keep_row_mark_white_circle_do_not_fake_price",
-        "large_table_behavior": "split_into_batches_until_all_rows_attempted"
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
       },
       "current_basis_selected": false
     }

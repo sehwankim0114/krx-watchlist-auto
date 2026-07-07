@@ -1,0 +1,225 @@
+name: V6 Apply Output Order and US Price Retry V65
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-apply-output-order-us-price-retry-v65
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install requirements
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Check required files
+        run: |
+          set -euo pipefail
+          test -f patch_output_order_and_price_retry_v65.py
+          test -f build_api_json.py
+          test -f validate_api_sync.py
+          test -f docs/stock_table_rules_latest.md
+          echo "V65_PREREQUISITES=OK"
+
+      - name: Apply v6.5 policy patch
+        run: |
+          set -euo pipefail
+          python patch_output_order_and_price_retry_v65.py
+          python -m py_compile \
+            patch_output_order_and_price_retry_v65.py \
+            build_api_json.py \
+            validate_api_sync.py
+          if test -f patch_explanation_manual_policy_v62.py; then
+            python -m py_compile \
+              patch_explanation_manual_policy_v62.py
+          fi
+          echo "V65_PATCH=OK"
+
+      - name: Build API JSON
+        run: |
+          set -euo pipefail
+          python build_api_json.py
+
+      - name: Validate API synchronization
+        run: |
+          set -euo pipefail
+          python validate_api_sync.py --api-dir api
+
+      - name: Verify v6.5 contracts
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          expected_version = (
+              "2026-07-07-v6.5-output-order-price-retry"
+          )
+
+          def load(name):
+              path = Path("api") / name
+              if not path.exists():
+                  raise SystemExit(f"missing: {path}")
+              return json.loads(path.read_text(encoding="utf-8"))
+
+          payloads = {
+              "status": load("status.json"),
+              "manifest": load("manifest.json"),
+              "rules": load("stock_table_rules.json"),
+              "us_watchlist": load("us_watchlist.json"),
+          }
+
+          expected_sequence = [
+              "title",
+              "metadata_two_column_table",
+              "main_stock_table",
+              "minimal_required_notes",
+          ]
+
+          for name, payload in payloads.items():
+              if payload.get("rules_version") != expected_version:
+                  raise SystemExit(
+                      f"{name}: rules_version="
+                      f"{payload.get('rules_version')!r}"
+                  )
+
+              presentation = (
+                  payload.get("presentation_policy") or {}
+              )
+              checks = {
+                  "format_contract": (
+                      "improvement_plan_2_final"
+                  ),
+                  "output_sequence": expected_sequence,
+                  "metadata_table_complete_before_main_table": True,
+                  "minimal_notes_position": (
+                      "after_main_table_only"
+                  ),
+                  "forbid_notes_inside_metadata_table": True,
+                  "forbid_metadata_rows_after_notes": True,
+                  "automatic_weekly_guide": False,
+                  "full_manual_trigger": "설명서",
+              }
+              for key, expected in checks.items():
+                  if presentation.get(key) != expected:
+                      raise SystemExit(
+                          f"{name}: presentation {key}="
+                          f"{presentation.get(key)!r}"
+                      )
+
+              price = (
+                  payload.get("request_time_price_policy") or {}
+              )
+              price_checks = {
+                  "max_batch_size": 10,
+                  "initial_batch_size": 10,
+                  "batch_execution_mode": "sequential",
+                  "max_parallel_batches": 1,
+                  "retry_failed_quotes": True,
+                  "retry_only_failed": True,
+                  "retry_rounds": 2,
+                  "retry_batch_sizes": [5, 2],
+                  "preserve_input_order": True,
+                  "deduplicate_quote_keys": True,
+              }
+              for key, expected in price_checks.items():
+                  if price.get(key) != expected:
+                      raise SystemExit(
+                          f"{name}: price {key}="
+                          f"{price.get(key)!r}"
+                      )
+
+          rules_content = (
+              payloads["rules"].get("content_markdown") or ""
+          )
+          required_phrases = [
+              "### 12-5. 요청시점 현재가 배치·재시도",
+              "최대 10개씩",
+              "최대 5개씩",
+              "최대 2개씩",
+              "본표가 끝난 뒤 최소 필수 각주",
+              "OUTPUT_ORDER_PRICE_RETRY_V65",
+          ]
+          for phrase in required_phrases:
+              if phrase not in rules_content:
+                  raise SystemExit(
+                      f"rules phrase missing: {phrase}"
+                  )
+
+          if "한 번에 최대 50개 종목을 조회" in rules_content:
+              raise SystemExit(
+                  "legacy 50-symbol batch phrase remains"
+              )
+
+          report = load("validation_report.json")
+          if report.get("status") != "PASS":
+              raise SystemExit(
+                  f"validation_report={report.get('status')}"
+              )
+
+          print("V65_CONTRACT=OK")
+          print("OUTPUT_SEQUENCE=TITLE_METADATA_MAIN_NOTES")
+          print("NOTES_POSITION=AFTER_MAIN_TABLE_ONLY")
+          print("INITIAL_BATCH_SIZE=10")
+          print("RETRY_BATCH_SIZES=5,2")
+          print("API_VALIDATION_STATUS=PASS")
+          PY
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            patch_output_order_and_price_retry_v65.py \
+            build_api_json.py \
+            docs/stock_table_rules_latest.md \
+            api
+
+          if test -f patch_explanation_manual_policy_v62.py; then
+            git add patch_explanation_manual_policy_v62.py
+          fi
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            exit 0
+          fi
+
+          git commit -m \
+            "Apply output order and request-time price retry v6.5"
+
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              echo "PUSH_SUCCESS=true"
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed"
+            sleep $((attempt * 5))
+          done
+
+          echo "PUSH_SUCCESS=false"
+          exit 1

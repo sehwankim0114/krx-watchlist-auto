@@ -1,6 +1,6 @@
 SCRIPT_NAME=supply_burden_enricher.py v2.0.0-check-status-separated
 POLICY_VERSION=2026-07-01-v6.0-supply-status-separated
-RUN_AT_KST=2026-07-04T10:34:18+09:00
+RUN_AT_KST=2026-07-07T10:05:34+09:00
 OUTPUT_DIR=latest
 REQUESTED_LOOKBACK_DAYS=180
 EFFECTIVE_LOOKBACK_DAYS=90
@@ -50,41 +50,41 @@ TARGET_FILE=watchlist_summary_supplemented_latest.csv|rows=47
 SUPPLY_CHECK_STATUS=LIMITED
 SUPPLY_CHECK_SCOPE=DART 최근 90일 공시 제목 기준
 SUPPLY_CHECK_LIMITED_REASON=DART_WHOLE_MARKET_LOOKBACK_CAPPED_90D_FROM_180D
-DART_API_CALLS=331
+DART_API_CALLS=325
 DART_API_ERROR_COUNT=0
 SUMMARY_ROWS=2714
-HIT_REPORTS=11894
-SUPPLY_BURDEN_DETECTED_TICKERS=1834
-DANGER_TICKERS=667
-WARNING_TICKERS=672
-CAUTION_TICKERS=495
+HIT_REPORTS=11441
+SUPPLY_BURDEN_DETECTED_TICKERS=1832
+DANGER_TICKERS=661
+WARNING_TICKERS=660
+CAUTION_TICKERS=511
 CHECK_LIMITED_IN_BURDEN_FLAG=0
 OUTPUT_SUMMARY=latest/supply_burden_summary_latest.csv
 OUTPUT_HITS=latest/supply_burden_hits_latest.csv
 OUTPUT_JSON=latest/supply_burden_latest.json
 ENRICH_FILE=kosdaq_candidates_10_current_basis_latest.csv|status=OK|rows=10|matched_rows=10|burden_detected_rows=9|check_limited_rows=10|check_failed_rows=0|note=
-ENRICH_FILE=kosdaq_candidates_10_latest.csv|status=OK|rows=10|matched_rows=10|burden_detected_rows=10|check_limited_rows=10|check_failed_rows=0|note=
+ENRICH_FILE=kosdaq_candidates_10_latest.csv|status=OK|rows=10|matched_rows=10|burden_detected_rows=8|check_limited_rows=10|check_failed_rows=0|note=
 ENRICH_FILE=kosdaq_candidates_10_supplemented_latest.csv|status=OK|rows=10|matched_rows=10|burden_detected_rows=9|check_limited_rows=10|check_failed_rows=0|note=
 ENRICH_FILE=kosdaq_recommend_5_current_basis_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
-ENRICH_FILE=kosdaq_recommend_5_latest.csv|status=OK|rows=5|matched_rows=5|burden_detected_rows=5|check_limited_rows=5|check_failed_rows=0|note=
+ENRICH_FILE=kosdaq_recommend_5_latest.csv|status=OK|rows=5|matched_rows=5|burden_detected_rows=3|check_limited_rows=5|check_failed_rows=0|note=
 ENRICH_FILE=kosdaq_recommend_5_supplemented_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
 ENRICH_FILE=kosdaq_universe_summary_current_basis_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
-ENRICH_FILE=kosdaq_universe_summary_latest.csv|status=OK|rows=1789|matched_rows=1789|burden_detected_rows=1256|check_limited_rows=1789|check_failed_rows=0|note=
+ENRICH_FILE=kosdaq_universe_summary_latest.csv|status=OK|rows=1789|matched_rows=1789|burden_detected_rows=1254|check_limited_rows=1789|check_failed_rows=0|note=
 ENRICH_FILE=kosdaq_universe_summary_supplemented_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
-ENRICH_FILE=kospi_candidates_30_current_basis_latest.csv|status=OK|rows=30|matched_rows=30|burden_detected_rows=29|check_limited_rows=30|check_failed_rows=0|note=
-ENRICH_FILE=kospi_candidates_30_latest.csv|status=OK|rows=30|matched_rows=30|burden_detected_rows=27|check_limited_rows=30|check_failed_rows=0|note=
-ENRICH_FILE=kospi_candidates_30_supplemented_latest.csv|status=OK|rows=30|matched_rows=30|burden_detected_rows=29|check_limited_rows=30|check_failed_rows=0|note=
+ENRICH_FILE=kospi_candidates_30_current_basis_latest.csv|status=OK|rows=30|matched_rows=30|burden_detected_rows=27|check_limited_rows=30|check_failed_rows=0|note=
+ENRICH_FILE=kospi_candidates_30_latest.csv|status=OK|rows=30|matched_rows=30|burden_detected_rows=28|check_limited_rows=30|check_failed_rows=0|note=
+ENRICH_FILE=kospi_candidates_30_supplemented_latest.csv|status=OK|rows=30|matched_rows=30|burden_detected_rows=27|check_limited_rows=30|check_failed_rows=0|note=
 ENRICH_FILE=kospi_fx_weakness_candidates_30_current_basis_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
 ENRICH_FILE=kospi_fx_weakness_candidates_30_latest.csv|status=OK|rows=30|matched_rows=30|burden_detected_rows=28|check_limited_rows=30|check_failed_rows=0|note=
 ENRICH_FILE=kospi_fx_weakness_candidates_30_supplemented_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
 ENRICH_FILE=kospi_fx_weakness_recommend_7_current_basis_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
 ENRICH_FILE=kospi_fx_weakness_recommend_7_latest.csv|status=OK|rows=7|matched_rows=7|burden_detected_rows=6|check_limited_rows=7|check_failed_rows=0|note=
 ENRICH_FILE=kospi_fx_weakness_recommend_7_supplemented_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
-ENRICH_FILE=kospi_gainers_1m_current_basis_latest.csv|status=OK|rows=20|matched_rows=20|burden_detected_rows=17|check_limited_rows=20|check_failed_rows=0|note=
-ENRICH_FILE=kospi_gainers_1m_latest.csv|status=OK|rows=20|matched_rows=20|burden_detected_rows=16|check_limited_rows=20|check_failed_rows=0|note=
-ENRICH_FILE=kospi_gainers_1m_supplemented_latest.csv|status=OK|rows=20|matched_rows=20|burden_detected_rows=17|check_limited_rows=20|check_failed_rows=0|note=
+ENRICH_FILE=kospi_gainers_1m_current_basis_latest.csv|status=OK|rows=20|matched_rows=20|burden_detected_rows=16|check_limited_rows=20|check_failed_rows=0|note=
+ENRICH_FILE=kospi_gainers_1m_latest.csv|status=OK|rows=20|matched_rows=20|burden_detected_rows=14|check_limited_rows=20|check_failed_rows=0|note=
+ENRICH_FILE=kospi_gainers_1m_supplemented_latest.csv|status=OK|rows=20|matched_rows=20|burden_detected_rows=16|check_limited_rows=20|check_failed_rows=0|note=
 ENRICH_FILE=kospi_monthly_cycle_current_basis_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
-ENRICH_FILE=kospi_monthly_cycle_latest.csv|status=OK|rows=40|matched_rows=40|burden_detected_rows=27|check_limited_rows=40|check_failed_rows=0|note=
+ENRICH_FILE=kospi_monthly_cycle_latest.csv|status=OK|rows=40|matched_rows=40|burden_detected_rows=28|check_limited_rows=40|check_failed_rows=0|note=
 ENRICH_FILE=kospi_monthly_cycle_supplemented_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
 ENRICH_FILE=kospi_recommend_7_current_basis_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
 ENRICH_FILE=kospi_recommend_7_latest.csv|status=OK|rows=7|matched_rows=7|burden_detected_rows=7|check_limited_rows=7|check_failed_rows=0|note=
@@ -98,6 +98,6 @@ ENRICH_FILE=kospi_short_term_recommend_7_supplemented_latest.csv|status=EMPTY_OR
 ENRICH_FILE=kospi_universe_summary_current_basis_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
 ENRICH_FILE=kospi_universe_summary_latest.csv|status=OK|rows=925|matched_rows=925|burden_detected_rows=578|check_limited_rows=925|check_failed_rows=0|note=
 ENRICH_FILE=kospi_universe_summary_supplemented_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
-ENRICH_FILE=watchlist_summary_current_basis_latest.csv|status=OK|rows=47|matched_rows=44|burden_detected_rows=37|check_limited_rows=44|check_failed_rows=0|note=
-ENRICH_FILE=watchlist_summary_latest.csv|status=OK|rows=47|matched_rows=44|burden_detected_rows=37|check_limited_rows=44|check_failed_rows=0|note=
-ENRICH_FILE=watchlist_summary_supplemented_latest.csv|status=OK|rows=47|matched_rows=44|burden_detected_rows=37|check_limited_rows=44|check_failed_rows=0|note=
+ENRICH_FILE=watchlist_summary_current_basis_latest.csv|status=OK|rows=47|matched_rows=44|burden_detected_rows=38|check_limited_rows=44|check_failed_rows=0|note=
+ENRICH_FILE=watchlist_summary_latest.csv|status=OK|rows=47|matched_rows=44|burden_detected_rows=38|check_limited_rows=44|check_failed_rows=0|note=
+ENRICH_FILE=watchlist_summary_supplemented_latest.csv|status=OK|rows=47|matched_rows=44|burden_detected_rows=38|check_limited_rows=44|check_failed_rows=0|note=

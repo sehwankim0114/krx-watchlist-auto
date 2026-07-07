@@ -1,10 +1,10 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260707T085504+0900-7908f12969",
+  "build_id": "20260707T104442+0900-7c1a5170c1",
   "snapshot_id": "current_price_basis",
   "display_name": "현재가 보정 상태",
-  "generated_at_kst": "2026-07-07T08:55:04+09:00",
-  "source_commit_sha": "7908f12969789ea6d89a429923620a5237d4999a",
+  "generated_at_kst": "2026-07-07T10:44:42+09:00",
+  "source_commit_sha": "7c1a5170c10698af6f2b0f0896c865c3d1451489",
   "source_file": "latest/current_price_basis_latest.json",
   "status": "OK",
   "rules_version": "2026-07-06-v6.2-explanation-manual-only",
@@ -96,7 +96,7 @@
   },
   "data": {
     "script": "apply_current_price_basis.py v1.1_current_close_support",
-    "run_at_kst": "2026-07-06T21:58:54+09:00",
+    "run_at_kst": "2026-07-07T10:34:29+09:00",
     "output_dir": "latest",
     "source_files": [
       "kospi_candidates_30_latest.csv",
@@ -104,7 +104,7 @@
       "kospi_gainers_1m_latest.csv",
       "watchlist_summary_latest.csv"
     ],
-    "aux_price_count": 100,
+    "aux_price_count": 98,
     "ok_files": 4,
     "results": [
       {
@@ -113,11 +113,11 @@
         "status": "OK",
         "rows": 30,
         "matched": 30,
-        "marked_blue": 10,
-        "marked_orange": 5,
-        "marked_red": 8,
+        "marked_blue": 4,
+        "marked_orange": 4,
+        "marked_red": 18,
         "marked_fail": 0,
-        "changed_price_cells": 28,
+        "changed_price_cells": 29,
         "price_column": "close"
       },
       {
@@ -127,10 +127,10 @@
         "rows": 10,
         "matched": 10,
         "marked_blue": 2,
-        "marked_orange": 0,
-        "marked_red": 7,
+        "marked_orange": 2,
+        "marked_red": 4,
         "marked_fail": 0,
-        "changed_price_cells": 10,
+        "changed_price_cells": 9,
         "price_column": "close"
       },
       {
@@ -139,9 +139,9 @@
         "status": "OK",
         "rows": 20,
         "matched": 20,
-        "marked_blue": 2,
-        "marked_orange": 4,
-        "marked_red": 12,
+        "marked_blue": 1,
+        "marked_orange": 3,
+        "marked_red": 16,
         "marked_fail": 0,
         "changed_price_cells": 20,
         "price_column": "close"
@@ -152,11 +152,11 @@
         "status": "OK",
         "rows": 47,
         "matched": 44,
-        "marked_blue": 6,
-        "marked_orange": 18,
-        "marked_red": 20,
+        "marked_blue": 11,
+        "marked_orange": 9,
+        "marked_red": 16,
         "marked_fail": 0,
-        "changed_price_cells": 44,
+        "changed_price_cells": 43,
         "price_column": "current_close"
       }
     ],
@@ -169,9 +169,9 @@
       "⚪": "보조 현재가 확인 실패"
     },
     "summary": {
-      "blue": 20,
-      "orange": 27,
-      "red": 47,
+      "blue": 18,
+      "orange": 18,
+      "red": 54,
       "fail": 0
     },
     "status": "OK"

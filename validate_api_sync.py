@@ -284,7 +284,7 @@ def main() -> int:
         "action_operation_id": "getRequestTimePrices",
         "health_operation_id": "getRequestTimePriceHealth",
         "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
-        "max_batch_size": 50,
+        "max_batch_size": 10,
         "preserve_official_history": True,
         "allow_last_confirmed_official_when_delayed": True,
     }

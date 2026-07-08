@@ -103,6 +103,15 @@ jobs:
                       f"{filename}: sector coverage="
                       f"{payload.get('sector_theme_coverage_pct')}"
                   )
+              if payload.get("sector_theme_source") != (
+                  "KRX_KIND_LISTED_COMPANY"
+              ):
+                  raise SystemExit(f"{filename}: source mismatch")
+              if payload.get("payload_size_bytes", 999999) > 70000:
+                  raise SystemExit(
+                      f"{filename}: payload too large="
+                      f"{payload.get('payload_size_bytes')}"
+                  )
 
               contract = payload.get("output_contract") or {}
               if contract.get(
@@ -116,12 +125,8 @@ jobs:
                       raise SystemExit(
                           f"{filename} row {index}: sector missing"
                       )
-                  if row.get("sector_theme_source") != (
-                      "KRX_KIND_LISTED_COMPANY"
-                  ):
-                      raise SystemExit(
-                          f"{filename} row {index}: source mismatch"
-                      )
+                  # Source metadata is intentionally stored once at payload
+                  # level to keep the compact Action response below the limit.
                   if row.get(
                       "avg_trading_value_per_minute_krw"
                   ) is None:
@@ -129,7 +134,7 @@ jobs:
                           f"{filename} row {index}: per-minute missing"
                       )
                   display = row.get(
-                      "average_volume_per_minute_value_display"
+                      "avg_trading_value_per_minute_display"
                   )
                   if not display or "분" not in display:
                       raise SystemExit(
@@ -192,6 +197,7 @@ jobs:
           print("KOSDAQ_SECTOR_COVERAGE=10/10")
           print("TRADING_COLUMN_LABEL=평균거래량·분당거래금")
           print("PER_MINUTE_VALUE=PASS")
+          print("COMPACT_PAYLOAD_SIZE=PASS")
           print("BOLD_RANGE_MARKDOWN=PASS")
           print("US_WATCHLIST_REGRESSION=PASS")
           PY

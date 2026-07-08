@@ -1,0 +1,269 @@
+name: V6 Apply Lightweight KOSPI KOSDAQ Watchlists V66
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v6-apply-lightweight-kospi-kosdaq-watchlists-v66
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install requirements
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install PyYAML
+
+      - name: Check required files
+        run: |
+          set -euo pipefail
+          test -f build_lightweight_watchlist_api_v66.py
+          test -f patch_lightweight_watchlist_routes_v66.py
+          test -f build_api_json.py
+          test -f validate_api_sync.py
+          test -f docs/custom_gpt_action_schema.yaml
+          test -f docs/stock_table_rules_latest.md
+          echo "V66_PREREQUISITES=OK"
+
+      - name: Apply v6.6 patch
+        run: |
+          set -euo pipefail
+          python patch_lightweight_watchlist_routes_v66.py
+          python -m py_compile \
+            build_lightweight_watchlist_api_v66.py \
+            patch_lightweight_watchlist_routes_v66.py \
+            build_api_json.py \
+            validate_api_sync.py
+          echo "V66_PATCH=OK"
+
+      - name: Build all API JSON
+        run: |
+          set -euo pipefail
+          python build_api_json.py
+
+      - name: Validate synchronized API
+        run: |
+          set -euo pipefail
+          python validate_api_sync.py --api-dir api
+
+      - name: Verify compact watchlist contracts
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          expected = {
+              "kospi_watchlist.json": {
+                  "rows": 30,
+                  "operation_id": "getKospiWatchlist",
+                  "market": "KOSPI",
+              },
+              "kosdaq_watchlist.json": {
+                  "rows": 10,
+                  "operation_id": "getKosdaqWatchlist",
+                  "market": "KOSDAQ",
+              },
+          }
+
+          payloads = {}
+          for filename, contract in expected.items():
+              path = Path("api") / filename
+              if not path.exists():
+                  raise SystemExit(f"missing: {path}")
+              raw = path.read_bytes()
+              if len(raw) > 65000:
+                  raise SystemExit(
+                      f"{filename}: payload too large: {len(raw)}"
+                  )
+              payload = json.loads(raw)
+              payloads[filename] = payload
+
+              checks = {
+                  "status": "OK",
+                  "compact_payload": True,
+                  "preferred_default_action": True,
+                  "operation_id": contract["operation_id"],
+                  "row_count": contract["rows"],
+                  "row_count_ok": True,
+              }
+              for key, value in checks.items():
+                  if payload.get(key) != value:
+                      raise SystemExit(
+                          f"{filename}: {key}={payload.get(key)!r}"
+                      )
+
+              rows = payload.get("rows")
+              if not isinstance(rows, list) or len(rows) != contract["rows"]:
+                  raise SystemExit(f"{filename}: row list mismatch")
+
+              required_fields = {
+                  "recommendation_display",
+                  "name",
+                  "code",
+                  "quote_key",
+                  "quote_market",
+                  "analysis_date",
+                  "static_price",
+                  "value_buy_range",
+                  "first_sell_target_range",
+                  "current_position",
+                  "score_reason",
+              }
+              for index, row in enumerate(rows):
+                  missing = [
+                      field
+                      for field in required_fields
+                      if field not in row
+                  ]
+                  if missing:
+                      raise SystemExit(
+                          f"{filename} row {index}: missing={missing}"
+                      )
+                  if not re.fullmatch(r"\d{6}", row["quote_key"]):
+                      raise SystemExit(
+                          f"{filename} row {index}: "
+                          f"quote_key={row['quote_key']}"
+                      )
+                  if row["quote_market"] != contract["market"]:
+                      raise SystemExit(
+                          f"{filename} row {index}: market mismatch"
+                      )
+
+              analysis_dates = sorted(
+                  {
+                      row.get("analysis_date")
+                      for row in rows
+                      if row.get("analysis_date")
+                  }
+              )
+              if (
+                  not analysis_dates
+                  or payload.get("candidate_analysis_date")
+                  != analysis_dates[-1]
+              ):
+                  raise SystemExit(
+                      f"{filename}: candidate analysis date mismatch"
+                  )
+
+              fallback = payload.get("fallback_policy") or {}
+              if fallback.get("csv_fallback_allowed") is not False:
+                  raise SystemExit(
+                      f"{filename}: CSV fallback must be false"
+                  )
+
+          build_ids = {p.get("build_id") for p in payloads.values()}
+          rules_hashes = {p.get("rules_sha256") for p in payloads.values()}
+          if len(build_ids) != 1 or None in build_ids:
+              raise SystemExit("compact build_id mismatch")
+          if len(rules_hashes) != 1 or None in rules_hashes:
+              raise SystemExit("compact rules hash mismatch")
+
+          manifest = json.loads(
+              Path("api/manifest.json").read_text(encoding="utf-8")
+          )
+          manifest_ids = {
+              item.get("table_id")
+              for item in manifest.get("tables", [])
+              if isinstance(item, dict)
+          }
+          if not {"kospi_watchlist", "kosdaq_watchlist"} <= manifest_ids:
+              raise SystemExit("manifest compact entries missing")
+
+          schema = Path(
+              "docs/custom_gpt_action_schema.yaml"
+          ).read_text(encoding="utf-8")
+          for token in (
+              "operationId: getKospiWatchlist",
+              "operationId: getKosdaqWatchlist",
+              "api/kospi_watchlist.json",
+              "api/kosdaq_watchlist.json",
+          ):
+              if token not in schema:
+                  raise SystemExit(f"schema token missing: {token}")
+
+          rules = Path(
+              "docs/stock_table_rules_latest.md"
+          ).read_text(encoding="utf-8")
+          for token in (
+              "LIGHTWEIGHT_WATCHLIST_POLICY_V66",
+              "candidate_analysis_date",
+              "CSV, GitHub 원본",
+          ):
+              if token not in rules:
+                  raise SystemExit(f"rules token missing: {token}")
+
+          report = json.loads(
+              Path("api/validation_report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          if report.get("status") != "PASS":
+              raise SystemExit(
+                  f"validation_report={report.get('status')}"
+              )
+
+          print("V66_COMPACT_CONTRACT=OK")
+          print("KOSPI_WATCHLIST_ROWS=30")
+          print("KOSDAQ_WATCHLIST_ROWS=10")
+          print("CSV_FALLBACK_ALLOWED=false")
+          print("ACTION_OPERATIONS=getKospiWatchlist,getKosdaqWatchlist")
+          print("API_VALIDATION_STATUS=PASS")
+          PY
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            build_lightweight_watchlist_api_v66.py \
+            patch_lightweight_watchlist_routes_v66.py \
+            build_api_json.py \
+            docs/custom_gpt_action_schema.yaml \
+            docs/stock_table_rules_latest.md \
+            api
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            exit 0
+          fi
+
+          git commit -m \
+            "Add compact KOSPI and KOSDAQ watchlist APIs v6.6"
+
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              echo "PUSH_SUCCESS=true"
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed"
+            sleep $((attempt * 5))
+          done
+
+          echo "PUSH_SUCCESS=false"
+          exit 1

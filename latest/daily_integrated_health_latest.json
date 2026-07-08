@@ -1,0 +1,312 @@
+{
+  "schema_version": "1.0",
+  "checker_version": "2026-07-09-v7.3-daily-integrated-health",
+  "generated_at_kst": "2026-07-09T07:44:47+09:00",
+  "status": "FAIL",
+  "critical_count": 1,
+  "warning_count": 0,
+  "context": {
+    "build_id": "20260709T070846+0900-c5ac9db84c",
+    "rules_version": "2026-07-09-v7.2-kr-sector-theme",
+    "rules_sha256": "03de9951a35f16230d008aa6bc46966f28fb237ae0831562d35544482de7c30d",
+    "source_commit_sha": "c5ac9db84ce99a5381464504e0285eb4c1685cb3"
+  },
+  "checks": [
+    {
+      "check_id": "required_files",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "필수 API·규칙 파일이 모두 존재합니다."
+    },
+    {
+      "check_id": "status_api_sync_ok",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "api_sync_ok=true"
+    },
+    {
+      "check_id": "status_official_fresh_now",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "official_fresh_now=true"
+    },
+    {
+      "check_id": "status_safe_to_analyze_as_latest",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "safe_to_analyze_as_latest=true"
+    },
+    {
+      "check_id": "validation_report",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "validation_report.json 상태가 PASS입니다."
+    },
+    {
+      "check_id": "rules_sha256",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "규칙 파일 SHA-256이 status/manifest와 일치합니다."
+    },
+    {
+      "check_id": "rules_version_text",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "규칙 문서에 현재 규칙 버전이 표시됩니다."
+    },
+    {
+      "check_id": "kospi_watchlist_rows",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kospi_watchlist 행 수가 30개로 정상입니다."
+    },
+    {
+      "check_id": "kospi_watchlist_payload_size",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kospi_watchlist 응답 크기가 안전 범위입니다.",
+      "details": {
+        "bytes": 64841,
+        "limit": 70000
+      }
+    },
+    {
+      "check_id": "kospi_watchlist_build_id",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kospi_watchlist 빌드 ID가 일치하거나 상위 검증값을 사용합니다."
+    },
+    {
+      "check_id": "kospi_watchlist_rules_version",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kospi_watchlist 규칙 버전이 일치하거나 상위 검증값을 사용합니다."
+    },
+    {
+      "check_id": "kospi_watchlist_bold_ranges",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kospi_watchlist의 매수·익절 Markdown 가격범위가 모두 정상입니다."
+    },
+    {
+      "check_id": "kospi_watchlist_manifest_entry",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "manifest의 kospi_watchlist 행 수와 상태가 정상입니다."
+    },
+    {
+      "check_id": "kospi_watchlist_sector_coverage",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kospi_watchlist 섹터/테마가 100% 연결됐습니다."
+    },
+    {
+      "check_id": "kospi_watchlist_sector_source",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kospi_watchlist 섹터 출처가 KRX KIND입니다."
+    },
+    {
+      "check_id": "kospi_watchlist_trading_column_label",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kospi_watchlist 거래 열 이름이 정상입니다."
+    },
+    {
+      "check_id": "kospi_watchlist_per_minute_value",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kospi_watchlist 분당거래금 필드가 모두 존재합니다."
+    },
+    {
+      "check_id": "kospi_watchlist_display_duplicates",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kospi_watchlist에서 알려진 중복 수급표현이 발견되지 않았습니다."
+    },
+    {
+      "check_id": "kosdaq_watchlist_rows",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kosdaq_watchlist 행 수가 10개로 정상입니다."
+    },
+    {
+      "check_id": "kosdaq_watchlist_payload_size",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kosdaq_watchlist 응답 크기가 안전 범위입니다.",
+      "details": {
+        "bytes": 29926,
+        "limit": 70000
+      }
+    },
+    {
+      "check_id": "kosdaq_watchlist_build_id",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kosdaq_watchlist 빌드 ID가 일치하거나 상위 검증값을 사용합니다."
+    },
+    {
+      "check_id": "kosdaq_watchlist_rules_version",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kosdaq_watchlist 규칙 버전이 일치하거나 상위 검증값을 사용합니다."
+    },
+    {
+      "check_id": "kosdaq_watchlist_bold_ranges",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kosdaq_watchlist의 매수·익절 Markdown 가격범위가 모두 정상입니다."
+    },
+    {
+      "check_id": "kosdaq_watchlist_manifest_entry",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "manifest의 kosdaq_watchlist 행 수와 상태가 정상입니다."
+    },
+    {
+      "check_id": "kosdaq_watchlist_sector_coverage",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kosdaq_watchlist 섹터/테마가 100% 연결됐습니다."
+    },
+    {
+      "check_id": "kosdaq_watchlist_sector_source",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kosdaq_watchlist 섹터 출처가 KRX KIND입니다."
+    },
+    {
+      "check_id": "kosdaq_watchlist_trading_column_label",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kosdaq_watchlist 거래 열 이름이 정상입니다."
+    },
+    {
+      "check_id": "kosdaq_watchlist_per_minute_value",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kosdaq_watchlist 분당거래금 필드가 모두 존재합니다."
+    },
+    {
+      "check_id": "kosdaq_watchlist_display_duplicates",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kosdaq_watchlist에서 알려진 중복 수급표현이 발견되지 않았습니다."
+    },
+    {
+      "check_id": "us_watchlist_rows",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "us_watchlist 행 수가 30개로 정상입니다."
+    },
+    {
+      "check_id": "us_watchlist_payload_size",
+      "status": "FAIL",
+      "severity": "ERROR",
+      "message": "us_watchlist 응답 크기가 제한을 넘었습니다.",
+      "details": {
+        "bytes": 94786,
+        "limit": 70000
+      }
+    },
+    {
+      "check_id": "us_watchlist_build_id",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "us_watchlist 빌드 ID가 일치하거나 상위 검증값을 사용합니다."
+    },
+    {
+      "check_id": "us_watchlist_rules_version",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "us_watchlist 규칙 버전이 일치하거나 상위 검증값을 사용합니다."
+    },
+    {
+      "check_id": "us_watchlist_bold_ranges",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "us_watchlist의 매수·익절 Markdown 가격범위가 모두 정상입니다."
+    },
+    {
+      "check_id": "us_watchlist_manifest_entry",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "manifest의 us_watchlist 행 수와 상태가 정상입니다."
+    },
+    {
+      "check_id": "us_watchlist_display_duplicates",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "us_watchlist에서 알려진 중복 수급표현이 발견되지 않았습니다."
+    },
+    {
+      "check_id": "krx_sector_cache",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "KRX KIND 전체 섹터 캐시 행 수가 정상입니다.",
+      "details": {
+        "row_count": 2726
+      }
+    },
+    {
+      "check_id": "worker_health",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "Cloudflare Worker 상태와 매니페스트 정책이 정상입니다.",
+      "details": {
+        "build_version": "1.3.2-manifest-freshness-merge",
+        "bytes": 1235
+      }
+    },
+    {
+      "check_id": "worker_compact_manifest_size",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "Worker 경량 매니페스트 응답 크기가 안전 범위입니다.",
+      "details": {
+        "bytes": 15519,
+        "limit": 65000
+      }
+    },
+    {
+      "check_id": "worker_compact_manifest_values",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "경량 매니페스트의 핵심 상태값이 정상입니다."
+    },
+    {
+      "check_id": "worker_freshness_source",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "최신성 값 출처가 확인됐습니다.",
+      "details": {
+        "source": "status.json"
+      }
+    },
+    {
+      "check_id": "worker_kospi_watchlist",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "경량 매니페스트의 kospi_watchlist 행 수와 상태가 정상입니다."
+    },
+    {
+      "check_id": "worker_kosdaq_watchlist",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "경량 매니페스트의 kosdaq_watchlist 행 수와 상태가 정상입니다."
+    },
+    {
+      "check_id": "worker_us_watchlist",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "경량 매니페스트의 us_watchlist 행 수와 상태가 정상입니다."
+    },
+    {
+      "check_id": "worker_build_id",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "Worker 경량 매니페스트 빌드 ID가 저장소와 일치합니다."
+    }
+  ]
+}

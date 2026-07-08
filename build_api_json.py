@@ -35,7 +35,7 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "build_api_json.py v4.5_output_order_price_retry_v65"
+SCRIPT_VERSION = "build_api_json.py v4.6_lightweight_watchlists_v66"
 SCHEMA_VERSION = "4.2"
 ROOT = Path(__file__).resolve().parent
 LATEST = ROOT / "latest"
@@ -900,6 +900,21 @@ def main() -> int:
         ],
     }
     write_json(API / "manifest.json", manifest_payload)
+
+    # LIGHTWEIGHT_WATCHLIST_BUILD_V66_BEGIN
+    from build_lightweight_watchlist_api_v66 import (
+        build_lightweight_watchlists,
+    )
+    lightweight_entries = build_lightweight_watchlists(API)
+    print(
+        "LIGHTWEIGHT_WATCHLISTS="
+        + ",".join(
+            f"{item['table_id']}:{item['row_count']}:"
+            f"{item['payload_size_bytes']}"
+            for item in lightweight_entries
+        )
+    )
+    # LIGHTWEIGHT_WATCHLIST_BUILD_V66_END
 
     print(f"BUILD_ID={build_id}")
     print(f"API_STATUS={overall_status}")

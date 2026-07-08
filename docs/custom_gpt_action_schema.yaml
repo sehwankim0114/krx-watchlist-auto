@@ -1,9 +1,10 @@
 openapi: 3.1.0
 info:
   title: KRX Watchlist Auto Read API
-  version: 6.0.0
-  description: Read-only synchronized KRX strict-contract API. The GPT must call status and rules first, validate build/rules/presentation
-    policy, and output one main table without duplicate shortlist tables.
+  version: 6.1.0
+  description: Read-only synchronized KRX strict-contract API. For default KOSPI/KOSDAQ tables, use the
+    compact getKospiWatchlist/getKosdaqWatchlist operations, never reconstruct rows from CSV, and use
+    the legacy full candidate endpoints only for explicit diagnostics.
 servers:
 - url: https://raw.githubusercontent.com
 paths:
@@ -62,10 +63,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnyObject'
+  /sehwankim0114/krx-watchlist-auto/main/api/kospi_watchlist.json:
+    get:
+      operationId: getKospiWatchlist
+      summary: Get compact KOSPI watchlist candidate rows
+      description: Preferred default endpoint for 코피표. Returns exactly 30 compact rows with quote keys,
+        price ranges, current position, liquidity, financial, supply burden, score, and source metadata.
+        Do not fall back to CSV or the legacy full endpoint if this call fails.
+      responses:
+        '200':
+          description: Get compact KOSPI watchlist candidate rows
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnyObject'
+  /sehwankim0114/krx-watchlist-auto/main/api/kosdaq_watchlist.json:
+    get:
+      operationId: getKosdaqWatchlist
+      summary: Get compact KOSDAQ watchlist candidate rows
+      description: Preferred default endpoint for 코닥표. Returns exactly 10 compact rows with quote keys,
+        price ranges, current position, liquidity, financial, supply burden, score, and source metadata.
+        Do not fall back to CSV or the legacy full endpoint if this call fails.
+      responses:
+        '200':
+          description: Get compact KOSDAQ watchlist candidate rows
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnyObject'
   /sehwankim0114/krx-watchlist-auto/main/api/kospi_candidates_30.json:
     get:
       operationId: getKospiCandidates
-      summary: Get the single KOSPI candidate table with embedded recommendation markings
+      summary: Legacy full KOSPI candidate payload for diagnostics
       responses:
         '200':
           description: KOSPI candidates
@@ -73,10 +102,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnyObject'
+      description: Large legacy payload. Do not use for the default stock table when the compact watchlist
+        endpoint is available.
   /sehwankim0114/krx-watchlist-auto/main/api/kosdaq_candidates_10.json:
     get:
       operationId: getKosdaqCandidates
-      summary: Get the single KOSDAQ candidate table with embedded recommendation markings
+      summary: Legacy full KOSDAQ candidate payload for diagnostics
       responses:
         '200':
           description: KOSDAQ candidates
@@ -84,7 +115,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnyObject'
-# ONE_MONTH_ACTION_PATHS_V6_BEGIN
+      description: Large legacy payload. Do not use for the default stock table when the compact watchlist
+        endpoint is available.
   /sehwankim0114/krx-watchlist-auto/main/api/kospi_1m_candidates_30.json:
     get:
       operationId: getKospiOneMonthCandidates
@@ -129,7 +161,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnyObject'
-# ONE_MONTH_ACTION_PATHS_V6_END
   /sehwankim0114/krx-watchlist-auto/main/api/kospi_gainers_1m.json:
     get:
       operationId: getKospiGainers
@@ -251,7 +282,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnyObject'
-# HOLDINGS_PRIVATE_RUNTIME_ACTION_V6_BEGIN
   /sehwankim0114/krx-watchlist-auto/main/api/stock_reference_manifest.json:
     get:
       operationId: getHoldingsReferenceManifest
@@ -268,13 +298,13 @@ paths:
       operationId: getStockReferenceShard
       summary: Get a public stock-reference shard by the first two ticker digits
       parameters:
-        - name: prefix
-          in: path
-          required: true
-          description: First two digits of a six-digit Korean ticker
-          schema:
-            type: string
-            pattern: '^[0-9]{2}$'
+      - name: prefix
+        in: path
+        required: true
+        description: First two digits of a six-digit Korean ticker
+        schema:
+          type: string
+          pattern: ^[0-9]{2}$
       responses:
         '200':
           description: Public market and company reference rows; no user holdings
@@ -282,8 +312,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnyObject'
-# HOLDINGS_PRIVATE_RUNTIME_ACTION_V6_END
-  # US_WATCHLIST_ACTION_PATHS_V6_BEGIN
   /sehwankim0114/krx-watchlist-auto/main/api/us_watchlist.json:
     get:
       operationId: getUsWatchlist
@@ -306,7 +334,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnyObject'
-  # US_WATCHLIST_ACTION_PATHS_V6_END
 components:
   schemas:
     AnyObject:

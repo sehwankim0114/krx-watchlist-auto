@@ -1,17 +1,17 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260708T103050+0900-629715f826",
-  "generated_at_kst": "2026-07-08T10:30:50+09:00",
-  "source_commit_sha": "629715f826777aded9f8b0fd38bbcfadb4c6bdd6",
+  "build_id": "20260708T111923+0900-17dc8cff6b",
+  "generated_at_kst": "2026-07-08T11:19:23+09:00",
+  "source_commit_sha": "17dc8cff6b1da59a669d9d8b5cea864dabb866f8",
   "status": "READY",
   "api_sync_ok": true,
   "safe_to_analyze_as_latest": true,
-  "rules_version": "2026-07-07-v6.5-output-order-price-retry",
-  "rules_sha256": "e9fbace2d51626647ed342cdc1edf785965791237fda287154d065f7f254bdbf",
+  "rules_version": "2026-07-08-v6.6-lightweight-watchlists",
+  "rules_sha256": "e1e4c5ca85a8d9f5095f3886dd1fa6e1bbbac4b7ef7eca592f0eaa0dc5a89b7b",
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-07-v6.5-output-order-price-retry",
-    "sha256": "e9fbace2d51626647ed342cdc1edf785965791237fda287154d065f7f254bdbf"
+    "version": "2026-07-08-v6.6-lightweight-watchlists",
+    "sha256": "e1e4c5ca85a8d9f5095f3886dd1fa6e1bbbac4b7ef7eca592f0eaa0dc5a89b7b"
   },
   "presentation_policy": {
     "format_contract": "improvement_plan_2_final",
@@ -2451,6 +2451,276 @@
         ]
       },
       "current_basis_selected": false
+    },
+    {
+      "table_id": "kospi_watchlist",
+      "display_name": "코피표 — 코스피 후보 30개",
+      "api_file": "api/kospi_watchlist.json",
+      "source_file": "latest/kospi_candidates_30_current_basis_latest.csv",
+      "source_api_file": "api/kospi_candidates_30.json",
+      "status": "OK",
+      "row_count": 30,
+      "required": false,
+      "lightweight_required": true,
+      "default_output": true,
+      "explicit_request_only": false,
+      "compact_payload": true,
+      "preferred_default_action": true,
+      "operation_id": "getKospiWatchlist",
+      "payload_size_bytes": 50241,
+      "candidate_analysis_date": "2026-07-07",
+      "current_basis_selected": true,
+      "presentation_policy": {
+        "format_contract": "improvement_plan_2_final",
+        "default_output_mode": "single_main_table",
+        "separate_recommendation_table_default": false,
+        "recommendation_markings_embedded_in_main_table": true,
+        "explicit_shortlist_request": "filter main candidate rows and output only the shortlist table",
+        "duplicate_rows_across_main_and_shortlist_tables": false,
+        "metadata_display_mode": "compact_two_column_table",
+        "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
+        "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
+        "automatic_weekly_guide": false,
+        "full_manual_trigger": "설명서",
+        "partial_help_trigger_phrases": [
+          "사용법",
+          "해석해줘",
+          "표시 설명",
+          "항목 설명",
+          "용어 설명"
+        ],
+        "full_manual_section_order": [
+          "30초 사용법",
+          "표시 읽는 법",
+          "어떤 표를 사용할지",
+          "항목 읽는 법",
+          "점수·추천·주의사유 해석",
+          "여러 표 연결 방법",
+          "꼭 기억할 원칙",
+          "주요 용어"
+        ],
+        "minimal_notes_allowed": [
+          "symbols_used_in_current_table",
+          "request_time_price_failures_or_partial_results",
+          "after_hours_not_reflected",
+          "short_investment_reference_disclaimer"
+        ],
+        "prohibited_default_extras": [
+          "monday_first_table_guide",
+          "weekly_usage_guide",
+          "full_command_catalog",
+          "full_glossary",
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
+        ]
+      },
+      "request_time_price_policy": {
+        "enabled": true,
+        "mode": "request_time_dynamic_overlay",
+        "lookup_scope": "all_rows_in_requested_table",
+        "action_operation_id": "getRequestTimePrices",
+        "health_operation_id": "getRequestTimePriceHealth",
+        "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
+        "quote_key_fields": [
+          "ticker",
+          "symbol",
+          "code",
+          "종목코드",
+          "stock_code"
+        ],
+        "quote_key_aliases": {
+          "us": [
+            "ticker",
+            "symbol"
+          ],
+          "kr": [
+            "code",
+            "종목코드",
+            "stock_code"
+          ]
+        },
+        "market_fields": [
+          "market",
+          "시장",
+          "exchange",
+          "country"
+        ],
+        "preserve_official_history": true,
+        "allow_last_confirmed_official_when_delayed": true,
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
+      }
+    },
+    {
+      "table_id": "kosdaq_watchlist",
+      "display_name": "코닥표 — 코스닥 후보 10개",
+      "api_file": "api/kosdaq_watchlist.json",
+      "source_file": "latest/kosdaq_candidates_10_current_basis_latest.csv",
+      "source_api_file": "api/kosdaq_candidates_10.json",
+      "status": "OK",
+      "row_count": 10,
+      "required": false,
+      "lightweight_required": true,
+      "default_output": true,
+      "explicit_request_only": false,
+      "compact_payload": true,
+      "preferred_default_action": true,
+      "operation_id": "getKosdaqWatchlist",
+      "payload_size_bytes": 21951,
+      "candidate_analysis_date": "2026-07-07",
+      "current_basis_selected": true,
+      "presentation_policy": {
+        "format_contract": "improvement_plan_2_final",
+        "default_output_mode": "single_main_table",
+        "separate_recommendation_table_default": false,
+        "recommendation_markings_embedded_in_main_table": true,
+        "explicit_shortlist_request": "filter main candidate rows and output only the shortlist table",
+        "duplicate_rows_across_main_and_shortlist_tables": false,
+        "metadata_display_mode": "compact_two_column_table",
+        "bold_price_ranges": true,
+        "output_sequence": [
+          "title",
+          "metadata_two_column_table",
+          "main_stock_table",
+          "minimal_required_notes"
+        ],
+        "metadata_table_complete_before_main_table": true,
+        "minimal_notes_position": "after_main_table_only",
+        "forbid_notes_inside_metadata_table": true,
+        "forbid_metadata_rows_after_notes": true,
+        "explanation_default_mode": "main_table_plus_minimal_required_notes_only",
+        "automatic_weekly_guide": false,
+        "full_manual_trigger": "설명서",
+        "partial_help_trigger_phrases": [
+          "사용법",
+          "해석해줘",
+          "표시 설명",
+          "항목 설명",
+          "용어 설명"
+        ],
+        "full_manual_section_order": [
+          "30초 사용법",
+          "표시 읽는 법",
+          "어떤 표를 사용할지",
+          "항목 읽는 법",
+          "점수·추천·주의사유 해석",
+          "여러 표 연결 방법",
+          "꼭 기억할 원칙",
+          "주요 용어"
+        ],
+        "minimal_notes_allowed": [
+          "symbols_used_in_current_table",
+          "request_time_price_failures_or_partial_results",
+          "after_hours_not_reflected",
+          "short_investment_reference_disclaimer"
+        ],
+        "prohibited_default_extras": [
+          "monday_first_table_guide",
+          "weekly_usage_guide",
+          "full_command_catalog",
+          "full_glossary",
+          "long_explanation_section",
+          "notes_between_metadata_rows",
+          "metadata_rows_after_notes"
+        ]
+      },
+      "request_time_price_policy": {
+        "enabled": true,
+        "mode": "request_time_dynamic_overlay",
+        "lookup_scope": "all_rows_in_requested_table",
+        "action_operation_id": "getRequestTimePrices",
+        "health_operation_id": "getRequestTimePriceHealth",
+        "api_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
+        "max_batch_size": 10,
+        "initial_batch_size": 10,
+        "batch_execution_mode": "sequential",
+        "max_parallel_batches": 1,
+        "retry_failed_quotes": true,
+        "retry_only_failed": true,
+        "retry_rounds": 2,
+        "retry_batch_sizes": [
+          5,
+          2
+        ],
+        "retry_execution_mode": "sequential",
+        "merge_results_by_quote_key": true,
+        "preserve_input_order": true,
+        "deduplicate_quote_keys": true,
+        "final_success_count_after_retries": true,
+        "quote_key_fields": [
+          "ticker",
+          "symbol",
+          "code",
+          "종목코드",
+          "stock_code"
+        ],
+        "quote_key_aliases": {
+          "us": [
+            "ticker",
+            "symbol"
+          ],
+          "kr": [
+            "code",
+            "종목코드",
+            "stock_code"
+          ]
+        },
+        "market_fields": [
+          "market",
+          "시장",
+          "exchange",
+          "country"
+        ],
+        "preserve_official_history": true,
+        "allow_last_confirmed_official_when_delayed": true,
+        "failed_quote_behavior": "after_all_retries_keep_row_mark_white_circle_do_not_fake_price",
+        "large_table_behavior": "split_into_sequential_batches_until_all_rows_attempted",
+        "execution_steps": [
+          "extract_all_quote_keys_in_table_order",
+          "call_initial_sequential_batches_of_at_most_10",
+          "collect_only_failed_quote_keys",
+          "retry_failed_keys_in_batches_of_at_most_5",
+          "retry_still_failed_keys_in_batches_of_at_most_2",
+          "merge_all_successes_and_preserve_original_row_order",
+          "mark_only_final_failures_with_white_circle"
+        ]
+      }
     }
   ],
   "snapshots": [
@@ -2523,5 +2793,32 @@
     "api/manifest.json",
     "api/stock_table_rules.json",
     "api/validation_report.json"
-  ]
+  ],
+  "lightweight_watchlists": {
+    "contract_version": "2026-07-08-v6.6-lightweight-watchlists",
+    "preferred_actions": {
+      "KOSPI": "getKospiWatchlist",
+      "KOSDAQ": "getKosdaqWatchlist"
+    },
+    "csv_fallback_allowed": false,
+    "legacy_full_api_fallback_allowed": false,
+    "entries": [
+      {
+        "table_id": "kospi_watchlist",
+        "api_file": "api/kospi_watchlist.json",
+        "operation_id": "getKospiWatchlist",
+        "row_count": 30,
+        "payload_size_bytes": 50241,
+        "candidate_analysis_date": "2026-07-07"
+      },
+      {
+        "table_id": "kosdaq_watchlist",
+        "api_file": "api/kosdaq_watchlist.json",
+        "operation_id": "getKosdaqWatchlist",
+        "row_count": 10,
+        "payload_size_bytes": 21951,
+        "candidate_analysis_date": "2026-07-07"
+      }
+    ]
+  }
 }

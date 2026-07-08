@@ -1,7 +1,7 @@
 # 한국 주식 자동화 분석표 최신 개선형 통합 규칙
 
-- 최종 업데이트: 2026-07-07
-- 규칙 버전: `2026-07-07-v6.5-output-order-price-retry`
+- 최종 업데이트: 2026-07-08
+- 규칙 버전: `2026-07-08-v6.6-lightweight-watchlists`
 - 저장소: `sehwankim0114/krx-watchlist-auto`
 - 적용 대상: `관종표`, `분석표`, `코피표`, `코피표1개월`, `코닥표`, `코닥표1개월`, `코급표`, `월사이클표`, `단상표`, `환율약세표`, `시장상태표`, `보유종목표`, `미관종표`
 
@@ -413,7 +413,7 @@
 <!-- REQUEST_TIME_PRICE_POLICY_V51_BEGIN -->
 ## 요청시점 현재가 오버레이 규칙
 
-- 규칙 버전: `2026-07-07-v6.5-output-order-price-retry`
+- 규칙 버전: `2026-07-08-v6.6-lightweight-watchlists`
 - 현재가 Action: `getRequestTimePrices`
 - 현재가 API: `https://krx-live-price-ksh.diaconos.workers.dev`
 - 적용 범위: 관종표·분석표·코피표·코피표1개월·코닥표·코닥표1개월·코급표·월사이클표·환율약세표·단상표·보유종목표·미관종표 및 명시 요청 전용 표의 모든 종목 행
@@ -429,3 +429,54 @@
 - 응답이 `PARTIAL`이면 성공 종목만 현재가 의존 계산에 사용하고 실패 종목을 명시한다.
 - 응답이 `FAILED`이면 공식자료 기반 표는 작성할 수 있으나 `요청시점 현재가 미반영`을 표시한다.
 <!-- REQUEST_TIME_PRICE_POLICY_V51_END -->
+
+---
+
+## 14. 코피·코닥 경량 Action 정책
+
+### 14-1. 기본 Action
+
+- `코피표 줘`, `코스피 줘`의 기본 후보 Action은
+  `getKospiWatchlist`이다.
+- `코닥표 줘`, `코스닥 줘`의 기본 후보 Action은
+  `getKosdaqWatchlist`이다.
+- 코피표는 경량 API의 후보 30개 전체를 사용한다.
+- 코닥표는 경량 API의 후보 10개 전체를 사용한다.
+- 기존 `getKospiCandidates`, `getKosdaqCandidates`는 진단용 대형
+  원본으로만 남기며 기본 표 작성에는 사용하지 않는다.
+
+### 14-2. 응답 실패 처리
+
+- 경량 Action이 실패하거나 행 수가 맞지 않으면 CSV, GitHub 원본,
+  기존 대형 후보 API에서 표를 임의 복원하지 않는다.
+- 실패 사실과 누락 범위를 명확히 표시하고 분석을 중단한다.
+- 성공한 경량 API의 행 순서를 그대로 유지한다.
+
+### 14-3. 날짜 표시
+
+- 후보 분석자료 기준일은 `candidate_analysis_date`를 사용한다.
+- `valuation_basis_date_min`, `valuation_basis_date_max`는 재무·밸류에이션
+  계산 기준일로 별도 표시할 수 있다.
+- 재무·밸류에이션 기준일을 후보 분석자료 기준일로 대신 쓰지 않는다.
+- 공식 KRX 최신성은 `official_data`의 기대 거래일과 실제 기준일을
+  별도로 확인한다.
+
+### 14-4. 요청시점 현재가 연결
+
+- 각 행의 `quote_key`와 `quote_market`으로 요청시점 현재가를 조회한다.
+- 10개씩 순차 조회하고 실패 종목만 5개, 2개 순서로 재시도한다.
+- 경량 API의 `static_price`는 정적 참고가격이며 요청시점 현재가로
+  위장하지 않는다.
+
+### 14-5. 경량 응답 검증
+
+- 코피표는 정확히 30행, 코닥표는 정확히 10행이어야 한다.
+- `build_id`, `rules_version`, `rules_sha256`은 상태·규칙·매니페스트와
+  일치해야 한다.
+- 각 행에는 `name`, `code`, `quote_key`, `quote_market`,
+  `value_buy_range`, `first_sell_target_range`, `current_position`,
+  `score_reason`이 있어야 한다.
+- 경량 API 파일은 각각 65,000바이트 이하를 유지한다.
+
+<!-- LIGHTWEIGHT_WATCHLIST_POLICY_V66 -->
+

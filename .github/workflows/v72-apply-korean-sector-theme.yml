@@ -1,0 +1,237 @@
+name: V72 Apply Korean Sector Theme
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v72-apply-korean-sector-theme
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install requirements
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install "lxml>=5.0"
+
+      - name: Check required files
+        run: |
+          set -euo pipefail
+          test -f collect_kr_sector_theme_v72.py
+          test -f apply_kr_sector_theme_v72.py
+          test -f patch_kr_sector_theme_v72.py
+          test -f build_api_json.py
+          test -f apply_final_display_contract_v71.py
+          test -f validate_api_sync.py
+          test -f docs/stock_table_rules_latest.md
+          echo "V72_PREREQUISITES=OK"
+
+      - name: Apply V7.2 patch
+        run: |
+          set -euo pipefail
+          python patch_kr_sector_theme_v72.py
+          python -m py_compile \
+            collect_kr_sector_theme_v72.py \
+            apply_kr_sector_theme_v72.py \
+            patch_kr_sector_theme_v72.py \
+            build_api_json.py
+          echo "V72_PATCH=OK"
+
+      - name: Collect official KRX industry data
+        run: |
+          set -euo pipefail
+          python collect_kr_sector_theme_v72.py \
+            --output-dir latest \
+            --min-rows 1500
+
+      - name: Build all API JSON
+        run: |
+          set -euo pipefail
+          python build_api_json.py
+
+      - name: Validate synchronized API
+        run: |
+          set -euo pipefail
+          python validate_api_sync.py --api-dir api
+
+      - name: Verify V7.2 Korean tables
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          expected = {
+              "kospi_watchlist.json": 30,
+              "kosdaq_watchlist.json": 10,
+          }
+
+          for filename, exact_rows in expected.items():
+              path = Path("api") / filename
+              payload = json.loads(path.read_text(encoding="utf-8"))
+              rows = payload.get("rows")
+              if not isinstance(rows, list) or len(rows) != exact_rows:
+                  raise SystemExit(f"{filename}: row mismatch")
+
+              if payload.get("display_contract_version") != (
+                  "2026-07-09-v7.2-kr-sector-theme"
+              ):
+                  raise SystemExit(f"{filename}: contract mismatch")
+
+              if payload.get("sector_theme_coverage_pct") != 100.0:
+                  raise SystemExit(
+                      f"{filename}: sector coverage="
+                      f"{payload.get('sector_theme_coverage_pct')}"
+                  )
+
+              contract = payload.get("output_contract") or {}
+              if contract.get(
+                  "average_volume_per_minute_value_column_label"
+              ) != "평균거래량·분당거래금":
+                  raise SystemExit(f"{filename}: trading label mismatch")
+
+              for index, row in enumerate(rows):
+                  sector_theme = row.get("sector_theme")
+                  if not sector_theme or sector_theme == "자료 미제공":
+                      raise SystemExit(
+                          f"{filename} row {index}: sector missing"
+                      )
+                  if row.get("sector_theme_source") != (
+                      "KRX_KIND_LISTED_COMPANY"
+                  ):
+                      raise SystemExit(
+                          f"{filename} row {index}: source mismatch"
+                      )
+                  if row.get(
+                      "avg_trading_value_per_minute_krw"
+                  ) is None:
+                      raise SystemExit(
+                          f"{filename} row {index}: per-minute missing"
+                      )
+                  display = row.get(
+                      "average_volume_per_minute_value_display"
+                  )
+                  if not display or "분" not in display:
+                      raise SystemExit(
+                          f"{filename} row {index}: display missing"
+                      )
+                  for field in (
+                      "value_buy_range_markdown",
+                      "first_sell_target_range_markdown",
+                  ):
+                      value = row.get(field)
+                      if not (
+                          isinstance(value, str)
+                          and value.startswith("**")
+                          and value.endswith("**")
+                      ):
+                          raise SystemExit(
+                              f"{filename} row {index}: {field} invalid"
+                          )
+
+          us = json.loads(
+              Path("api/us_watchlist.json").read_text(encoding="utf-8")
+          )
+          if len(us.get("rows") or []) != 30:
+              raise SystemExit("us_watchlist row regression")
+
+          status = json.loads(
+              Path("api/status.json").read_text(encoding="utf-8")
+          )
+          if status.get("rules_version") != (
+              "2026-07-09-v7.2-kr-sector-theme"
+          ):
+              raise SystemExit("status rules version mismatch")
+          policy = status.get("presentation_policy") or {}
+          if policy.get("kr_sector_theme_source") != (
+              "KRX_KIND_LISTED_COMPANY"
+          ):
+              raise SystemExit("status sector policy missing")
+
+          rules = Path(
+              "docs/stock_table_rules_latest.md"
+          ).read_text(encoding="utf-8")
+          for token in (
+              "KR_SECTOR_THEME_V72",
+              "평균거래량·분당거래금",
+              "KRX_KIND_LISTED_COMPANY",
+          ):
+              if token not in rules:
+                  raise SystemExit(f"rules token missing: {token}")
+
+          report = json.loads(
+              Path("api/validation_report.json").read_text(encoding="utf-8")
+          )
+          if report.get("status") != "PASS":
+              raise SystemExit(
+                  f"validation report={report.get('status')}"
+              )
+
+          print("KR_SECTOR_THEME_V72=PASS")
+          print("KOSPI_SECTOR_COVERAGE=30/30")
+          print("KOSDAQ_SECTOR_COVERAGE=10/10")
+          print("TRADING_COLUMN_LABEL=평균거래량·분당거래금")
+          print("PER_MINUTE_VALUE=PASS")
+          print("BOLD_RANGE_MARKDOWN=PASS")
+          print("US_WATCHLIST_REGRESSION=PASS")
+          PY
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            collect_kr_sector_theme_v72.py \
+            apply_kr_sector_theme_v72.py \
+            patch_kr_sector_theme_v72.py \
+            build_api_json.py \
+            requirements.txt \
+            docs/stock_table_rules_latest.md \
+            latest/krx_sector_theme_latest.json \
+            latest/krx_sector_theme_latest.csv \
+            latest/krx_sector_theme_run_log_latest.txt \
+            api
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            exit 0
+          fi
+
+          git commit -m \
+            "Add official Korean sector and theme enrichment v7.2"
+
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              echo "PUSH_SUCCESS=true"
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "PUSH_SUCCESS=false"
+              exit 1
+            fi
+            sleep 3
+          done

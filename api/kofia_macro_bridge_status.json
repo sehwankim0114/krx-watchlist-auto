@@ -1,10 +1,10 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260708T082015+0900-4a50672cee",
+  "build_id": "20260708T103050+0900-629715f826",
   "snapshot_id": "kofia_macro_bridge_status",
   "display_name": "KOFIA 연결 상태",
-  "generated_at_kst": "2026-07-08T08:20:15+09:00",
-  "source_commit_sha": "4a50672cee72f2bc9b340bd6e636f3e78c806ef8",
+  "generated_at_kst": "2026-07-08T10:30:50+09:00",
+  "source_commit_sha": "629715f826777aded9f8b0fd38bbcfadb4c6bdd6",
   "source_file": "latest/kofia_macro_bridge_status_latest.json",
   "status": "OK",
   "rules_version": "2026-07-07-v6.5-output-order-price-retry",
@@ -132,7 +132,7 @@
   },
   "data": {
     "script": "kofia_macro_bridge.py v1.0_local_csv_bridge",
-    "run_at_kst": "2026-07-07T10:33:01+09:00",
+    "run_at_kst": "2026-07-08T10:23:19+09:00",
     "overall_status": "OK_ALL_3",
     "bridge_indicator_count": 3,
     "bridge_indicator_codes": [
@@ -141,12 +141,12 @@
       "KOFIA_INVESTOR_DEPOSIT_MILLION_KRW"
     ],
     "latest_dates": {
-      "KOFIA_CMA_BALANCE_MILLION_KRW": "2026-07-03",
-      "KOFIA_CREDIT_FINANCING_MILLION_KRW": "2026-07-03",
-      "KOFIA_INVESTOR_DEPOSIT_MILLION_KRW": "2026-07-03"
+      "KOFIA_CMA_BALANCE_MILLION_KRW": "2026-07-06",
+      "KOFIA_CREDIT_FINANCING_MILLION_KRW": "2026-07-06",
+      "KOFIA_INVESTOR_DEPOSIT_MILLION_KRW": "2026-07-06"
     },
-    "bridge_rows": 2150,
-    "macro_history_rows_after_merge": 1359,
+    "bridge_rows": 2153,
+    "macro_history_rows_after_merge": 1356,
     "next_step": "Run macro_leverage_status.py after this bridge so bubble_risk_latest.json receives the KOFIA snapshot."
   }
 }

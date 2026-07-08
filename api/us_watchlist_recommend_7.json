@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260708T082015+0900-4a50672cee",
+  "build_id": "20260708T103050+0900-629715f826",
   "script": "build_api_json.py v4.5_output_order_price_retry_v65",
   "table_id": "us_watchlist_recommend_7",
   "display_name": "별도 요청용 미관종표 추천 7",
-  "generated_at_kst": "2026-07-08T08:20:15+09:00",
-  "source_commit_sha": "4a50672cee72f2bc9b340bd6e636f3e78c806ef8",
+  "generated_at_kst": "2026-07-08T10:30:50+09:00",
+  "source_commit_sha": "629715f826777aded9f8b0fd38bbcfadb4c6bdd6",
   "required": false,
   "default_output": false,
   "explicit_request_only": true,
@@ -133,12 +133,12 @@
   },
   "official_data": {
     "source_file": "official_data_status_latest.json",
-    "source_run_at_kst": "2026-07-07T10:04:50+09:00",
-    "source_expected_official_trading_date": "2026-07-06",
-    "computed_expected_official_trading_date": "2026-07-06",
-    "kospi_actual_date": "2026-07-06",
-    "kosdaq_actual_date": "2026-07-06",
-    "basis_date_for_display": "2026-07-06",
+    "source_run_at_kst": "2026-07-08T10:05:42+09:00",
+    "source_expected_official_trading_date": "2026-07-07",
+    "computed_expected_official_trading_date": "2026-07-07",
+    "kospi_actual_date": "2026-07-07",
+    "kosdaq_actual_date": "2026-07-07",
+    "basis_date_for_display": "2026-07-07",
     "same_market_date": true,
     "official_fresh_at_source": true,
     "official_fresh_now": true,
@@ -150,9 +150,9 @@
     "kosdaq_summary_rows": 1789
   },
   "current_price_basis": {
-    "current_price_asof_kst": "2026-07-07T21:10:11+09:00",
+    "current_price_asof_kst": "2026-07-08T10:24:25+09:00",
     "current_price_basis_status": "OK",
-    "aux_price_count": 98,
+    "aux_price_count": 102,
     "current_basis_ok_files": 4,
     "time_after_hours_reflected": null,
     "freshness_mode": "official"
@@ -231,6 +231,7 @@
     "sma20",
     "sma60",
     "score",
+    "legacy_market_score",
     "hard_red_flag",
     "warning_count",
     "recommendation_reason"
@@ -298,6 +299,7 @@
       "sma20": 1008.1669982910156,
       "sma60": 1037.891496785482,
       "score": 85.0,
+      "legacy_market_score": 85.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -361,6 +363,7 @@
       "sma20": 286.02349548339845,
       "sma60": 283.4341654459635,
       "score": 83.0,
+      "legacy_market_score": 83.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 1개월 상승폭 안정적 / 뚜렷한 단기 경고 제한"
@@ -424,6 +427,7 @@
       "sma20": 501.99599609375,
       "sma60": 495.30266723632815,
       "score": 82.0,
+      "legacy_market_score": 82.0,
       "hard_red_flag": false,
       "warning_count": 1,
       "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 매출 성장 양호 / 주의: 일간 변동성 큼"
@@ -487,6 +491,7 @@
       "sma20": 358.18249969482423,
       "sma60": 365.6336664835612,
       "score": 80.5,
+      "legacy_market_score": 80.5,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -550,6 +555,7 @@
       "sma20": 356.1625,
       "sma60": 362.978998819987,
       "score": 79.5,
+      "legacy_market_score": 79.5,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -613,6 +619,7 @@
       "sma20": 239.7619995117188,
       "sma60": 253.92033360799152,
       "score": 78.0,
+      "legacy_market_score": 78.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
@@ -676,6 +683,7 @@
       "sma20": 173.82650146484374,
       "sma60": 171.07183380126952,
       "score": 78.0,
+      "legacy_market_score": 78.0,
       "hard_red_flag": false,
       "warning_count": 0,
       "recommendation_reason": "중기 상승추세 유지 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한"

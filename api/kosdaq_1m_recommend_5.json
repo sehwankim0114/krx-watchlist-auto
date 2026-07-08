@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260709T042912+0900-0310ed8c1f",
-  "script": "build_api_json.py v4.7_final_display_contract_v71",
+  "build_id": "20260709T070846+0900-c5ac9db84c",
+  "script": "build_api_json.py v4.8_kr_sector_theme_v72",
   "table_id": "kosdaq_1m_recommend_5",
   "display_name": "별도 요청용 코닥표1개월 추천 5",
-  "generated_at_kst": "2026-07-09T04:29:12+09:00",
-  "source_commit_sha": "0310ed8c1fa633dc873912d66d50b6923b17006b",
+  "generated_at_kst": "2026-07-09T07:08:46+09:00",
+  "source_commit_sha": "c5ac9db84ce99a5381464504e0285eb4c1685cb3",
   "required": false,
   "default_output": false,
   "explicit_request_only": true,
@@ -18,6 +18,10 @@
     "duplicate_rows_across_main_and_shortlist_tables": false,
     "metadata_display_mode": "compact_two_column_table",
     "bold_price_ranges": true,
+    "kr_sector_theme_source": "KRX_KIND_LISTED_COMPANY",
+    "kr_sector_theme_missing_display": "자료 미제공",
+    "kr_average_volume_per_minute_value_column_label": "평균거래량·분당거래금",
+    "kr_regular_session_minutes": 390,
     "current_price_column_label": "요청시점 현재가",
     "price_range_markdown_required": true,
     "preferred_buy_range_field": "value_buy_range_markdown",
@@ -132,8 +136,8 @@
       "mark_only_final_failures_with_white_circle"
     ]
   },
-  "rules_version": "2026-07-09-v7.1-final-display-cleanup",
-  "rules_sha256": "a5af02bf0dbc678e761c9716fdfe7aa884a473b8dd6959f70b7340ac4d679612",
+  "rules_version": "2026-07-09-v7.2-kr-sector-theme",
+  "rules_sha256": "03de9951a35f16230d008aa6bc46966f28fb237ae0831562d35544482de7c30d",
   "expected_rows": {
     "exact": 5,
     "minimum": null
@@ -166,8 +170,8 @@
   },
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-09-v7.1-final-display-cleanup",
-    "sha256": "a5af02bf0dbc678e761c9716fdfe7aa884a473b8dd6959f70b7340ac4d679612"
+    "version": "2026-07-09-v7.2-kr-sector-theme",
+    "sha256": "03de9951a35f16230d008aa6bc46966f28fb237ae0831562d35544482de7c30d"
   },
   "status": "OK",
   "source_file": "latest/kosdaq_1m_recommend_5_latest.csv",

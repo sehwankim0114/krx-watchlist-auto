@@ -35,7 +35,7 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "build_api_json.py v4.7_final_display_contract_v71"
+SCRIPT_VERSION = "build_api_json.py v4.8_kr_sector_theme_v72"
 SCHEMA_VERSION = "4.2"
 ROOT = Path(__file__).resolve().parent
 LATEST = ROOT / "latest"
@@ -56,6 +56,10 @@ PRESENTATION_POLICY: Dict[str, Any] = {
     "duplicate_rows_across_main_and_shortlist_tables": False,
     "metadata_display_mode": "compact_two_column_table",
     "bold_price_ranges": True,
+    "kr_sector_theme_source": "KRX_KIND_LISTED_COMPANY",
+    "kr_sector_theme_missing_display": "자료 미제공",
+    "kr_average_volume_per_minute_value_column_label": "평균거래량·분당거래금",
+    "kr_regular_session_minutes": 390,
     "current_price_column_label": "요청시점 현재가",
     "price_range_markdown_required": True,
     "preferred_buy_range_field": "value_buy_range_markdown",
@@ -936,6 +940,20 @@ def main() -> int:
         )
     )
     # FINAL_DISPLAY_CONTRACT_V71_END
+
+    # KR_SECTOR_THEME_V72_BEGIN
+    from apply_kr_sector_theme_v72 import (
+        apply_kr_sector_theme,
+    )
+    kr_sector_entries = apply_kr_sector_theme(API, LATEST)
+    print(
+        "KR_SECTOR_THEME_ENTRIES="
+        + ",".join(
+            f"{item['table_id']}:{item['sector_theme_matched']}"
+            for item in kr_sector_entries
+        )
+    )
+    # KR_SECTOR_THEME_V72_END
 
     print(f"BUILD_ID={build_id}")
     print(f"API_STATUS={overall_status}")

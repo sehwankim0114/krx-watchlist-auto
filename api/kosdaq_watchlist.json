@@ -4,12 +4,12 @@
   "compact_payload": true,
   "preferred_default_action": true,
   "operation_id": "getKosdaqWatchlist",
-  "build_id": "20260709T042912+0900-0310ed8c1f",
+  "build_id": "20260709T070846+0900-c5ac9db84c",
   "script": "build_lightweight_watchlist_api_v66.py",
   "table_id": "kosdaq_watchlist",
   "display_name": "코닥표 — 코스닥 분석 후보 10개",
-  "generated_at_kst": "2026-07-09T04:29:12+09:00",
-  "source_commit_sha": "0310ed8c1fa633dc873912d66d50b6923b17006b",
+  "generated_at_kst": "2026-07-09T07:08:46+09:00",
+  "source_commit_sha": "c5ac9db84ce99a5381464504e0285eb4c1685cb3",
   "status": "OK",
   "required": false,
   "lightweight_required": true,
@@ -40,7 +40,7 @@
   "supply_check_limited_reasons": [
     "DART_WHOLE_MARKET_LOOKBACK_CAPPED_90D_FROM_180D"
   ],
-  "sector_theme_available": false,
+  "sector_theme_available": true,
   "official_data": {
     "source_file": "official_data_status_latest.json",
     "source_run_at_kst": "2026-07-08T10:05:42+09:00",
@@ -67,12 +67,12 @@
     "time_after_hours_reflected": null,
     "freshness_mode": "official"
   },
-  "rules_version": "2026-07-09-v7.1-final-display-cleanup",
-  "rules_sha256": "a5af02bf0dbc678e761c9716fdfe7aa884a473b8dd6959f70b7340ac4d679612",
+  "rules_version": "2026-07-09-v7.2-kr-sector-theme",
+  "rules_sha256": "03de9951a35f16230d008aa6bc46966f28fb237ae0831562d35544482de7c30d",
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-09-v7.1-final-display-cleanup",
-    "sha256": "a5af02bf0dbc678e761c9716fdfe7aa884a473b8dd6959f70b7340ac4d679612"
+    "version": "2026-07-09-v7.2-kr-sector-theme",
+    "sha256": "03de9951a35f16230d008aa6bc46966f28fb237ae0831562d35544482de7c30d"
   },
   "presentation_policy": {
     "format_contract": "improvement_plan_2_final",
@@ -83,6 +83,10 @@
     "duplicate_rows_across_main_and_shortlist_tables": false,
     "metadata_display_mode": "compact_two_column_table",
     "bold_price_ranges": true,
+    "kr_sector_theme_source": "KRX_KIND_LISTED_COMPANY",
+    "kr_sector_theme_missing_display": "자료 미제공",
+    "kr_average_volume_per_minute_value_column_label": "평균거래량·분당거래금",
+    "kr_regular_session_minutes": 390,
     "current_price_column_label": "요청시점 현재가",
     "price_range_markdown_required": true,
     "preferred_buy_range_field": "value_buy_range_markdown",
@@ -245,7 +249,9 @@
     "score_reason",
     "value_buy_range_markdown",
     "first_sell_target_range_markdown",
-    "sector_theme"
+    "sector_theme",
+    "avg_trading_value_per_minute_krw",
+    "avg_trading_value_per_minute_display"
   ],
   "rows": [
     {
@@ -285,7 +291,9 @@
       "score_reason": "1개월 추세 양호 16.6%; 매수위치 중립 43.3%; 거래대금 우수; 변동성 적정 3.49%; 3개월 변동폭 유효 41.6%; 현재가 급변, 매수·익절 판단 재점검(-7.11%)",
       "value_buy_range_markdown": "**307,000원~334,000원**",
       "first_sell_target_range_markdown": "**364,000원~386,000원**",
-      "sector_theme": null
+      "sector_theme": "자연과학 및 공학 연구개발업 / 바이오시밀러 및 바이오베터",
+      "avg_trading_value_per_minute_krw": 461434979,
+      "avg_trading_value_per_minute_display": "4.61억원/분"
     },
     {
       "rank": 2,
@@ -324,7 +332,9 @@
       "score_reason": "1개월 추세 양호 7.0%; 매수위치 중립 36.8%; 거래대금 양호; 변동성 적정 3.18%; 3개월 변동폭 유효 63.5%; 현재가 급변, 매수·익절 판단 재점검(-3.09%)",
       "value_buy_range_markdown": "**47,450원~51,200원**",
       "first_sell_target_range_markdown": "**55,400원~58,500원**",
-      "sector_theme": null
+      "sector_theme": "의료용품 및 기타 의약 관련제품 제조업 / 의료기기·의약외품 등",
+      "avg_trading_value_per_minute_krw": 107822943,
+      "avg_trading_value_per_minute_display": "1.08억원/분"
     },
     {
       "rank": 3,
@@ -363,7 +373,9 @@
       "score_reason": "1개월 추세 양호 16.7%; 매수위치 중립 41.9%; 변동성 적정 2.79%; 3개월 변동폭 유효 69.2%; 현재가 급변, 매수·익절 판단 재점검(-6.49%)",
       "value_buy_range_markdown": "**35,850원~38,100원**",
       "first_sell_target_range_markdown": "**40,850원~42,750원**",
-      "sector_theme": null
+      "sector_theme": "상품 종합 도매업 / 화장품 유통",
+      "avg_trading_value_per_minute_krw": 51283546,
+      "avg_trading_value_per_minute_display": "5128.4만원/분"
     },
     {
       "rank": 4,
@@ -402,7 +414,9 @@
       "score_reason": "1개월 추세 양호 13.7%; 매수위치 중립 36.1%; 변동성 적정 3.02%; 3개월 변동폭 유효 52.4%",
       "value_buy_range_markdown": "**44,000원~47,250원**",
       "first_sell_target_range_markdown": "**51,000원~53,700원**",
-      "sector_theme": null
+      "sector_theme": "의료용 기기 제조업 / 미용의료기기",
+      "avg_trading_value_per_minute_krw": 33261336,
+      "avg_trading_value_per_minute_display": "3326.1만원/분"
     },
     {
       "rank": 5,
@@ -441,7 +455,9 @@
       "score_reason": "1개월 추세 양호 8.6%; 매수위치 중립 39.1%; 변동성 적정 2.48%; 3개월 변동폭 유효 40.6%; 현재가 급변, 매수·익절 판단 재점검(-3.31%)",
       "value_buy_range_markdown": "**50,900원~53,900원**",
       "first_sell_target_range_markdown": "**57,500원~60,000원**",
-      "sector_theme": null
+      "sector_theme": "오디오물 출판 및 원판 녹음업 / 오디오물 출판 및 원판 녹음 관련 제품",
+      "avg_trading_value_per_minute_krw": 30415952,
+      "avg_trading_value_per_minute_display": "3041.6만원/분"
     },
     {
       "rank": 6,
@@ -480,7 +496,9 @@
       "score_reason": "1개월 추세 양호 15.2%; 매수위치 중립 44.0%; 변동성 적정 3.22%; 3개월 변동폭 유효 56.4%; 현재가 급변, 매수·익절 판단 재점검(-3.79%)",
       "value_buy_range_markdown": "**75,400원~81,100원**",
       "first_sell_target_range_markdown": "**87,700원~92,400원**",
-      "sector_theme": null
+      "sector_theme": "오디오물 출판 및 원판 녹음업 / 음반(CD·MC)·연예 대리",
+      "avg_trading_value_per_minute_krw": 27464115,
+      "avg_trading_value_per_minute_display": "2746.4만원/분"
     },
     {
       "rank": 7,
@@ -519,7 +537,9 @@
       "score_reason": "1개월 추세 양호 7.1%; 매수위치 중립 69.2%; 변동성 적정 2.88%; 3개월 변동폭 유효 47.1%; 현재가 급변, 매수·익절 판단 재점검(-3.58%)",
       "value_buy_range_markdown": "**27,300원~29,000원**",
       "first_sell_target_range_markdown": "**30,200원~31,450원**",
-      "sector_theme": null
+      "sector_theme": "의료용품 및 기타 의약 관련제품 제조업 / 호흡기성 병원체 검사제품·성감염증원인균 검사제품",
+      "avg_trading_value_per_minute_krw": 20630576,
+      "avg_trading_value_per_minute_display": "2063.1만원/분"
     },
     {
       "rank": 8,
@@ -558,7 +578,9 @@
       "score_reason": "1개월 추세 양호 8.5%; 매수위치 중립 47.4%; 거래대금 우수; 변동성 큼 5.98%; 현재가 급변, 매수·익절 판단 재점검(-3.63%)",
       "value_buy_range_markdown": "**72,900원~83,800원**",
       "first_sell_target_range_markdown": "**96,200원~105,200원**",
-      "sector_theme": null
+      "sector_theme": "자연과학 및 공학 연구개발업 / 대사성질환 치료제 등",
+      "avg_trading_value_per_minute_krw": 435751024,
+      "avg_trading_value_per_minute_display": "4.36억원/분"
     },
     {
       "rank": 9,
@@ -597,7 +619,9 @@
       "score_reason": "1개월 추세 양호 9.5%; 매수위치 중립 36.1%; 3개월 변동폭 유효 55.1%",
       "value_buy_range_markdown": "**244,000원~267,500원**",
       "first_sell_target_range_markdown": "**295,000원~314,500원**",
-      "sector_theme": null
+      "sector_theme": "측정, 시험, 항해, 제어 및 기타 정밀기기 제조업; 광학기기 제외 / 연구용 및 산업용 원자현미경",
+      "avg_trading_value_per_minute_krw": 38594397,
+      "avg_trading_value_per_minute_display": "3859.4만원/분"
     },
     {
       "rank": 10,
@@ -636,14 +660,15 @@
       "score_reason": "1개월 추세 양호 11.9%; 매수위치 중립 37.1%; 3개월 변동폭 유효 50.4%; 현재가 급변, 매수·익절 판단 재점검(-6.27%)",
       "value_buy_range_markdown": "**27,650원~30,700원**",
       "first_sell_target_range_markdown": "**34,150원~36,650원**",
-      "sector_theme": null
+      "sector_theme": "건축기술, 엔지니어링 및 관련 기술 서비스업 / 반도체배관설비",
+      "avg_trading_value_per_minute_krw": 15566204,
+      "avg_trading_value_per_minute_display": "1556.6만원/분"
     }
   ],
   "payload_size_limit_bytes": 65000,
-  "payload_size_bytes": 22515,
-  "display_contract_version": "2026-07-09-v7.1-final-display-cleanup",
+  "display_contract_version": "2026-07-09-v7.2-kr-sector-theme",
   "output_contract": {
-    "version": "2026-07-09-v7.1-final-display-cleanup",
+    "version": "2026-07-09-v7.2-kr-sector-theme",
     "output_sequence": [
       "title",
       "metadata_two_column_table",
@@ -691,7 +716,40 @@
       "column_position": "far_right",
       "do_not_invent": true,
       "missing_value_display": "자료 미제공"
-    }
+    },
+    "average_volume_per_minute_value_column_label": "평균거래량·분당거래금",
+    "average_volume_field": "avg_volume",
+    "per_minute_trading_value_field": "avg_trading_value_per_minute_krw",
+    "per_minute_trading_value_display_field": "avg_trading_value_per_minute_display",
+    "regular_session_minutes": 390,
+    "sector_theme_field": "sector_theme",
+    "sector_theme_source": "KRX_KIND_LISTED_COMPANY",
+    "sector_theme_missing_display": "자료 미제공",
+    "sector_theme_do_not_invent": true,
+    "far_right_columns": [
+      "시장·티커",
+      "섹터/테마"
+    ]
   },
-  "sector_theme_nonempty_rows": 0
+  "sector_theme_nonempty_rows": 10,
+  "sector_theme_coverage_pct": 100.0,
+  "sector_theme_source": "KRX_KIND_LISTED_COMPANY",
+  "sector_theme_source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download&searchType=13",
+  "sector_theme_asof_kst": "2026-07-09T07:08:47+09:00",
+  "sector_theme_cache_mode": "LIVE_REFRESH",
+  "compact_response_policy": {
+    "version": "2026-07-09-v7.2.1-payload-fix",
+    "row_level_source_metadata_removed": true,
+    "sector_theme_field": "sector_theme",
+    "per_minute_value_field": "avg_trading_value_per_minute_krw",
+    "per_minute_display_field": "avg_trading_value_per_minute_display",
+    "max_payload_bytes": 70000
+  },
+  "preferred_column_labels": {
+    "current_price": "요청시점 현재가",
+    "average_volume_per_minute_value": "평균거래량·분당거래금",
+    "market_ticker": "시장·티커",
+    "sector_theme": "섹터/테마"
+  },
+  "payload_size_bytes": 29926
 }

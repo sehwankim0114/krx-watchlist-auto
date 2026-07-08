@@ -1,0 +1,208 @@
+name: V7 Apply Final Display Contract V71
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v7-apply-final-display-contract-v71
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install requirements
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install PyYAML
+
+      - name: Check required files
+        run: |
+          set -euo pipefail
+          test -f apply_final_display_contract_v71.py
+          test -f patch_final_display_contract_v71.py
+          test -f build_api_json.py
+          test -f build_lightweight_watchlist_api_v66.py
+          test -f validate_api_sync.py
+          test -f docs/stock_table_rules_latest.md
+          echo "V71_PREREQUISITES=OK"
+
+      - name: Apply v7.1 patch
+        run: |
+          set -euo pipefail
+          python patch_final_display_contract_v71.py
+          python -m py_compile \
+            apply_final_display_contract_v71.py \
+            patch_final_display_contract_v71.py \
+            build_api_json.py \
+            build_lightweight_watchlist_api_v66.py \
+            validate_api_sync.py
+          echo "V71_PATCH=OK"
+
+      - name: Build all API JSON
+        run: |
+          set -euo pipefail
+          python build_api_json.py
+
+      - name: Validate synchronized API
+        run: |
+          set -euo pipefail
+          python validate_api_sync.py --api-dir api
+
+      - name: Verify final display contract
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          expected = {
+              "kospi_watchlist.json": ("KR", 30),
+              "kosdaq_watchlist.json": ("KR", 10),
+              "us_watchlist.json": ("US", 30),
+          }
+
+          for filename, (market_scope, exact_rows) in expected.items():
+              path = Path("api") / filename
+              payload = json.loads(path.read_text(encoding="utf-8"))
+              rows = payload.get("rows")
+              if not isinstance(rows, list) or len(rows) != exact_rows:
+                  raise SystemExit(f"{filename}: row mismatch")
+
+              if payload.get("display_contract_version") != (
+                  "2026-07-09-v7.1-final-display-cleanup"
+              ):
+                  raise SystemExit(f"{filename}: display contract mismatch")
+
+              contract = payload.get("output_contract") or {}
+              if contract.get("current_price_column_label") != "요청시점 현재가":
+                  raise SystemExit(f"{filename}: current price label mismatch")
+              if contract.get("bold_price_ranges_required") is not True:
+                  raise SystemExit(f"{filename}: bold range policy missing")
+
+              metadata = contract.get("metadata_policy") or {}
+              if market_scope == "US":
+                  omitted = set(metadata.get("omit_by_default") or [])
+                  required_omissions = {
+                      "KRX 기대 거래일",
+                      "KOSPI·KOSDAQ 실제 기준일",
+                  }
+                  if not required_omissions <= omitted:
+                      raise SystemExit(
+                          f"{filename}: US metadata omissions missing"
+                      )
+
+              for index, row in enumerate(rows):
+                  buy = row.get("value_buy_range_markdown")
+                  sell = row.get("first_sell_target_range_markdown")
+                  if not (
+                      isinstance(buy, str)
+                      and buy.startswith("**")
+                      and buy.endswith("**")
+                  ):
+                      raise SystemExit(
+                          f"{filename} row {index}: buy markdown missing"
+                      )
+                  if not (
+                      isinstance(sell, str)
+                      and sell.startswith("**")
+                      and sell.endswith("**")
+                  ):
+                      raise SystemExit(
+                          f"{filename} row {index}: sell markdown missing"
+                      )
+
+          status = json.loads(
+              Path("api/status.json").read_text(encoding="utf-8")
+          )
+          policy = status.get("presentation_policy") or {}
+          required_policy = {
+              "current_price_column_label": "요청시점 현재가",
+              "price_range_markdown_required": True,
+              "us_table_omit_kr_market_metadata_by_default": True,
+          }
+          for key, value in required_policy.items():
+              if policy.get(key) != value:
+                  raise SystemExit(
+                      f"status presentation policy mismatch: {key}"
+                  )
+
+          rules = Path(
+              "docs/stock_table_rules_latest.md"
+          ).read_text(encoding="utf-8")
+          for token in (
+              "FINAL_DISPLAY_CONTRACT_V71",
+              "value_buy_range_markdown",
+              "미국표에서는 KRX 기대 거래일",
+              "자료 미제공",
+          ):
+              if token not in rules:
+                  raise SystemExit(f"rules token missing: {token}")
+
+          report = json.loads(
+              Path("api/validation_report.json").read_text(encoding="utf-8")
+          )
+          if report.get("status") != "PASS":
+              raise SystemExit(
+                  f"validation report: {report.get('status')}"
+              )
+
+          print("FINAL_DISPLAY_CONTRACT_V71=PASS")
+          print("CURRENT_PRICE_COLUMN_LABEL=요청시점 현재가")
+          print("BOLD_RANGE_MARKDOWN=PASS")
+          print("US_KR_METADATA_DEFAULT=OMIT")
+          print("SECTOR_THEME_POLICY=DO_NOT_INVENT")
+          PY
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            apply_final_display_contract_v71.py \
+            patch_final_display_contract_v71.py \
+            build_api_json.py \
+            docs/stock_table_rules_latest.md \
+            api
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            exit 0
+          fi
+
+          git commit -m \
+            "Apply final stock table display contract v7.1"
+
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              echo "PUSH_SUCCESS=true"
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "PUSH_SUCCESS=false"
+              exit 1
+            fi
+            sleep 3
+          done

@@ -1,0 +1,241 @@
+name: V73 Daily Integrated Health
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub cron is UTC. 00:15 UTC = 09:15 KST.
+    - cron: "15 0 * * 1-5"
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: v73-daily-integrated-health
+  cancel-in-progress: false
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check required file
+        run: |
+          set -euo pipefail
+          test -f validate_daily_integrated_health_v73.py
+          echo "V73_PREREQUISITES=OK"
+
+      - name: Run integrated health check
+        id: health
+        run: |
+          set -euo pipefail
+
+          python validate_daily_integrated_health_v73.py \
+            --repo-root . \
+            --worker-base \
+              https://krx-live-price-ksh.diaconos.workers.dev \
+            --output-json \
+              latest/daily_integrated_health_latest.json \
+            --output-md \
+              latest/daily_integrated_health_latest.md \
+            --exit-zero
+
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path(
+                  "latest/daily_integrated_health_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          print(f"status={report.get('status')}")
+          print(f"critical_count={report.get('critical_count')}")
+          print(f"warning_count={report.get('warning_count')}")
+          print(
+              "build_id="
+              f"{(report.get('context') or {}).get('build_id')}"
+          )
+          print(
+              "rules_version="
+              f"{(report.get('context') or {}).get('rules_version')}"
+          )
+          PY
+
+      - name: Upload health report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v73-daily-integrated-health-report
+          path: |
+            latest/daily_integrated_health_latest.json
+            latest/daily_integrated_health_latest.md
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit latest health report
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            latest/daily_integrated_health_latest.json \
+            latest/daily_integrated_health_latest.md
+
+          if git diff --cached --quiet; then
+            echo "NO_HEALTH_REPORT_CHANGES=true"
+            exit 0
+          fi
+
+          git commit -m "Update V7.3 daily integrated health report"
+
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              echo "HEALTH_REPORT_PUSH_SUCCESS=true"
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              echo "HEALTH_REPORT_PUSH_SUCCESS=false"
+              exit 1
+            fi
+
+            sleep 3
+          done
+
+      - name: Create or update failure issue
+        if: steps.health.outputs.status == 'FAIL'
+        uses: actions/github-script@v7
+        env:
+          HEALTH_STATUS: ${{ steps.health.outputs.status }}
+          CRITICAL_COUNT: ${{ steps.health.outputs.critical_count }}
+          WARNING_COUNT: ${{ steps.health.outputs.warning_count }}
+          BUILD_ID: ${{ steps.health.outputs.build_id }}
+          RULES_VERSION: ${{ steps.health.outputs.rules_version }}
+        with:
+          script: |
+            const fs = require("fs");
+            const title = "V7.3 자동 건강검사 오류";
+            const reportPath =
+              "latest/daily_integrated_health_latest.md";
+            const report = fs.readFileSync(reportPath, "utf8");
+            const body = [
+              "자동 건강검사에서 치명 오류를 발견했습니다.",
+              "",
+              `- 상태: ${process.env.HEALTH_STATUS}`,
+              `- 치명 오류: ${process.env.CRITICAL_COUNT}`,
+              `- 경고: ${process.env.WARNING_COUNT}`,
+              `- 빌드 ID: ${process.env.BUILD_ID}`,
+              `- 규칙 버전: ${process.env.RULES_VERSION}`,
+              "",
+              report,
+              "",
+              `실행: ${context.serverUrl}/${context.repo.owner}/` +
+                `${context.repo.repo}/actions/runs/${context.runId}`,
+            ].join("\n");
+
+            const issues = await github.paginate(
+              github.rest.issues.listForRepo,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: "open",
+                per_page: 100,
+              },
+            );
+
+            const existing = issues.find(
+              (issue) =>
+                !issue.pull_request && issue.title === title,
+            );
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+              });
+            }
+
+      - name: Close recovered failure issue
+        if: steps.health.outputs.status != 'FAIL'
+        uses: actions/github-script@v7
+        env:
+          HEALTH_STATUS: ${{ steps.health.outputs.status }}
+          BUILD_ID: ${{ steps.health.outputs.build_id }}
+        with:
+          script: |
+            const title = "V7.3 자동 건강검사 오류";
+            const issues = await github.paginate(
+              github.rest.issues.listForRepo,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: "open",
+                per_page: 100,
+              },
+            );
+
+            for (const issue of issues) {
+              if (
+                !issue.pull_request &&
+                issue.title === title
+              ) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body:
+                    "자동 건강검사가 회복됐습니다.\n\n" +
+                    `- 현재 상태: ${process.env.HEALTH_STATUS}\n` +
+                    `- 빌드 ID: ${process.env.BUILD_ID}`,
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  state: "closed",
+                });
+              }
+            }
+
+      - name: Show final result
+        run: |
+          echo \
+            "DAILY_INTEGRATED_HEALTH_V73="\
+            "${{ steps.health.outputs.status }}"
+          echo \
+            "CRITICAL_COUNT="\
+            "${{ steps.health.outputs.critical_count }}"
+          echo \
+            "WARNING_COUNT="\
+            "${{ steps.health.outputs.warning_count }}"
+
+      - name: Fail workflow on critical health error
+        if: steps.health.outputs.status == 'FAIL'
+        run: |
+          echo "V7.3 health check found critical errors."
+          exit 1

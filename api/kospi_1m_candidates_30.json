@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260708T202252+0900-b7e3428a62",
-  "script": "build_api_json.py v4.6_lightweight_watchlists_v66",
+  "build_id": "20260709T042912+0900-0310ed8c1f",
+  "script": "build_api_json.py v4.7_final_display_contract_v71",
   "table_id": "kospi_1m_candidates_30",
   "display_name": "코피표1개월 후보 30",
-  "generated_at_kst": "2026-07-08T20:22:52+09:00",
-  "source_commit_sha": "b7e3428a62f523e925949fa8075cf534a11e34b1",
+  "generated_at_kst": "2026-07-09T04:29:12+09:00",
+  "source_commit_sha": "0310ed8c1fa633dc873912d66d50b6923b17006b",
   "required": true,
   "default_output": true,
   "explicit_request_only": false,
@@ -18,6 +18,13 @@
     "duplicate_rows_across_main_and_shortlist_tables": false,
     "metadata_display_mode": "compact_two_column_table",
     "bold_price_ranges": true,
+    "current_price_column_label": "요청시점 현재가",
+    "price_range_markdown_required": true,
+    "preferred_buy_range_field": "value_buy_range_markdown",
+    "preferred_first_sell_range_field": "first_sell_target_range_markdown",
+    "price_timestamp_label_policy": "use_price_data_time_unless_actual_trade_time_is_guaranteed",
+    "market_specific_metadata": true,
+    "us_table_omit_kr_market_metadata_by_default": true,
     "output_sequence": [
       "title",
       "metadata_two_column_table",
@@ -125,8 +132,8 @@
       "mark_only_final_failures_with_white_circle"
     ]
   },
-  "rules_version": "2026-07-08-v6.6-lightweight-watchlists",
-  "rules_sha256": "e1e4c5ca85a8d9f5095f3886dd1fa6e1bbbac4b7ef7eca592f0eaa0dc5a89b7b",
+  "rules_version": "2026-07-09-v7.1-final-display-cleanup",
+  "rules_sha256": "a5af02bf0dbc678e761c9716fdfe7aa884a473b8dd6959f70b7340ac4d679612",
   "expected_rows": {
     "exact": 30,
     "minimum": null
@@ -159,8 +166,8 @@
   },
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-08-v6.6-lightweight-watchlists",
-    "sha256": "e1e4c5ca85a8d9f5095f3886dd1fa6e1bbbac4b7ef7eca592f0eaa0dc5a89b7b"
+    "version": "2026-07-09-v7.1-final-display-cleanup",
+    "sha256": "a5af02bf0dbc678e761c9716fdfe7aa884a473b8dd6959f70b7340ac4d679612"
   },
   "status": "OK",
   "source_file": "latest/kospi_1m_candidates_30_latest.csv",

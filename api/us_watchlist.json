@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260708T202252+0900-b7e3428a62",
-  "script": "build_api_json.py v4.6_lightweight_watchlists_v66",
+  "build_id": "20260709T042912+0900-0310ed8c1f",
+  "script": "build_api_json.py v4.7_final_display_contract_v71",
   "table_id": "us_watchlist",
-  "display_name": "미관종표 S&P500 후보 30",
-  "generated_at_kst": "2026-07-08T20:22:52+09:00",
-  "source_commit_sha": "b7e3428a62f523e925949fa8075cf534a11e34b1",
+  "display_name": "미관종표 — S&P500 기반 미국 분석 후보 30개",
+  "generated_at_kst": "2026-07-09T04:29:12+09:00",
+  "source_commit_sha": "0310ed8c1fa633dc873912d66d50b6923b17006b",
   "required": true,
   "default_output": true,
   "explicit_request_only": false,
@@ -18,6 +18,13 @@
     "duplicate_rows_across_main_and_shortlist_tables": false,
     "metadata_display_mode": "compact_two_column_table",
     "bold_price_ranges": true,
+    "current_price_column_label": "요청시점 현재가",
+    "price_range_markdown_required": true,
+    "preferred_buy_range_field": "value_buy_range_markdown",
+    "preferred_first_sell_range_field": "first_sell_target_range_markdown",
+    "price_timestamp_label_policy": "use_price_data_time_unless_actual_trade_time_is_guaranteed",
+    "market_specific_metadata": true,
+    "us_table_omit_kr_market_metadata_by_default": true,
     "output_sequence": [
       "title",
       "metadata_two_column_table",
@@ -125,8 +132,8 @@
       "mark_only_final_failures_with_white_circle"
     ]
   },
-  "rules_version": "2026-07-08-v6.6-lightweight-watchlists",
-  "rules_sha256": "e1e4c5ca85a8d9f5095f3886dd1fa6e1bbbac4b7ef7eca592f0eaa0dc5a89b7b",
+  "rules_version": "2026-07-09-v7.1-final-display-cleanup",
+  "rules_sha256": "a5af02bf0dbc678e761c9716fdfe7aa884a473b8dd6959f70b7340ac4d679612",
   "expected_rows": {
     "exact": 30,
     "minimum": null
@@ -159,8 +166,8 @@
   },
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-08-v6.6-lightweight-watchlists",
-    "sha256": "e1e4c5ca85a8d9f5095f3886dd1fa6e1bbbac4b7ef7eca592f0eaa0dc5a89b7b"
+    "version": "2026-07-09-v7.1-final-display-cleanup",
+    "sha256": "a5af02bf0dbc678e761c9716fdfe7aa884a473b8dd6959f70b7340ac4d679612"
   },
   "status": "OK",
   "source_file": "latest/us_sp500_watchlist_latest.csv",
@@ -234,7 +241,9 @@
     "legacy_market_score",
     "hard_red_flag",
     "warning_count",
-    "recommendation_reason"
+    "recommendation_reason",
+    "value_buy_range_markdown",
+    "first_sell_target_range_markdown"
   ],
   "data_date_min": null,
   "data_date_max": null,
@@ -302,7 +311,9 @@
       "legacy_market_score": 85.0,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$979.99~$989.24**",
+      "first_sell_target_range_markdown": "**$1,070~$1,141**"
     },
     {
       "recommend_display": "✅ Cigna",
@@ -366,7 +377,9 @@
       "legacy_market_score": 83.0,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 1개월 상승폭 안정적 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 1개월 상승폭 안정적 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$272.59~$279.50**",
+      "first_sell_target_range_markdown": "**$303.82~$323.88**"
     },
     {
       "recommend_display": "✅ AppLovin",
@@ -430,7 +443,9 @@
       "legacy_market_score": 82.0,
       "hard_red_flag": false,
       "warning_count": 1,
-      "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 매출 성장 양호 / 주의: 일간 변동성 큼"
+      "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 매출 성장 양호 / 주의: 일간 변동성 큼",
+      "value_buy_range_markdown": "**$416.11~$462.44**",
+      "first_sell_target_range_markdown": "**$584.68~$634.44**"
     },
     {
       "recommend_display": "✅ Alphabet Inc. (Class A)",
@@ -494,7 +509,9 @@
       "legacy_market_score": 80.5,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$319.90~$339.86**",
+      "first_sell_target_range_markdown": "**$389.05~$416.78**"
     },
     {
       "recommend_display": "✅ Alphabet Inc. (Class C)",
@@ -558,7 +575,9 @@
       "legacy_market_score": 79.5,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$317.23~$336.86**",
+      "first_sell_target_range_markdown": "**$385.44~$412.56**"
     },
     {
       "recommend_display": "✅ Amazon",
@@ -622,7 +641,9 @@
       "legacy_market_score": 78.0,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$222.98~$235.48**",
+      "first_sell_target_range_markdown": "**$261.85~$284.13**"
     },
     {
       "recommend_display": "✅ Booking Holdings",
@@ -686,7 +707,9 @@
       "legacy_market_score": 78.0,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "중기 상승추세 유지 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "중기 상승추세 유지 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$158.90~$166.78**",
+      "first_sell_target_range_markdown": "**$192.87~$205.60**"
     },
     {
       "recommend_display": "🟡 Ametek",
@@ -750,7 +773,9 @@
       "legacy_market_score": 78.0,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$221.16~$226.46**",
+      "first_sell_target_range_markdown": "**$245.60~$261.82**"
     },
     {
       "recommend_display": "🟡 Broadcom",
@@ -814,7 +839,9 @@
       "legacy_market_score": 77.5,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$356.44~$363.36**",
+      "first_sell_target_range_markdown": "**$465.30~$504.90**"
     },
     {
       "recommend_display": "🟡 Caterpillar Inc.",
@@ -878,7 +905,9 @@
       "legacy_market_score": 77.0,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$781.84~$847.45**",
+      "first_sell_target_range_markdown": "**$1,009~$1,095**"
     },
     {
       "recommend_display": "🟡 Analog Devices",
@@ -942,7 +971,9 @@
       "legacy_market_score": 76.0,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$345.98~$368.47**",
+      "first_sell_target_range_markdown": "**$419.16~$454.83**"
     },
     {
       "recommend_display": "🟡 Citigroup",
@@ -1006,7 +1037,9 @@
       "legacy_market_score": 75.5,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "1개월 상승폭 안정적 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "1개월 상승폭 안정적 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$122.19~$127.99**",
+      "first_sell_target_range_markdown": "**$149.22~$159.07**"
     },
     {
       "recommend_display": "🟡 CF Industries",
@@ -1070,7 +1103,9 @@
       "legacy_market_score": 75.5,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$108.45~$112.64**",
+      "first_sell_target_range_markdown": "**$131.08~$142.24**"
     },
     {
       "recommend_display": "🟡 Adobe Inc.",
@@ -1134,7 +1169,9 @@
       "legacy_market_score": 75.0,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 선행 밸류 부담 제한 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 선행 밸류 부담 제한 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$207.18~$217.11**",
+      "first_sell_target_range_markdown": "**$258.91~$280.95**"
     },
     {
       "recommend_display": "🟡 Autodesk",
@@ -1198,7 +1235,9 @@
       "legacy_market_score": 75.0,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$199.43~$211.96**",
+      "first_sell_target_range_markdown": "**$239.83~$260.24**"
     },
     {
       "recommend_display": "🟡 Abbott Laboratories",
@@ -1262,7 +1301,9 @@
       "legacy_market_score": 75.0,
       "hard_red_flag": false,
       "warning_count": 1,
-      "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 1개월 상승폭 안정적 / 주의: 이익 성장률 둔화"
+      "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 1개월 상승폭 안정적 / 주의: 이익 성장률 둔화",
+      "value_buy_range_markdown": "**$86.34~$90.28**",
+      "first_sell_target_range_markdown": "**$101.59~$108.30**"
     },
     {
       "recommend_display": "🟡 Amphenol",
@@ -1326,7 +1367,9 @@
       "legacy_market_score": 74.5,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "1개월 상승폭 안정적 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "1개월 상승폭 안정적 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$130.11~$141.00**",
+      "first_sell_target_range_markdown": "**$168.13~$182.09**"
     },
     {
       "recommend_display": "🟡 Blackstone Inc.",
@@ -1390,7 +1433,9 @@
       "legacy_market_score": 74.5,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 선행 밸류 부담 제한 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 선행 밸류 부담 제한 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$112.27~$116.99**",
+      "first_sell_target_range_markdown": "**$128.14~$136.61**"
     },
     {
       "recommend_display": "🟡 Ares Management",
@@ -1454,7 +1499,9 @@
       "legacy_market_score": 74.5,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$107.13~$114.95**",
+      "first_sell_target_range_markdown": "**$133.39~$144.74**"
     },
     {
       "recommend_display": "🟡 Carvana",
@@ -1518,7 +1565,9 @@
       "legacy_market_score": 74.0,
       "hard_red_flag": false,
       "warning_count": 1,
-      "recommendation_reason": "3개월 가치구간 · 1개월 상승폭 안정적 · 매출 성장 양호 / 주의: 일간 변동성 큼"
+      "recommendation_reason": "3개월 가치구간 · 1개월 상승폭 안정적 · 매출 성장 양호 / 주의: 일간 변동성 큼",
+      "value_buy_range_markdown": "**$65.44~$66.14**",
+      "first_sell_target_range_markdown": "**$78.88~$85.59**"
     },
     {
       "recommend_display": "🟡 Arista Networks",
@@ -1582,7 +1631,9 @@
       "legacy_market_score": 73.5,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "중기 상승추세 유지 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "중기 상승추세 유지 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$138.00~$147.41**",
+      "first_sell_target_range_markdown": "**$176.45~$188.10**"
     },
     {
       "recommend_display": "🟡 CME Group",
@@ -1646,7 +1697,9 @@
       "legacy_market_score": 73.5,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$237.18~$237.18**",
+      "first_sell_target_range_markdown": "**$293.92~$318.93**"
     },
     {
       "recommend_display": "🟡 CBRE Group",
@@ -1710,7 +1763,9 @@
       "legacy_market_score": 73.5,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$128.87~$135.34**",
+      "first_sell_target_range_markdown": "**$152.35~$162.41**"
     },
     {
       "recommend_display": "🟡 Clorox",
@@ -1774,7 +1829,9 @@
       "legacy_market_score": 73.5,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 1개월 상승폭 안정적 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 1개월 상승폭 안정적 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$89.54~$93.89**",
+      "first_sell_target_range_markdown": "**$103.25~$111.07**"
     },
     {
       "recommend_display": "🟡 3M",
@@ -1838,7 +1895,9 @@
       "legacy_market_score": 73.5,
       "hard_red_flag": false,
       "warning_count": 1,
-      "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 선행 밸류 부담 제한 / 주의: 이익 성장률 둔화"
+      "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 선행 밸류 부담 제한 / 주의: 이익 성장률 둔화",
+      "value_buy_range_markdown": "**$147.06~$152.17**",
+      "first_sell_target_range_markdown": "**$167.49~$178.55**"
     },
     {
       "recommend_display": "🟡 Bristol Myers Squibb",
@@ -1902,7 +1961,9 @@
       "legacy_market_score": 73.0,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 선행 밸류 부담 제한 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 선행 밸류 부담 제한 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$54.91~$56.23**",
+      "first_sell_target_range_markdown": "**$61.45~$65.51**"
     },
     {
       "recommend_display": "🟡 Casey's",
@@ -1966,7 +2027,9 @@
       "legacy_market_score": 73.0,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 가치구간 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 가치구간 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$768.92~$785.95**",
+      "first_sell_target_range_markdown": "**$872.18~$946.41**"
     },
     {
       "recommend_display": "🟡 Applied Materials",
@@ -2030,7 +2093,9 @@
       "legacy_market_score": 73.0,
       "hard_red_flag": false,
       "warning_count": 1,
-      "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 매출 성장 양호 / 주의: 일간 변동성 큼"
+      "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 매출 성장 양호 / 주의: 일간 변동성 큼",
+      "value_buy_range_markdown": "**$424.33~$495.28**",
+      "first_sell_target_range_markdown": "**$695.29~$754.46**"
     },
     {
       "recommend_display": "🟡 Atmos Energy",
@@ -2094,7 +2159,9 @@
       "legacy_market_score": 72.0,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 가치구간 · 1개월 상승폭 안정적 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 가치구간 · 1개월 상승폭 안정적 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
+      "value_buy_range_markdown": "**$171.57~$176.28**",
+      "first_sell_target_range_markdown": "**$188.23~$200.67**"
     },
     {
       "recommend_display": "🟡 Aflac",
@@ -2158,7 +2225,67 @@
       "legacy_market_score": 72.0,
       "hard_red_flag": false,
       "warning_count": 2,
-      "recommendation_reason": "중기 상승추세 유지 · 1개월 상승폭 안정적 · 매출 성장 양호 / 주의: 3개월 상단권 부담 · 평균 목표가보다 현재가 높음"
+      "recommendation_reason": "중기 상승추세 유지 · 1개월 상승폭 안정적 · 매출 성장 양호 / 주의: 3개월 상단권 부담 · 평균 목표가보다 현재가 높음",
+      "value_buy_range_markdown": "**$111.82~$114.29**",
+      "first_sell_target_range_markdown": "**$128.78~$137.28**"
     }
-  ]
+  ],
+  "display_contract_version": "2026-07-09-v7.1-final-display-cleanup",
+  "output_contract": {
+    "version": "2026-07-09-v7.1-final-display-cleanup",
+    "output_sequence": [
+      "title",
+      "metadata_two_column_table",
+      "main_stock_table",
+      "minimal_required_notes"
+    ],
+    "current_price_column_label": "요청시점 현재가",
+    "bold_price_ranges_required": true,
+    "preferred_buy_range_field": "value_buy_range_markdown",
+    "preferred_first_sell_range_field": "first_sell_target_range_markdown",
+    "markdown_rule": "가격범위 문자열 전체를 **가격~가격** 형식으로 굵게 표시하며 별표를 표 밖에 분리하지 않는다",
+    "metadata_policy": {
+      "required_common_rows": [
+        "API 생성시각",
+        "자동화 입력 원본 커밋",
+        "빌드 ID",
+        "규칙 버전",
+        "사용 본표 Action",
+        "분석자료 기준일",
+        "재무·밸류에이션 기준일",
+        "정적 현재가 기준시점",
+        "요청시점 조회시간",
+        "가격 자료시각",
+        "현재가 조회 결과",
+        "재시도 과정",
+        "가격 출처",
+        "시간외 반영 여부",
+        "공식자료 최신성",
+        "분석범위",
+        "구조 검증",
+        "우회 사용 여부"
+      ],
+      "price_timestamp_label": "실제 체결시각이 보장되지 않으면 '가격 거래시각' 대신 '가격 자료시각' 또는 '가격 갱신시각' 사용",
+      "visible_market_metadata": "US",
+      "omit_by_default": [
+        "KRX 기대 거래일",
+        "KOSPI 실제 기준일",
+        "KOSDAQ 실제 기준일",
+        "KOSPI·KOSDAQ 실제 기준일"
+      ],
+      "preferred_market_rows": [
+        "미국 분석 기준 거래일",
+        "미국 요청가격 시장상태",
+        "미국 정규장·시간외 상태"
+      ],
+      "exception": "한국시장 동기화 정보는 사용자가 전체 자동화 상태를 명시적으로 요청한 경우에만 표시"
+    },
+    "sector_theme_policy": {
+      "column_position": "far_right",
+      "do_not_invent": true,
+      "missing_value_display": "자료 미제공"
+    }
+  },
+  "sector_theme_available": true,
+  "sector_theme_nonempty_rows": 30
 }

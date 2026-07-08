@@ -4,12 +4,12 @@
   "compact_payload": true,
   "preferred_default_action": true,
   "operation_id": "getKosdaqWatchlist",
-  "build_id": "20260708T202252+0900-b7e3428a62",
+  "build_id": "20260709T042912+0900-0310ed8c1f",
   "script": "build_lightweight_watchlist_api_v66.py",
   "table_id": "kosdaq_watchlist",
-  "display_name": "코닥표 — 코스닥 후보 10개",
-  "generated_at_kst": "2026-07-08T20:22:52+09:00",
-  "source_commit_sha": "b7e3428a62f523e925949fa8075cf534a11e34b1",
+  "display_name": "코닥표 — 코스닥 분석 후보 10개",
+  "generated_at_kst": "2026-07-09T04:29:12+09:00",
+  "source_commit_sha": "0310ed8c1fa633dc873912d66d50b6923b17006b",
   "status": "OK",
   "required": false,
   "lightweight_required": true,
@@ -67,12 +67,12 @@
     "time_after_hours_reflected": null,
     "freshness_mode": "official"
   },
-  "rules_version": "2026-07-08-v6.6-lightweight-watchlists",
-  "rules_sha256": "e1e4c5ca85a8d9f5095f3886dd1fa6e1bbbac4b7ef7eca592f0eaa0dc5a89b7b",
+  "rules_version": "2026-07-09-v7.1-final-display-cleanup",
+  "rules_sha256": "a5af02bf0dbc678e761c9716fdfe7aa884a473b8dd6959f70b7340ac4d679612",
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-08-v6.6-lightweight-watchlists",
-    "sha256": "e1e4c5ca85a8d9f5095f3886dd1fa6e1bbbac4b7ef7eca592f0eaa0dc5a89b7b"
+    "version": "2026-07-09-v7.1-final-display-cleanup",
+    "sha256": "a5af02bf0dbc678e761c9716fdfe7aa884a473b8dd6959f70b7340ac4d679612"
   },
   "presentation_policy": {
     "format_contract": "improvement_plan_2_final",
@@ -83,6 +83,13 @@
     "duplicate_rows_across_main_and_shortlist_tables": false,
     "metadata_display_mode": "compact_two_column_table",
     "bold_price_ranges": true,
+    "current_price_column_label": "요청시점 현재가",
+    "price_range_markdown_required": true,
+    "preferred_buy_range_field": "value_buy_range_markdown",
+    "preferred_first_sell_range_field": "first_sell_target_range_markdown",
+    "price_timestamp_label_policy": "use_price_data_time_unless_actual_trade_time_is_guaranteed",
+    "market_specific_metadata": true,
+    "us_table_omit_kr_market_metadata_by_default": true,
     "output_sequence": [
       "title",
       "metadata_two_column_table",
@@ -235,7 +242,10 @@
     "supply_burden_level",
     "supply_burden_keywords",
     "score",
-    "score_reason"
+    "score_reason",
+    "value_buy_range_markdown",
+    "first_sell_target_range_markdown",
+    "sector_theme"
   ],
   "rows": [
     {
@@ -272,7 +282,10 @@
       "supply_burden_level": "없음",
       "supply_burden_keywords": null,
       "score": 137.0,
-      "score_reason": "1개월 추세 양호 16.6%; 매수위치 중립 43.3%; 거래대금 우수; 변동성 적정 3.49%; 3개월 변동폭 유효 41.6%; 현재가 급변, 매수·익절 판단 재점검(-7.11%)"
+      "score_reason": "1개월 추세 양호 16.6%; 매수위치 중립 43.3%; 거래대금 우수; 변동성 적정 3.49%; 3개월 변동폭 유효 41.6%; 현재가 급변, 매수·익절 판단 재점검(-7.11%)",
+      "value_buy_range_markdown": "**307,000원~334,000원**",
+      "first_sell_target_range_markdown": "**364,000원~386,000원**",
+      "sector_theme": null
     },
     {
       "rank": 2,
@@ -308,7 +321,10 @@
       "supply_burden_level": "경계",
       "supply_burden_keywords": "대량보유",
       "score": 132.0,
-      "score_reason": "1개월 추세 양호 7.0%; 매수위치 중립 36.8%; 거래대금 양호; 변동성 적정 3.18%; 3개월 변동폭 유효 63.5%; 현재가 급변, 매수·익절 판단 재점검(-3.09%)"
+      "score_reason": "1개월 추세 양호 7.0%; 매수위치 중립 36.8%; 거래대금 양호; 변동성 적정 3.18%; 3개월 변동폭 유효 63.5%; 현재가 급변, 매수·익절 판단 재점검(-3.09%)",
+      "value_buy_range_markdown": "**47,450원~51,200원**",
+      "first_sell_target_range_markdown": "**55,400원~58,500원**",
+      "sector_theme": null
     },
     {
       "rank": 3,
@@ -344,7 +360,10 @@
       "supply_burden_level": "위험",
       "supply_burden_keywords": "대량보유,전환청구,주요주주변동",
       "score": 123.0,
-      "score_reason": "1개월 추세 양호 16.7%; 매수위치 중립 41.9%; 변동성 적정 2.79%; 3개월 변동폭 유효 69.2%; 현재가 급변, 매수·익절 판단 재점검(-6.49%)"
+      "score_reason": "1개월 추세 양호 16.7%; 매수위치 중립 41.9%; 변동성 적정 2.79%; 3개월 변동폭 유효 69.2%; 현재가 급변, 매수·익절 판단 재점검(-6.49%)",
+      "value_buy_range_markdown": "**35,850원~38,100원**",
+      "first_sell_target_range_markdown": "**40,850원~42,750원**",
+      "sector_theme": null
     },
     {
       "rank": 4,
@@ -380,7 +399,10 @@
       "supply_burden_level": "위험",
       "supply_burden_keywords": "최대주주변경",
       "score": 123.0,
-      "score_reason": "1개월 추세 양호 13.7%; 매수위치 중립 36.1%; 변동성 적정 3.02%; 3개월 변동폭 유효 52.4%"
+      "score_reason": "1개월 추세 양호 13.7%; 매수위치 중립 36.1%; 변동성 적정 3.02%; 3개월 변동폭 유효 52.4%",
+      "value_buy_range_markdown": "**44,000원~47,250원**",
+      "first_sell_target_range_markdown": "**51,000원~53,700원**",
+      "sector_theme": null
     },
     {
       "rank": 5,
@@ -416,7 +438,10 @@
       "supply_burden_level": "없음",
       "supply_burden_keywords": null,
       "score": 123.0,
-      "score_reason": "1개월 추세 양호 8.6%; 매수위치 중립 39.1%; 변동성 적정 2.48%; 3개월 변동폭 유효 40.6%; 현재가 급변, 매수·익절 판단 재점검(-3.31%)"
+      "score_reason": "1개월 추세 양호 8.6%; 매수위치 중립 39.1%; 변동성 적정 2.48%; 3개월 변동폭 유효 40.6%; 현재가 급변, 매수·익절 판단 재점검(-3.31%)",
+      "value_buy_range_markdown": "**50,900원~53,900원**",
+      "first_sell_target_range_markdown": "**57,500원~60,000원**",
+      "sector_theme": null
     },
     {
       "rank": 6,
@@ -452,7 +477,10 @@
       "supply_burden_level": "경계",
       "supply_burden_keywords": "대량보유",
       "score": 123.0,
-      "score_reason": "1개월 추세 양호 15.2%; 매수위치 중립 44.0%; 변동성 적정 3.22%; 3개월 변동폭 유효 56.4%; 현재가 급변, 매수·익절 판단 재점검(-3.79%)"
+      "score_reason": "1개월 추세 양호 15.2%; 매수위치 중립 44.0%; 변동성 적정 3.22%; 3개월 변동폭 유효 56.4%; 현재가 급변, 매수·익절 판단 재점검(-3.79%)",
+      "value_buy_range_markdown": "**75,400원~81,100원**",
+      "first_sell_target_range_markdown": "**87,700원~92,400원**",
+      "sector_theme": null
     },
     {
       "rank": 7,
@@ -488,7 +516,10 @@
       "supply_burden_level": "위험",
       "supply_burden_keywords": "대량보유,자사주처분",
       "score": 123.0,
-      "score_reason": "1개월 추세 양호 7.1%; 매수위치 중립 69.2%; 변동성 적정 2.88%; 3개월 변동폭 유효 47.1%; 현재가 급변, 매수·익절 판단 재점검(-3.58%)"
+      "score_reason": "1개월 추세 양호 7.1%; 매수위치 중립 69.2%; 변동성 적정 2.88%; 3개월 변동폭 유효 47.1%; 현재가 급변, 매수·익절 판단 재점검(-3.58%)",
+      "value_buy_range_markdown": "**27,300원~29,000원**",
+      "first_sell_target_range_markdown": "**30,200원~31,450원**",
+      "sector_theme": null
     },
     {
       "rank": 8,
@@ -524,7 +555,10 @@
       "supply_burden_level": "위험",
       "supply_burden_keywords": "CB,CB발행,대량보유,전환청구,주요주주변동",
       "score": 120.0,
-      "score_reason": "1개월 추세 양호 8.5%; 매수위치 중립 47.4%; 거래대금 우수; 변동성 큼 5.98%; 현재가 급변, 매수·익절 판단 재점검(-3.63%)"
+      "score_reason": "1개월 추세 양호 8.5%; 매수위치 중립 47.4%; 거래대금 우수; 변동성 큼 5.98%; 현재가 급변, 매수·익절 판단 재점검(-3.63%)",
+      "value_buy_range_markdown": "**72,900원~83,800원**",
+      "first_sell_target_range_markdown": "**96,200원~105,200원**",
+      "sector_theme": null
     },
     {
       "rank": 9,
@@ -560,7 +594,10 @@
       "supply_burden_level": "위험",
       "supply_burden_keywords": "BW,BW발행,대량보유,신주인수권,자사주처분,주요주주변동",
       "score": 118.0,
-      "score_reason": "1개월 추세 양호 9.5%; 매수위치 중립 36.1%; 3개월 변동폭 유효 55.1%"
+      "score_reason": "1개월 추세 양호 9.5%; 매수위치 중립 36.1%; 3개월 변동폭 유효 55.1%",
+      "value_buy_range_markdown": "**244,000원~267,500원**",
+      "first_sell_target_range_markdown": "**295,000원~314,500원**",
+      "sector_theme": null
     },
     {
       "rank": 10,
@@ -596,9 +633,65 @@
       "supply_burden_level": "주의",
       "supply_burden_keywords": "대량보유,주요주주변동",
       "score": 118.0,
-      "score_reason": "1개월 추세 양호 11.9%; 매수위치 중립 37.1%; 3개월 변동폭 유효 50.4%; 현재가 급변, 매수·익절 판단 재점검(-6.27%)"
+      "score_reason": "1개월 추세 양호 11.9%; 매수위치 중립 37.1%; 3개월 변동폭 유효 50.4%; 현재가 급변, 매수·익절 판단 재점검(-6.27%)",
+      "value_buy_range_markdown": "**27,650원~30,700원**",
+      "first_sell_target_range_markdown": "**34,150원~36,650원**",
+      "sector_theme": null
     }
   ],
   "payload_size_limit_bytes": 65000,
-  "payload_size_bytes": 22084
+  "payload_size_bytes": 22515,
+  "display_contract_version": "2026-07-09-v7.1-final-display-cleanup",
+  "output_contract": {
+    "version": "2026-07-09-v7.1-final-display-cleanup",
+    "output_sequence": [
+      "title",
+      "metadata_two_column_table",
+      "main_stock_table",
+      "minimal_required_notes"
+    ],
+    "current_price_column_label": "요청시점 현재가",
+    "bold_price_ranges_required": true,
+    "preferred_buy_range_field": "value_buy_range_markdown",
+    "preferred_first_sell_range_field": "first_sell_target_range_markdown",
+    "markdown_rule": "가격범위 문자열 전체를 **가격~가격** 형식으로 굵게 표시하며 별표를 표 밖에 분리하지 않는다",
+    "metadata_policy": {
+      "required_common_rows": [
+        "API 생성시각",
+        "자동화 입력 원본 커밋",
+        "빌드 ID",
+        "규칙 버전",
+        "사용 본표 Action",
+        "분석자료 기준일",
+        "재무·밸류에이션 기준일",
+        "정적 현재가 기준시점",
+        "요청시점 조회시간",
+        "가격 자료시각",
+        "현재가 조회 결과",
+        "재시도 과정",
+        "가격 출처",
+        "시간외 반영 여부",
+        "공식자료 최신성",
+        "분석범위",
+        "구조 검증",
+        "우회 사용 여부"
+      ],
+      "price_timestamp_label": "실제 체결시각이 보장되지 않으면 '가격 거래시각' 대신 '가격 자료시각' 또는 '가격 갱신시각' 사용",
+      "visible_market_metadata": "KR",
+      "preferred_market_rows": [
+        "KRX 기대 거래일",
+        "KOSPI·KOSDAQ 실제 기준일"
+      ],
+      "omit_by_default": [
+        "미국 분석 기준 거래일",
+        "미국 요청가격 시장상태"
+      ]
+    },
+    "sector_theme_policy": {
+      "column_position": "far_right",
+      "do_not_invent": true,
+      "missing_value_display": "자료 미제공"
+    }
+  },
+  "sector_theme_nonempty_rows": 0
 }

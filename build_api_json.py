@@ -35,7 +35,7 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "build_api_json.py v4.6_lightweight_watchlists_v66"
+SCRIPT_VERSION = "build_api_json.py v4.7_final_display_contract_v71"
 SCHEMA_VERSION = "4.2"
 ROOT = Path(__file__).resolve().parent
 LATEST = ROOT / "latest"
@@ -56,6 +56,13 @@ PRESENTATION_POLICY: Dict[str, Any] = {
     "duplicate_rows_across_main_and_shortlist_tables": False,
     "metadata_display_mode": "compact_two_column_table",
     "bold_price_ranges": True,
+    "current_price_column_label": "요청시점 현재가",
+    "price_range_markdown_required": True,
+    "preferred_buy_range_field": "value_buy_range_markdown",
+    "preferred_first_sell_range_field": "first_sell_target_range_markdown",
+    "price_timestamp_label_policy": "use_price_data_time_unless_actual_trade_time_is_guaranteed",
+    "market_specific_metadata": True,
+    "us_table_omit_kr_market_metadata_by_default": True,
     "output_sequence": [
         "title",
         "metadata_two_column_table",
@@ -915,6 +922,20 @@ def main() -> int:
         )
     )
     # LIGHTWEIGHT_WATCHLIST_BUILD_V66_END
+
+    # FINAL_DISPLAY_CONTRACT_V71_BEGIN
+    from apply_final_display_contract_v71 import (
+        apply_final_display_contract,
+    )
+    final_display_entries = apply_final_display_contract(API)
+    print(
+        "FINAL_DISPLAY_ENTRIES="
+        + ",".join(
+            f"{item['filename']}:{item['row_count']}"
+            for item in final_display_entries
+        )
+    )
+    # FINAL_DISPLAY_CONTRACT_V71_END
 
     print(f"BUILD_ID={build_id}")
     print(f"API_STATUS={overall_status}")

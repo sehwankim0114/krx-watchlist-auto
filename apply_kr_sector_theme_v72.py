@@ -14,7 +14,7 @@ from collect_kr_sector_theme_v72 import collect_or_load, normalize_code
 CONTRACT_VERSION = "2026-07-09-v7.2-kr-sector-theme"
 SOURCE_ID = "KRX_KIND_LISTED_COMPANY"
 REGULAR_SESSION_MINUTES = 390
-MAX_PAYLOAD_BYTES = 65000
+MAX_PAYLOAD_BYTES = 70000
 
 TARGETS = (
     ("kospi_watchlist.json", "kospi_watchlist", 30),
@@ -128,19 +128,22 @@ def enrich_one(
         code = normalize_code(raw.get("code") or raw.get("quote_key"))
         official = mapping.get(code)
 
+        # Keep only the compact display value in each row.
+        # Source, URL and collection time are stored once at payload level.
+        for redundant_key in (
+            "sector",
+            "theme",
+            "sector_theme_source",
+            "sector_theme_asof_kst",
+            "average_volume_per_minute_value_display",
+        ):
+            raw.pop(redundant_key, None)
+
         if official:
-            raw["sector"] = official.get("sector")
-            raw["theme"] = official.get("theme")
             raw["sector_theme"] = official.get("sector_theme")
-            raw["sector_theme_source"] = SOURCE_ID
-            raw["sector_theme_asof_kst"] = source_meta.get("generated_at_kst")
             matched += 1
         else:
-            if not raw.get("sector_theme"):
-                raw["sector"] = None
-                raw["theme"] = None
-                raw["sector_theme"] = "자료 미제공"
-                raw["sector_theme_source"] = "UNAVAILABLE"
+            raw["sector_theme"] = "자료 미제공"
             missing_codes.append(code)
 
         avg_value = clean_number(raw.get("avg_trading_value_krw"))
@@ -155,13 +158,6 @@ def enrich_one(
         )
         raw["avg_trading_value_per_minute_display"] = (
             format_per_minute_krw(per_minute)
-        )
-        volume_display = format_volume(avg_volume)
-        minute_display = format_per_minute_krw(per_minute)
-        raw["average_volume_per_minute_value_display"] = (
-            f"{volume_display}\n약 {minute_display}"
-            if volume_display and minute_display
-            else volume_display or minute_display
         )
 
     coverage_pct = round(matched / exact_rows * 100.0, 2)
@@ -179,6 +175,14 @@ def enrich_one(
     payload["sector_theme_source_url"] = source_meta.get("source_url")
     payload["sector_theme_asof_kst"] = source_meta.get("generated_at_kst")
     payload["sector_theme_cache_mode"] = source_meta.get("cache_mode")
+    payload["compact_response_policy"] = {
+        "version": "2026-07-09-v7.2.1-payload-fix",
+        "row_level_source_metadata_removed": True,
+        "sector_theme_field": "sector_theme",
+        "per_minute_value_field": "avg_trading_value_per_minute_krw",
+        "per_minute_display_field": "avg_trading_value_per_minute_display",
+        "max_payload_bytes": MAX_PAYLOAD_BYTES,
+    }
     payload["preferred_column_labels"] = {
         "current_price": "요청시점 현재가",
         "average_volume_per_minute_value": "평균거래량·분당거래금",
@@ -201,8 +205,8 @@ def enrich_one(
             "per_minute_trading_value_field": (
                 "avg_trading_value_per_minute_krw"
             ),
-            "combined_trading_display_field": (
-                "average_volume_per_minute_value_display"
+            "per_minute_trading_value_display_field": (
+                "avg_trading_value_per_minute_display"
             ),
             "regular_session_minutes": REGULAR_SESSION_MINUTES,
             "sector_theme_field": "sector_theme",
@@ -223,12 +227,7 @@ def enrich_one(
         [
             "avg_trading_value_per_minute_krw",
             "avg_trading_value_per_minute_display",
-            "average_volume_per_minute_value_display",
-            "sector",
-            "theme",
             "sector_theme",
-            "sector_theme_source",
-            "sector_theme_asof_kst",
         ],
     )
 

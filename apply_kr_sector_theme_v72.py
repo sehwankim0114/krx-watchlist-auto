@@ -92,6 +92,104 @@ def write_payload(path: Path, payload: MutableMapping[str, Any]) -> int:
     return size
 
 
+# FINANCIAL_PAYLOAD_COMPACT_V761_BEGIN
+FINANCIAL_PAYLOAD_COMPACT_VERSION = (
+    "2026-07-10-v7.6.1-financial-payload-compact"
+)
+FINANCIAL_ROW_STATUS_FIELDS = (
+    "financial_data_status",
+    "valuation_data_status",
+)
+FINANCIAL_ROW_BASIS_FIELDS = (
+    "financial_basis",
+    "valuation_price_basis_date",
+)
+FINANCIAL_ROW_COMPACT_FIELDS = (
+    *FINANCIAL_ROW_STATUS_FIELDS,
+    *FINANCIAL_ROW_BASIS_FIELDS,
+)
+
+
+def _status_counts(
+    rows: List[MutableMapping[str, Any]],
+    field: str,
+) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for row in rows:
+        value = str(row.get(field) or "").strip() or "MISSING"
+        counts[value] = counts.get(value, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def compact_financial_status_metadata(
+    payload: MutableMapping[str, Any],
+    rows: List[MutableMapping[str, Any]],
+) -> None:
+    financial_counts = _status_counts(rows, "financial_data_status")
+    valuation_counts = _status_counts(rows, "valuation_data_status")
+    financial_basis_coverage = sum(
+        1
+        for row in rows
+        if str(row.get("financial_basis") or "").strip()
+    )
+    valuation_basis_coverage = sum(
+        1
+        for row in rows
+        if str(row.get("valuation_price_basis_date") or "").strip()
+    )
+
+    for row in rows:
+        for field in FINANCIAL_ROW_COMPACT_FIELDS:
+            row.pop(field, None)
+
+    columns = payload.get("columns")
+    if isinstance(columns, list):
+        payload["columns"] = [
+            field
+            for field in columns
+            if field not in FINANCIAL_ROW_COMPACT_FIELDS
+        ]
+
+    payload["financial_status_counts"] = financial_counts
+    payload["valuation_status_counts"] = valuation_counts
+    payload["financial_basis_coverage_count"] = (
+        financial_basis_coverage
+    )
+    payload["valuation_basis_coverage_count"] = (
+        valuation_basis_coverage
+    )
+    payload["financial_payload_compact_version"] = (
+        FINANCIAL_PAYLOAD_COMPACT_VERSION
+    )
+
+    policy = payload.get("financial_valuation_link_policy")
+    if isinstance(policy, MutableMapping):
+        row_fields = policy.get("row_fields")
+        if isinstance(row_fields, list):
+            policy["row_fields"] = [
+                field
+                for field in row_fields
+                if field not in FINANCIAL_ROW_COMPACT_FIELDS
+            ]
+        policy["status_storage"] = "payload_level_counts"
+        policy["basis_storage"] = "payload_level_summary"
+        policy["status_count_fields"] = [
+            "financial_status_counts",
+            "valuation_status_counts",
+        ]
+
+    compact_policy = payload.get("compact_response_policy")
+    if isinstance(compact_policy, MutableMapping):
+        compact_policy["financial_status_storage"] = (
+            "payload_level_counts"
+        )
+        compact_policy["financial_status_count_fields"] = [
+            "financial_status_counts",
+            "valuation_status_counts",
+        ]
+# FINANCIAL_PAYLOAD_COMPACT_V761_END
+
+
 def ensure_columns(payload: MutableMapping[str, Any], fields: List[str]) -> None:
     columns = payload.get("columns")
     if not isinstance(columns, list):
@@ -159,6 +257,8 @@ def enrich_one(
         raw["avg_trading_value_per_minute_display"] = (
             format_per_minute_krw(per_minute)
         )
+
+    compact_financial_status_metadata(payload, rows)
 
     coverage_pct = round(matched / exact_rows * 100.0, 2)
     if matched < exact_rows:

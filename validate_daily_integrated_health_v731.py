@@ -34,7 +34,7 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 SCHEMA_VERSION = "1.0"
-CHECKER_VERSION = "2026-07-09-v7.5-activity-elasticity-health"
+CHECKER_VERSION = "2026-07-10-v7.6.1-financial-payload-health"
 DEFAULT_WORKER_BASE = "https://krx-live-price-ksh.diaconos.workers.dev"
 EXPECTED_WORKER_BUILD_PREFIX = "1.3.2-"
 DEFAULT_MAX_WATCHLIST_BYTES = 70000
@@ -738,6 +738,188 @@ def validate_local_repository(
                     f"{table_id} 가격탄력 등급이 누락되거나 기준과 다릅니다.",
                     {"failures": elasticity_failures},
                 )
+
+        # FINANCIAL_VALUATION_HEALTH_V76_BEGIN
+        if spec["market"] == "KR":
+            total_rows = len(rows)
+            minimum_financial_rows = max(1, int(total_rows * 0.60 + 0.999))
+            minimum_growth_rows = max(1, int(total_rows * 0.50 + 0.999))
+            minimum_valuation_rows = max(1, int(total_rows * 0.50 + 0.999))
+
+            financial_counts = payload.get("financial_status_counts")
+            financial_status_total = (
+                sum(
+                    int(value)
+                    for value in financial_counts.values()
+                )
+                if isinstance(financial_counts, Mapping)
+                else 0
+            )
+            if financial_status_total == total_rows:
+                report.pass_check(
+                    f"{table_id}_financial_status_coverage",
+                    f"{table_id} 재무수집 상태 집계가 전 행과 일치합니다.",
+                    {
+                        "counts": financial_counts,
+                        "total": total_rows,
+                    },
+                )
+            else:
+                report.fail(
+                    f"{table_id}_financial_status_coverage",
+                    f"{table_id} 재무수집 상태 집계가 행 수와 다릅니다.",
+                    {
+                        "counts": financial_counts,
+                        "count_total": financial_status_total,
+                        "total": total_rows,
+                    },
+                )
+
+            financial_basis_coverage = int(
+                payload.get("financial_basis_coverage_count") or 0
+            )
+            financial_basis_values = payload.get(
+                "financial_basis_values"
+            )
+            if (
+                financial_basis_coverage >= minimum_financial_rows
+                and isinstance(financial_basis_values, list)
+                and bool(financial_basis_values)
+            ):
+                report.pass_check(
+                    f"{table_id}_financial_basis_coverage",
+                    f"{table_id} 재무기준 연결률이 최소 기준 이상입니다.",
+                    {
+                        "covered": financial_basis_coverage,
+                        "total": total_rows,
+                        "minimum": minimum_financial_rows,
+                        "basis_values": financial_basis_values,
+                    },
+                )
+            else:
+                report.fail(
+                    f"{table_id}_financial_basis_coverage",
+                    f"{table_id} 재무기준 연결률이 부족합니다.",
+                    {
+                        "covered": financial_basis_coverage,
+                        "total": total_rows,
+                        "minimum": minimum_financial_rows,
+                        "basis_values": financial_basis_values,
+                    },
+                )
+
+            growth_rows = [
+                index
+                for index, row in enumerate(rows, start=1)
+                if isinstance(row, Mapping)
+                and (
+                    row.get("revenue_yoy_pct") is not None
+                    or row.get("operating_profit_yoy_pct") is not None
+                )
+            ]
+            if len(growth_rows) >= minimum_growth_rows:
+                report.pass_check(
+                    f"{table_id}_financial_growth_coverage",
+                    f"{table_id} 재무증감률 연결률이 최소 기준 이상입니다.",
+                    {
+                        "covered": len(growth_rows),
+                        "total": total_rows,
+                        "minimum": minimum_growth_rows,
+                    },
+                )
+            else:
+                report.fail(
+                    f"{table_id}_financial_growth_coverage",
+                    f"{table_id} 재무증감률 연결률이 부족합니다.",
+                    {
+                        "covered": len(growth_rows),
+                        "total": total_rows,
+                        "minimum": minimum_growth_rows,
+                    },
+                )
+
+            valuation_counts = payload.get("valuation_status_counts")
+            valuation_status_total = (
+                sum(
+                    int(value)
+                    for value in valuation_counts.values()
+                )
+                if isinstance(valuation_counts, Mapping)
+                else 0
+            )
+            valuation_basis_coverage = int(
+                payload.get("valuation_basis_coverage_count") or 0
+            )
+            valuation_basis_min = payload.get(
+                "valuation_basis_date_min"
+            )
+            valuation_basis_max = payload.get(
+                "valuation_basis_date_max"
+            )
+            pbr_rows = [
+                index
+                for index, row in enumerate(rows, start=1)
+                if isinstance(row, Mapping) and row.get("pbr") is not None
+            ]
+            if (
+                valuation_status_total == total_rows
+                and valuation_basis_coverage >= minimum_valuation_rows
+                and bool(valuation_basis_min)
+                and bool(valuation_basis_max)
+                and len(pbr_rows) >= minimum_valuation_rows
+            ):
+                report.pass_check(
+                    f"{table_id}_valuation_coverage",
+                    f"{table_id} 밸류에이션 상태·기준일·PBR 연결이 정상입니다.",
+                    {
+                        "status_counts": valuation_counts,
+                        "basis_date": valuation_basis_coverage,
+                        "basis_min": valuation_basis_min,
+                        "basis_max": valuation_basis_max,
+                        "pbr": len(pbr_rows),
+                        "total": total_rows,
+                    },
+                )
+            else:
+                report.fail(
+                    f"{table_id}_valuation_coverage",
+                    f"{table_id} 밸류에이션 연결이 불완전합니다.",
+                    {
+                        "status_counts": valuation_counts,
+                        "status_total": valuation_status_total,
+                        "basis_date": valuation_basis_coverage,
+                        "basis_min": valuation_basis_min,
+                        "basis_max": valuation_basis_max,
+                        "pbr": len(pbr_rows),
+                        "total": total_rows,
+                        "minimum": minimum_valuation_rows,
+                    },
+                )
+
+            invalid_per_rows = []
+            for index, row in enumerate(rows, start=1):
+                if not isinstance(row, Mapping):
+                    continue
+                per_value = row.get("per_annualized")
+                if per_value is None:
+                    continue
+                try:
+                    if float(per_value) <= 0:
+                        invalid_per_rows.append(index)
+                except (TypeError, ValueError):
+                    invalid_per_rows.append(index)
+            if invalid_per_rows:
+                report.fail(
+                    f"{table_id}_per_loss_policy",
+                    f"{table_id}에 0 이하 또는 비정상 PER 값이 있습니다.",
+                    {"rows": invalid_per_rows},
+                )
+            else:
+                report.pass_check(
+                    f"{table_id}_per_loss_policy",
+                    f"{table_id} 적자기업 PER 공란 정책이 정상입니다.",
+                )
+        # FINANCIAL_VALUATION_HEALTH_V76_END
 
         duplicate_hits: List[Dict[str, Any]] = []
         for row_index, row in enumerate(rows, start=1):

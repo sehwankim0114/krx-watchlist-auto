@@ -1,11 +1,11 @@
 # V7.3 일일 통합 건강검사
 
-- 검사시각(KST): 2026-07-10T05:00:32+09:00
+- 검사시각(KST): 2026-07-10T08:03:19+09:00
 - 최종상태: **WARN**
 - 치명 오류: 0
 - 경고: 1
-- 빌드 ID: `20260710T050029+0900-27dbebd41f`
-- 규칙 버전: `2026-07-09-v7.5-activity-elasticity`
+- 빌드 ID: `20260710T080315+0900-ba0dd40ac2`
+- 규칙 버전: `2026-07-10-v7.6.1-financial-payload-compact`
 
 | 결과 | 검사 항목 | 설명 |
 |---|---|---|
@@ -28,6 +28,11 @@
 | ✅ | `kospi_watchlist_per_minute_value` | kospi_watchlist 분당거래금 필드가 모두 존재합니다. |
 | ✅ | `kospi_watchlist_trading_activity` | kospi_watchlist 거래활발 등급이 전 행 정상입니다. |
 | ✅ | `kospi_watchlist_price_elasticity` | kospi_watchlist 가격탄력 등급이 전 행 정상입니다. |
+| ✅ | `kospi_watchlist_financial_status_coverage` | kospi_watchlist 재무수집 상태 집계가 전 행과 일치합니다. |
+| ✅ | `kospi_watchlist_financial_basis_coverage` | kospi_watchlist 재무기준 연결률이 최소 기준 이상입니다. |
+| ✅ | `kospi_watchlist_financial_growth_coverage` | kospi_watchlist 재무증감률 연결률이 최소 기준 이상입니다. |
+| ✅ | `kospi_watchlist_valuation_coverage` | kospi_watchlist 밸류에이션 상태·기준일·PBR 연결이 정상입니다. |
+| ✅ | `kospi_watchlist_per_loss_policy` | kospi_watchlist 적자기업 PER 공란 정책이 정상입니다. |
 | ✅ | `kospi_watchlist_display_duplicates` | kospi_watchlist에서 알려진 중복 수급표현이 발견되지 않았습니다. |
 | ✅ | `kosdaq_watchlist_rows` | kosdaq_watchlist 행 수가 10개로 정상입니다. |
 | ✅ | `kosdaq_watchlist_payload_size` | kosdaq_watchlist 응답 크기가 시장별 안전 범위입니다. |
@@ -41,6 +46,11 @@
 | ✅ | `kosdaq_watchlist_per_minute_value` | kosdaq_watchlist 분당거래금 필드가 모두 존재합니다. |
 | ✅ | `kosdaq_watchlist_trading_activity` | kosdaq_watchlist 거래활발 등급이 전 행 정상입니다. |
 | ✅ | `kosdaq_watchlist_price_elasticity` | kosdaq_watchlist 가격탄력 등급이 전 행 정상입니다. |
+| ✅ | `kosdaq_watchlist_financial_status_coverage` | kosdaq_watchlist 재무수집 상태 집계가 전 행과 일치합니다. |
+| ✅ | `kosdaq_watchlist_financial_basis_coverage` | kosdaq_watchlist 재무기준 연결률이 최소 기준 이상입니다. |
+| ✅ | `kosdaq_watchlist_financial_growth_coverage` | kosdaq_watchlist 재무증감률 연결률이 최소 기준 이상입니다. |
+| ✅ | `kosdaq_watchlist_valuation_coverage` | kosdaq_watchlist 밸류에이션 상태·기준일·PBR 연결이 정상입니다. |
+| ✅ | `kosdaq_watchlist_per_loss_policy` | kosdaq_watchlist 적자기업 PER 공란 정책이 정상입니다. |
 | ✅ | `kosdaq_watchlist_display_duplicates` | kosdaq_watchlist에서 알려진 중복 수급표현이 발견되지 않았습니다. |
 | ✅ | `us_watchlist_rows` | us_watchlist 행 수가 30개로 정상입니다. |
 | ✅ | `us_watchlist_payload_size` | us_watchlist 응답 크기가 시장별 안전 범위입니다. |

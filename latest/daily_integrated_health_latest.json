@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
-  "checker_version": "2026-07-09-v7.5-activity-elasticity-health",
-  "generated_at_kst": "2026-07-10T05:00:32+09:00",
+  "checker_version": "2026-07-10-v7.6.1-financial-payload-health",
+  "generated_at_kst": "2026-07-10T08:03:19+09:00",
   "status": "WARN",
   "critical_count": 0,
   "warning_count": 1,
   "context": {
-    "build_id": "20260710T050029+0900-27dbebd41f",
-    "rules_version": "2026-07-09-v7.5-activity-elasticity",
-    "rules_sha256": "328c82b0729d77e2828c2a8885b6faab4d20b3823d4dd5f967bf11250aaa9626",
-    "source_commit_sha": "27dbebd41fa10c6920f982ac8aa40d0ee9f85b1f",
+    "build_id": "20260710T080315+0900-ba0dd40ac2",
+    "rules_version": "2026-07-10-v7.6.1-financial-payload-compact",
+    "rules_sha256": "85b91f0f2657fad6aed51a524a3e2abbb52fbc4c34742aa125f3bb24376e69bc",
+    "source_commit_sha": "ba0dd40ac2b3031325cd74091e8ddd6867d33e20",
     "payload_limits_bytes": {
       "kospi_watchlist": 70000,
       "kosdaq_watchlist": 50000,
@@ -71,7 +71,7 @@
       "severity": "ERROR",
       "message": "kospi_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 68421,
+        "bytes": 69857,
         "limit": 70000,
         "market": "KR"
       }
@@ -137,6 +137,69 @@
       "message": "kospi_watchlist 가격탄력 등급이 전 행 정상입니다."
     },
     {
+      "check_id": "kospi_watchlist_financial_status_coverage",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kospi_watchlist 재무수집 상태 집계가 전 행과 일치합니다.",
+      "details": {
+        "counts": {
+          "LIMITED": 1,
+          "PARTIAL": 1,
+          "READY": 28
+        },
+        "total": 30
+      }
+    },
+    {
+      "check_id": "kospi_watchlist_financial_basis_coverage",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kospi_watchlist 재무기준 연결률이 최소 기준 이상입니다.",
+      "details": {
+        "covered": 29,
+        "total": 30,
+        "minimum": 18,
+        "basis_values": [
+          "2026 1분기보고서"
+        ]
+      }
+    },
+    {
+      "check_id": "kospi_watchlist_financial_growth_coverage",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kospi_watchlist 재무증감률 연결률이 최소 기준 이상입니다.",
+      "details": {
+        "covered": 29,
+        "total": 30,
+        "minimum": 15
+      }
+    },
+    {
+      "check_id": "kospi_watchlist_valuation_coverage",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kospi_watchlist 밸류에이션 상태·기준일·PBR 연결이 정상입니다.",
+      "details": {
+        "status_counts": {
+          "LIMITED_NO_FINANCIAL_DATA": 1,
+          "PARTIAL_LOSS_PER_NA": 1,
+          "READY": 28
+        },
+        "basis_date": 29,
+        "basis_min": "2026-06-30",
+        "basis_max": "2026-07-08",
+        "pbr": 29,
+        "total": 30
+      }
+    },
+    {
+      "check_id": "kospi_watchlist_per_loss_policy",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kospi_watchlist 적자기업 PER 공란 정책이 정상입니다."
+    },
+    {
       "check_id": "kospi_watchlist_display_duplicates",
       "status": "PASS",
       "severity": "ERROR",
@@ -154,7 +217,7 @@
       "severity": "ERROR",
       "message": "kosdaq_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 32453,
+        "bytes": 33602,
         "limit": 50000,
         "market": "KR"
       }
@@ -220,6 +283,66 @@
       "message": "kosdaq_watchlist 가격탄력 등급이 전 행 정상입니다."
     },
     {
+      "check_id": "kosdaq_watchlist_financial_status_coverage",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kosdaq_watchlist 재무수집 상태 집계가 전 행과 일치합니다.",
+      "details": {
+        "counts": {
+          "READY": 10
+        },
+        "total": 10
+      }
+    },
+    {
+      "check_id": "kosdaq_watchlist_financial_basis_coverage",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kosdaq_watchlist 재무기준 연결률이 최소 기준 이상입니다.",
+      "details": {
+        "covered": 10,
+        "total": 10,
+        "minimum": 6,
+        "basis_values": [
+          "2026 1분기보고서"
+        ]
+      }
+    },
+    {
+      "check_id": "kosdaq_watchlist_financial_growth_coverage",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kosdaq_watchlist 재무증감률 연결률이 최소 기준 이상입니다.",
+      "details": {
+        "covered": 10,
+        "total": 10,
+        "minimum": 5
+      }
+    },
+    {
+      "check_id": "kosdaq_watchlist_valuation_coverage",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kosdaq_watchlist 밸류에이션 상태·기준일·PBR 연결이 정상입니다.",
+      "details": {
+        "status_counts": {
+          "PARTIAL_LOSS_PER_NA": 2,
+          "READY": 8
+        },
+        "basis_date": 10,
+        "basis_min": "2026-06-30",
+        "basis_max": "2026-07-08",
+        "pbr": 10,
+        "total": 10
+      }
+    },
+    {
+      "check_id": "kosdaq_watchlist_per_loss_policy",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kosdaq_watchlist 적자기업 PER 공란 정책이 정상입니다."
+    },
+    {
       "check_id": "kosdaq_watchlist_display_duplicates",
       "status": "PASS",
       "severity": "ERROR",
@@ -237,7 +360,7 @@
       "severity": "ERROR",
       "message": "us_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 100193,
+        "bytes": 100209,
         "limit": 110000,
         "market": "US"
       }
@@ -297,7 +420,7 @@
       "severity": "ERROR",
       "message": "Worker 경량 매니페스트 응답 크기가 안전 범위입니다.",
       "details": {
-        "bytes": 15578,
+        "bytes": 15574,
         "limit": 65000
       }
     },
@@ -340,8 +463,8 @@
       "severity": "WARNING",
       "message": "Worker 캐시의 빌드 ID가 저장소와 다릅니다. 120초 캐시 지연일 수 있습니다.",
       "details": {
-        "local": "20260710T050029+0900-27dbebd41f",
-        "remote": "20260709T173906+0900-8405a4f7c2"
+        "local": "20260710T080315+0900-ba0dd40ac2",
+        "remote": "20260710T050029+0900-27dbebd41f"
       }
     }
   ]

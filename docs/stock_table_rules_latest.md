@@ -1,7 +1,7 @@
 # 한국 주식 자동화 분석표 최신 개선형 통합 규칙
 
 - 최종 업데이트: 2026-07-09
-- 규칙 버전: `2026-07-09-v7.5-activity-elasticity`
+- 규칙 버전: `2026-07-10-v7.6.1-financial-payload-compact`
 - 저장소: `sehwankim0114/krx-watchlist-auto`
 - 적용 대상: `관종표`, `분석표`, `코피표`, `코피표1개월`, `코닥표`, `코닥표1개월`, `코급표`, `월사이클표`, `단상표`, `환율약세표`, `시장상태표`, `보유종목표`, `미관종표`
 
@@ -617,4 +617,69 @@
   참고표시다.
 - 기존 완성 표시값이 있으면 보존하고, 없을 때만 수치에서 복구한다.
 - 수치자료까지 없을 때만 `자료 미제공`으로 표시한다.
+
+---
+
+## 19. 재무·밸류에이션 연결 V7.6
+
+<!-- FINANCIAL_VALUATION_LINK_V76 -->
+
+### 19-1. 공식 자료원
+
+- 재무실적은 OpenDART 최근 확정 보고서를 사용한다.
+- 연결재무제표를 우선하고 없을 때만 개별재무제표를 사용한다.
+- PER·PBR 계산의 시가총액과 상장주식수는 KRX 시장자료를 사용한다.
+- 자료가 없으면 임의 추정값을 만들지 않는다.
+
+### 19-2. 표 전달 필드
+
+- `financial_basis`: 재무 보고서 기준
+- `valuation_price_basis_date`: PER·PBR 가격 기준일
+- `revenue_yoy_pct`: 매출 전년 동기 대비
+- `operating_profit_yoy_pct`: 영업이익 전년 동기 대비
+- `earnings_trend`: 흑자·적자 흐름
+- `per_annualized`: 연환산 PER
+- `pbr`: PBR
+- `financial_data_status`, `valuation_data_status`: 자료 상태
+
+### 19-3. 적자기업 PER
+
+- 연환산 순이익이 0 이하이면 숫자 PER를 만들지 않는다.
+- 이 경우 `valuation_data_status=PARTIAL_LOSS_PER_NA` 등 자료상태로
+  이유를 명확히 전달한다.
+- PBR 등 계산 가능한 값은 별도로 유지한다.
+
+### 19-4. 표 출력 방식
+
+- 상단 `재무·밸류에이션 기준일`에는 `financial_basis`와
+  `valuation_price_basis_date`를 구분해 표시한다.
+- `기업가치·흐름 평가`에는 가능한 범위에서 매출증감률,
+  영업이익증감률, 이익흐름, PER, PBR을 우선 표시한다.
+- 적자기업은 PER 숫자를 만들지 않고 `적자로 PER 계산 제외`라고 쓴다.
+- 값이 실제로 없는 항목만 `자료 미제공`으로 표시한다.
+
+### 19-5. 자동화 순서
+
+정규 공식수집에서는 주요 후보표 생성 후
+`financial_valuation_enricher.py`를 실행하고, 그 결과가 반영된 CSV로
+API를 생성한다. 일일 건강검사는 재무기준·증감률·밸류에이션 연결률을
+자동 점검한다.
+
+---
+
+## 20. 재무 상태 메타데이터 압축 V7.6.1
+
+<!-- FINANCIAL_PAYLOAD_COMPACT_V761 -->
+
+- 매출·영업이익 증감률, 재무기준, 밸류 기준일, PER·PBR은
+  종목별 행에 유지한다.
+- `financial_data_status`, `valuation_data_status`는 후보 원본과
+  재무 캐시에 유지하되 compact Action 응답에서는 종목별 반복을
+  제거하고 표 상단의 상태별 개수 집계로 저장한다.
+- 종목별 `financial_basis`, `valuation_price_basis_date`도 원본에
+  유지하고 compact 응답에서는 고유 재무기준 목록과 밸류기준
+  최소·최대일 및 연결행 수로 한 번만 저장한다.
+- 매출·영업이익 증감률, 이익흐름, PER·PBR은 종목별로 유지한다.
+- 코피 응답은 70,000바이트, 코닥 응답은 50,000바이트 이내를
+  유지한다.
 

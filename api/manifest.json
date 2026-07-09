@@ -1,17 +1,17 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260710T050029+0900-27dbebd41f",
-  "generated_at_kst": "2026-07-10T05:00:29+09:00",
-  "source_commit_sha": "27dbebd41fa10c6920f982ac8aa40d0ee9f85b1f",
+  "build_id": "20260710T080315+0900-ba0dd40ac2",
+  "generated_at_kst": "2026-07-10T08:03:15+09:00",
+  "source_commit_sha": "ba0dd40ac2b3031325cd74091e8ddd6867d33e20",
   "status": "READY",
   "api_sync_ok": true,
   "safe_to_analyze_as_latest": true,
-  "rules_version": "2026-07-09-v7.5-activity-elasticity",
-  "rules_sha256": "328c82b0729d77e2828c2a8885b6faab4d20b3823d4dd5f967bf11250aaa9626",
+  "rules_version": "2026-07-10-v7.6.1-financial-payload-compact",
+  "rules_sha256": "85b91f0f2657fad6aed51a524a3e2abbb52fbc4c34742aa125f3bb24376e69bc",
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-09-v7.5-activity-elasticity",
-    "sha256": "328c82b0729d77e2828c2a8885b6faab4d20b3823d4dd5f967bf11250aaa9626"
+    "version": "2026-07-10-v7.6.1-financial-payload-compact",
+    "sha256": "85b91f0f2657fad6aed51a524a3e2abbb52fbc4c34742aa125f3bb24376e69bc"
   },
   "presentation_policy": {
     "format_contract": "improvement_plan_2_final",
@@ -2774,7 +2774,7 @@
       "compact_payload": true,
       "preferred_default_action": true,
       "operation_id": "getKospiWatchlist",
-      "payload_size_bytes": 51503,
+      "payload_size_bytes": 58023,
       "candidate_analysis_date": "2026-07-08",
       "current_basis_selected": true,
       "presentation_policy": {
@@ -2931,7 +2931,7 @@
       "compact_payload": true,
       "preferred_default_action": true,
       "operation_id": "getKosdaqWatchlist",
-      "payload_size_bytes": 23449,
+      "payload_size_bytes": 26172,
       "candidate_analysis_date": "2026-07-08",
       "current_basis_selected": true,
       "presentation_policy": {
@@ -3159,7 +3159,7 @@
         "api_file": "api/kospi_watchlist.json",
         "operation_id": "getKospiWatchlist",
         "row_count": 30,
-        "payload_size_bytes": 51503,
+        "payload_size_bytes": 58023,
         "candidate_analysis_date": "2026-07-08"
       },
       {
@@ -3167,7 +3167,7 @@
         "api_file": "api/kosdaq_watchlist.json",
         "operation_id": "getKosdaqWatchlist",
         "row_count": 10,
-        "payload_size_bytes": 23449,
+        "payload_size_bytes": 26172,
         "candidate_analysis_date": "2026-07-08"
       }
     ]
@@ -3184,21 +3184,21 @@
         "market_scope": "KR",
         "row_count": 30,
         "sector_theme_nonempty_rows": 0,
-        "payload_size_bytes": 58389
+        "payload_size_bytes": 64909
       },
       {
         "filename": "kosdaq_watchlist.json",
         "market_scope": "KR",
         "row_count": 10,
         "sector_theme_nonempty_rows": 0,
-        "payload_size_bytes": 27086
+        "payload_size_bytes": 29809
       },
       {
         "filename": "us_watchlist.json",
         "market_scope": "US",
         "row_count": 30,
         "sector_theme_nonempty_rows": 30,
-        "payload_size_bytes": 95019
+        "payload_size_bytes": 95035
       }
     ]
   },
@@ -3207,7 +3207,7 @@
     "status": "OK",
     "source": "KRX_KIND_LISTED_COMPANY",
     "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download&searchType=13",
-    "generated_at_kst": "2026-07-10T05:00:30+09:00",
+    "generated_at_kst": "2026-07-10T08:03:15+09:00",
     "cache_mode": "LIVE_REFRESH",
     "regular_session_minutes": 390,
     "column_label": "평균거래량·분당거래금",
@@ -3218,7 +3218,7 @@
         "row_count": 30,
         "sector_theme_matched": 30,
         "sector_theme_coverage_pct": 100.0,
-        "payload_size_bytes": 65105
+        "payload_size_bytes": 66541
       },
       {
         "table_id": "kosdaq_watchlist",
@@ -3226,7 +3226,7 @@
         "row_count": 10,
         "sector_theme_matched": 10,
         "sector_theme_coverage_pct": 100.0,
-        "payload_size_bytes": 30537
+        "payload_size_bytes": 31686
       }
     ]
   },
@@ -3243,7 +3243,7 @@
         "row_count": 30,
         "recommendation_display_changes": 0,
         "normalized_keyword_rows": 27,
-        "payload_size_bytes": 68421,
+        "payload_size_bytes": 69857,
         "payload_size_limit_bytes": 70000
       },
       {
@@ -3252,7 +3252,7 @@
         "row_count": 10,
         "recommendation_display_changes": 0,
         "normalized_keyword_rows": 9,
-        "payload_size_bytes": 32453,
+        "payload_size_bytes": 33602,
         "payload_size_limit_bytes": 50000
       },
       {
@@ -3261,7 +3261,7 @@
         "row_count": 30,
         "recommendation_display_changes": 30,
         "normalized_keyword_rows": 0,
-        "payload_size_bytes": 100193,
+        "payload_size_bytes": 100209,
         "payload_size_limit_bytes": 110000
       }
     ]

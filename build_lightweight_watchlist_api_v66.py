@@ -228,6 +228,28 @@ def derive_price_elasticity_label(value: Any) -> Optional[str]:
 # ACTIVITY_ELASTICITY_V75_END
 
 
+# FINANCIAL_VALUATION_LINK_V76_BEGIN
+FINANCIAL_VALUATION_LINK_POLICY = {
+    "version": "2026-07-10-v7.6-financial-valuation-link",
+    "source": "OpenDART+KRX_MARKET_METRICS",
+    "preserve_missing_values": True,
+    "do_not_estimate_missing_financials": True,
+    "loss_company_per_policy": "PER_NULL_WHEN_ANNUALIZED_NET_INCOME_NOT_POSITIVE",
+    "row_fields": [
+        "financial_data_status",
+        "financial_basis",
+        "revenue_yoy_pct",
+        "operating_profit_yoy_pct",
+        "earnings_trend",
+        "valuation_data_status",
+        "valuation_price_basis_date",
+        "per_annualized",
+        "pbr",
+    ],
+}
+# FINANCIAL_VALUATION_LINK_V76_END
+
+
 def compact_row(source: Mapping[str, Any], default_market: str) -> Dict[str, Any]:
     code = normalize_code(source.get("code"))
     name = str(clean_scalar(source.get("name")) or "").strip()
@@ -284,6 +306,16 @@ def compact_row(source: Mapping[str, Any], default_market: str) -> Dict[str, Any
         "operating_profit_text": format_krw_amount(source.get("operating_profit")),
         "operating_loss": operating_loss,
         "earnings_trend": clean_scalar(source.get("earnings_trend")),
+        "financial_data_status": clean_scalar(
+            source.get("financial_data_status")
+        ),
+        "financial_basis": clean_scalar(source.get("financial_basis")),
+        "valuation_data_status": clean_scalar(
+            source.get("valuation_data_status")
+        ),
+        "valuation_price_basis_date": clean_scalar(
+            source.get("valuation_price_basis_date")
+        ),
         "revenue_yoy_pct": clean_number(source.get("revenue_yoy_pct")),
         "operating_profit_yoy_pct": clean_number(
             source.get("operating_profit_yoy_pct")
@@ -410,6 +442,7 @@ def build_one(api_dir: Path, spec: Mapping[str, Any]) -> Dict[str, Any]:
         "expected_rows": {"exact": exact_rows, "minimum": None},
         "validation_message": "OK",
         "activity_elasticity_policy": ACTIVITY_ELASTICITY_POLICY,
+        "financial_valuation_link_policy": FINANCIAL_VALUATION_LINK_POLICY,
         "candidate_analysis_date": analysis_date,
         "data_date_min": analysis_date,
         "data_date_max": analysis_date,

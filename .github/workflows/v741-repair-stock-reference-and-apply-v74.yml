@@ -1,0 +1,326 @@
+name: V741 Repair Stock Reference And Apply V74
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v741-repair-stock-reference-and-apply-v74
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install requirements
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install "lxml>=5.0"
+
+      - name: Check required files
+        run: |
+          set -euo pipefail
+          test -f patch_stock_reference_label_compat_v741.py
+          test -f build_stock_reference_api.py
+          test -f build_api_json.py
+          test -f validate_api_sync.py
+          test -f apply_display_normalization_v74.py
+          test -f patch_display_normalization_v74.py
+          test -f latest/kospi_universe_summary_latest.csv
+          test -f latest/kosdaq_universe_summary_latest.csv
+          echo "V741_PREREQUISITES=OK"
+
+      - name: Patch stock reference compatibility
+        run: |
+          set -euo pipefail
+          python patch_stock_reference_label_compat_v741.py
+          python -m py_compile \
+            patch_stock_reference_label_compat_v741.py \
+            build_stock_reference_api.py
+          python build_stock_reference_api.py --self-test
+          echo "V741_STOCK_REFERENCE_PATCH=OK"
+
+      - name: Verify real universe summaries
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import importlib.util
+          import tempfile
+          from pathlib import Path
+
+          spec = importlib.util.spec_from_file_location(
+              "stock_reference",
+              "build_stock_reference_api.py",
+          )
+          module = importlib.util.module_from_spec(spec)
+          assert spec.loader is not None
+          spec.loader.exec_module(module)
+
+          paths = [
+              Path("latest/kospi_universe_summary_latest.csv"),
+              Path("latest/kosdaq_universe_summary_latest.csv"),
+          ]
+          allowed_activity = {
+              "매우활발", "활발", "보통",
+              "부족", "매우부족", "자료부족",
+          }
+          allowed_elasticity = {
+              "탄력 불안정", "탄력 높음",
+              "탄력 보통", "탄력 낮음", "자료부족",
+          }
+          total = 0
+
+          for path in paths:
+              frame = module.read_summary(path)
+              total += len(frame)
+              if not set(frame["trading_activity_label"]).issubset(
+                  allowed_activity
+              ):
+                  raise SystemExit(
+                      f"{path.name}: trading label invalid"
+                  )
+              if not set(frame["price_elasticity_label"]).issubset(
+                  allowed_elasticity
+              ):
+                  raise SystemExit(
+                      f"{path.name}: elasticity label invalid"
+                  )
+              print(
+                  f"{path.name}={len(frame)}:LABEL_COMPAT_PASS"
+              )
+
+          with tempfile.TemporaryDirectory() as tmp:
+              manifest = module.build_api(
+                  kospi_path=paths[0],
+                  kosdaq_path=paths[1],
+                  api_dir=Path(tmp) / "api",
+              )
+              if manifest["source_rows"]["total"] != total:
+                  raise SystemExit("temporary row count mismatch")
+              if manifest["privacy_policy"][
+                  "contains_user_holdings"
+              ] is not False:
+                  raise SystemExit("privacy mode mismatch")
+              required = {
+                  "trading_activity_label",
+                  "price_elasticity_label",
+              }
+              if not required.issubset(
+                  set(manifest["public_columns"])
+              ):
+                  raise SystemExit("public label fields missing")
+
+          print(f"TOTAL_PUBLIC_REFERENCE_ROWS={total}")
+          print("REAL_SUMMARY_LABEL_COMPAT=PASS")
+          print("TEMP_STOCK_REFERENCE_BUILD=PASS")
+          print("CONTAINS_USER_HOLDINGS=false")
+          PY
+
+      - name: Apply V7.4 display patch
+        run: |
+          set -euo pipefail
+          python patch_display_normalization_v74.py
+          python -m py_compile \
+            apply_display_normalization_v74.py \
+            patch_display_normalization_v74.py \
+            build_api_json.py
+          echo "V74_PATCH=OK"
+
+      - name: Build all API JSON
+        run: |
+          set -euo pipefail
+          python build_api_json.py
+
+      - name: Validate synchronized API
+        run: |
+          set -euo pipefail
+          python validate_api_sync.py --api-dir api
+
+      - name: Verify repair and display
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          reference = json.loads(
+              Path("api/stock_reference_manifest.json")
+              .read_text(encoding="utf-8")
+          )
+          if reference.get("status") != "OK":
+              raise SystemExit("stock reference status")
+          if reference.get("source_rows", {}).get("total", 0) < 2500:
+              raise SystemExit("stock reference rows")
+          if reference.get("privacy_policy", {}).get(
+              "contains_user_holdings"
+          ) is not False:
+              raise SystemExit("stock reference privacy")
+          policy = reference.get(
+              "summary_label_compat_policy"
+          ) or {}
+          if policy.get("version") != (
+              "2026-07-09-v7.4.1-summary-label-compat"
+          ):
+              raise SystemExit("stock reference compat policy")
+
+          expected = {
+              "kospi_watchlist.json": (30, 70000),
+              "kosdaq_watchlist.json": (10, 50000),
+              "us_watchlist.json": (30, 110000),
+          }
+          for filename, (expected_rows, limit) in expected.items():
+              path = Path("api") / filename
+              payload = json.loads(
+                  path.read_text(encoding="utf-8")
+              )
+              rows = payload.get("rows") or []
+              if len(rows) != expected_rows:
+                  raise SystemExit(f"{filename}: rows")
+              if payload.get("display_contract_version") != (
+                  "2026-07-09-v7.4-display-normalization"
+              ):
+                  raise SystemExit(f"{filename}: contract")
+              contract = payload.get("output_contract") or {}
+              if contract.get(
+                  "show_rank_numbers_default"
+              ) is not False:
+                  raise SystemExit(f"{filename}: rank policy")
+              if path.stat().st_size > limit:
+                  raise SystemExit(
+                      f"{filename}: {path.stat().st_size}>{limit}"
+                  )
+              for row in rows:
+                  display = row.get("recommendation_display")
+                  if not isinstance(display, str):
+                      raise SystemExit(
+                          f"{filename}: display missing"
+                      )
+                  if re.match(r"^\s*\d+\.", display):
+                      raise SystemExit(
+                          f"{filename}: rank prefix"
+                      )
+                  keywords = str(
+                      row.get("supply_burden_keywords") or ""
+                  ).lower()
+                  for duplicate in (
+                      "cb,cb발행",
+                      "bw,bw발행",
+                      "eb,eb발행",
+                  ):
+                      if duplicate in keywords:
+                          raise SystemExit(
+                              f"{filename}: duplicate alias"
+                          )
+
+          print("STOCK_REFERENCE_REPAIR_V741=PASS")
+          print(
+              "TOTAL_PUBLIC_REFERENCE_ROWS="
+              f"{reference['source_rows']['total']}"
+          )
+          print("PUBLIC_LABEL_COLUMNS=PASS")
+          print("CONTAINS_USER_HOLDINGS=false")
+          print("DISPLAY_NORMALIZATION_V74=PASS")
+          print("RANK_NUMBERS_DEFAULT=OFF")
+          print("SUPPLY_ALIAS_DEDUP=PASS")
+          print("KOSPI_ROWS=30")
+          print("KOSDAQ_ROWS=10")
+          print("US_ROWS=30")
+          print("PAYLOAD_LIMITS=PASS")
+          PY
+
+      - name: Run V7.3.1 health regression
+        run: |
+          set -euo pipefail
+          if test -f validate_daily_integrated_health_v731.py; then
+            python validate_daily_integrated_health_v731.py \
+              --repo-root . \
+              --worker-base \
+                https://krx-live-price-ksh.diaconos.workers.dev \
+              --output-json \
+                latest/daily_integrated_health_latest.json \
+              --output-md \
+                latest/daily_integrated_health_latest.md \
+              --exit-zero
+            python - <<'PY'
+            import json
+            from pathlib import Path
+            report = json.loads(
+                Path(
+                    "latest/daily_integrated_health_latest.json"
+                ).read_text(encoding="utf-8")
+            )
+            if report.get("critical_count") != 0:
+                raise SystemExit(
+                    f"health critical="
+                    f"{report.get('critical_count')}"
+                )
+            print(
+                "V731_HEALTH_REGRESSION="
+                f"{report.get('status')}"
+            )
+            PY
+          else
+            echo "V731_HEALTH_REGRESSION=SKIPPED"
+          fi
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            patch_stock_reference_label_compat_v741.py \
+            build_stock_reference_api.py \
+            apply_display_normalization_v74.py \
+            patch_display_normalization_v74.py \
+            build_api_json.py \
+            docs/stock_table_rules_latest.md \
+            api
+
+          if test -f latest/daily_integrated_health_latest.json; then
+            git add latest/daily_integrated_health_latest.json
+          fi
+          if test -f latest/daily_integrated_health_latest.md; then
+            git add latest/daily_integrated_health_latest.md
+          fi
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            exit 0
+          fi
+
+          git commit -m \
+            "Repair stock reference labels and apply display v7.4.1"
+
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              echo "PUSH_SUCCESS=true"
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "PUSH_SUCCESS=false"
+              exit 1
+            fi
+            sleep 3
+          done

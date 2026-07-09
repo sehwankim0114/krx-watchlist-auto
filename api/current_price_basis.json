@@ -1,14 +1,14 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260709T070846+0900-c5ac9db84c",
+  "build_id": "20260709T173906+0900-8405a4f7c2",
   "snapshot_id": "current_price_basis",
   "display_name": "현재가 보정 상태",
-  "generated_at_kst": "2026-07-09T07:08:46+09:00",
-  "source_commit_sha": "c5ac9db84ce99a5381464504e0285eb4c1685cb3",
+  "generated_at_kst": "2026-07-09T17:39:06+09:00",
+  "source_commit_sha": "8405a4f7c23b4344d463c6ae215b886973a6ac18",
   "source_file": "latest/current_price_basis_latest.json",
   "status": "OK",
-  "rules_version": "2026-07-09-v7.2-kr-sector-theme",
-  "rules_sha256": "03de9951a35f16230d008aa6bc46966f28fb237ae0831562d35544482de7c30d",
+  "rules_version": "2026-07-09-v7.4-display-normalization",
+  "rules_sha256": "925e1db7fdb129892ebc918dcb678aa82ad77734f5883f10d70f461726fca81d",
   "presentation_policy": {
     "format_contract": "improvement_plan_2_final",
     "default_output_mode": "single_main_table",
@@ -22,6 +22,11 @@
     "kr_sector_theme_missing_display": "자료 미제공",
     "kr_average_volume_per_minute_value_column_label": "평균거래량·분당거래금",
     "kr_regular_session_minutes": 390,
+    "recommendation_column_label": "추천/종목",
+    "show_rank_numbers_default": false,
+    "rank_field_use": "sorting_only",
+    "supply_keyword_alias_deduplication": true,
+    "supply_keyword_display_separator": "·",
     "current_price_column_label": "요청시점 현재가",
     "price_range_markdown_required": true,
     "preferred_buy_range_field": "value_buy_range_markdown",
@@ -138,12 +143,12 @@
   },
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-09-v7.2-kr-sector-theme",
-    "sha256": "03de9951a35f16230d008aa6bc46966f28fb237ae0831562d35544482de7c30d"
+    "version": "2026-07-09-v7.4-display-normalization",
+    "sha256": "925e1db7fdb129892ebc918dcb678aa82ad77734f5883f10d70f461726fca81d"
   },
   "data": {
     "script": "apply_current_price_basis.py v1.1_current_close_support",
-    "run_at_kst": "2026-07-08T20:16:55+09:00",
+    "run_at_kst": "2026-07-09T13:37:30+09:00",
     "output_dir": "latest",
     "source_files": [
       "kospi_candidates_30_latest.csv",
@@ -160,11 +165,11 @@
         "status": "OK",
         "rows": 30,
         "matched": 30,
-        "marked_blue": 7,
-        "marked_orange": 4,
+        "marked_blue": 3,
+        "marked_orange": 8,
         "marked_red": 17,
         "marked_fail": 0,
-        "changed_price_cells": 29,
+        "changed_price_cells": 30,
         "price_column": "close"
       },
       {
@@ -173,9 +178,9 @@
         "status": "OK",
         "rows": 10,
         "matched": 10,
-        "marked_blue": 0,
-        "marked_orange": 0,
-        "marked_red": 8,
+        "marked_blue": 1,
+        "marked_orange": 2,
+        "marked_red": 6,
         "marked_fail": 0,
         "changed_price_cells": 10,
         "price_column": "close"
@@ -186,11 +191,11 @@
         "status": "OK",
         "rows": 20,
         "matched": 20,
-        "marked_blue": 2,
-        "marked_orange": 5,
-        "marked_red": 10,
+        "marked_blue": 0,
+        "marked_orange": 3,
+        "marked_red": 16,
         "marked_fail": 0,
-        "changed_price_cells": 19,
+        "changed_price_cells": 20,
         "price_column": "close"
       },
       {
@@ -199,9 +204,9 @@
         "status": "OK",
         "rows": 47,
         "matched": 44,
-        "marked_blue": 11,
-        "marked_orange": 13,
-        "marked_red": 18,
+        "marked_blue": 1,
+        "marked_orange": 9,
+        "marked_red": 34,
         "marked_fail": 0,
         "changed_price_cells": 44,
         "price_column": "current_close"
@@ -216,9 +221,9 @@
       "⚪": "보조 현재가 확인 실패"
     },
     "summary": {
-      "blue": 20,
+      "blue": 5,
       "orange": 22,
-      "red": 53,
+      "red": 73,
       "fail": 0
     },
     "status": "OK"

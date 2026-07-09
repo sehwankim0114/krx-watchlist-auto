@@ -34,7 +34,7 @@ import pandas as pd
 
 SCRIPT_VERSION = (
     "build_stock_reference_api.py "
-    "v1.0.0-two-digit-shards"
+    "v1.1.0-summary-label-compat-v741"
 )
 POLICY_VERSION = (
     "2026-07-03-v6.0-private-holdings-runtime"
@@ -153,6 +153,125 @@ def normalize_value(value: Any) -> Any:
     return value
 
 
+# STOCK_REFERENCE_LABEL_COMPAT_V741_BEGIN
+SUMMARY_LABEL_COMPAT_POLICY = {
+    "version": "2026-07-09-v7.4.1-summary-label-compat",
+    "preserve_existing_labels": True,
+    "derive_only_when_missing_or_blank": True,
+    "trading_activity_source_priority": [
+        "avg20_trading_value",
+        "last_trading_value",
+    ],
+    "trading_activity_thresholds_krw": {
+        "매우활발": 50000000000,
+        "활발": 30000000000,
+        "보통": 10000000000,
+        "부족": 3000000000,
+        "매우부족": 0,
+    },
+    "price_elasticity_source": "avg_daily_move_pct",
+    "price_elasticity_thresholds_pct": {
+        "탄력 불안정": 5.0,
+        "탄력 높음": 3.0,
+        "탄력 보통": 1.5,
+        "탄력 낮음": 0.0,
+    },
+}
+
+
+def _numeric_or_none(value: Any) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(number):
+        return None
+    return number
+
+
+def _derive_trading_activity_label(value: Any) -> str:
+    number = _numeric_or_none(value)
+    if number is None:
+        return "자료부족"
+    if number >= 50_000_000_000:
+        return "매우활발"
+    if number >= 30_000_000_000:
+        return "활발"
+    if number >= 10_000_000_000:
+        return "보통"
+    if number >= 3_000_000_000:
+        return "부족"
+    return "매우부족"
+
+
+def _derive_price_elasticity_label(value: Any) -> str:
+    number = _numeric_or_none(value)
+    if number is None:
+        return "자료부족"
+    number = abs(number)
+    if number >= 5.0:
+        return "탄력 불안정"
+    if number >= 3.0:
+        return "탄력 높음"
+    if number >= 1.5:
+        return "탄력 보통"
+    return "탄력 낮음"
+
+
+def _blank_label_mask(series: pd.Series) -> pd.Series:
+    text = series.astype("string").fillna("").str.strip()
+    return text.eq("") | text.str.lower().isin({"nan", "none", "null"})
+
+
+def ensure_summary_labels(frame: pd.DataFrame) -> pd.DataFrame:
+    frame = frame.copy()
+
+    if "avg20_trading_value" in frame.columns:
+        trading_source = frame["avg20_trading_value"]
+    elif "last_trading_value" in frame.columns:
+        trading_source = frame["last_trading_value"]
+    else:
+        trading_source = pd.Series(
+            [None] * len(frame),
+            index=frame.index,
+            dtype="object",
+        )
+
+    derived_trading = trading_source.map(
+        _derive_trading_activity_label
+    )
+    if "trading_activity_label" not in frame.columns:
+        frame["trading_activity_label"] = derived_trading
+    else:
+        mask = _blank_label_mask(frame["trading_activity_label"])
+        frame.loc[mask, "trading_activity_label"] = (
+            derived_trading.loc[mask]
+        )
+
+    if "avg_daily_move_pct" in frame.columns:
+        elasticity_source = frame["avg_daily_move_pct"]
+    else:
+        elasticity_source = pd.Series(
+            [None] * len(frame),
+            index=frame.index,
+            dtype="object",
+        )
+
+    derived_elasticity = elasticity_source.map(
+        _derive_price_elasticity_label
+    )
+    if "price_elasticity_label" not in frame.columns:
+        frame["price_elasticity_label"] = derived_elasticity
+    else:
+        mask = _blank_label_mask(frame["price_elasticity_label"])
+        frame.loc[mask, "price_elasticity_label"] = (
+            derived_elasticity.loc[mask]
+        )
+
+    return frame
+# STOCK_REFERENCE_LABEL_COMPAT_V741_END
+
+
 def read_summary(path: Path) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(f"요약자료가 없습니다: {path}")
@@ -162,6 +281,7 @@ def read_summary(path: Path) -> pd.DataFrame:
         encoding="utf-8-sig",
         dtype={"ticker": str},
     )
+    frame = ensure_summary_labels(frame)
     missing = REQUIRED_PUBLIC_FIELDS - set(frame.columns)
     if missing:
         raise ValueError(
@@ -389,6 +509,7 @@ def build_api(
         "basis_date_min": basis_min,
         "basis_date_max": basis_max,
         "public_columns": fields,
+        "summary_label_compat_policy": SUMMARY_LABEL_COMPAT_POLICY,
         "shard_key": "ticker_first_two_digits",
         "shard_count": len(shard_records),
         "shards": shard_records,

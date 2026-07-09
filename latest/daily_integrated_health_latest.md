@@ -1,11 +1,11 @@
 # V7.3 일일 통합 건강검사
 
-- 검사시각(KST): 2026-07-09T15:45:04+09:00
-- 최종상태: **PASS**
+- 검사시각(KST): 2026-07-09T17:39:08+09:00
+- 최종상태: **WARN**
 - 치명 오류: 0
-- 경고: 0
-- 빌드 ID: `20260709T070846+0900-c5ac9db84c`
-- 규칙 버전: `2026-07-09-v7.2-kr-sector-theme`
+- 경고: 1
+- 빌드 ID: `20260709T173906+0900-8405a4f7c2`
+- 규칙 버전: `2026-07-09-v7.4-display-normalization`
 
 | 결과 | 검사 항목 | 설명 |
 |---|---|---|
@@ -53,7 +53,7 @@
 | ✅ | `worker_kospi_watchlist` | 경량 매니페스트의 kospi_watchlist 행 수와 상태가 정상입니다. |
 | ✅ | `worker_kosdaq_watchlist` | 경량 매니페스트의 kosdaq_watchlist 행 수와 상태가 정상입니다. |
 | ✅ | `worker_us_watchlist` | 경량 매니페스트의 us_watchlist 행 수와 상태가 정상입니다. |
-| ✅ | `worker_build_id` | Worker 경량 매니페스트 빌드 ID가 저장소와 일치합니다. |
+| ⚠️ | `worker_build_id` | Worker 캐시의 빌드 ID가 저장소와 다릅니다. 120초 캐시 지연일 수 있습니다. |
 
 ## 판정 기준
 

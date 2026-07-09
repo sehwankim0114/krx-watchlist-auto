@@ -1,14 +1,14 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260709T070846+0900-c5ac9db84c",
+  "build_id": "20260709T173906+0900-8405a4f7c2",
   "snapshot_id": "kofia_macro_bridge_status",
   "display_name": "KOFIA 연결 상태",
-  "generated_at_kst": "2026-07-09T07:08:46+09:00",
-  "source_commit_sha": "c5ac9db84ce99a5381464504e0285eb4c1685cb3",
+  "generated_at_kst": "2026-07-09T17:39:06+09:00",
+  "source_commit_sha": "8405a4f7c23b4344d463c6ae215b886973a6ac18",
   "source_file": "latest/kofia_macro_bridge_status_latest.json",
   "status": "OK",
-  "rules_version": "2026-07-09-v7.2-kr-sector-theme",
-  "rules_sha256": "03de9951a35f16230d008aa6bc46966f28fb237ae0831562d35544482de7c30d",
+  "rules_version": "2026-07-09-v7.4-display-normalization",
+  "rules_sha256": "925e1db7fdb129892ebc918dcb678aa82ad77734f5883f10d70f461726fca81d",
   "presentation_policy": {
     "format_contract": "improvement_plan_2_final",
     "default_output_mode": "single_main_table",
@@ -22,6 +22,11 @@
     "kr_sector_theme_missing_display": "자료 미제공",
     "kr_average_volume_per_minute_value_column_label": "평균거래량·분당거래금",
     "kr_regular_session_minutes": 390,
+    "recommendation_column_label": "추천/종목",
+    "show_rank_numbers_default": false,
+    "rank_field_use": "sorting_only",
+    "supply_keyword_alias_deduplication": true,
+    "supply_keyword_display_separator": "·",
     "current_price_column_label": "요청시점 현재가",
     "price_range_markdown_required": true,
     "preferred_buy_range_field": "value_buy_range_markdown",
@@ -138,12 +143,12 @@
   },
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-09-v7.2-kr-sector-theme",
-    "sha256": "03de9951a35f16230d008aa6bc46966f28fb237ae0831562d35544482de7c30d"
+    "version": "2026-07-09-v7.4-display-normalization",
+    "sha256": "925e1db7fdb129892ebc918dcb678aa82ad77734f5883f10d70f461726fca81d"
   },
   "data": {
     "script": "kofia_macro_bridge.py v1.0_local_csv_bridge",
-    "run_at_kst": "2026-07-08T10:23:19+09:00",
+    "run_at_kst": "2026-07-09T11:25:33+09:00",
     "overall_status": "OK_ALL_3",
     "bridge_indicator_count": 3,
     "bridge_indicator_codes": [
@@ -152,12 +157,12 @@
       "KOFIA_INVESTOR_DEPOSIT_MILLION_KRW"
     ],
     "latest_dates": {
-      "KOFIA_CMA_BALANCE_MILLION_KRW": "2026-07-06",
-      "KOFIA_CREDIT_FINANCING_MILLION_KRW": "2026-07-06",
-      "KOFIA_INVESTOR_DEPOSIT_MILLION_KRW": "2026-07-06"
+      "KOFIA_CMA_BALANCE_MILLION_KRW": "2026-07-07",
+      "KOFIA_CREDIT_FINANCING_MILLION_KRW": "2026-07-07",
+      "KOFIA_INVESTOR_DEPOSIT_MILLION_KRW": "2026-07-07"
     },
-    "bridge_rows": 2153,
-    "macro_history_rows_after_merge": 1356,
+    "bridge_rows": 2156,
+    "macro_history_rows_after_merge": 1357,
     "next_step": "Run macro_leverage_status.py after this bridge so bubble_risk_latest.json receives the KOFIA snapshot."
   }
 }

@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260709T070846+0900-c5ac9db84c",
-  "script": "build_api_json.py v4.8_kr_sector_theme_v72",
+  "build_id": "20260709T173906+0900-8405a4f7c2",
+  "script": "build_api_json.py v4.9_display_normalization_v74",
   "table_id": "us_watchlist",
   "display_name": "미관종표 — S&P500 기반 미국 분석 후보 30개",
-  "generated_at_kst": "2026-07-09T07:08:46+09:00",
-  "source_commit_sha": "c5ac9db84ce99a5381464504e0285eb4c1685cb3",
+  "generated_at_kst": "2026-07-09T17:39:06+09:00",
+  "source_commit_sha": "8405a4f7c23b4344d463c6ae215b886973a6ac18",
   "required": true,
   "default_output": true,
   "explicit_request_only": false,
@@ -22,6 +22,11 @@
     "kr_sector_theme_missing_display": "자료 미제공",
     "kr_average_volume_per_minute_value_column_label": "평균거래량·분당거래금",
     "kr_regular_session_minutes": 390,
+    "recommendation_column_label": "추천/종목",
+    "show_rank_numbers_default": false,
+    "rank_field_use": "sorting_only",
+    "supply_keyword_alias_deduplication": true,
+    "supply_keyword_display_separator": "·",
     "current_price_column_label": "요청시점 현재가",
     "price_range_markdown_required": true,
     "preferred_buy_range_field": "value_buy_range_markdown",
@@ -136,20 +141,20 @@
       "mark_only_final_failures_with_white_circle"
     ]
   },
-  "rules_version": "2026-07-09-v7.2-kr-sector-theme",
-  "rules_sha256": "03de9951a35f16230d008aa6bc46966f28fb237ae0831562d35544482de7c30d",
+  "rules_version": "2026-07-09-v7.4-display-normalization",
+  "rules_sha256": "925e1db7fdb129892ebc918dcb678aa82ad77734f5883f10d70f461726fca81d",
   "expected_rows": {
     "exact": 30,
     "minimum": null
   },
   "official_data": {
     "source_file": "official_data_status_latest.json",
-    "source_run_at_kst": "2026-07-08T10:05:42+09:00",
-    "source_expected_official_trading_date": "2026-07-07",
-    "computed_expected_official_trading_date": "2026-07-07",
-    "kospi_actual_date": "2026-07-07",
-    "kosdaq_actual_date": "2026-07-07",
-    "basis_date_for_display": "2026-07-07",
+    "source_run_at_kst": "2026-07-09T10:58:55+09:00",
+    "source_expected_official_trading_date": "2026-07-08",
+    "computed_expected_official_trading_date": "2026-07-08",
+    "kospi_actual_date": "2026-07-08",
+    "kosdaq_actual_date": "2026-07-08",
+    "basis_date_for_display": "2026-07-08",
     "same_market_date": true,
     "official_fresh_at_source": true,
     "official_fresh_now": true,
@@ -161,17 +166,17 @@
     "kosdaq_summary_rows": 1789
   },
   "current_price_basis": {
-    "current_price_asof_kst": "2026-07-08T20:16:55+09:00",
+    "current_price_asof_kst": "2026-07-09T13:37:30+09:00",
     "current_price_basis_status": "OK",
     "aux_price_count": 102,
     "current_basis_ok_files": 4,
     "time_after_hours_reflected": null,
-    "freshness_mode": "official"
+    "freshness_mode": "aux"
   },
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-09-v7.2-kr-sector-theme",
-    "sha256": "03de9951a35f16230d008aa6bc46966f28fb237ae0831562d35544482de7c30d"
+    "version": "2026-07-09-v7.4-display-normalization",
+    "sha256": "925e1db7fdb129892ebc918dcb678aa82ad77734f5883f10d70f461726fca81d"
   },
   "status": "OK",
   "source_file": "latest/us_sp500_watchlist_latest.csv",
@@ -247,7 +252,9 @@
     "warning_count",
     "recommendation_reason",
     "value_buy_range_markdown",
-    "first_sell_target_range_markdown"
+    "first_sell_target_range_markdown",
+    "supply_burden_display",
+    "supply_burden_keywords"
   ],
   "data_date_min": null,
   "data_date_max": null,
@@ -317,7 +324,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$979.99~$989.24**",
-      "first_sell_target_range_markdown": "**$1,070~$1,141**"
+      "first_sell_target_range_markdown": "**$1,070~$1,141**",
+      "recommendation_display": "🟡 BlackRock",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "✅ Cigna",
@@ -383,7 +393,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 1개월 상승폭 안정적 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$272.59~$279.50**",
-      "first_sell_target_range_markdown": "**$303.82~$323.88**"
+      "first_sell_target_range_markdown": "**$303.82~$323.88**",
+      "recommendation_display": "🟡 Cigna",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "✅ AppLovin",
@@ -449,7 +462,10 @@
       "warning_count": 1,
       "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 매출 성장 양호 / 주의: 일간 변동성 큼",
       "value_buy_range_markdown": "**$416.11~$462.44**",
-      "first_sell_target_range_markdown": "**$584.68~$634.44**"
+      "first_sell_target_range_markdown": "**$584.68~$634.44**",
+      "recommendation_display": "🟡 AppLovin",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "✅ Alphabet Inc. (Class A)",
@@ -515,7 +531,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$319.90~$339.86**",
-      "first_sell_target_range_markdown": "**$389.05~$416.78**"
+      "first_sell_target_range_markdown": "**$389.05~$416.78**",
+      "recommendation_display": "🟡 Alphabet Inc. (Class A)",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "✅ Alphabet Inc. (Class C)",
@@ -581,7 +600,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$317.23~$336.86**",
-      "first_sell_target_range_markdown": "**$385.44~$412.56**"
+      "first_sell_target_range_markdown": "**$385.44~$412.56**",
+      "recommendation_display": "🟡 Alphabet Inc. (Class C)",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "✅ Amazon",
@@ -647,7 +669,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$222.98~$235.48**",
-      "first_sell_target_range_markdown": "**$261.85~$284.13**"
+      "first_sell_target_range_markdown": "**$261.85~$284.13**",
+      "recommendation_display": "🟡 Amazon",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "✅ Booking Holdings",
@@ -713,7 +738,10 @@
       "warning_count": 0,
       "recommendation_reason": "중기 상승추세 유지 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$158.90~$166.78**",
-      "first_sell_target_range_markdown": "**$192.87~$205.60**"
+      "first_sell_target_range_markdown": "**$192.87~$205.60**",
+      "recommendation_display": "🟡 Booking Holdings",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Ametek",
@@ -779,7 +807,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$221.16~$226.46**",
-      "first_sell_target_range_markdown": "**$245.60~$261.82**"
+      "first_sell_target_range_markdown": "**$245.60~$261.82**",
+      "recommendation_display": "🟡 Ametek",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Broadcom",
@@ -845,7 +876,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$356.44~$363.36**",
-      "first_sell_target_range_markdown": "**$465.30~$504.90**"
+      "first_sell_target_range_markdown": "**$465.30~$504.90**",
+      "recommendation_display": "🟡 Broadcom",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Caterpillar Inc.",
@@ -911,7 +945,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$781.84~$847.45**",
-      "first_sell_target_range_markdown": "**$1,009~$1,095**"
+      "first_sell_target_range_markdown": "**$1,009~$1,095**",
+      "recommendation_display": "🟡 Caterpillar Inc.",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Analog Devices",
@@ -977,7 +1014,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$345.98~$368.47**",
-      "first_sell_target_range_markdown": "**$419.16~$454.83**"
+      "first_sell_target_range_markdown": "**$419.16~$454.83**",
+      "recommendation_display": "🟡 Analog Devices",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Citigroup",
@@ -1043,7 +1083,10 @@
       "warning_count": 0,
       "recommendation_reason": "1개월 상승폭 안정적 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$122.19~$127.99**",
-      "first_sell_target_range_markdown": "**$149.22~$159.07**"
+      "first_sell_target_range_markdown": "**$149.22~$159.07**",
+      "recommendation_display": "🟡 Citigroup",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 CF Industries",
@@ -1109,7 +1152,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$108.45~$112.64**",
-      "first_sell_target_range_markdown": "**$131.08~$142.24**"
+      "first_sell_target_range_markdown": "**$131.08~$142.24**",
+      "recommendation_display": "🟡 CF Industries",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Adobe Inc.",
@@ -1175,7 +1221,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 선행 밸류 부담 제한 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$207.18~$217.11**",
-      "first_sell_target_range_markdown": "**$258.91~$280.95**"
+      "first_sell_target_range_markdown": "**$258.91~$280.95**",
+      "recommendation_display": "🟡 Adobe Inc.",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Autodesk",
@@ -1241,7 +1290,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$199.43~$211.96**",
-      "first_sell_target_range_markdown": "**$239.83~$260.24**"
+      "first_sell_target_range_markdown": "**$239.83~$260.24**",
+      "recommendation_display": "🟡 Autodesk",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Abbott Laboratories",
@@ -1307,7 +1359,10 @@
       "warning_count": 1,
       "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 1개월 상승폭 안정적 / 주의: 이익 성장률 둔화",
       "value_buy_range_markdown": "**$86.34~$90.28**",
-      "first_sell_target_range_markdown": "**$101.59~$108.30**"
+      "first_sell_target_range_markdown": "**$101.59~$108.30**",
+      "recommendation_display": "🟡 Abbott Laboratories",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Amphenol",
@@ -1373,7 +1428,10 @@
       "warning_count": 0,
       "recommendation_reason": "1개월 상승폭 안정적 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$130.11~$141.00**",
-      "first_sell_target_range_markdown": "**$168.13~$182.09**"
+      "first_sell_target_range_markdown": "**$168.13~$182.09**",
+      "recommendation_display": "🟡 Amphenol",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Blackstone Inc.",
@@ -1439,7 +1497,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 선행 밸류 부담 제한 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$112.27~$116.99**",
-      "first_sell_target_range_markdown": "**$128.14~$136.61**"
+      "first_sell_target_range_markdown": "**$128.14~$136.61**",
+      "recommendation_display": "🟡 Blackstone Inc.",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Ares Management",
@@ -1505,7 +1566,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$107.13~$114.95**",
-      "first_sell_target_range_markdown": "**$133.39~$144.74**"
+      "first_sell_target_range_markdown": "**$133.39~$144.74**",
+      "recommendation_display": "🟡 Ares Management",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Carvana",
@@ -1571,7 +1635,10 @@
       "warning_count": 1,
       "recommendation_reason": "3개월 가치구간 · 1개월 상승폭 안정적 · 매출 성장 양호 / 주의: 일간 변동성 큼",
       "value_buy_range_markdown": "**$65.44~$66.14**",
-      "first_sell_target_range_markdown": "**$78.88~$85.59**"
+      "first_sell_target_range_markdown": "**$78.88~$85.59**",
+      "recommendation_display": "🟡 Carvana",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Arista Networks",
@@ -1637,7 +1704,10 @@
       "warning_count": 0,
       "recommendation_reason": "중기 상승추세 유지 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$138.00~$147.41**",
-      "first_sell_target_range_markdown": "**$176.45~$188.10**"
+      "first_sell_target_range_markdown": "**$176.45~$188.10**",
+      "recommendation_display": "🟡 Arista Networks",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 CME Group",
@@ -1703,7 +1773,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$237.18~$237.18**",
-      "first_sell_target_range_markdown": "**$293.92~$318.93**"
+      "first_sell_target_range_markdown": "**$293.92~$318.93**",
+      "recommendation_display": "🟡 CME Group",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 CBRE Group",
@@ -1769,7 +1842,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$128.87~$135.34**",
-      "first_sell_target_range_markdown": "**$152.35~$162.41**"
+      "first_sell_target_range_markdown": "**$152.35~$162.41**",
+      "recommendation_display": "🟡 CBRE Group",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Clorox",
@@ -1835,7 +1911,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 1개월 상승폭 안정적 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$89.54~$93.89**",
-      "first_sell_target_range_markdown": "**$103.25~$111.07**"
+      "first_sell_target_range_markdown": "**$103.25~$111.07**",
+      "recommendation_display": "🟡 Clorox",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 3M",
@@ -1901,7 +1980,10 @@
       "warning_count": 1,
       "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 선행 밸류 부담 제한 / 주의: 이익 성장률 둔화",
       "value_buy_range_markdown": "**$147.06~$152.17**",
-      "first_sell_target_range_markdown": "**$167.49~$178.55**"
+      "first_sell_target_range_markdown": "**$167.49~$178.55**",
+      "recommendation_display": "🟡 3M",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Bristol Myers Squibb",
@@ -1967,7 +2049,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 선행 밸류 부담 제한 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$54.91~$56.23**",
-      "first_sell_target_range_markdown": "**$61.45~$65.51**"
+      "first_sell_target_range_markdown": "**$61.45~$65.51**",
+      "recommendation_display": "🟡 Bristol Myers Squibb",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Casey's",
@@ -2033,7 +2118,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$768.92~$785.95**",
-      "first_sell_target_range_markdown": "**$872.18~$946.41**"
+      "first_sell_target_range_markdown": "**$872.18~$946.41**",
+      "recommendation_display": "🟡 Casey's",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Applied Materials",
@@ -2099,7 +2187,10 @@
       "warning_count": 1,
       "recommendation_reason": "3개월 중간권 · 1개월 상승폭 안정적 · 매출 성장 양호 / 주의: 일간 변동성 큼",
       "value_buy_range_markdown": "**$424.33~$495.28**",
-      "first_sell_target_range_markdown": "**$695.29~$754.46**"
+      "first_sell_target_range_markdown": "**$695.29~$754.46**",
+      "recommendation_display": "🟡 Applied Materials",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Atmos Energy",
@@ -2165,7 +2256,10 @@
       "warning_count": 0,
       "recommendation_reason": "3개월 가치구간 · 1개월 상승폭 안정적 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
       "value_buy_range_markdown": "**$171.57~$176.28**",
-      "first_sell_target_range_markdown": "**$188.23~$200.67**"
+      "first_sell_target_range_markdown": "**$188.23~$200.67**",
+      "recommendation_display": "🟡 Atmos Energy",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     },
     {
       "recommend_display": "🟡 Aflac",
@@ -2231,12 +2325,15 @@
       "warning_count": 2,
       "recommendation_reason": "중기 상승추세 유지 · 1개월 상승폭 안정적 · 매출 성장 양호 / 주의: 3개월 상단권 부담 · 평균 목표가보다 현재가 높음",
       "value_buy_range_markdown": "**$111.82~$114.29**",
-      "first_sell_target_range_markdown": "**$128.78~$137.28**"
+      "first_sell_target_range_markdown": "**$128.78~$137.28**",
+      "recommendation_display": "🟡 Aflac",
+      "supply_burden_keywords": null,
+      "supply_burden_display": "없음"
     }
   ],
-  "display_contract_version": "2026-07-09-v7.1-final-display-cleanup",
+  "display_contract_version": "2026-07-09-v7.4-display-normalization",
   "output_contract": {
-    "version": "2026-07-09-v7.1-final-display-cleanup",
+    "version": "2026-07-09-v7.4-display-normalization",
     "output_sequence": [
       "title",
       "metadata_two_column_table",
@@ -2288,8 +2385,39 @@
       "column_position": "far_right",
       "do_not_invent": true,
       "missing_value_display": "자료 미제공"
+    },
+    "recommendation_column_label": "추천/종목",
+    "recommendation_display_field": "recommendation_display",
+    "show_rank_numbers_default": false,
+    "rank_field_use": "sorting_only",
+    "do_not_prefix_rank_to_recommendation": true,
+    "loss_marker_position": "left_of_recommendation_icon",
+    "supply_marker_position": "right_of_recommendation_icon",
+    "supply_burden_display_field": "supply_burden_display",
+    "supply_burden_keywords_field": "supply_burden_keywords",
+    "supply_keyword_separator": "·",
+    "supply_keyword_alias_policy": {
+      "CB발행": "CB",
+      "BW발행": "BW",
+      "EB발행": "EB",
+      "duplicate_aliases": "remove_preserve_meaning"
     }
   },
   "sector_theme_available": true,
-  "sector_theme_nonempty_rows": 30
+  "sector_theme_nonempty_rows": 30,
+  "preferred_column_labels": {
+    "recommendation": "추천/종목",
+    "supply_burden": "수급부담"
+  },
+  "display_normalization": {
+    "version": "2026-07-09-v7.4-display-normalization",
+    "status": "OK",
+    "rank_numbers_default": false,
+    "rank_preserved_for_sorting": true,
+    "recommendation_display_changes": 30,
+    "normalized_keyword_rows": 0,
+    "supply_aliases_deduplicated": true
+  },
+  "payload_size_limit_bytes": 110000,
+  "payload_size_bytes": 100165
 }

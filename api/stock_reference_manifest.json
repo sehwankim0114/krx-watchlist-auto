@@ -1,9 +1,9 @@
 {
   "status": "OK",
   "schema_version": "1.0",
-  "script_version": "build_stock_reference_api.py v1.0.0-two-digit-shards",
+  "script_version": "build_stock_reference_api.py v1.1.0-summary-label-compat-v741",
   "policy_version": "2026-07-03-v6.0-private-holdings-runtime",
-  "generated_at_kst": "2026-07-09T07:08:46+09:00",
+  "generated_at_kst": "2026-07-09T17:39:05+09:00",
   "runtime_mode": "user_holdings_stay_in_conversation",
   "privacy_policy": {
     "contains_user_holdings": false,
@@ -45,7 +45,7 @@
     "total": 2714
   },
   "basis_date_min": "2026-04-14",
-  "basis_date_max": "2026-07-07",
+  "basis_date_max": "2026-07-08",
   "public_columns": [
     "ticker",
     "name",
@@ -75,6 +75,29 @@
     "price_elasticity_label",
     "market_cap"
   ],
+  "summary_label_compat_policy": {
+    "version": "2026-07-09-v7.4.1-summary-label-compat",
+    "preserve_existing_labels": true,
+    "derive_only_when_missing_or_blank": true,
+    "trading_activity_source_priority": [
+      "avg20_trading_value",
+      "last_trading_value"
+    ],
+    "trading_activity_thresholds_krw": {
+      "매우활발": 50000000000,
+      "활발": 30000000000,
+      "보통": 10000000000,
+      "부족": 3000000000,
+      "매우부족": 0
+    },
+    "price_elasticity_source": "avg_daily_move_pct",
+    "price_elasticity_thresholds_pct": {
+      "탄력 불안정": 5.0,
+      "탄력 높음": 3.0,
+      "탄력 보통": 1.5,
+      "탄력 낮음": 0.0
+    }
+  },
   "shard_key": "ticker_first_two_digits",
   "shard_count": 52,
   "shards": [

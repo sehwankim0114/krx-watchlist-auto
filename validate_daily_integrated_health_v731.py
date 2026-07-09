@@ -34,12 +34,25 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 SCHEMA_VERSION = "1.0"
-CHECKER_VERSION = "2026-07-09-v7.3.1-table-specific-payload-limits"
+CHECKER_VERSION = "2026-07-09-v7.5-activity-elasticity-health"
 DEFAULT_WORKER_BASE = "https://krx-live-price-ksh.diaconos.workers.dev"
 EXPECTED_WORKER_BUILD_PREFIX = "1.3.2-"
 DEFAULT_MAX_WATCHLIST_BYTES = 70000
 MAX_COMPACT_MANIFEST_BYTES = 65000
 KRX_SECTOR_SOURCE = "KRX_KIND_LISTED_COMPANY"
+ALLOWED_TRADING_ACTIVITY = {
+    "매우활발",
+    "활발",
+    "보통",
+    "부족",
+    "매우부족",
+}
+ALLOWED_PRICE_ELASTICITY = {
+    "탄력 불안정",
+    "탄력 높음",
+    "탄력 보통",
+    "탄력 낮음",
+}
 
 TABLE_SPECS = (
     {
@@ -220,6 +233,36 @@ def fetch_json(
             if attempt < attempts:
                 time.sleep(2 * attempt)
     raise HealthCheckError(f"원격 JSON 조회 실패: {url}: {last_error}")
+
+
+def expected_trading_activity(value: Any) -> Optional[str]:
+    try:
+        number = abs(float(value))
+    except (TypeError, ValueError):
+        return None
+    if number >= 100_000_000_000:
+        return "매우활발"
+    if number >= 30_000_000_000:
+        return "활발"
+    if number >= 5_000_000_000:
+        return "보통"
+    if number >= 1_000_000_000:
+        return "부족"
+    return "매우부족"
+
+
+def expected_price_elasticity(value: Any) -> Optional[str]:
+    try:
+        number = abs(float(value))
+    except (TypeError, ValueError):
+        return None
+    if number >= 5.0:
+        return "탄력 불안정"
+    if number >= 3.0:
+        return "탄력 높음"
+    if number >= 1.5:
+        return "탄력 보통"
+    return "탄력 낮음"
 
 
 class HealthReport:
@@ -619,6 +662,81 @@ def validate_local_repository(
                     f"{table_id}_per_minute_value",
                     f"{table_id} 분당거래금 필드가 누락됐습니다.",
                     {"missing_rows": per_minute_missing},
+                )
+
+            activity_failures = []
+            elasticity_failures = []
+            for index, row in enumerate(rows, start=1):
+                if not isinstance(row, Mapping):
+                    activity_failures.append(
+                        {"row": index, "reason": "row_not_object"}
+                    )
+                    elasticity_failures.append(
+                        {"row": index, "reason": "row_not_object"}
+                    )
+                    continue
+
+                activity = row.get("trading_activity")
+                expected_activity = expected_trading_activity(
+                    row.get("avg_trading_value_krw")
+                )
+                if (
+                    activity not in ALLOWED_TRADING_ACTIVITY
+                    or (
+                        expected_activity is not None
+                        and activity != expected_activity
+                    )
+                ):
+                    activity_failures.append(
+                        {
+                            "row": index,
+                            "actual": activity,
+                            "expected": expected_activity,
+                        }
+                    )
+
+                elasticity = row.get("price_elasticity")
+                expected_elasticity = expected_price_elasticity(
+                    row.get("price_elasticity_pct")
+                )
+                if (
+                    elasticity not in ALLOWED_PRICE_ELASTICITY
+                    or (
+                        expected_elasticity is not None
+                        and elasticity != expected_elasticity
+                    )
+                ):
+                    elasticity_failures.append(
+                        {
+                            "row": index,
+                            "actual": elasticity,
+                            "expected": expected_elasticity,
+                            "pct": row.get("price_elasticity_pct"),
+                        }
+                    )
+
+            if not activity_failures:
+                report.pass_check(
+                    f"{table_id}_trading_activity",
+                    f"{table_id} 거래활발 등급이 전 행 정상입니다.",
+                )
+            else:
+                report.fail(
+                    f"{table_id}_trading_activity",
+                    f"{table_id} 거래활발 등급이 누락되거나 기준과 다릅니다.",
+                    {"failures": activity_failures},
+                )
+
+            if not elasticity_failures:
+                report.pass_check(
+                    f"{table_id}_price_elasticity",
+                    f"{table_id} 가격탄력 등급이 전 행 정상입니다.",
+                )
+            else:
+                report.fail(
+                    f"{table_id}_price_elasticity",
+                    f"{table_id} 가격탄력 등급이 누락되거나 기준과 다릅니다.",
+                    {"failures": elasticity_failures},
                 )
 
         duplicate_hits: List[Dict[str, Any]] = []

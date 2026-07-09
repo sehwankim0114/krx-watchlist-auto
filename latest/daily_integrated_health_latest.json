@@ -1,15 +1,20 @@
 {
   "schema_version": "1.0",
-  "checker_version": "2026-07-09-v7.3-daily-integrated-health",
-  "generated_at_kst": "2026-07-09T13:14:26+09:00",
-  "status": "FAIL",
-  "critical_count": 1,
+  "checker_version": "2026-07-09-v7.3.1-table-specific-payload-limits",
+  "generated_at_kst": "2026-07-09T15:45:04+09:00",
+  "status": "PASS",
+  "critical_count": 0,
   "warning_count": 0,
   "context": {
     "build_id": "20260709T070846+0900-c5ac9db84c",
     "rules_version": "2026-07-09-v7.2-kr-sector-theme",
     "rules_sha256": "03de9951a35f16230d008aa6bc46966f28fb237ae0831562d35544482de7c30d",
-    "source_commit_sha": "c5ac9db84ce99a5381464504e0285eb4c1685cb3"
+    "source_commit_sha": "c5ac9db84ce99a5381464504e0285eb4c1685cb3",
+    "payload_limits_bytes": {
+      "kospi_watchlist": 70000,
+      "kosdaq_watchlist": 50000,
+      "us_watchlist": 110000
+    }
   },
   "checks": [
     {
@@ -64,10 +69,11 @@
       "check_id": "kospi_watchlist_payload_size",
       "status": "PASS",
       "severity": "ERROR",
-      "message": "kospi_watchlist 응답 크기가 안전 범위입니다.",
+      "message": "kospi_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
         "bytes": 64841,
-        "limit": 70000
+        "limit": 70000,
+        "market": "KR"
       }
     },
     {
@@ -134,10 +140,11 @@
       "check_id": "kosdaq_watchlist_payload_size",
       "status": "PASS",
       "severity": "ERROR",
-      "message": "kosdaq_watchlist 응답 크기가 안전 범위입니다.",
+      "message": "kosdaq_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
         "bytes": 29926,
-        "limit": 70000
+        "limit": 50000,
+        "market": "KR"
       }
     },
     {
@@ -202,12 +209,13 @@
     },
     {
       "check_id": "us_watchlist_payload_size",
-      "status": "FAIL",
+      "status": "PASS",
       "severity": "ERROR",
-      "message": "us_watchlist 응답 크기가 제한을 넘었습니다.",
+      "message": "us_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
         "bytes": 94786,
-        "limit": 70000
+        "limit": 110000,
+        "market": "US"
       }
     },
     {

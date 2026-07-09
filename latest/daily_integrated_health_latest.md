@@ -1,8 +1,8 @@
 # V7.3 일일 통합 건강검사
 
-- 검사시각(KST): 2026-07-09T13:14:26+09:00
-- 최종상태: **FAIL**
-- 치명 오류: 1
+- 검사시각(KST): 2026-07-09T15:45:04+09:00
+- 최종상태: **PASS**
+- 치명 오류: 0
 - 경고: 0
 - 빌드 ID: `20260709T070846+0900-c5ac9db84c`
 - 규칙 버전: `2026-07-09-v7.2-kr-sector-theme`
@@ -17,7 +17,7 @@
 | ✅ | `rules_sha256` | 규칙 파일 SHA-256이 status/manifest와 일치합니다. |
 | ✅ | `rules_version_text` | 규칙 문서에 현재 규칙 버전이 표시됩니다. |
 | ✅ | `kospi_watchlist_rows` | kospi_watchlist 행 수가 30개로 정상입니다. |
-| ✅ | `kospi_watchlist_payload_size` | kospi_watchlist 응답 크기가 안전 범위입니다. |
+| ✅ | `kospi_watchlist_payload_size` | kospi_watchlist 응답 크기가 시장별 안전 범위입니다. |
 | ✅ | `kospi_watchlist_build_id` | kospi_watchlist 빌드 ID가 일치하거나 상위 검증값을 사용합니다. |
 | ✅ | `kospi_watchlist_rules_version` | kospi_watchlist 규칙 버전이 일치하거나 상위 검증값을 사용합니다. |
 | ✅ | `kospi_watchlist_bold_ranges` | kospi_watchlist의 매수·익절 Markdown 가격범위가 모두 정상입니다. |
@@ -28,7 +28,7 @@
 | ✅ | `kospi_watchlist_per_minute_value` | kospi_watchlist 분당거래금 필드가 모두 존재합니다. |
 | ✅ | `kospi_watchlist_display_duplicates` | kospi_watchlist에서 알려진 중복 수급표현이 발견되지 않았습니다. |
 | ✅ | `kosdaq_watchlist_rows` | kosdaq_watchlist 행 수가 10개로 정상입니다. |
-| ✅ | `kosdaq_watchlist_payload_size` | kosdaq_watchlist 응답 크기가 안전 범위입니다. |
+| ✅ | `kosdaq_watchlist_payload_size` | kosdaq_watchlist 응답 크기가 시장별 안전 범위입니다. |
 | ✅ | `kosdaq_watchlist_build_id` | kosdaq_watchlist 빌드 ID가 일치하거나 상위 검증값을 사용합니다. |
 | ✅ | `kosdaq_watchlist_rules_version` | kosdaq_watchlist 규칙 버전이 일치하거나 상위 검증값을 사용합니다. |
 | ✅ | `kosdaq_watchlist_bold_ranges` | kosdaq_watchlist의 매수·익절 Markdown 가격범위가 모두 정상입니다. |
@@ -39,7 +39,7 @@
 | ✅ | `kosdaq_watchlist_per_minute_value` | kosdaq_watchlist 분당거래금 필드가 모두 존재합니다. |
 | ✅ | `kosdaq_watchlist_display_duplicates` | kosdaq_watchlist에서 알려진 중복 수급표현이 발견되지 않았습니다. |
 | ✅ | `us_watchlist_rows` | us_watchlist 행 수가 30개로 정상입니다. |
-| ❌ | `us_watchlist_payload_size` | us_watchlist 응답 크기가 제한을 넘었습니다. |
+| ✅ | `us_watchlist_payload_size` | us_watchlist 응답 크기가 시장별 안전 범위입니다. |
 | ✅ | `us_watchlist_build_id` | us_watchlist 빌드 ID가 일치하거나 상위 검증값을 사용합니다. |
 | ✅ | `us_watchlist_rules_version` | us_watchlist 규칙 버전이 일치하거나 상위 검증값을 사용합니다. |
 | ✅ | `us_watchlist_bold_ranges` | us_watchlist의 매수·익절 Markdown 가격범위가 모두 정상입니다. |

@@ -163,10 +163,10 @@ SUMMARY_LABEL_COMPAT_POLICY = {
         "last_trading_value",
     ],
     "trading_activity_thresholds_krw": {
-        "매우활발": 50000000000,
+        "매우활발": 100000000000,
         "활발": 30000000000,
-        "보통": 10000000000,
-        "부족": 3000000000,
+        "보통": 5000000000,
+        "부족": 1000000000,
         "매우부족": 0,
     },
     "price_elasticity_source": "avg_daily_move_pct",
@@ -193,13 +193,13 @@ def _derive_trading_activity_label(value: Any) -> str:
     number = _numeric_or_none(value)
     if number is None:
         return "자료부족"
-    if number >= 50_000_000_000:
+    if number >= 100_000_000_000:
         return "매우활발"
     if number >= 30_000_000_000:
         return "활발"
-    if number >= 10_000_000_000:
+    if number >= 5_000_000_000:
         return "보통"
-    if number >= 3_000_000_000:
+    if number >= 1_000_000_000:
         return "부족"
     return "매우부족"
 

@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
-  "checker_version": "2026-07-09-v7.3.1-table-specific-payload-limits",
-  "generated_at_kst": "2026-07-09T17:39:08+09:00",
+  "checker_version": "2026-07-09-v7.5-activity-elasticity-health",
+  "generated_at_kst": "2026-07-10T05:00:32+09:00",
   "status": "WARN",
   "critical_count": 0,
   "warning_count": 1,
   "context": {
-    "build_id": "20260709T173906+0900-8405a4f7c2",
-    "rules_version": "2026-07-09-v7.4-display-normalization",
-    "rules_sha256": "925e1db7fdb129892ebc918dcb678aa82ad77734f5883f10d70f461726fca81d",
-    "source_commit_sha": "8405a4f7c23b4344d463c6ae215b886973a6ac18",
+    "build_id": "20260710T050029+0900-27dbebd41f",
+    "rules_version": "2026-07-09-v7.5-activity-elasticity",
+    "rules_sha256": "328c82b0729d77e2828c2a8885b6faab4d20b3823d4dd5f967bf11250aaa9626",
+    "source_commit_sha": "27dbebd41fa10c6920f982ac8aa40d0ee9f85b1f",
     "payload_limits_bytes": {
       "kospi_watchlist": 70000,
       "kosdaq_watchlist": 50000,
@@ -71,7 +71,7 @@
       "severity": "ERROR",
       "message": "kospi_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 67084,
+        "bytes": 68421,
         "limit": 70000,
         "market": "KR"
       }
@@ -125,6 +125,18 @@
       "message": "kospi_watchlist 분당거래금 필드가 모두 존재합니다."
     },
     {
+      "check_id": "kospi_watchlist_trading_activity",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kospi_watchlist 거래활발 등급이 전 행 정상입니다."
+    },
+    {
+      "check_id": "kospi_watchlist_price_elasticity",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kospi_watchlist 가격탄력 등급이 전 행 정상입니다."
+    },
+    {
       "check_id": "kospi_watchlist_display_duplicates",
       "status": "PASS",
       "severity": "ERROR",
@@ -142,7 +154,7 @@
       "severity": "ERROR",
       "message": "kosdaq_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 31521,
+        "bytes": 32453,
         "limit": 50000,
         "market": "KR"
       }
@@ -196,6 +208,18 @@
       "message": "kosdaq_watchlist 분당거래금 필드가 모두 존재합니다."
     },
     {
+      "check_id": "kosdaq_watchlist_trading_activity",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kosdaq_watchlist 거래활발 등급이 전 행 정상입니다."
+    },
+    {
+      "check_id": "kosdaq_watchlist_price_elasticity",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "kosdaq_watchlist 가격탄력 등급이 전 행 정상입니다."
+    },
+    {
       "check_id": "kosdaq_watchlist_display_duplicates",
       "status": "PASS",
       "severity": "ERROR",
@@ -213,7 +237,7 @@
       "severity": "ERROR",
       "message": "us_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 100197,
+        "bytes": 100193,
         "limit": 110000,
         "market": "US"
       }
@@ -273,7 +297,7 @@
       "severity": "ERROR",
       "message": "Worker 경량 매니페스트 응답 크기가 안전 범위입니다.",
       "details": {
-        "bytes": 15519,
+        "bytes": 15578,
         "limit": 65000
       }
     },
@@ -316,8 +340,8 @@
       "severity": "WARNING",
       "message": "Worker 캐시의 빌드 ID가 저장소와 다릅니다. 120초 캐시 지연일 수 있습니다.",
       "details": {
-        "local": "20260709T173906+0900-8405a4f7c2",
-        "remote": "20260709T070846+0900-c5ac9db84c"
+        "local": "20260710T050029+0900-27dbebd41f",
+        "remote": "20260709T173906+0900-8405a4f7c2"
       }
     }
   ]

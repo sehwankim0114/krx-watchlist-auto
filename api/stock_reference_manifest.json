@@ -3,7 +3,7 @@
   "schema_version": "1.0",
   "script_version": "build_stock_reference_api.py v1.1.0-summary-label-compat-v741",
   "policy_version": "2026-07-03-v6.0-private-holdings-runtime",
-  "generated_at_kst": "2026-07-09T17:39:05+09:00",
+  "generated_at_kst": "2026-07-10T05:00:29+09:00",
   "runtime_mode": "user_holdings_stay_in_conversation",
   "privacy_policy": {
     "contains_user_holdings": false,
@@ -84,10 +84,10 @@
       "last_trading_value"
     ],
     "trading_activity_thresholds_krw": {
-      "매우활발": 50000000000,
+      "매우활발": 100000000000,
       "활발": 30000000000,
-      "보통": 10000000000,
-      "부족": 3000000000,
+      "보통": 5000000000,
+      "부족": 1000000000,
       "매우부족": 0
     },
     "price_elasticity_source": "avg_daily_move_pct",

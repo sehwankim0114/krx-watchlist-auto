@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 
@@ -152,6 +153,81 @@ def format_krw_amount(value: Any) -> Optional[str]:
     return f"{sign}{absolute:,.0f}원"
 
 
+# ACTIVITY_ELASTICITY_V75_BEGIN
+ACTIVITY_ELASTICITY_POLICY = {
+    "version": "2026-07-09-v7.5-activity-elasticity",
+    "preserve_existing_labels": True,
+    "derive_only_when_missing": True,
+    "trading_activity_source": "avg_trading_value",
+    "trading_activity_thresholds_krw": {
+        "매우활발": 100000000000,
+        "활발": 30000000000,
+        "보통": 5000000000,
+        "부족": 1000000000,
+        "매우부족": 0,
+    },
+    "price_elasticity_source_priority": [
+        "price_elasticity_basis_pct",
+        "avg_daily_move_text",
+    ],
+    "price_elasticity_thresholds_pct": {
+        "탄력 불안정": 5.0,
+        "탄력 높음": 3.0,
+        "탄력 보통": 1.5,
+        "탄력 낮음": 0.0,
+    },
+}
+
+
+def derive_trading_activity_label(value: Any) -> Optional[str]:
+    number = clean_number(value)
+    if number is None:
+        return None
+    number = abs(number)
+    if number >= 100_000_000_000:
+        return "매우활발"
+    if number >= 30_000_000_000:
+        return "활발"
+    if number >= 5_000_000_000:
+        return "보통"
+    if number >= 1_000_000_000:
+        return "부족"
+    return "매우부족"
+
+
+def extract_elasticity_pct(source: Mapping[str, Any]) -> Optional[float]:
+    explicit = clean_number(source.get("price_elasticity_basis_pct"))
+    if explicit is not None:
+        return abs(explicit)
+
+    text = clean_scalar(source.get("avg_daily_move_text"))
+    if text is None:
+        return None
+
+    matches = re.findall(r"([+-]?\d+(?:\.\d+)?)\s*%", str(text))
+    if not matches:
+        return None
+    try:
+        return abs(float(matches[-1]))
+    except (TypeError, ValueError):
+        return None
+
+
+def derive_price_elasticity_label(value: Any) -> Optional[str]:
+    number = clean_number(value)
+    if number is None:
+        return None
+    number = abs(number)
+    if number >= 5.0:
+        return "탄력 불안정"
+    if number >= 3.0:
+        return "탄력 높음"
+    if number >= 1.5:
+        return "탄력 보통"
+    return "탄력 낮음"
+# ACTIVITY_ELASTICITY_V75_END
+
+
 def compact_row(source: Mapping[str, Any], default_market: str) -> Dict[str, Any]:
     code = normalize_code(source.get("code"))
     name = str(clean_scalar(source.get("name")) or "").strip()
@@ -169,6 +245,15 @@ def compact_row(source: Mapping[str, Any], default_market: str) -> Dict[str, Any
         + ("_" if supply_burden else "")
     )
     recommendation_display = f"{marker} {name}".strip() if marker else name
+    trading_activity = (
+        clean_scalar(source.get("trading_activity_label"))
+        or derive_trading_activity_label(source.get("avg_trading_value"))
+    )
+    price_elasticity_pct = extract_elasticity_pct(source)
+    price_elasticity = (
+        clean_scalar(source.get("price_elasticity_label"))
+        or derive_price_elasticity_label(price_elasticity_pct)
+    )
 
     return {
         "rank": clean_int(source.get("rank")),
@@ -186,11 +271,9 @@ def compact_row(source: Mapping[str, Any], default_market: str) -> Dict[str, Any
         "return_1m_pct": clean_number(source.get("return_1m_pct")),
         "avg_volume": clean_int(source.get("avg_volume")),
         "avg_trading_value_krw": clean_int(source.get("avg_trading_value")),
-        "trading_activity": clean_scalar(source.get("trading_activity_label")),
-        "price_elasticity": clean_scalar(source.get("price_elasticity_label")),
-        "price_elasticity_pct": clean_number(
-            source.get("price_elasticity_basis_pct")
-        ),
+        "trading_activity": trading_activity,
+        "price_elasticity": price_elasticity,
+        "price_elasticity_pct": price_elasticity_pct,
         "avg_daily_move": clean_scalar(source.get("avg_daily_move_text")),
         "current_position": clean_scalar(source.get("current_position_label")),
         "current_position_pct": clean_number(
@@ -326,6 +409,7 @@ def build_one(api_dir: Path, spec: Mapping[str, Any]) -> Dict[str, Any]:
         "row_count_ok": len(rows) == exact_rows,
         "expected_rows": {"exact": exact_rows, "minimum": None},
         "validation_message": "OK",
+        "activity_elasticity_policy": ACTIVITY_ELASTICITY_POLICY,
         "candidate_analysis_date": analysis_date,
         "data_date_min": analysis_date,
         "data_date_max": analysis_date,

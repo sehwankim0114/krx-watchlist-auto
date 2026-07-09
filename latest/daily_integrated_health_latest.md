@@ -1,11 +1,11 @@
 # V7.3 일일 통합 건강검사
 
-- 검사시각(KST): 2026-07-09T17:39:08+09:00
+- 검사시각(KST): 2026-07-10T05:00:32+09:00
 - 최종상태: **WARN**
 - 치명 오류: 0
 - 경고: 1
-- 빌드 ID: `20260709T173906+0900-8405a4f7c2`
-- 규칙 버전: `2026-07-09-v7.4-display-normalization`
+- 빌드 ID: `20260710T050029+0900-27dbebd41f`
+- 규칙 버전: `2026-07-09-v7.5-activity-elasticity`
 
 | 결과 | 검사 항목 | 설명 |
 |---|---|---|
@@ -26,6 +26,8 @@
 | ✅ | `kospi_watchlist_sector_source` | kospi_watchlist 섹터 출처가 KRX KIND입니다. |
 | ✅ | `kospi_watchlist_trading_column_label` | kospi_watchlist 거래 열 이름이 정상입니다. |
 | ✅ | `kospi_watchlist_per_minute_value` | kospi_watchlist 분당거래금 필드가 모두 존재합니다. |
+| ✅ | `kospi_watchlist_trading_activity` | kospi_watchlist 거래활발 등급이 전 행 정상입니다. |
+| ✅ | `kospi_watchlist_price_elasticity` | kospi_watchlist 가격탄력 등급이 전 행 정상입니다. |
 | ✅ | `kospi_watchlist_display_duplicates` | kospi_watchlist에서 알려진 중복 수급표현이 발견되지 않았습니다. |
 | ✅ | `kosdaq_watchlist_rows` | kosdaq_watchlist 행 수가 10개로 정상입니다. |
 | ✅ | `kosdaq_watchlist_payload_size` | kosdaq_watchlist 응답 크기가 시장별 안전 범위입니다. |
@@ -37,6 +39,8 @@
 | ✅ | `kosdaq_watchlist_sector_source` | kosdaq_watchlist 섹터 출처가 KRX KIND입니다. |
 | ✅ | `kosdaq_watchlist_trading_column_label` | kosdaq_watchlist 거래 열 이름이 정상입니다. |
 | ✅ | `kosdaq_watchlist_per_minute_value` | kosdaq_watchlist 분당거래금 필드가 모두 존재합니다. |
+| ✅ | `kosdaq_watchlist_trading_activity` | kosdaq_watchlist 거래활발 등급이 전 행 정상입니다. |
+| ✅ | `kosdaq_watchlist_price_elasticity` | kosdaq_watchlist 가격탄력 등급이 전 행 정상입니다. |
 | ✅ | `kosdaq_watchlist_display_duplicates` | kosdaq_watchlist에서 알려진 중복 수급표현이 발견되지 않았습니다. |
 | ✅ | `us_watchlist_rows` | us_watchlist 행 수가 30개로 정상입니다. |
 | ✅ | `us_watchlist_payload_size` | us_watchlist 응답 크기가 시장별 안전 범위입니다. |

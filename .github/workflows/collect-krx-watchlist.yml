@@ -406,6 +406,22 @@ jobs:
 
           python monthly_cycle.py --output-dir latest --lookback-months 6 --top-n 40
 
+          # FINANCIAL_VALUATION_V76_OFFICIAL
+          python -m py_compile financial_valuation_enricher.py
+          python financial_valuation_enricher.py \
+            --output-dir latest \
+            --workers 4 \
+            --timeout 30 \
+            --max-api-calls 5000 \
+            --retry-hours 20 \
+            | tee /tmp/financial_valuation_v76.txt
+
+          grep -q 'FINANCIAL_VALUATION_STATUS=OK' \
+            /tmp/financial_valuation_v76.txt
+
+          echo "----- 재무·밸류에이션 자동수집 결과 -----"
+          cat latest/financial_valuation_run_log_latest.txt || true
+
           python -m py_compile supply_burden_enricher.py
           python supply_burden_enricher.py --output-dir latest --lookback-days 180 --sleep-seconds 0.12
 

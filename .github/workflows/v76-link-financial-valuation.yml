@@ -1,0 +1,473 @@
+name: V76 Link Financial Valuation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: v76-link-financial-valuation
+  cancel-in-progress: false
+
+jobs:
+  link:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install requirements
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install "lxml>=5.0"
+
+      - name: Check required files and secret
+        run: |
+          set -euo pipefail
+          test -f patch_financial_valuation_link_v76.py
+          test -f financial_valuation_enricher.py
+          test -f build_lightweight_watchlist_api_v66.py
+          test -f build_api_json.py
+          test -f validate_api_sync.py
+          test -f validate_daily_integrated_health_v731.py
+          test -f docs/stock_table_rules_latest.md
+          test -f .github/workflows/collect-krx-watchlist.yml
+          test -f latest/kospi_candidates_30_latest.csv
+          test -f latest/kosdaq_candidates_10_latest.csv
+          if [ -z "${DART_API_KEY:-}" ]; then
+            echo "::error::DART_API_KEY secret is missing."
+            exit 1
+          fi
+          echo "V76_PREREQUISITES=OK"
+          echo "DART_API_KEY_PRESENT=true"
+
+      - name: Apply V7.6 integration patch
+        run: |
+          set -euo pipefail
+          python patch_financial_valuation_link_v76.py
+          python -m py_compile \
+            patch_financial_valuation_link_v76.py \
+            build_lightweight_watchlist_api_v66.py \
+            validate_daily_integrated_health_v731.py
+          python patch_financial_valuation_link_v76.py --verify-only
+          echo "V76_INTEGRATION_PATCH=OK"
+
+      - name: Run financial valuation self-test
+        run: |
+          set -euo pipefail
+          python -m py_compile financial_valuation_enricher.py
+          python financial_valuation_enricher.py --self-test \
+            | tee /tmp/financial_v76_self_test.txt
+          grep -q 'SELF_TEST_STATUS=OK' \
+            /tmp/financial_v76_self_test.txt
+          echo "FINANCIAL_VALUATION_SELF_TEST=PASS"
+
+      - name: Refresh and enrich official financial data
+        run: |
+          set -euo pipefail
+          python financial_valuation_enricher.py \
+            --output-dir latest \
+            --workers 4 \
+            --timeout 30 \
+            --max-api-calls 500 \
+            --retry-hours 0 \
+            | tee /tmp/financial_v76_run.txt
+          grep -q 'FINANCIAL_VALUATION_STATUS=OK' \
+            /tmp/financial_v76_run.txt
+          test -f latest/financial_valuation_cache_latest.csv
+          test -f latest/financial_valuation_run_log_latest.txt
+          echo "FINANCIAL_VALUATION_LIVE_RUN=PASS"
+
+      - name: Verify enriched candidate CSV files
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import pandas as pd
+
+          specs = {
+              "kospi_candidates_30_latest.csv": (30, 18, 15, 15),
+              "kosdaq_candidates_10_latest.csv": (10, 6, 5, 5),
+          }
+          required = {
+              "financial_data_status",
+              "financial_basis",
+              "revenue_yoy_pct",
+              "operating_profit_yoy_pct",
+              "earnings_trend",
+              "valuation_data_status",
+              "valuation_price_basis_date",
+              "per_annualized",
+              "pbr",
+          }
+
+          def nonblank(series):
+              return series.fillna("").astype(str).str.strip().ne("")
+
+          for filename, (
+              expected_rows,
+              minimum_basis,
+              minimum_growth,
+              minimum_valuation,
+          ) in specs.items():
+              path = Path("latest") / filename
+              frame = pd.read_csv(
+                  path,
+                  encoding="utf-8-sig",
+                  dtype=str,
+              ).fillna("")
+              if len(frame) != expected_rows:
+                  raise SystemExit(
+                      f"{filename}: rows={len(frame)} "
+                      f"expected={expected_rows}"
+                  )
+              missing = required - set(frame.columns)
+              if missing:
+                  raise SystemExit(
+                      f"{filename}: missing={sorted(missing)}"
+                  )
+
+              financial_status = int(
+                  nonblank(frame["financial_data_status"]).sum()
+              )
+              valuation_status = int(
+                  nonblank(frame["valuation_data_status"]).sum()
+              )
+              basis = int(nonblank(frame["financial_basis"]).sum())
+              growth = int(
+                  (
+                      nonblank(frame["revenue_yoy_pct"])
+                      | nonblank(frame["operating_profit_yoy_pct"])
+                  ).sum()
+              )
+              valuation_date = int(
+                  nonblank(frame["valuation_price_basis_date"]).sum()
+              )
+              pbr = int(nonblank(frame["pbr"]).sum())
+              per = int(nonblank(frame["per_annualized"]).sum())
+
+              if financial_status != expected_rows:
+                  raise SystemExit(
+                      f"{filename}: financial status "
+                      f"{financial_status}/{expected_rows}"
+                  )
+              if valuation_status != expected_rows:
+                  raise SystemExit(
+                      f"{filename}: valuation status "
+                      f"{valuation_status}/{expected_rows}"
+                  )
+              if basis < minimum_basis:
+                  raise SystemExit(
+                      f"{filename}: basis={basis}<{minimum_basis}"
+                  )
+              if growth < minimum_growth:
+                  raise SystemExit(
+                      f"{filename}: growth={growth}<{minimum_growth}"
+                  )
+              if valuation_date < minimum_valuation:
+                  raise SystemExit(
+                      f"{filename}: valuation_date="
+                      f"{valuation_date}<{minimum_valuation}"
+                  )
+              if pbr < minimum_valuation:
+                  raise SystemExit(
+                      f"{filename}: pbr={pbr}<{minimum_valuation}"
+                  )
+
+              ready_without_per = frame[
+                  frame["valuation_data_status"].eq("READY")
+                  & ~nonblank(frame["per_annualized"])
+              ]
+              if not ready_without_per.empty:
+                  raise SystemExit(
+                      f"{filename}: READY but PER missing rows="
+                      f"{ready_without_per.index.tolist()}"
+                  )
+
+              print(
+                  f"{filename}=rows:{expected_rows};"
+                  f"basis:{basis};growth:{growth};"
+                  f"valuation_date:{valuation_date};"
+                  f"per:{per};pbr:{pbr}:PASS"
+              )
+
+          print("CANDIDATE_FINANCIAL_ENRICHMENT_V76=PASS")
+          PY
+
+      - name: Build all API JSON
+        run: |
+          set -euo pipefail
+          python build_api_json.py
+
+      - name: Validate synchronized API
+        run: |
+          set -euo pipefail
+          python validate_api_sync.py --api-dir api
+
+      - name: Verify compact financial valuation fields
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          specs = {
+              "kospi_watchlist.json": (30, 70000, 18, 15, 15),
+              "kosdaq_watchlist.json": (10, 50000, 6, 5, 5),
+          }
+
+          def present(value):
+              return value is not None and str(value).strip() != ""
+
+          for filename, (
+              expected_rows,
+              size_limit,
+              minimum_basis,
+              minimum_growth,
+              minimum_valuation,
+          ) in specs.items():
+              path = Path("api") / filename
+              payload = json.loads(path.read_text(encoding="utf-8"))
+              rows = payload.get("rows") or []
+              if len(rows) != expected_rows:
+                  raise SystemExit(
+                      f"{filename}: rows={len(rows)}"
+                  )
+              if path.stat().st_size > size_limit:
+                  raise SystemExit(
+                      f"{filename}: size={path.stat().st_size}>"
+                      f"{size_limit}"
+                  )
+
+              policy = payload.get(
+                  "financial_valuation_link_policy"
+              ) or {}
+              if policy.get("version") != (
+                  "2026-07-10-v7.6-financial-valuation-link"
+              ):
+                  raise SystemExit(
+                      f"{filename}: financial policy missing"
+                  )
+
+              financial_status = sum(
+                  present(row.get("financial_data_status"))
+                  for row in rows
+              )
+              valuation_status = sum(
+                  present(row.get("valuation_data_status"))
+                  for row in rows
+              )
+              basis = sum(
+                  present(row.get("financial_basis"))
+                  for row in rows
+              )
+              growth = sum(
+                  present(row.get("revenue_yoy_pct"))
+                  or present(row.get("operating_profit_yoy_pct"))
+                  for row in rows
+              )
+              valuation_date = sum(
+                  present(row.get("valuation_price_basis_date"))
+                  for row in rows
+              )
+              pbr = sum(present(row.get("pbr")) for row in rows)
+              per = sum(
+                  present(row.get("per_annualized"))
+                  for row in rows
+              )
+
+              if financial_status != expected_rows:
+                  raise SystemExit(
+                      f"{filename}: financial status "
+                      f"{financial_status}/{expected_rows}"
+                  )
+              if valuation_status != expected_rows:
+                  raise SystemExit(
+                      f"{filename}: valuation status "
+                      f"{valuation_status}/{expected_rows}"
+                  )
+              if basis < minimum_basis:
+                  raise SystemExit(
+                      f"{filename}: basis={basis}<{minimum_basis}"
+                  )
+              if growth < minimum_growth:
+                  raise SystemExit(
+                      f"{filename}: growth={growth}<{minimum_growth}"
+                  )
+              if valuation_date < minimum_valuation:
+                  raise SystemExit(
+                      f"{filename}: valuation_date="
+                      f"{valuation_date}<{minimum_valuation}"
+                  )
+              if pbr < minimum_valuation:
+                  raise SystemExit(
+                      f"{filename}: pbr={pbr}<{minimum_valuation}"
+                  )
+
+              ready_without_per = [
+                  index
+                  for index, row in enumerate(rows, start=1)
+                  if str(
+                      row.get("valuation_data_status") or ""
+                  ).upper() == "READY"
+                  and not present(row.get("per_annualized"))
+              ]
+              if ready_without_per:
+                  raise SystemExit(
+                      f"{filename}: READY PER missing "
+                      f"rows={ready_without_per}"
+                  )
+
+              if not payload.get("financial_basis_values"):
+                  raise SystemExit(
+                      f"{filename}: financial_basis_values empty"
+                  )
+              if not payload.get("valuation_basis_date_min"):
+                  raise SystemExit(
+                      f"{filename}: valuation date min empty"
+                  )
+              if not payload.get("valuation_basis_date_max"):
+                  raise SystemExit(
+                      f"{filename}: valuation date max empty"
+                  )
+
+              print(
+                  f"{filename}=rows:{expected_rows};"
+                  f"basis:{basis};growth:{growth};"
+                  f"valuation_date:{valuation_date};"
+                  f"per:{per};pbr:{pbr};"
+                  f"bytes:{path.stat().st_size}:PASS"
+              )
+
+          status = json.loads(
+              Path("api/status.json").read_text(encoding="utf-8")
+          )
+          if status.get("rules_version") != (
+              "2026-07-10-v7.6-financial-valuation-link"
+          ):
+              raise SystemExit(
+                  f"rules={status.get('rules_version')}"
+              )
+
+          print("FINANCIAL_VALUATION_LINK_V76=PASS")
+          print("FINANCIAL_BASIS_METADATA=PASS")
+          print("REVENUE_OPERATING_GROWTH=PASS")
+          print("PER_PBR_LOSS_POLICY=PASS")
+          print("PAYLOAD_LIMITS=PASS")
+          PY
+
+      - name: Run updated daily health regression
+        run: |
+          set -euo pipefail
+          python validate_daily_integrated_health_v731.py \
+            --repo-root . \
+            --worker-base \
+              https://krx-live-price-ksh.diaconos.workers.dev \
+            --output-json \
+              latest/daily_integrated_health_latest.json \
+            --output-md \
+              latest/daily_integrated_health_latest.md \
+            --exit-zero
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path(
+                  "latest/daily_integrated_health_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+          if report.get("critical_count") != 0:
+              raise SystemExit(
+                  f"health critical={report.get('critical_count')}"
+              )
+
+          ids = {
+              item.get("check_id"): item.get("status")
+              for item in report.get("checks") or []
+          }
+          suffixes = (
+              "financial_status_coverage",
+              "financial_basis_coverage",
+              "financial_growth_coverage",
+              "valuation_coverage",
+              "per_loss_policy",
+          )
+          required = {
+              f"{table}_{suffix}"
+              for table in (
+                  "kospi_watchlist",
+                  "kosdaq_watchlist",
+              )
+              for suffix in suffixes
+          }
+          bad = {
+              key: ids.get(key)
+              for key in required
+              if ids.get(key) != "PASS"
+          }
+          if bad:
+              raise SystemExit(
+                  f"financial health checks={bad}"
+              )
+
+          print(
+              "V76_HEALTH_REGRESSION="
+              f"{report.get('status')}"
+          )
+          print("FINANCIAL_HEALTH_CHECKS=PASS")
+          PY
+
+      - name: Commit clean worktree and push
+        run: |
+          set -euo pipefail
+
+          find . -type d -name __pycache__ -prune \
+            -exec rm -rf {} +
+          find . -type f \( -name "*.pyc" -o -name "*.pyo" \) \
+            -delete
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if ! git diff --cached --quiet; then
+            git commit -m \
+              "Connect financial and valuation data v7.6"
+          else
+            echo "NO_CHANGES_TO_COMMIT=true"
+          fi
+
+          echo "WORKTREE_AFTER_COMMIT_BEGIN"
+          git status --porcelain
+          echo "WORKTREE_AFTER_COMMIT_END"
+
+          if test -n "$(git status --porcelain)"; then
+            echo "UNCOMMITTED_CHANGES_REMAIN=true"
+            exit 1
+          fi
+
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+          echo "PUSH_SUCCESS=true"

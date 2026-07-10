@@ -1,9 +1,9 @@
 # V7.3 일일 통합 건강검사
 
-- 검사시각(KST): 2026-07-10T08:03:19+09:00
-- 최종상태: **WARN**
+- 검사시각(KST): 2026-07-10T13:17:03+09:00
+- 최종상태: **PASS**
 - 치명 오류: 0
-- 경고: 1
+- 경고: 0
 - 빌드 ID: `20260710T080315+0900-ba0dd40ac2`
 - 규칙 버전: `2026-07-10-v7.6.1-financial-payload-compact`
 
@@ -67,7 +67,7 @@
 | ✅ | `worker_kospi_watchlist` | 경량 매니페스트의 kospi_watchlist 행 수와 상태가 정상입니다. |
 | ✅ | `worker_kosdaq_watchlist` | 경량 매니페스트의 kosdaq_watchlist 행 수와 상태가 정상입니다. |
 | ✅ | `worker_us_watchlist` | 경량 매니페스트의 us_watchlist 행 수와 상태가 정상입니다. |
-| ⚠️ | `worker_build_id` | Worker 캐시의 빌드 ID가 저장소와 다릅니다. 120초 캐시 지연일 수 있습니다. |
+| ✅ | `worker_build_id` | Worker 경량 매니페스트 빌드 ID가 저장소와 일치합니다. |
 
 ## 판정 기준
 

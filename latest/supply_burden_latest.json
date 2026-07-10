@@ -1,7 +1,7 @@
 {
   "script": "supply_burden_enricher.py v2.0.0-check-status-separated",
   "policy_version": "2026-07-01-v6.0-supply-status-separated",
-  "run_at_kst": "2026-07-09T10:59:39+09:00",
+  "run_at_kst": "2026-07-10T10:05:36+09:00",
   "status": "LIMITED",
   "check_scope": "DART 최근 90일 공시 제목 기준",
   "check_limited_reason": "DART_WHOLE_MARKET_LOOKBACK_CAPPED_90D_FROM_180D",
@@ -10,47 +10,37 @@
   "effective_lookback_days": 90,
   "dart_whole_market_max_days": 90,
   "target_tickers": 2714,
-  "hit_reports": 10992,
-  "supply_burden_detected_tickers": 1835,
-  "danger_tickers": 656,
-  "warning_tickers": 659,
-  "caution_tickers": 520,
+  "hit_reports": 10889,
+  "supply_burden_detected_tickers": 1839,
+  "danger_tickers": 652,
+  "warning_tickers": 662,
+  "caution_tickers": 525,
   "dart_status": {
-    "bgn_de": "20260410",
-    "end_de": "20260709",
+    "bgn_de": "20260411",
+    "end_de": "20260710",
     "lookback_days": 90,
     "corp_cls": {
       "Y": {
-        "pages_requested": 152,
-        "total_page": 152,
-        "raw_reports": 15103,
-        "target_reports": 15103,
-        "matched_reports": 3807
+        "pages_requested": 151,
+        "total_page": 151,
+        "raw_reports": 15013,
+        "target_reports": 15013,
+        "matched_reports": 3754
       },
       "K": {
-        "pages_requested": 170,
-        "total_page": 170,
-        "raw_reports": 16906,
-        "target_reports": 16750,
-        "matched_reports": 7185
+        "pages_requested": 169,
+        "total_page": 169,
+        "raw_reports": 16820,
+        "target_reports": 16661,
+        "matched_reports": 7135
       }
     },
-    "api_calls": 322,
+    "api_calls": 320,
     "api_errors": []
   },
   "enrich_results": [
     {
       "file": "kosdaq_candidates_10_current_basis_latest.csv",
-      "status": "OK",
-      "rows": 10,
-      "matched_rows": 10,
-      "burden_detected_rows": 8,
-      "check_limited_rows": 10,
-      "check_failed_rows": 0,
-      "note": ""
-    },
-    {
-      "file": "kosdaq_candidates_10_latest.csv",
       "status": "OK",
       "rows": 10,
       "matched_rows": 10,
@@ -60,11 +50,21 @@
       "note": ""
     },
     {
+      "file": "kosdaq_candidates_10_latest.csv",
+      "status": "OK",
+      "rows": 10,
+      "matched_rows": 10,
+      "burden_detected_rows": 7,
+      "check_limited_rows": 10,
+      "check_failed_rows": 0,
+      "note": ""
+    },
+    {
       "file": "kosdaq_candidates_10_supplemented_latest.csv",
       "status": "OK",
       "rows": 10,
       "matched_rows": 10,
-      "burden_detected_rows": 8,
+      "burden_detected_rows": 9,
       "check_limited_rows": 10,
       "check_failed_rows": 0,
       "note": ""
@@ -114,7 +114,7 @@
       "status": "OK",
       "rows": 1789,
       "matched_rows": 1789,
-      "burden_detected_rows": 1258,
+      "burden_detected_rows": 1261,
       "check_limited_rows": 1789,
       "check_failed_rows": 0,
       "note": ""
@@ -134,7 +134,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 28,
+      "burden_detected_rows": 27,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -144,7 +144,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 27,
+      "burden_detected_rows": 30,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -154,7 +154,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 28,
+      "burden_detected_rows": 27,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -174,7 +174,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 28,
+      "burden_detected_rows": 27,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -234,7 +234,7 @@
       "status": "OK",
       "rows": 20,
       "matched_rows": 20,
-      "burden_detected_rows": 14,
+      "burden_detected_rows": 15,
       "check_limited_rows": 20,
       "check_failed_rows": 0,
       "note": ""
@@ -324,7 +324,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 28,
+      "burden_detected_rows": 30,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -384,7 +384,7 @@
       "status": "OK",
       "rows": 925,
       "matched_rows": 925,
-      "burden_detected_rows": 577,
+      "burden_detected_rows": 578,
       "check_limited_rows": 925,
       "check_failed_rows": 0,
       "note": ""

@@ -945,3 +945,57 @@ holiday_file_exists=True
 official_publication_cutoff_kst=08:30
 reason=KOSPI/KOSDAQ official summaries match the expected official trading date.
 -----------------------------------------
+
+----- KRX_OFFICIAL_FRESHNESS_STATUS -----
+stage=before_collect
+script=run_universe_latest.py v1.5_one_month_runtime_hook
+run_at_kst=2026-07-14T10:19:02+09:00
+run_mode=official
+final_run_mode=official
+expected_official_trading_date=2026-07-13
+status=FRESH
+official_status=FRESH
+fresh=True
+official_fresh=True
+display_label=최신 공식판
+warning=
+kospi_actual_date=2026-07-13
+kosdaq_actual_date=2026-07-13
+actual_min_date=2026-07-13
+actual_max_date=2026-07-13
+basis_date_for_display=2026-07-13
+same_market_date=True
+kospi_summary_rows=925
+kosdaq_summary_rows=1790
+holiday_file=config/krx_market_holidays.json
+holiday_file_exists=True
+official_publication_cutoff_kst=08:30
+reason=KOSPI/KOSDAQ official summaries match the expected official trading date.
+-----------------------------------------
+
+----- KRX_OFFICIAL_FRESHNESS_STATUS -----
+stage=skip
+script=run_universe_latest.py v1.5_one_month_runtime_hook
+run_at_kst=2026-07-14T10:19:02+09:00
+run_mode=official
+final_run_mode=official
+expected_official_trading_date=2026-07-13
+status=SKIPPED_ALREADY_FRESH
+official_status=FRESH
+fresh=True
+official_fresh=True
+display_label=최신 공식판
+warning=
+kospi_actual_date=2026-07-13
+kosdaq_actual_date=2026-07-13
+actual_min_date=2026-07-13
+actual_max_date=2026-07-13
+basis_date_for_display=2026-07-13
+same_market_date=True
+kospi_summary_rows=925
+kosdaq_summary_rows=1790
+holiday_file=config/krx_market_holidays.json
+holiday_file_exists=True
+official_publication_cutoff_kst=08:30
+reason=Official previous trading day data already exists.
+-----------------------------------------

@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260710T080315+0900-ba0dd40ac2",
+  "build_id": "20260714T113512+0900-03deda63c1",
   "script": "build_api_json.py v4.9_display_normalization_v74",
   "table_id": "us_watchlist",
   "display_name": "미관종표 — S&P500 기반 미국 분석 후보 30개",
-  "generated_at_kst": "2026-07-10T08:03:15+09:00",
-  "source_commit_sha": "ba0dd40ac2b3031325cd74091e8ddd6867d33e20",
+  "generated_at_kst": "2026-07-14T11:35:12+09:00",
+  "source_commit_sha": "03deda63c1443665584b1f07913bd7422c5a2152",
   "required": true,
   "default_output": true,
   "explicit_request_only": false,
@@ -141,42 +141,42 @@
       "mark_only_final_failures_with_white_circle"
     ]
   },
-  "rules_version": "2026-07-10-v7.6.1-financial-payload-compact",
-  "rules_sha256": "85b91f0f2657fad6aed51a524a3e2abbb52fbc4c34742aa125f3bb24376e69bc",
+  "rules_version": "2026-07-14-v7.7-runtime-freshness-gate",
+  "rules_sha256": "19563e65d148b40541088342d90e4739c1d0a6e90a22a8c6df2432d93f9f62ad",
   "expected_rows": {
     "exact": 30,
     "minimum": null
   },
   "official_data": {
     "source_file": "official_data_status_latest.json",
-    "source_run_at_kst": "2026-07-09T10:58:55+09:00",
-    "source_expected_official_trading_date": "2026-07-08",
-    "computed_expected_official_trading_date": "2026-07-08",
-    "kospi_actual_date": "2026-07-08",
-    "kosdaq_actual_date": "2026-07-08",
-    "basis_date_for_display": "2026-07-08",
+    "source_run_at_kst": "2026-07-14T10:19:02+09:00",
+    "source_expected_official_trading_date": "2026-07-13",
+    "computed_expected_official_trading_date": "2026-07-13",
+    "kospi_actual_date": "2026-07-13",
+    "kosdaq_actual_date": "2026-07-13",
+    "basis_date_for_display": "2026-07-13",
     "same_market_date": true,
     "official_fresh_at_source": true,
     "official_fresh_now": true,
-    "collector_return_code": 0,
+    "collector_return_code": null,
     "source_status": "FRESH",
     "source_display_label": "최신 공식판",
     "source_warning": "",
     "kospi_summary_rows": 925,
-    "kosdaq_summary_rows": 1789
+    "kosdaq_summary_rows": 1790
   },
   "current_price_basis": {
-    "current_price_asof_kst": "2026-07-09T21:21:21+09:00",
+    "current_price_asof_kst": "2026-07-14T10:49:46+09:00",
     "current_price_basis_status": "OK",
-    "aux_price_count": 102,
+    "aux_price_count": 100,
     "current_basis_ok_files": 4,
     "time_after_hours_reflected": null,
-    "freshness_mode": "aux"
+    "freshness_mode": "official"
   },
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-10-v7.6.1-financial-payload-compact",
-    "sha256": "85b91f0f2657fad6aed51a524a3e2abbb52fbc4c34742aa125f3bb24376e69bc"
+    "version": "2026-07-14-v7.7-runtime-freshness-gate",
+    "sha256": "19563e65d148b40541088342d90e4739c1d0a6e90a22a8c6df2432d93f9f62ad"
   },
   "status": "OK",
   "source_file": "latest/us_sp500_watchlist_latest.csv",
@@ -2419,5 +2419,5 @@
     "supply_aliases_deduplicated": true
   },
   "payload_size_limit_bytes": 110000,
-  "payload_size_bytes": 100177
+  "payload_size_bytes": 100175
 }

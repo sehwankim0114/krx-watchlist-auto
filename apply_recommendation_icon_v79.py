@@ -16,7 +16,7 @@ try:
 except Exception:  # pragma: no cover
     ZoneInfo = None
 
-VERSION = "2026-07-14-v7.9.1-recommendation-icon-payload-compact"
+VERSION = "2026-07-14-v7.9.2-recommendation-policy-isolation"
 REPORT_NAME = "recommendation_icon_validation.json"
 
 ALLOWED_ICONS: Tuple[str, ...] = ("✅", "🟡", "⚠️", "🔻", "⚪")
@@ -174,46 +174,35 @@ def update_contracts(
     *,
     compact: bool,
 ) -> None:
+    """Attach recommendation metadata without touching presentation_policy.
+
+    validate_api_sync.py requires every table's presentation_policy to be
+    byte-for-byte equivalent to status.presentation_policy. Recommendation
+    icon integrity is an independent row-display contract, so it must not
+    mutate that shared global policy.
+    """
     contract = payload.get("output_contract")
     if not isinstance(contract, MutableMapping):
         contract = {}
         payload["output_contract"] = contract
 
-    presentation = payload.get("presentation_policy")
-    if not isinstance(presentation, MutableMapping):
-        presentation = {}
-        payload["presentation_policy"] = presentation
-
-    removable_contract_keys = (
+    # Clean keys written by V7.9/V7.9.1 in case the function is applied
+    # repeatedly in the same worktree.
+    for key in (
         "allowed_recommendation_icons",
         "default_candidate_icon",
         "recommendation_display_format",
         "loss_marker_position",
         "supply_marker_position",
         "rank_field_use",
-    )
-    removable_presentation_keys = (
-        "allowed_recommendation_icons",
-        "default_candidate_icon",
-        "show_rank_numbers_default",
-        "rank_field_use",
-    )
-    for key in removable_contract_keys:
+    ):
         contract.pop(key, None)
-    for key in removable_presentation_keys:
-        presentation.pop(key, None)
 
     contract.update(
         {
             "recommendation_icon_policy_version": VERSION,
             "recommendation_icon_required": True,
             "do_not_prefix_rank_to_recommendation": True,
-        }
-    )
-    presentation.update(
-        {
-            "recommendation_icon_policy_version": VERSION,
-            "recommendation_icon_required": True,
         }
     )
 
@@ -228,14 +217,22 @@ def update_contracts(
                 "rank_field_use": "sorting_only",
             }
         )
-        presentation.update(
-            {
-                "allowed_recommendation_icons": list(ALLOWED_ICONS),
-                "default_candidate_icon": DEFAULT_ICON,
-                "show_rank_numbers_default": False,
-                "rank_field_use": "sorting_only",
-            }
-        )
+
+
+def clean_recommendation_keys_from_presentation_policy(
+    payload: MutableMapping[str, Any],
+) -> None:
+    presentation = payload.get("presentation_policy")
+    if not isinstance(presentation, MutableMapping):
+        return
+
+    for key in (
+        "recommendation_icon_policy_version",
+        "recommendation_icon_required",
+        "allowed_recommendation_icons",
+        "default_candidate_icon",
+    ):
+        presentation.pop(key, None)
 
 
 def patch_row(row: MutableMapping[str, Any]) -> Dict[str, Any]:
@@ -470,6 +467,7 @@ def apply_recommendation_icon_v79(
                 if column != "recommendation_icon"
             ]
 
+        clean_recommendation_keys_from_presentation_policy(payload)
         payload["recommendation_icon_policy"] = (
             COMPACT_RECOMMENDATION_ICON_POLICY
         )
@@ -514,6 +512,7 @@ def apply_recommendation_icon_v79(
         if not path.exists():
             continue
         payload = read_json(path)
+        clean_recommendation_keys_from_presentation_policy(payload)
         payload["recommendation_icon_policy"] = (
             RECOMMENDATION_ICON_POLICY
         )

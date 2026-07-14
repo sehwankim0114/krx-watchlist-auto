@@ -111,10 +111,10 @@ jobs:
           cat api/validation_report.json
           echo "----- generated API files -----"
           find api \
-            -maxdepth 1 \
+            -maxdepth 2 \
             -type f \
             -name "*.json" \
-            -printf "%f\n" \
+            -printf "%p\n" \
             | sort
 
       - name: Commit and push synchronized API data
@@ -130,51 +130,57 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
 
-          git add -A api
-          git add \
-            latest/official_data_status_latest.json \
-            latest/official_data_status_latest.txt \
-            latest/data_freshness_notice_latest.json \
-            latest/data_freshness_notice_latest.md \
-            latest/data_freshness_notice_latest.txt \
-            2>/dev/null || true
+          git fetch origin main
 
-          if git diff --cached --quiet; then
-            echo "NO_CHANGES_TO_COMMIT=true"
-            echo "PUSH_SUCCESS=true"
-            exit 0
-          fi
+          echo "STATUS_BEFORE_STAGE_BEGIN"
+          git status --porcelain
+          echo "STATUS_BEFORE_STAGE_END"
+
+          git add -A api latest
 
           echo "CHANGED_FILES_BEGIN"
           git diff --cached --name-status
           echo "CHANGED_FILES_END"
 
-          git commit -m "Rebuild synchronized API JSON data"
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+          else
+            git commit -m "Rebuild synchronized API JSON data"
+          fi
 
-          PUSHED=false
-          for attempt in 1 2 3; do
-            echo "PUSH_ATTEMPT=$attempt"
-            git fetch origin main
+          find . -type d -name __pycache__ -prune \
+            -exec rm -rf {} +
+          find . -type f \( -name "*.pyc" -o -name "*.pyo" \) \
+            -delete
 
-            if ! git rebase origin/main; then
-              git rebase --abort || true
-              echo "REBASE_FAILED=true"
-              sleep $((attempt * 5))
-              continue
+          if test -n "$(git status --porcelain)"; then
+            echo "RESIDUAL_STATUS_AFTER_COMMIT_BEGIN"
+            git status --porcelain
+            echo "RESIDUAL_STATUS_AFTER_COMMIT_END"
+
+            git add -A api latest
+
+            if ! git diff --cached --quiet; then
+              git commit --amend --no-edit
             fi
+          fi
 
-            if git push origin HEAD:main; then
-              PUSHED=true
-              break
-            fi
+          echo "WORKTREE_AFTER_COMMIT_BEGIN"
+          git status --porcelain
+          echo "WORKTREE_AFTER_COMMIT_END"
 
-            sleep $((attempt * 5))
-          done
-
-          if [ "$PUSHED" != "true" ]; then
-            echo "PUSH_SUCCESS=false"
+          if test -n "$(git status --porcelain)"; then
+            echo "::error::Uncommitted changes remain after commit."
             exit 1
           fi
+
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          else
+            echo "REMOTE_MAIN_CHANGED=false"
+          fi
+
+          git push origin HEAD:main
 
           echo "COMMIT_SHA=$(git rev-parse HEAD)"
           echo "PUSH_SUCCESS=true"

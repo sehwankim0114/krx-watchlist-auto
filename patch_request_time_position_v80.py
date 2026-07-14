@@ -15,7 +15,7 @@ RULES = ROOT / "docs" / "stock_table_rules_latest.md"
 VERSION = "2026-07-14-v8.0-request-time-position-alignment"
 SCRIPT_VERSION = (
     "request_time_explanation_refresher.py "
-    "v2.0.1-price-position-anchor-fix"
+    "v2.0.2-price-position-self-test-fix"
 )
 RULE_MARKER = "<!-- REQUEST_TIME_POSITION_V80 -->"
 
@@ -398,6 +398,33 @@ def patch_zone_labels(text: str) -> str:
 
 
 def patch_self_test(text: str) -> str:
+    legacy_pattern = (
+        r'assert\s+buy\["request_time_position_label"\]\s*'
+        r'==\s*"저점권반등초입"'
+    )
+    aligned_assertion = (
+        'assert buy["request_time_position_label"] '
+        '== "저점권~중간권"'
+    )
+
+    if re.search(legacy_pattern, text, flags=re.S):
+        text, legacy_count = re.subn(
+            legacy_pattern,
+            aligned_assertion,
+            text,
+            count=1,
+            flags=re.S,
+        )
+        if legacy_count != 1:
+            raise PatchError(
+                "legacy self-test label replacement count: "
+                f"{legacy_count}"
+            )
+    elif aligned_assertion not in text:
+        raise PatchError(
+            "legacy self-test position-label assertion not found"
+        )
+
     if "V80_OUT_OF_RANGE_POSITION=PASS" in text:
         return text
 
@@ -431,6 +458,7 @@ def patch_self_test(text: str) -> str:
 {indent}    "3개월 고가 대비 7.1% 돌파 · 범위위치 116.7%"
 {indent})
 
+{indent}print("V80_LEGACY_SELF_TEST_ALIGNMENT=PASS")
 {indent}print("V80_OUT_OF_RANGE_POSITION=PASS")
 {indent}print("SELF_TEST_STATUS=OK")'''
 
@@ -475,10 +503,11 @@ def patch_target() -> None:
 
     required = (
         VERSION,
-        "v2.0.1-price-position-anchor-fix",
+        "v2.0.2-price-position-self-test-fix",
         "request_time_position_display",
         "request_time_range_break_status",
         "request_time_range_break_pct",
+        "V80_LEGACY_SELF_TEST_ALIGNMENT=PASS",
         "V80_OUT_OF_RANGE_POSITION=PASS",
     )
     for token in required:
@@ -549,6 +578,7 @@ def main() -> int:
     patch_rules()
     print("PATCH_REQUEST_TIME_POSITION_V80=OK")
     print("PATCH_ANCHOR_MODE=REGEX_IDENTIFIER_BASED")
+    print("LEGACY_SELF_TEST_EXPECTATION_PATCHED=PASS")
     print("THREE_MONTH_RANGE_PRIORITY=PASS")
     print(f"RULES_VERSION={VERSION}")
     return 0

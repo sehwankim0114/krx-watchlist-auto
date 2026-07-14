@@ -1,0 +1,288 @@
+name: V78 Price Range Position Upgrade
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v78-price-range-position-upgrade
+  cancel-in-progress: true
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Python packages
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Check V7.8 files
+        run: |
+          set -euo pipefail
+          test -f apply_price_position_v78.py
+          test -f validate_price_position_v78.py
+          test -f patch_price_position_v78.py
+          test -f build_api_json.py
+          test -f docs/stock_table_rules_latest.md
+          echo "V78_PREREQUISITES=OK"
+
+      - name: Install V7.8 into API build and health check
+        run: |
+          set -euo pipefail
+          python patch_price_position_v78.py
+          python -m py_compile \
+            apply_price_position_v78.py \
+            validate_price_position_v78.py \
+            patch_price_position_v78.py \
+            build_api_json.py
+          if [ -f validate_daily_integrated_health_v731.py ]; then
+            python -m py_compile \
+              validate_daily_integrated_health_v731.py
+          fi
+          echo "V78_INSTALL=OK"
+
+      - name: Run V7.8 calculation self-test
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import tempfile
+          from pathlib import Path
+          from apply_price_position_v78 import apply_price_position_v78
+
+          rows = [
+              {
+                  "name": "below",
+                  "static_price": "277,500원",
+                  "low_3m": 286000,
+                  "high_3m": 405000,
+                  "value_buy_range": "289,000원~312,500원",
+                  "first_sell_target_range": "344,000원~367,000원",
+                  "current_position_pct": 0,
+              },
+              {
+                  "name": "above",
+                  "static_price": 420000,
+                  "low_3m": 286000,
+                  "high_3m": 405000,
+                  "value_buy_range": "289,000원~312,500원",
+                  "first_sell_target_range": "344,000원~367,000원",
+              },
+              {
+                  "name": "inside",
+                  "static_price": 345000,
+                  "low_3m": 286000,
+                  "high_3m": 405000,
+                  "value_buy_range": "289,000원~312,500원",
+                  "first_sell_target_range": "344,000원~367,000원",
+              },
+          ]
+
+          with tempfile.TemporaryDirectory() as tmp:
+              root = Path(tmp)
+              api = root / "api"
+              api.mkdir()
+              (api / "fixture.json").write_text(
+                  json.dumps(
+                      {
+                          "table_id": "fixture",
+                          "columns": list(rows[0]),
+                          "rows": rows,
+                      },
+                      ensure_ascii=False,
+                  ),
+                  encoding="utf-8",
+              )
+              for name in (
+                  "status.json",
+                  "manifest.json",
+                  "stock_table_rules.json",
+              ):
+                  (api / name).write_text("{}", encoding="utf-8")
+
+              result = apply_price_position_v78(root)
+              output = json.loads(
+                  (api / "fixture.json").read_text(encoding="utf-8")
+              )
+              below, above, inside = output["rows"]
+              assert below["current_position_pct"] == -7.14
+              assert "3.0% 하회" in below["current_position"]
+              assert "범위위치 -7.1%" in below["current_position"]
+              assert below["price_zone"] == "가치매수구간 아래"
+              assert above["current_position_pct"] == 112.61
+              assert "3.7% 돌파" in above["current_position"]
+              assert above["price_zone"] == "1차 익절구간 상단 돌파"
+              assert inside["current_position_pct"] == 49.58
+              assert inside["price_zone"] == "1차 익절구간 진입"
+              assert result["status"] == "PASS"
+
+          print("V78_CALCULATION_SELF_TEST=PASS")
+          print("BELOW_LOW_UNCLAMPED=PASS")
+          print("ABOVE_HIGH_OVER_100=PASS")
+          print("BUY_TARGET_ZONE=PASS")
+          PY
+
+      - name: Build synchronized API with V7.8
+        run: |
+          set -euo pipefail
+          python build_api_json.py | tee /tmp/build_api_v78.txt
+          grep -q "PRICE_POSITION_V78=PASS" \
+            /tmp/build_api_v78.txt
+
+      - name: Validate API synchronization
+        run: |
+          set -euo pipefail
+          python validate_api_sync.py --api-dir api
+
+      - name: Validate V7.8 actual API
+        run: |
+          set -euo pipefail
+          python validate_price_position_v78.py \
+            --api-dir api \
+            --write-report \
+            | tee /tmp/validate_price_position_v78.txt
+          grep -q "PRICE_POSITION_VALIDATION_V78=PASS" \
+            /tmp/validate_price_position_v78.txt
+
+      - name: Verify below-low rows are not clamped
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          checked = below = above = 0
+          for filename in (
+              "kospi_watchlist.json",
+              "kosdaq_watchlist.json",
+              "us_watchlist.json",
+          ):
+              payload = json.loads(
+                  (Path("api") / filename).read_text(encoding="utf-8")
+              )
+              policy = payload.get("price_position_policy") or {}
+              if policy.get("clamp_to_zero_hundred") is not False:
+                  raise SystemExit(f"{filename}: clamp policy invalid")
+
+              for row in payload.get("rows") or []:
+                  match = re.search(
+                      r"-?\d[\d,]*(?:\.\d+)?",
+                      str(row.get("static_price")),
+                  )
+                  try:
+                      price = float(match.group(0).replace(",", ""))
+                      low = float(row["low_3m"])
+                      high = float(row["high_3m"])
+                      pct = float(row["current_position_pct"])
+                  except Exception:
+                      continue
+
+                  checked += 1
+                  if price < low:
+                      below += 1
+                      if pct >= 0 or "하회" not in str(
+                          row.get("current_position")
+                      ):
+                          raise SystemExit(
+                              f"{filename}:{row.get('name')}: "
+                              "below-low clamp remains"
+                          )
+                  elif price > high:
+                      above += 1
+                      if pct <= 100 or "돌파" not in str(
+                          row.get("current_position")
+                      ):
+                          raise SystemExit(
+                              f"{filename}:{row.get('name')}: "
+                              "above-high clamp remains"
+                          )
+
+          if checked == 0:
+              raise SystemExit("No eligible watchlist rows checked")
+          print("V78_ACTUAL_WATCHLIST_CHECK=PASS")
+          print(f"CHECKED_ROWS={checked}")
+          print(f"BELOW_LOW_ROWS={below}")
+          print(f"ABOVE_HIGH_ROWS={above}")
+          PY
+
+      - name: Run local daily health check
+        run: |
+          set -euo pipefail
+          if [ -f validate_daily_integrated_health_v731.py ]; then
+            python validate_daily_integrated_health_v731.py \
+              --repo-root . \
+              --skip-remote \
+              --exit-zero
+          else
+            echo "DAILY_HEALTH=SKIPPED_NOT_FOUND"
+          fi
+
+      - name: Commit and push V7.8
+        run: |
+          set -euo pipefail
+
+          find . -type d -name __pycache__ -prune \
+            -exec rm -rf {} +
+          find . -type f \( -name "*.pyc" -o -name "*.pyo" \) \
+            -delete
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A \
+            apply_price_position_v78.py \
+            validate_price_position_v78.py \
+            patch_price_position_v78.py \
+            build_api_json.py \
+            validate_daily_integrated_health_v731.py \
+            docs \
+            api \
+            latest
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+          else
+            git commit -m \
+              "Fix out-of-range price position display v7.8"
+          fi
+
+          echo "WORKTREE_AFTER_COMMIT_BEGIN"
+          git status --porcelain
+          echo "WORKTREE_AFTER_COMMIT_END"
+          if test -n "$(git status --porcelain)"; then
+            echo "::error::Uncommitted changes remain."
+            exit 1
+          fi
+
+          git fetch origin main
+          if [ "$(git rev-parse HEAD)" != \
+               "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          else
+            echo "REMOTE_MAIN_CHANGED=false"
+          fi
+
+          git push origin HEAD:main
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"

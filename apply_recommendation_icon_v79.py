@@ -16,7 +16,7 @@ try:
 except Exception:  # pragma: no cover
     ZoneInfo = None
 
-VERSION = "2026-07-14-v7.9-recommendation-icon-integrity"
+VERSION = "2026-07-14-v7.9.1-recommendation-icon-payload-compact"
 REPORT_NAME = "recommendation_icon_validation.json"
 
 ALLOWED_ICONS: Tuple[str, ...] = ("✅", "🟡", "⚠️", "🔻", "⚪")
@@ -68,6 +68,14 @@ RECOMMENDATION_ICON_POLICY: Dict[str, Any] = {
     "supply_marker_position": "right_of_recommendation_icon",
     "rank_number_prefix_allowed": False,
     "display_format": "[-][ICON][_ ]종목명",
+}
+
+COMPACT_RECOMMENDATION_ICON_POLICY: Dict[str, Any] = {
+    "version": VERSION,
+    "required": True,
+    "default": DEFAULT_ICON,
+    "format": "[-][ICON][_ ]종목명",
+    "rank_prefix": False,
 }
 
 
@@ -161,46 +169,84 @@ def canonical_display(
     return f"{left}{icon}{right} {row_name(row)}", icon, defaulted
 
 
-def update_contracts(payload: MutableMapping[str, Any]) -> None:
+def update_contracts(
+    payload: MutableMapping[str, Any],
+    *,
+    compact: bool,
+) -> None:
     contract = payload.get("output_contract")
     if not isinstance(contract, MutableMapping):
         contract = {}
         payload["output_contract"] = contract
+
+    presentation = payload.get("presentation_policy")
+    if not isinstance(presentation, MutableMapping):
+        presentation = {}
+        payload["presentation_policy"] = presentation
+
+    removable_contract_keys = (
+        "allowed_recommendation_icons",
+        "default_candidate_icon",
+        "recommendation_display_format",
+        "loss_marker_position",
+        "supply_marker_position",
+        "rank_field_use",
+    )
+    removable_presentation_keys = (
+        "allowed_recommendation_icons",
+        "default_candidate_icon",
+        "show_rank_numbers_default",
+        "rank_field_use",
+    )
+    for key in removable_contract_keys:
+        contract.pop(key, None)
+    for key in removable_presentation_keys:
+        presentation.pop(key, None)
+
     contract.update(
         {
             "recommendation_icon_policy_version": VERSION,
             "recommendation_icon_required": True,
-            "allowed_recommendation_icons": list(ALLOWED_ICONS),
-            "default_candidate_icon": DEFAULT_ICON,
-            "recommendation_display_format": "[-][ICON][_ ]종목명",
-            "loss_marker_position": "left_of_recommendation_icon",
-            "supply_marker_position": "right_of_recommendation_icon",
-            "rank_field_use": "sorting_only",
             "do_not_prefix_rank_to_recommendation": True,
         }
     )
-
-    policy = payload.get("presentation_policy")
-    if not isinstance(policy, MutableMapping):
-        policy = {}
-        payload["presentation_policy"] = policy
-    policy.update(
+    presentation.update(
         {
             "recommendation_icon_policy_version": VERSION,
             "recommendation_icon_required": True,
-            "allowed_recommendation_icons": list(ALLOWED_ICONS),
-            "default_candidate_icon": DEFAULT_ICON,
-            "show_rank_numbers_default": False,
-            "rank_field_use": "sorting_only",
         }
     )
+
+    if not compact:
+        contract.update(
+            {
+                "allowed_recommendation_icons": list(ALLOWED_ICONS),
+                "default_candidate_icon": DEFAULT_ICON,
+                "recommendation_display_format": "[-][ICON][_ ]종목명",
+                "loss_marker_position": "left_of_recommendation_icon",
+                "supply_marker_position": "right_of_recommendation_icon",
+                "rank_field_use": "sorting_only",
+            }
+        )
+        presentation.update(
+            {
+                "allowed_recommendation_icons": list(ALLOWED_ICONS),
+                "default_candidate_icon": DEFAULT_ICON,
+                "show_rank_numbers_default": False,
+                "rank_field_use": "sorting_only",
+            }
+        )
 
 
 def patch_row(row: MutableMapping[str, Any]) -> Dict[str, Any]:
     original = clean_text(row.get("recommendation_display"))
     display, icon, defaulted = canonical_display(row)
     row["recommendation_display"] = display
-    row["recommendation_icon"] = icon
+
+    # recommendation_display already contains the icon.
+    # Remove the duplicate row field to protect compact payload limits.
+    row.pop("recommendation_icon", None)
+
     return {
         "changed": original != display,
         "defaulted": defaulted,
@@ -288,17 +334,6 @@ def validate_row(
             }
         )
 
-    icon = match.group("icon")
-    if row.get("recommendation_icon") != icon:
-        errors.append(
-            {
-                "file": file_name,
-                "row": row_index,
-                "reason": "ICON_FIELD_MISMATCH",
-                "expected": icon,
-                "actual": row.get("recommendation_icon"),
-            }
-        )
     return errors
 
 
@@ -367,9 +402,14 @@ def audit_recommendation_icons(
                     row_index=index,
                 )
             )
-            icon = clean_text(row.get("recommendation_icon"))
-            if icon in icon_counts:
-                icon_counts[icon] += 1
+            display = clean_text(
+                row.get("recommendation_display")
+            ) or ""
+            match = DISPLAY_PATTERN.fullmatch(display)
+            if match:
+                icon = match.group("icon")
+                if icon in icon_counts:
+                    icon_counts[icon] += 1
 
         files_checked += 1
 
@@ -423,14 +463,18 @@ def apply_recommendation_icon_v79(
             defaulted_rows += int(stats["defaulted"])
 
         columns = payload.get("columns")
-        if isinstance(columns, list) and "recommendation_icon" not in columns:
-            columns.append("recommendation_icon")
+        if isinstance(columns, list):
+            payload["columns"] = [
+                column
+                for column in columns
+                if column != "recommendation_icon"
+            ]
 
         payload["recommendation_icon_policy"] = (
-            RECOMMENDATION_ICON_POLICY
+            COMPACT_RECOMMENDATION_ICON_POLICY
         )
         payload["recommendation_icon_version"] = VERSION
-        update_contracts(payload)
+        update_contracts(payload, compact=True)
 
         max_bytes = int(target["max_payload_bytes"])
         payload["payload_size_limit_bytes"] = max_bytes
@@ -475,13 +519,24 @@ def apply_recommendation_icon_v79(
         )
         payload["recommendation_icon_version"] = VERSION
         payload["recommendation_icon_validation"] = compact
-        update_contracts(payload)
+        update_contracts(payload, compact=False)
         write_json(path, payload)
+
+    payload_sizes = {}
+    payload_margins = {}
+    for target in TARGETS:
+        path = api / str(target["filename"])
+        size = path.stat().st_size
+        limit = int(target["max_payload_bytes"])
+        payload_sizes[path.name] = size
+        payload_margins[path.name] = limit - size
 
     return {
         **audit,
         "modified_rows": modified_rows,
         "defaulted_rows": defaulted_rows,
+        "payload_sizes": payload_sizes,
+        "payload_margins": payload_margins,
         "report_file": str(api / REPORT_NAME),
     }
 
@@ -503,6 +558,8 @@ def main() -> int:
     print(f"MODIFIED_ROWS={result['modified_rows']}")
     print(f"DEFAULTED_ROWS={result['defaulted_rows']}")
     print(f"ICON_COUNTS={result['icon_counts']}")
+    print(f"PAYLOAD_SIZES={result['payload_sizes']}")
+    print(f"PAYLOAD_MARGINS={result['payload_margins']}")
     print(f"REPORT_FILE={result['report_file']}")
     return 0
 

@@ -12,7 +12,7 @@ BUILD = ROOT / "build_api_json.py"
 RULES = ROOT / "docs" / "stock_table_rules_latest.md"
 DAILY_HEALTH = ROOT / "validate_daily_integrated_health_v731.py"
 
-VERSION = "2026-07-14-v7.9-recommendation-icon-integrity"
+VERSION = "2026-07-14-v7.9.1-recommendation-icon-payload-compact"
 BUILD_BEGIN = "# RECOMMENDATION_ICON_V79_BEGIN"
 BUILD_END = "# RECOMMENDATION_ICON_V79_END"
 RULE_MARKER = "<!-- RECOMMENDATION_ICON_V79 -->"
@@ -31,7 +31,7 @@ def patch_build() -> None:
     text = BUILD.read_text(encoding="utf-8")
     text, count = re.subn(
         r'SCRIPT_VERSION\s*=\s*"[^"]+"',
-        'SCRIPT_VERSION = "build_api_json.py v5.0_recommendation_icon_v79"',
+        'SCRIPT_VERSION = "build_api_json.py v5.1_recommendation_icon_payload_compact"',
         text,
         count=1,
     )

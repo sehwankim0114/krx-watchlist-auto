@@ -1277,6 +1277,42 @@ def main() -> int:
         )
     # PRICE_POSITION_HEALTH_V78_END
 
+    # RECOMMENDATION_ICON_HEALTH_V79_BEGIN
+    try:
+        from apply_recommendation_icon_v79 import (
+            VERSION as RECOMMENDATION_ICON_VERSION,
+            audit_recommendation_icons,
+        )
+        recommendation_icons = audit_recommendation_icons(
+            root / "api",
+            write_report=False,
+        )
+        if recommendation_icons.get("status") == "PASS":
+            report.pass_check(
+                "recommendation_icon_v79",
+                "추천 아이콘과 손실·수급 표시 순서가 정상입니다.",
+                {
+                    "version": RECOMMENDATION_ICON_VERSION,
+                    "rows_checked": recommendation_icons.get("rows_checked"),
+                    "icon_counts": recommendation_icons.get("icon_counts"),
+                },
+            )
+        else:
+            report.fail(
+                "recommendation_icon_v79",
+                "추천 아이콘 누락 또는 표시 순서 오류가 있습니다.",
+                {
+                    "errors": recommendation_icons.get("errors", [])[:20],
+                },
+            )
+    except Exception as exc:
+        report.fail(
+            "recommendation_icon_v79_exception",
+            "V7.9 추천 아이콘 검사 중 예외가 발생했습니다.",
+            {"error": str(exc)},
+        )
+    # RECOMMENDATION_ICON_HEALTH_V79_END
+
     if not args.skip_remote and local:
         try:
             validate_worker(args.worker_base, local, report)

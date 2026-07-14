@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "checker_version": "2026-07-10-v7.6.1-financial-payload-health",
-  "generated_at_kst": "2026-07-14T16:12:00+09:00",
+  "generated_at_kst": "2026-07-14T18:51:36+09:00",
   "status": "FAIL",
   "critical_count": 1,
   "warning_count": 0,
   "context": {
-    "build_id": "20260714T161157+0900-b337087a13",
-    "rules_version": "2026-07-14-v7.8-price-range-position",
-    "rules_sha256": "20e724d080c957e334f4cf44455d8d623f6b8460aa4a8054580b28593a01811f",
-    "source_commit_sha": "b337087a13f39cd7deb99a336b9471673918eb9b",
+    "build_id": "20260714T185132+0900-f719ef2272",
+    "rules_version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
+    "rules_sha256": "c0a41970aa4256b61a7892fa567c3a1d4e686b4e4c89ae78b25a7c9c284fbf58",
+    "source_commit_sha": "f719ef22726d83d8f833cde61c98be1f514fc81c",
     "payload_limits_bytes": {
       "kospi_watchlist": 70000,
       "kosdaq_watchlist": 50000,
@@ -71,7 +71,7 @@
       "severity": "ERROR",
       "message": "kospi_watchlist 응답 크기가 시장별 제한을 넘었습니다.",
       "details": {
-        "bytes": 73491,
+        "bytes": 73978,
         "limit": 70000,
         "market": "KR"
       }
@@ -217,7 +217,7 @@
       "severity": "ERROR",
       "message": "kosdaq_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 36420,
+        "bytes": 36614,
         "limit": 50000,
         "market": "KR"
       }
@@ -361,7 +361,7 @@
       "severity": "ERROR",
       "message": "us_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 104551,
+        "bytes": 104864,
         "limit": 110000,
         "market": "US"
       }
@@ -415,7 +415,24 @@
         "files_checked": 13,
         "eligible_rows": 219,
         "below_low_rows": 3,
-        "above_high_rows": 0
+        "above_high_rows": 2
+      }
+    },
+    {
+      "check_id": "recommendation_icon_v79",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "추천 아이콘과 손실·수급 표시 순서가 정상입니다.",
+      "details": {
+        "version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
+        "rows_checked": 70,
+        "icon_counts": {
+          "✅": 12,
+          "🟡": 58,
+          "⚠️": 0,
+          "🔻": 0,
+          "⚪": 0
+        }
       }
     }
   ]

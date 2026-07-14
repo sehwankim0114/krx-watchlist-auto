@@ -4,12 +4,12 @@
   "compact_payload": true,
   "preferred_default_action": true,
   "operation_id": "getKospiWatchlist",
-  "build_id": "20260714T173841+0900-5ed2e59a87",
+  "build_id": "20260714T185132+0900-f719ef2272",
   "script": "build_lightweight_watchlist_api_v66.py",
   "table_id": "kospi_watchlist",
   "display_name": "코피표 — 코스피 분석 후보 30개",
-  "generated_at_kst": "2026-07-14T17:38:41+09:00",
-  "source_commit_sha": "5ed2e59a873fd5d4ba166f4d75172d84338d170e",
+  "generated_at_kst": "2026-07-14T18:51:32+09:00",
+  "source_commit_sha": "f719ef22726d83d8f833cde61c98be1f514fc81c",
   "status": "OK",
   "required": false,
   "lightweight_required": true,
@@ -101,7 +101,7 @@
     "source_warning": "",
     "kospi_summary_rows": 925,
     "kosdaq_summary_rows": 1790,
-    "runtime_freshness_evaluated_at_kst": "2026-07-14T17:38:41+09:00",
+    "runtime_freshness_evaluated_at_kst": "2026-07-14T18:51:32+09:00",
     "runtime_freshness_gate_version": "2026-07-14-v7.7-runtime-freshness-gate",
     "data_lag_trading_days": 0
   },
@@ -113,12 +113,12 @@
     "time_after_hours_reflected": null,
     "freshness_mode": "official"
   },
-  "rules_version": "2026-07-14-v7.8-price-range-position",
-  "rules_sha256": "20e724d080c957e334f4cf44455d8d623f6b8460aa4a8054580b28593a01811f",
+  "rules_version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
+  "rules_sha256": "c0a41970aa4256b61a7892fa567c3a1d4e686b4e4c89ae78b25a7c9c284fbf58",
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-14-v7.8-price-range-position",
-    "sha256": "20e724d080c957e334f4cf44455d8d623f6b8460aa4a8054580b28593a01811f"
+    "version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
+    "sha256": "c0a41970aa4256b61a7892fa567c3a1d4e686b4e4c89ae78b25a7c9c284fbf58"
   },
   "presentation_policy": {
     "format_contract": "improvement_plan_2_final",
@@ -1666,10 +1666,7 @@
     "recommendation_column_label": "추천/종목",
     "recommendation_display_field": "recommendation_display",
     "show_rank_numbers_default": false,
-    "rank_field_use": "sorting_only",
     "do_not_prefix_rank_to_recommendation": true,
-    "loss_marker_position": "left_of_recommendation_icon",
-    "supply_marker_position": "right_of_recommendation_icon",
     "supply_burden_display_field": "supply_burden_display",
     "supply_burden_keywords_field": "supply_burden_keywords",
     "supply_keyword_separator": "·",
@@ -1679,6 +1676,8 @@
       "EB발행": "EB",
       "duplicate_aliases": "remove_preserve_meaning"
     },
+    "recommendation_icon_policy_version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
+    "recommendation_icon_required": true,
     "price_position_policy_version": "2026-07-14-v7.8-price-range-position",
     "request_time_position_recalculation_required": true
   },
@@ -1699,7 +1698,7 @@
   "sector_theme_coverage_pct": 100.0,
   "sector_theme_source": "KRX_KIND_LISTED_COMPANY",
   "sector_theme_source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download&searchType=13",
-  "sector_theme_asof_kst": "2026-07-14T17:38:42+09:00",
+  "sector_theme_asof_kst": "2026-07-14T18:51:33+09:00",
   "sector_theme_cache_mode": "LIVE_REFRESH",
   "compact_response_policy": {
     "version": "2026-07-09-v7.2.1-payload-fix",
@@ -1718,7 +1717,7 @@
     "recommendation": "추천/종목",
     "supply_burden": "수급부담"
   },
-  "payload_size_bytes": 69244,
+  "payload_size_bytes": 69551,
   "display_normalization": {
     "version": "2026-07-09-v7.4-display-normalization",
     "status": "OK",
@@ -1728,9 +1727,17 @@
     "normalized_keyword_rows": 29,
     "supply_aliases_deduplicated": true
   },
+  "recommendation_icon_policy": {
+    "version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
+    "required": true,
+    "default": "🟡",
+    "format": "[-][ICON][_ ]종목명",
+    "rank_prefix": false
+  },
+  "recommendation_icon_version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-07-14T17:38:41+09:00",
+    "evaluated_at_kst": "2026-07-14T18:51:32+09:00",
     "publication_cutoff_kst": "08:30",
     "expected_official_trading_date": "2026-07-13",
     "kospi_actual_date": "2026-07-13",

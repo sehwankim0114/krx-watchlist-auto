@@ -35,7 +35,7 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "build_api_json.py v4.9_display_normalization_v74"
+SCRIPT_VERSION = "build_api_json.py v5.2_recommendation_policy_isolation"
 SCHEMA_VERSION = "4.2"
 ROOT = Path(__file__).resolve().parent
 LATEST = ROOT / "latest"
@@ -975,6 +975,27 @@ def main() -> int:
         )
     )
     # DISPLAY_NORMALIZATION_V74_END
+
+    # RECOMMENDATION_ICON_V79_BEGIN
+    from apply_recommendation_icon_v79 import (
+        apply_recommendation_icon_v79,
+    )
+    recommendation_icon_result = (
+        apply_recommendation_icon_v79(
+            ROOT,
+            api_dir=API,
+        )
+    )
+    print(
+        "RECOMMENDATION_ICON_V79=PASS:"
+        + "rows="
+        + str(recommendation_icon_result.get("rows_checked"))
+        + ":defaulted="
+        + str(recommendation_icon_result.get("defaulted_rows"))
+        + ":errors="
+        + str(recommendation_icon_result.get("error_count"))
+    )
+    # RECOMMENDATION_ICON_V79_END
 
     # RUNTIME_FRESHNESS_V77_BEGIN
     from refresh_runtime_freshness_v77 import (

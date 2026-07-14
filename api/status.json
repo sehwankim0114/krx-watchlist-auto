@@ -1,9 +1,9 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260714T173841+0900-5ed2e59a87",
-  "script": "build_api_json.py v4.9_display_normalization_v74",
-  "generated_at_kst": "2026-07-14T17:38:41+09:00",
-  "source_commit_sha": "5ed2e59a873fd5d4ba166f4d75172d84338d170e",
+  "build_id": "20260714T185132+0900-f719ef2272",
+  "script": "build_api_json.py v5.2_recommendation_policy_isolation",
+  "generated_at_kst": "2026-07-14T18:51:32+09:00",
+  "source_commit_sha": "f719ef22726d83d8f833cde61c98be1f514fc81c",
   "status": "READY",
   "api_sync_ok": true,
   "official_fresh_now": true,
@@ -16,8 +16,8 @@
   "official_status_source_run_at_kst": "2026-07-14T10:19:02+09:00",
   "current_price_asof_kst": "2026-07-14T17:37:56+09:00",
   "current_price_basis_status": "OK",
-  "rules_version": "2026-07-14-v7.8-price-range-position",
-  "rules_sha256": "20e724d080c957e334f4cf44455d8d623f6b8460aa4a8054580b28593a01811f",
+  "rules_version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
+  "rules_sha256": "c0a41970aa4256b61a7892fa567c3a1d4e686b4e4c89ae78b25a7c9c284fbf58",
   "required_table_count": 7,
   "generated_table_count": 18,
   "critical_errors": [],
@@ -159,7 +159,7 @@
     "version": "2026-07-09-v7.2-kr-sector-theme",
     "status": "OK",
     "source": "KRX_KIND_LISTED_COMPANY",
-    "generated_at_kst": "2026-07-14T17:38:42+09:00",
+    "generated_at_kst": "2026-07-14T18:51:33+09:00",
     "cache_mode": "LIVE_REFRESH",
     "coverage": {
       "kospi_watchlist": 100.0,
@@ -172,10 +172,62 @@
     "show_rank_numbers_default": false,
     "supply_aliases_deduplicated": true
   },
+  "recommendation_icon_policy": {
+    "version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
+    "allowed_icons": [
+      "✅",
+      "🟡",
+      "⚠️",
+      "🔻",
+      "⚪"
+    ],
+    "default_candidate_icon": "🟡",
+    "icon_required_for_every_row": true,
+    "preserve_existing_valid_icon": true,
+    "missing_icon_behavior": "assign_yellow_watch_icon",
+    "loss_marker_position": "left_of_recommendation_icon",
+    "supply_marker_position": "right_of_recommendation_icon",
+    "rank_number_prefix_allowed": false,
+    "display_format": "[-][ICON][_ ]종목명"
+  },
+  "recommendation_icon_version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
+  "recommendation_icon_validation": {
+    "version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
+    "status": "PASS",
+    "files_checked": 3,
+    "rows_checked": 70,
+    "icon_counts": {
+      "✅": 12,
+      "🟡": 58,
+      "⚠️": 0,
+      "🔻": 0,
+      "⚪": 0
+    },
+    "error_count": 0,
+    "modified_rows": 0,
+    "defaulted_rows": 0
+  },
+  "output_contract": {
+    "recommendation_icon_policy_version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
+    "recommendation_icon_required": true,
+    "do_not_prefix_rank_to_recommendation": true,
+    "allowed_recommendation_icons": [
+      "✅",
+      "🟡",
+      "⚠️",
+      "🔻",
+      "⚪"
+    ],
+    "default_candidate_icon": "🟡",
+    "recommendation_display_format": "[-][ICON][_ ]종목명",
+    "loss_marker_position": "left_of_recommendation_icon",
+    "supply_marker_position": "right_of_recommendation_icon",
+    "rank_field_use": "sorting_only"
+  },
   "static_official_fresh_at_api_build": true,
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-07-14T17:38:41+09:00",
+    "evaluated_at_kst": "2026-07-14T18:51:32+09:00",
     "publication_cutoff_kst": "08:30",
     "expected_official_trading_date": "2026-07-13",
     "kospi_actual_date": "2026-07-13",
@@ -193,7 +245,7 @@
     "analysis_policy": "May describe as latest official only when safe_to_analyze_as_latest=true. When false, keep the table available only as the last confirmed reference, show the stale warning, and do not present score/buy/target ranges as current."
   },
   "runtime_freshness_gate_version": "2026-07-14-v7.7-runtime-freshness-gate",
-  "runtime_freshness_evaluated_at_kst": "2026-07-14T17:38:41+09:00",
+  "runtime_freshness_evaluated_at_kst": "2026-07-14T18:51:32+09:00",
   "price_position_policy": {
     "version": "2026-07-14-v7.8-price-range-position",
     "effective_price_priority": [

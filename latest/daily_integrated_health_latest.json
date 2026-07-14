@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "checker_version": "2026-07-10-v7.6.1-financial-payload-health",
-  "generated_at_kst": "2026-07-13T13:02:26+09:00",
-  "status": "PASS",
-  "critical_count": 0,
+  "generated_at_kst": "2026-07-14T12:37:09+09:00",
+  "status": "FAIL",
+  "critical_count": 1,
   "warning_count": 0,
   "context": {
-    "build_id": "20260710T080315+0900-ba0dd40ac2",
-    "rules_version": "2026-07-10-v7.6.1-financial-payload-compact",
-    "rules_sha256": "85b91f0f2657fad6aed51a524a3e2abbb52fbc4c34742aa125f3bb24376e69bc",
-    "source_commit_sha": "ba0dd40ac2b3031325cd74091e8ddd6867d33e20",
+    "build_id": "20260714T122722+0900-14153abaa9",
+    "rules_version": "2026-07-14-v7.7-runtime-freshness-gate",
+    "rules_sha256": "19563e65d148b40541088342d90e4739c1d0a6e90a22a8c6df2432d93f9f62ad",
+    "source_commit_sha": "14153abaa924df491abcb8f0d40dbaf09158176a",
     "payload_limits_bytes": {
       "kospi_watchlist": 70000,
       "kosdaq_watchlist": 50000,
@@ -67,11 +67,11 @@
     },
     {
       "check_id": "kospi_watchlist_payload_size",
-      "status": "PASS",
+      "status": "FAIL",
       "severity": "ERROR",
-      "message": "kospi_watchlist 응답 크기가 시장별 안전 범위입니다.",
+      "message": "kospi_watchlist 응답 크기가 시장별 제한을 넘었습니다.",
       "details": {
-        "bytes": 69857,
+        "bytes": 70429,
         "limit": 70000,
         "market": "KR"
       }
@@ -188,7 +188,7 @@
         },
         "basis_date": 29,
         "basis_min": "2026-06-30",
-        "basis_max": "2026-07-08",
+        "basis_max": "2026-07-13",
         "pbr": 29,
         "total": 30
       }
@@ -217,7 +217,7 @@
       "severity": "ERROR",
       "message": "kosdaq_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 33602,
+        "bytes": 34734,
         "limit": 50000,
         "market": "KR"
       }
@@ -289,7 +289,8 @@
       "message": "kosdaq_watchlist 재무수집 상태 집계가 전 행과 일치합니다.",
       "details": {
         "counts": {
-          "READY": 10
+          "PARTIAL": 1,
+          "READY": 9
         },
         "total": 10
       }
@@ -326,12 +327,12 @@
       "message": "kosdaq_watchlist 밸류에이션 상태·기준일·PBR 연결이 정상입니다.",
       "details": {
         "status_counts": {
-          "PARTIAL_LOSS_PER_NA": 2,
-          "READY": 8
+          "PARTIAL_LOSS_PER_NA": 1,
+          "READY": 9
         },
         "basis_date": 10,
         "basis_min": "2026-06-30",
-        "basis_max": "2026-07-08",
+        "basis_max": "2026-07-13",
         "pbr": 10,
         "total": 10
       }
@@ -360,7 +361,7 @@
       "severity": "ERROR",
       "message": "us_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 100209,
+        "bytes": 100207,
         "limit": 110000,
         "market": "US"
       }
@@ -401,7 +402,7 @@
       "severity": "ERROR",
       "message": "KRX KIND 전체 섹터 캐시 행 수가 정상입니다.",
       "details": {
-        "row_count": 2726
+        "row_count": 2727
       }
     },
     {
@@ -420,7 +421,7 @@
       "severity": "ERROR",
       "message": "Worker 경량 매니페스트 응답 크기가 안전 범위입니다.",
       "details": {
-        "bytes": 15590,
+        "bytes": 15582,
         "limit": 65000
       }
     },
@@ -436,7 +437,7 @@
       "severity": "ERROR",
       "message": "최신성 값 출처가 확인됐습니다.",
       "details": {
-        "source": "status.json"
+        "source": "manifest.json"
       }
     },
     {

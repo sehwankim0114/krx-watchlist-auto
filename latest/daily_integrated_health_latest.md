@@ -1,11 +1,11 @@
 # V7.3 일일 통합 건강검사
 
-- 검사시각(KST): 2026-07-13T13:02:26+09:00
-- 최종상태: **PASS**
-- 치명 오류: 0
+- 검사시각(KST): 2026-07-14T12:37:09+09:00
+- 최종상태: **FAIL**
+- 치명 오류: 1
 - 경고: 0
-- 빌드 ID: `20260710T080315+0900-ba0dd40ac2`
-- 규칙 버전: `2026-07-10-v7.6.1-financial-payload-compact`
+- 빌드 ID: `20260714T122722+0900-14153abaa9`
+- 규칙 버전: `2026-07-14-v7.7-runtime-freshness-gate`
 
 | 결과 | 검사 항목 | 설명 |
 |---|---|---|
@@ -17,7 +17,7 @@
 | ✅ | `rules_sha256` | 규칙 파일 SHA-256이 status/manifest와 일치합니다. |
 | ✅ | `rules_version_text` | 규칙 문서에 현재 규칙 버전이 표시됩니다. |
 | ✅ | `kospi_watchlist_rows` | kospi_watchlist 행 수가 30개로 정상입니다. |
-| ✅ | `kospi_watchlist_payload_size` | kospi_watchlist 응답 크기가 시장별 안전 범위입니다. |
+| ❌ | `kospi_watchlist_payload_size` | kospi_watchlist 응답 크기가 시장별 제한을 넘었습니다. |
 | ✅ | `kospi_watchlist_build_id` | kospi_watchlist 빌드 ID가 일치하거나 상위 검증값을 사용합니다. |
 | ✅ | `kospi_watchlist_rules_version` | kospi_watchlist 규칙 버전이 일치하거나 상위 검증값을 사용합니다. |
 | ✅ | `kospi_watchlist_bold_ranges` | kospi_watchlist의 매수·익절 Markdown 가격범위가 모두 정상입니다. |

@@ -1,14 +1,14 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260714T191335+0900-b2bdbcab6d",
+  "build_id": "20260714T195740+0900-aa72e9b60c",
   "snapshot_id": "current_price_basis",
   "display_name": "현재가 보정 상태",
-  "generated_at_kst": "2026-07-14T19:13:35+09:00",
-  "source_commit_sha": "b2bdbcab6d9d1fe3c7e4f7038f0251f302c4a9c3",
+  "generated_at_kst": "2026-07-14T19:57:40+09:00",
+  "source_commit_sha": "aa72e9b60ce98ecf0edb4cf617a93e9cb51c4ee8",
   "source_file": "latest/current_price_basis_latest.json",
   "status": "OK",
-  "rules_version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
-  "rules_sha256": "c0a41970aa4256b61a7892fa567c3a1d4e686b4e4c89ae78b25a7c9c284fbf58",
+  "rules_version": "2026-07-14-v7.7-runtime-freshness-gate",
+  "rules_sha256": "96f2beb99166c13ecf1c685aed9ce712a3378a53fa2a6bfee97c6eb4ea358074",
   "presentation_policy": {
     "format_contract": "improvement_plan_2_final",
     "default_output_mode": "single_main_table",
@@ -143,12 +143,12 @@
   },
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
-    "sha256": "c0a41970aa4256b61a7892fa567c3a1d4e686b4e4c89ae78b25a7c9c284fbf58"
+    "version": "2026-07-14-v7.7-runtime-freshness-gate",
+    "sha256": "96f2beb99166c13ecf1c685aed9ce712a3378a53fa2a6bfee97c6eb4ea358074"
   },
   "data": {
     "script": "apply_current_price_basis.py v1.1_current_close_support",
-    "run_at_kst": "2026-07-14T17:37:56+09:00",
+    "run_at_kst": "2026-07-14T19:57:01+09:00",
     "output_dir": "latest",
     "source_files": [
       "kospi_candidates_30_latest.csv",

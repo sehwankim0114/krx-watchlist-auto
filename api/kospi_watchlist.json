@@ -4,12 +4,12 @@
   "compact_payload": true,
   "preferred_default_action": true,
   "operation_id": "getKospiWatchlist",
-  "build_id": "20260714T191335+0900-b2bdbcab6d",
+  "build_id": "20260714T195740+0900-aa72e9b60c",
   "script": "build_lightweight_watchlist_api_v66.py",
   "table_id": "kospi_watchlist",
   "display_name": "코피표 — 코스피 분석 후보 30개",
-  "generated_at_kst": "2026-07-14T19:13:35+09:00",
-  "source_commit_sha": "b2bdbcab6d9d1fe3c7e4f7038f0251f302c4a9c3",
+  "generated_at_kst": "2026-07-14T19:57:40+09:00",
+  "source_commit_sha": "aa72e9b60ce98ecf0edb4cf617a93e9cb51c4ee8",
   "status": "OK",
   "required": false,
   "lightweight_required": true,
@@ -101,24 +101,24 @@
     "source_warning": "",
     "kospi_summary_rows": 925,
     "kosdaq_summary_rows": 1790,
-    "runtime_freshness_evaluated_at_kst": "2026-07-14T19:19:22+09:00",
+    "runtime_freshness_evaluated_at_kst": "2026-07-14T19:57:40+09:00",
     "runtime_freshness_gate_version": "2026-07-14-v7.7-runtime-freshness-gate",
     "data_lag_trading_days": 0
   },
   "current_price_basis": {
-    "current_price_asof_kst": "2026-07-14T17:37:56+09:00",
+    "current_price_asof_kst": "2026-07-14T19:57:01+09:00",
     "current_price_basis_status": "OK",
     "aux_price_count": 100,
     "current_basis_ok_files": 4,
     "time_after_hours_reflected": null,
     "freshness_mode": "official"
   },
-  "rules_version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
-  "rules_sha256": "c0a41970aa4256b61a7892fa567c3a1d4e686b4e4c89ae78b25a7c9c284fbf58",
+  "rules_version": "2026-07-14-v7.7-runtime-freshness-gate",
+  "rules_sha256": "96f2beb99166c13ecf1c685aed9ce712a3378a53fa2a6bfee97c6eb4ea358074",
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
-    "sha256": "c0a41970aa4256b61a7892fa567c3a1d4e686b4e4c89ae78b25a7c9c284fbf58"
+    "version": "2026-07-14-v7.7-runtime-freshness-gate",
+    "sha256": "96f2beb99166c13ecf1c685aed9ce712a3378a53fa2a6bfee97c6eb4ea358074"
   },
   "presentation_policy": {
     "format_contract": "improvement_plan_2_final",
@@ -1698,7 +1698,7 @@
   "sector_theme_coverage_pct": 100.0,
   "sector_theme_source": "KRX_KIND_LISTED_COMPANY",
   "sector_theme_source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download&searchType=13",
-  "sector_theme_asof_kst": "2026-07-14T19:13:35+09:00",
+  "sector_theme_asof_kst": "2026-07-14T19:57:40+09:00",
   "sector_theme_cache_mode": "LIVE_REFRESH",
   "compact_response_policy": {
     "version": "2026-07-09-v7.2.1-payload-fix",
@@ -1717,7 +1717,7 @@
     "recommendation": "추천/종목",
     "supply_burden": "수급부담"
   },
-  "payload_size_bytes": 69551,
+  "payload_size_bytes": 69529,
   "display_normalization": {
     "version": "2026-07-09-v7.4-display-normalization",
     "status": "OK",
@@ -1737,7 +1737,7 @@
   "recommendation_icon_version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-07-14T19:19:22+09:00",
+    "evaluated_at_kst": "2026-07-14T19:57:40+09:00",
     "publication_cutoff_kst": "08:30",
     "expected_official_trading_date": "2026-07-13",
     "kospi_actual_date": "2026-07-13",
@@ -1750,7 +1750,7 @@
     "display_label": "최신 공식자료 기준",
     "stale_reasons": [],
     "data_lag_trading_days": 0,
-    "current_price_asof_kst": "2026-07-14T17:37:56+09:00",
+    "current_price_asof_kst": "2026-07-14T19:57:01+09:00",
     "newer_current_price_over_older_analysis": false,
     "analysis_policy": "May describe as latest official only when safe_to_analyze_as_latest=true. When false, keep the table available only as the last confirmed reference, show the stale warning, and do not present score/buy/target ranges as current."
   },

@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260714T124824+0900-91cf7fb77c",
+  "build_id": "20260714T161157+0900-b337087a13",
   "script": "build_api_json.py v4.9_display_normalization_v74",
   "table_id": "us_watchlist_recommend_7",
   "display_name": "별도 요청용 미관종표 추천 7",
-  "generated_at_kst": "2026-07-14T12:48:24+09:00",
-  "source_commit_sha": "91cf7fb77c75d49ec204187965781303003884d5",
+  "generated_at_kst": "2026-07-14T16:11:57+09:00",
+  "source_commit_sha": "b337087a13f39cd7deb99a336b9471673918eb9b",
   "required": false,
   "default_output": false,
   "explicit_request_only": true,
@@ -141,8 +141,8 @@
       "mark_only_final_failures_with_white_circle"
     ]
   },
-  "rules_version": "2026-07-14-v7.7-runtime-freshness-gate",
-  "rules_sha256": "19563e65d148b40541088342d90e4739c1d0a6e90a22a8c6df2432d93f9f62ad",
+  "rules_version": "2026-07-14-v7.8-price-range-position",
+  "rules_sha256": "20e724d080c957e334f4cf44455d8d623f6b8460aa4a8054580b28593a01811f",
   "expected_rows": {
     "exact": 7,
     "minimum": null
@@ -175,8 +175,8 @@
   },
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "sha256": "19563e65d148b40541088342d90e4739c1d0a6e90a22a8c6df2432d93f9f62ad"
+    "version": "2026-07-14-v7.8-price-range-position",
+    "sha256": "20e724d080c957e334f4cf44455d8d623f6b8460aa4a8054580b28593a01811f"
   },
   "status": "OK",
   "source_file": "latest/us_sp500_recommend_7_latest.csv",
@@ -250,7 +250,9 @@
     "legacy_market_score",
     "hard_red_flag",
     "warning_count",
-    "recommendation_reason"
+    "recommendation_reason",
+    "current_position_pct",
+    "price_zone"
   ],
   "data_date_min": null,
   "data_date_max": null,
@@ -264,7 +266,7 @@
       "three_month_range": "$947.21~$1,111",
       "return_1m_display": "-1.28%",
       "liquidity_display": "$851.2M/일 · 활발",
-      "current_position": "중간권 (38.0%)",
+      "current_position": "저점권~중간권 38.0%",
       "avg_daily_range_display": "약±$12.50(±1.24%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 16.5배 · 매출성장 +27.0% · 이익성장 +45.9% · 평균목표가 여력 +24.0%",
@@ -318,7 +320,9 @@
       "legacy_market_score": 85.0,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 가치구간 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
+      "current_position_pct": 37.97,
+      "price_zone": "가치매수구간 위"
     },
     {
       "recommend_display": "✅ Cigna",
@@ -328,7 +332,7 @@
       "three_month_range": "$264.90~$303.33",
       "return_1m_display": "+2.12%",
       "liquidity_display": "$470.3M/일 · 활발",
-      "current_position": "중간권 (56.5%)",
+      "current_position": "중간권 56.5%",
       "avg_daily_range_display": "약±$3.26(±1.14%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 8.6배 · 매출성장 +4.6% · 이익성장 +29.1% · 평균목표가 여력 +18.8%",
@@ -382,7 +386,9 @@
       "legacy_market_score": 83.0,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 1개월 상승폭 안정적 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 1개월 상승폭 안정적 / 뚜렷한 단기 경고 제한",
+      "current_position_pct": 56.52,
+      "price_zone": "가치매수구간 위"
     },
     {
       "recommend_display": "✅ AppLovin",
@@ -392,7 +398,7 @@
       "three_month_range": "$364.64~$622.00",
       "return_1m_display": "-5.53%",
       "liquidity_display": "$2.82B/일 · 매우활발",
-      "current_position": "중간권 (63.5%)",
+      "current_position": "중간권~고점권 63.5%",
       "avg_daily_range_display": "약±$16.62(±3.15%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 24.4배 · 매출성장 +59.0% · 이익성장 +113.1% · 평균목표가 여력 +24.0%",
@@ -446,7 +452,9 @@
       "legacy_market_score": 82.0,
       "hard_red_flag": false,
       "warning_count": 1,
-      "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 매출 성장 양호 / 주의: 일간 변동성 큼"
+      "recommendation_reason": "3개월 중간권 · 중기 상승추세 유지 · 매출 성장 양호 / 주의: 일간 변동성 큼",
+      "current_position_pct": 63.47,
+      "price_zone": "가치매수구간 위"
     },
     {
       "recommend_display": "✅ Alphabet Inc. (Class A)",
@@ -456,7 +464,7 @@
       "three_month_range": "$297.72~$408.61",
       "return_1m_display": "-1.39%",
       "liquidity_display": "$13.05B/일 · 매우활발",
-      "current_position": "중간권 (62.5%)",
+      "current_position": "중간권~고점권 62.5%",
       "avg_daily_range_display": "약±$5.55(±1.51%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 25.2배 · 매출성장 +21.8% · 이익성장 +82.0% · 평균목표가 여력 +17.8%",
@@ -510,7 +518,9 @@
       "legacy_market_score": 80.5,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
+      "current_position_pct": 62.5,
+      "price_zone": "가치매수구간 위"
     },
     {
       "recommend_display": "✅ Alphabet Inc. (Class C)",
@@ -520,7 +530,7 @@
       "three_month_range": "$295.42~$404.47",
       "return_1m_display": "-1.53%",
       "liquidity_display": "$8.69B/일 · 매우활발",
-      "current_position": "중간권 (62.5%)",
+      "current_position": "중간권~고점권 62.5%",
       "avg_daily_range_display": "약±$5.35(±1.47%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 25.0배 · 매출성장 +21.8% · 이익성장 +82.0% · 평균목표가 여력 +17.9%",
@@ -574,7 +584,9 @@
       "legacy_market_score": 79.5,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
+      "current_position_pct": 62.54,
+      "price_zone": "가치매수구간 위"
     },
     {
       "recommend_display": "✅ Amazon",
@@ -584,7 +596,7 @@
       "three_month_range": "$209.08~$278.56",
       "return_1m_display": "-3.08%",
       "liquidity_display": "$14.97B/일 · 매우활발",
-      "current_position": "중간권 (53.1%)",
+      "current_position": "중간권 53.1%",
       "avg_daily_range_display": "약±$3.91(±1.59%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 24.8배 · 매출성장 +16.6% · 이익성장 +74.8% · 평균목표가 여력 +27.2%",
@@ -638,7 +650,9 @@
       "legacy_market_score": 78.0,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "3개월 중간권 · 매출 성장 양호 · 이익 성장 양호 / 뚜렷한 단기 경고 제한",
+      "current_position_pct": 53.11,
+      "price_zone": "가치매수구간 위"
     },
     {
       "recommend_display": "✅ Booking Holdings",
@@ -648,7 +662,7 @@
       "three_month_range": "$150.14~$193.92",
       "return_1m_display": "+8.63%",
       "liquidity_display": "$1.58B/일 · 매우활발",
-      "current_position": "중상단권 (72.7%)",
+      "current_position": "중간권~고점권 72.7%",
       "avg_daily_range_display": "약±$3.26(±1.79%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 14.8배 · 매출성장 +16.2% · 이익성장 +240.0% · 평균목표가 여력 +23.3%",
@@ -702,7 +716,31 @@
       "legacy_market_score": 78.0,
       "hard_red_flag": false,
       "warning_count": 0,
-      "recommendation_reason": "중기 상승추세 유지 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한"
+      "recommendation_reason": "중기 상승추세 유지 · 1개월 상승폭 안정적 · 매출 성장 양호 / 뚜렷한 단기 경고 제한",
+      "current_position_pct": 72.66,
+      "price_zone": "가치매수구간 위"
     }
-  ]
+  ],
+  "price_position_policy": {
+    "version": "2026-07-14-v7.8-price-range-position",
+    "effective_price_priority": [
+      "request_time_price_when_lookup_succeeds",
+      "static_price_when_request_time_lookup_fails"
+    ],
+    "recalculate_after_request_time_overlay": true,
+    "range_position_formula": "(effective_price-low_3m)/(high_3m-low_3m)*100",
+    "clamp_to_zero_hundred": false,
+    "below_low_display": "3개월 저가 대비 X.X% 하회 · 범위위치 -Y.Y%",
+    "above_high_display": "3개월 고가 대비 X.X% 돌파 · 범위위치 1YY.Y%",
+    "static_reference_fields": [
+      "current_position",
+      "current_position_pct",
+      "price_zone"
+    ],
+    "forbidden_displays": [
+      "3개월 저가 하회 0%",
+      "3개월 고가 돌파 100%"
+    ]
+  },
+  "price_position_version": "2026-07-14-v7.8-price-range-position"
 }

@@ -4,12 +4,12 @@
   "compact_payload": true,
   "preferred_default_action": true,
   "operation_id": "getKospiWatchlist",
-  "build_id": "20260714T124824+0900-91cf7fb77c",
+  "build_id": "20260714T161157+0900-b337087a13",
   "script": "build_lightweight_watchlist_api_v66.py",
   "table_id": "kospi_watchlist",
   "display_name": "코피표 — 코스피 분석 후보 30개",
-  "generated_at_kst": "2026-07-14T12:48:24+09:00",
-  "source_commit_sha": "91cf7fb77c75d49ec204187965781303003884d5",
+  "generated_at_kst": "2026-07-14T16:11:57+09:00",
+  "source_commit_sha": "b337087a13f39cd7deb99a336b9471673918eb9b",
   "status": "OK",
   "required": false,
   "lightweight_required": true,
@@ -101,7 +101,7 @@
     "source_warning": "",
     "kospi_summary_rows": 925,
     "kosdaq_summary_rows": 1790,
-    "runtime_freshness_evaluated_at_kst": "2026-07-14T12:48:24+09:00",
+    "runtime_freshness_evaluated_at_kst": "2026-07-14T16:11:57+09:00",
     "runtime_freshness_gate_version": "2026-07-14-v7.7-runtime-freshness-gate",
     "data_lag_trading_days": 0
   },
@@ -113,12 +113,12 @@
     "time_after_hours_reflected": null,
     "freshness_mode": "official"
   },
-  "rules_version": "2026-07-14-v7.7-runtime-freshness-gate",
-  "rules_sha256": "19563e65d148b40541088342d90e4739c1d0a6e90a22a8c6df2432d93f9f62ad",
+  "rules_version": "2026-07-14-v7.8-price-range-position",
+  "rules_sha256": "20e724d080c957e334f4cf44455d8d623f6b8460aa4a8054580b28593a01811f",
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "sha256": "19563e65d148b40541088342d90e4739c1d0a6e90a22a8c6df2432d93f9f62ad"
+    "version": "2026-07-14-v7.8-price-range-position",
+    "sha256": "20e724d080c957e334f4cf44455d8d623f6b8460aa4a8054580b28593a01811f"
   },
   "presentation_policy": {
     "format_contract": "improvement_plan_2_final",
@@ -303,7 +303,8 @@
     "sector_theme",
     "avg_trading_value_per_minute_krw",
     "avg_trading_value_per_minute_display",
-    "supply_burden_display"
+    "supply_burden_display",
+    "price_zone"
   ],
   "rows": [
     {
@@ -326,7 +327,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.05,
       "avg_daily_move": "약 ±28,600원 내외 (±2.05%)",
-      "current_position": null,
+      "current_position": "저점권~중간권 33.0%",
       "current_position_pct": 33.0,
       "operating_profit_text": "5808억원",
       "operating_loss": false,
@@ -346,7 +347,8 @@
       "sector_theme": "기초 의약물질 제조업 / 바이오의약품",
       "avg_trading_value_per_minute_krw": 220977087,
       "avg_trading_value_per_minute_display": "2.21억원/분",
-      "supply_burden_display": "주의 · 주요주주변동"
+      "supply_burden_display": "주의 · 주요주주변동",
+      "price_zone": "가치매수구간 안"
     },
     {
       "rank": 2,
@@ -368,7 +370,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.65,
       "avg_daily_move": "약 ±3,140원 내외 (±2.65%)",
-      "current_position": null,
+      "current_position": "중간권 43.2%",
       "current_position_pct": 43.18,
       "operating_profit_text": "1267억원",
       "operating_loss": false,
@@ -388,7 +390,8 @@
       "sector_theme": "기타 화학제품 제조업 / 화장품·생활용품 제조·판매",
       "avg_trading_value_per_minute_krw": 108175570,
       "avg_trading_value_per_minute_display": "1.08억원/분",
-      "supply_burden_display": "위험 · 자사주처분·대량보유·주요주주변동"
+      "supply_burden_display": "위험 · 자사주처분·대량보유·주요주주변동",
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "rank": 3,
@@ -410,7 +413,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.25,
       "avg_daily_move": "약 ±3,435원 내외 (±2.25%)",
-      "current_position": null,
+      "current_position": "중간권~고점권 70.1%",
       "current_position_pct": 70.1,
       "operating_profit_text": "4130억원",
       "operating_loss": false,
@@ -430,7 +433,8 @@
       "sector_theme": "보험업 / 자동차보험·화재보험·해상보험",
       "avg_trading_value_per_minute_krw": 83867904,
       "avg_trading_value_per_minute_display": "8386.8만원/분",
-      "supply_burden_display": "경계 · 대량보유"
+      "supply_burden_display": "경계 · 대량보유",
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "rank": 4,
@@ -452,7 +456,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.69,
       "avg_daily_move": "약 ±15,960원 내외 (±2.69%)",
-      "current_position": null,
+      "current_position": "중간권~고점권 61.1%",
       "current_position_pct": 61.11,
       "operating_profit_text": "8611억원",
       "operating_loss": false,
@@ -472,7 +476,8 @@
       "sector_theme": "보험업 / 손해보험의 원수·재보험·운용자산의 투자활동",
       "avg_trading_value_per_minute_krw": 247358612,
       "avg_trading_value_per_minute_display": "2.47억원/분",
-      "supply_burden_display": "주의 · 대량보유"
+      "supply_burden_display": "주의 · 대량보유",
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "rank": 5,
@@ -494,7 +499,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 1.8,
       "avg_daily_move": "약 ±565원 내외 (±1.80%)",
-      "current_position": null,
+      "current_position": "중간권 44.0%",
       "current_position_pct": 44.0,
       "operating_profit_text": "8082억원",
       "operating_loss": false,
@@ -514,7 +519,8 @@
       "sector_theme": "기타 금융업 / 금융지주",
       "avg_trading_value_per_minute_krw": 174207682,
       "avg_trading_value_per_minute_display": "1.74억원/분",
-      "supply_burden_display": "위험 · 유상증자"
+      "supply_burden_display": "위험 · 유상증자",
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "rank": 6,
@@ -536,7 +542,7 @@
       "price_elasticity": "탄력 높음",
       "price_elasticity_pct": 3.1,
       "avg_daily_move": "약 ±6,920원 내외 (±3.10%)",
-      "current_position": null,
+      "current_position": "저점권~중간권 30.9%",
       "current_position_pct": 30.85,
       "operating_profit_text": "-1966억원",
       "operating_loss": true,
@@ -556,7 +562,8 @@
       "sector_theme": "오디오물 출판 및 원판 녹음업 / 음악 기획·제작·퍼블리싱",
       "avg_trading_value_per_minute_krw": 165634771,
       "avg_trading_value_per_minute_display": "1.66억원/분",
-      "supply_burden_display": "경계 · 대량보유·주요주주변동"
+      "supply_burden_display": "경계 · 대량보유·주요주주변동",
+      "price_zone": "가치매수구간 안"
     },
     {
       "rank": 7,
@@ -578,7 +585,7 @@
       "price_elasticity": "탄력 높음",
       "price_elasticity_pct": 3.32,
       "avg_daily_move": "약 ±7,950원 내외 (±3.32%)",
-      "current_position": null,
+      "current_position": "저점권~중간권 22.6%",
       "current_position_pct": 22.6,
       "operating_profit_text": "1.11조원",
       "operating_loss": false,
@@ -598,7 +605,8 @@
       "sector_theme": "기타 금융업 / 금융지주회사",
       "avg_trading_value_per_minute_krw": 157054193,
       "avg_trading_value_per_minute_display": "1.57억원/분",
-      "supply_burden_display": "주의 · 대량보유·주요주주변동"
+      "supply_burden_display": "주의 · 대량보유·주요주주변동",
+      "price_zone": "가치매수구간 아래"
     },
     {
       "rank": 8,
@@ -620,7 +628,7 @@
       "price_elasticity": "탄력 높음",
       "price_elasticity_pct": 3.97,
       "avg_daily_move": "약 ±1,614원 내외 (±3.97%)",
-      "current_position": null,
+      "current_position": "중간권 40.9%",
       "current_position_pct": 40.91,
       "operating_profit_text": "157억원",
       "operating_loss": false,
@@ -640,7 +648,8 @@
       "sector_theme": "종합 소매업 / 백화점",
       "avg_trading_value_per_minute_krw": 97971601,
       "avg_trading_value_per_minute_display": "9797.2만원/분",
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "rank": 9,
@@ -662,7 +671,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.47,
       "avg_daily_move": "약 ±4,520원 내외 (±2.47%)",
-      "current_position": null,
+      "current_position": "저점권~중간권 37.6%",
       "current_position_pct": 37.65,
       "operating_profit_text": "530억원",
       "operating_loss": false,
@@ -682,7 +691,8 @@
       "sector_theme": "기타 화학제품 제조업 / 화장품",
       "avg_trading_value_per_minute_krw": 38882661,
       "avg_trading_value_per_minute_display": "3888.3만원/분",
-      "supply_burden_display": "경계 · 대량보유·주요주주변동"
+      "supply_burden_display": "경계 · 대량보유·주요주주변동",
+      "price_zone": "가치매수구간 안"
     },
     {
       "rank": 10,
@@ -704,7 +714,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.63,
       "avg_daily_move": "약 ±1,107원 내외 (±2.63%)",
-      "current_position": null,
+      "current_position": "중간권~고점권 62.2%",
       "current_position_pct": 62.2,
       "operating_profit_text": "1937억원",
       "operating_loss": false,
@@ -724,7 +734,8 @@
       "sector_theme": "생활용품 도매업 / 스포츠의류·신발·가방",
       "avg_trading_value_per_minute_krw": 21951265,
       "avg_trading_value_per_minute_display": "2195.1만원/분",
-      "supply_burden_display": "경계 · 대량보유"
+      "supply_burden_display": "경계 · 대량보유",
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "rank": 11,
@@ -746,7 +757,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.21,
       "avg_daily_move": "약 ±2,860원 내외 (±2.21%)",
-      "current_position": null,
+      "current_position": "저점권~중간권 33.7%",
       "current_position_pct": 33.69,
       "operating_profit_text": "222억원",
       "operating_loss": false,
@@ -766,7 +777,8 @@
       "sector_theme": "의약품 제조업 / 양약·의료기기 제조·화장품",
       "avg_trading_value_per_minute_krw": 15608927,
       "avg_trading_value_per_minute_display": "1560.9만원/분",
-      "supply_burden_display": "주의 · 주요주주변동"
+      "supply_burden_display": "주의 · 주요주주변동",
+      "price_zone": "가치매수구간 아래"
     },
     {
       "rank": 12,
@@ -788,7 +800,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.46,
       "avg_daily_move": "약 ±793원 내외 (±2.46%)",
-      "current_position": null,
+      "current_position": "저점권~중간권 37.3%",
       "current_position_pct": 37.29,
       "operating_profit_text": "336억원",
       "operating_loss": false,
@@ -808,7 +820,8 @@
       "sector_theme": "기타 금융업 / 항생제(세포탁심·세포트리악손)·유산균정장제(메디락비타",
       "avg_trading_value_per_minute_krw": 14823871,
       "avg_trading_value_per_minute_display": "1482.4만원/분",
-      "supply_burden_display": "경계 · 대량보유·주요주주변동"
+      "supply_burden_display": "경계 · 대량보유·주요주주변동",
+      "price_zone": "가치매수구간 안"
     },
     {
       "rank": 13,
@@ -830,7 +843,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 1.93,
       "avg_daily_move": "약 ±1,920원 내외 (±1.93%)",
-      "current_position": null,
+      "current_position": "고점권 84.5%",
       "current_position_pct": 84.52,
       "operating_profit_text": "2.15조원",
       "operating_loss": false,
@@ -850,7 +863,8 @@
       "sector_theme": "기타 금융업 / 금융지주회사",
       "avg_trading_value_per_minute_krw": 391860239,
       "avg_trading_value_per_minute_display": "3.92억원/분",
-      "supply_burden_display": "주의 · 주요주주변동"
+      "supply_burden_display": "주의 · 주요주주변동",
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "rank": 14,
@@ -872,7 +886,7 @@
       "price_elasticity": "탄력 높음",
       "price_elasticity_pct": 3.42,
       "avg_daily_move": "약 ±13,660원 내외 (±3.42%)",
-      "current_position": null,
+      "current_position": "저점권~중간권 21.1%",
       "current_position_pct": 21.07,
       "operating_profit_text": "1523억원",
       "operating_loss": false,
@@ -892,7 +906,8 @@
       "sector_theme": "기타 화학제품 제조업 / 화장품·피부미용기기 등",
       "avg_trading_value_per_minute_krw": 293399964,
       "avg_trading_value_per_minute_display": "2.93억원/분",
-      "supply_burden_display": "주의 · 대량보유·주요주주변동"
+      "supply_burden_display": "주의 · 대량보유·주요주주변동",
+      "price_zone": "가치매수구간 안"
     },
     {
       "rank": 15,
@@ -914,7 +929,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.33,
       "avg_daily_move": "약 ±4,250원 내외 (±2.33%)",
-      "current_position": null,
+      "current_position": "저점권~중간권 32.0%",
       "current_position_pct": 31.96,
       "operating_profit_text": "3219억원",
       "operating_loss": false,
@@ -934,7 +949,8 @@
       "sector_theme": "기초 의약물질 제조업 / 램시마·트룩시마·허쥬마",
       "avg_trading_value_per_minute_krw": 283219296,
       "avg_trading_value_per_minute_display": "2.83억원/분",
-      "supply_burden_display": "위험 · 유상증자·대량보유·주요주주변동"
+      "supply_burden_display": "위험 · 유상증자·대량보유·주요주주변동",
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "rank": 16,
@@ -956,7 +972,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 1.7,
       "avg_daily_move": "약 ±3,030원 내외 (±1.70%)",
-      "current_position": null,
+      "current_position": "저점권~중간권 35.2%",
       "current_position_pct": 35.22,
       "operating_profit_text": "3645억원",
       "operating_loss": false,
@@ -976,7 +992,8 @@
       "sector_theme": "담배 제조업 / 잎담배·제조담배·홍삼",
       "avg_trading_value_per_minute_krw": 127399630,
       "avg_trading_value_per_minute_display": "1.27억원/분",
-      "supply_burden_display": "경계 · 대량보유"
+      "supply_burden_display": "경계 · 대량보유",
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "rank": 17,
@@ -998,7 +1015,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 1.98,
       "avg_daily_move": "약 ±3,180원 내외 (±1.98%)",
-      "current_position": null,
+      "current_position": "중간권~고점권 79.2%",
       "current_position_pct": 79.19,
       "operating_profit_text": "2.73조원",
       "operating_loss": false,
@@ -1018,7 +1035,8 @@
       "sector_theme": "기타 금융업",
       "avg_trading_value_per_minute_krw": 703106313,
       "avg_trading_value_per_minute_display": "7.03억원/분",
-      "supply_burden_display": "위험 · 유상증자·대량보유·주요주주변동"
+      "supply_burden_display": "위험 · 유상증자·대량보유·주요주주변동",
+      "price_zone": "가치매수구간 안"
     },
     {
       "rank": 18,
@@ -1040,7 +1058,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.67,
       "avg_daily_move": "약 ±6,750원 내외 (±2.67%)",
-      "current_position": null,
+      "current_position": "저점권~중간권 37.6%",
       "current_position_pct": 37.62,
       "operating_profit_text": "5616억원",
       "operating_loss": false,
@@ -1060,7 +1078,8 @@
       "sector_theme": "소프트웨어 개발 및 공급업 / <배틀그라운드> 등 게임 소프트웨어",
       "avg_trading_value_per_minute_krw": 76720610,
       "avg_trading_value_per_minute_display": "7672.1만원/분",
-      "supply_burden_display": "위험 · 자사주처분·대량보유·주요주주변동"
+      "supply_burden_display": "위험 · 자사주처분·대량보유·주요주주변동",
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "rank": 19,
@@ -1082,7 +1101,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.69,
       "avg_daily_move": "약 ±1,743원 내외 (±2.69%)",
-      "current_position": null,
+      "current_position": "중간권~고점권 62.2%",
       "current_position_pct": 62.24,
       "operating_profit_text": "5070억원",
       "operating_loss": false,
@@ -1102,7 +1121,8 @@
       "sector_theme": "고무제품 제조업 / 타이어 제조",
       "avg_trading_value_per_minute_krw": 71745593,
       "avg_trading_value_per_minute_display": "7174.6만원/분",
-      "supply_burden_display": "경계 · 대량보유"
+      "supply_burden_display": "경계 · 대량보유",
+      "price_zone": "가치매수구간 안"
     },
     {
       "rank": 20,
@@ -1124,7 +1144,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.88,
       "avg_daily_move": "약 ±925원 내외 (±2.88%)",
-      "current_position": null,
+      "current_position": "저점권~중간권 29.8%",
       "current_position_pct": 29.8,
       "operating_profit_text": "6367억원",
       "operating_loss": false,
@@ -1144,7 +1164,8 @@
       "sector_theme": "금융 지원 서비스업 / 증권업·종합금융",
       "avg_trading_value_per_minute_krw": 63074449,
       "avg_trading_value_per_minute_display": "6307.4만원/분",
-      "supply_burden_display": "위험 · 유상증자·대량보유·주요주주변동"
+      "supply_burden_display": "위험 · 유상증자·대량보유·주요주주변동",
+      "price_zone": "가치매수구간 안"
     },
     {
       "rank": 21,
@@ -1166,7 +1187,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.24,
       "avg_daily_move": "약 ±507원 내외 (±2.24%)",
-      "current_position": null,
+      "current_position": "중간권~고점권 67.6%",
       "current_position_pct": 67.58,
       "operating_profit_text": "1576억원",
       "operating_loss": false,
@@ -1186,7 +1207,8 @@
       "sector_theme": "은행 및 저축기관 / 은행 및 금융서비스",
       "avg_trading_value_per_minute_krw": 53934503,
       "avg_trading_value_per_minute_display": "5393.5만원/분",
-      "supply_burden_display": "주의 · 주요주주변동"
+      "supply_burden_display": "주의 · 주요주주변동",
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "rank": 22,
@@ -1208,7 +1230,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 1.76,
       "avg_daily_move": "약 ±307원 내외 (±1.76%)",
-      "current_position": null,
+      "current_position": "중간권~고점권 76.8%",
       "current_position_pct": 76.79,
       "operating_profit_text": "2831억원",
       "operating_loss": false,
@@ -1228,7 +1250,8 @@
       "sector_theme": "기타 금융업 / 금융지주회사",
       "avg_trading_value_per_minute_krw": 51690597,
       "avg_trading_value_per_minute_display": "5169.1만원/분",
-      "supply_burden_display": "경계 · 대량보유·주요주주변동"
+      "supply_burden_display": "경계 · 대량보유·주요주주변동",
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "rank": 23,
@@ -1250,7 +1273,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.28,
       "avg_daily_move": "약 ±2,035원 내외 (±2.28%)",
-      "current_position": null,
+      "current_position": "중간권~고점권 75.0%",
       "current_position_pct": 75.0,
       "operating_profit_text": "2509억원",
       "operating_loss": false,
@@ -1270,7 +1293,8 @@
       "sector_theme": "그외 기타 개인 서비스업 / 렌탈 서비스(정수기·비데·필터교환 등)",
       "avg_trading_value_per_minute_krw": 48483048,
       "avg_trading_value_per_minute_display": "4848.3만원/분",
-      "supply_burden_display": "경계 · 대량보유·주요주주변동"
+      "supply_burden_display": "경계 · 대량보유·주요주주변동",
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "rank": 24,
@@ -1292,7 +1316,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 1.83,
       "avg_daily_move": "약 ±2,480원 내외 (±1.83%)",
-      "current_position": null,
+      "current_position": "저점권~중간권 36.9%",
       "current_position_pct": 36.91,
       "operating_profit_text": "1655억원",
       "operating_loss": false,
@@ -1312,7 +1336,8 @@
       "sector_theme": "기타 식품 제조업 / 스낵 등 과자류",
       "avg_trading_value_per_minute_krw": 45775330,
       "avg_trading_value_per_minute_display": "4577.5만원/분",
-      "supply_burden_display": "경계 · 대량보유"
+      "supply_burden_display": "경계 · 대량보유",
+      "price_zone": "가치매수구간 안"
     },
     {
       "rank": 25,
@@ -1334,7 +1359,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.42,
       "avg_daily_move": "약 ±632원 내외 (±2.42%)",
-      "current_position": null,
+      "current_position": "중간권 53.0%",
       "current_position_pct": 53.0,
       "operating_profit_text": "2213억원",
       "operating_loss": false,
@@ -1354,7 +1379,8 @@
       "sector_theme": "기타 금융업 / 금융지주 회사",
       "avg_trading_value_per_minute_krw": 41755219,
       "avg_trading_value_per_minute_display": "4175.5만원/분",
-      "supply_burden_display": "주의 · 대량보유·주요주주변동"
+      "supply_burden_display": "주의 · 대량보유·주요주주변동",
+      "price_zone": "가치매수구간 안"
     },
     {
       "rank": 26,
@@ -1376,7 +1402,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.95,
       "avg_daily_move": "약 ±2,160원 내외 (±2.95%)",
-      "current_position": null,
+      "current_position": "중간권~고점권 73.0%",
       "current_position_pct": 72.97,
       "operating_profit_text": "1.26조원",
       "operating_loss": false,
@@ -1396,7 +1422,8 @@
       "sector_theme": "기타 금융업 / 지주회사·부동산 임대",
       "avg_trading_value_per_minute_krw": 70384908,
       "avg_trading_value_per_minute_display": "7038.5만원/분",
-      "supply_burden_display": "경계 · 대량보유"
+      "supply_burden_display": "경계 · 대량보유",
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "rank": 27,
@@ -1418,7 +1445,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.87,
       "avg_daily_move": "약 ±4,495원 내외 (±2.87%)",
-      "current_position": null,
+      "current_position": "저점권~중간권 26.2%",
       "current_position_pct": 26.2,
       "operating_profit_text": "671억원",
       "operating_loss": false,
@@ -1438,7 +1465,8 @@
       "sector_theme": "항공기,우주선 및 부품 제조업 / 정부방산 및 완제기 수출(T-50계열·KUH계열·KT-1계열 등)",
       "avg_trading_value_per_minute_krw": 183070136,
       "avg_trading_value_per_minute_display": "1.83억원/분",
-      "supply_burden_display": "경계 · 대량보유·주요주주변동"
+      "supply_burden_display": "경계 · 대량보유·주요주주변동",
+      "price_zone": "가치매수구간 안"
     },
     {
       "rank": 28,
@@ -1460,7 +1488,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.7,
       "avg_daily_move": "약 ±33,000원 내외 (±2.70%)",
-      "current_position": null,
+      "current_position": "저점권 10.4%",
       "current_position_pct": 10.36,
       "operating_profit_text": "1771억원",
       "operating_loss": false,
@@ -1480,7 +1508,8 @@
       "sector_theme": "기타 식품 제조업 / 라면·스낵·유제품",
       "avg_trading_value_per_minute_krw": 152420705,
       "avg_trading_value_per_minute_display": "1.52억원/분",
-      "supply_burden_display": "경계 · 대량보유·주요주주변동"
+      "supply_burden_display": "경계 · 대량보유·주요주주변동",
+      "price_zone": "가치매수구간 안"
     },
     {
       "rank": 29,
@@ -1502,7 +1531,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.93,
       "avg_daily_move": "약 ±3,315원 내외 (±2.93%)",
-      "current_position": null,
+      "current_position": "저점권~중간권 31.0%",
       "current_position_pct": 31.02,
       "operating_profit_text": "2.16조원",
       "operating_loss": false,
@@ -1522,7 +1551,8 @@
       "sector_theme": "석유 정제품 제조업 / 석유정제·석유화학제품·윤활유제품",
       "avg_trading_value_per_minute_krw": 124971486,
       "avg_trading_value_per_minute_display": "1.25억원/분",
-      "supply_burden_display": "위험 · 감자·전환청구·신주인수권·대량보유·주요주주변동·교환청구"
+      "supply_burden_display": "위험 · 감자·전환청구·신주인수권·대량보유·주요주주변동·교환청구",
+      "price_zone": "가치매수구간 안"
     },
     {
       "rank": 30,
@@ -1544,7 +1574,7 @@
       "price_elasticity": "탄력 보통",
       "price_elasticity_pct": 2.39,
       "avg_daily_move": "약 ±839원 내외 (±2.39%)",
-      "current_position": null,
+      "current_position": "중간권~고점권 60.6%",
       "current_position_pct": 60.58,
       "operating_profit_text": "3245억원",
       "operating_loss": false,
@@ -1564,7 +1594,8 @@
       "sector_theme": "보험업 / 손해보험(자동차보험)",
       "avg_trading_value_per_minute_krw": 43004593,
       "avg_trading_value_per_minute_display": "4300.5만원/분",
-      "supply_burden_display": "경계 · 대량보유·주요주주변동"
+      "supply_burden_display": "경계 · 대량보유·주요주주변동",
+      "price_zone": "가치매수구간 안"
     }
   ],
   "payload_size_limit_bytes": 70000,
@@ -1647,7 +1678,9 @@
       "BW발행": "BW",
       "EB발행": "EB",
       "duplicate_aliases": "remove_preserve_meaning"
-    }
+    },
+    "price_position_policy_version": "2026-07-14-v7.8-price-range-position",
+    "request_time_position_recalculation_required": true
   },
   "sector_theme_nonempty_rows": 30,
   "financial_status_counts": {
@@ -1666,8 +1699,8 @@
   "sector_theme_coverage_pct": 100.0,
   "sector_theme_source": "KRX_KIND_LISTED_COMPANY",
   "sector_theme_source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download&searchType=13",
-  "sector_theme_asof_kst": "2026-07-14T12:27:23+09:00",
-  "sector_theme_cache_mode": "STALE_CACHE_FALLBACK",
+  "sector_theme_asof_kst": "2026-07-14T16:11:58+09:00",
+  "sector_theme_cache_mode": "LIVE_REFRESH",
   "compact_response_policy": {
     "version": "2026-07-09-v7.2.1-payload-fix",
     "row_level_source_metadata_removed": true,
@@ -1685,7 +1718,7 @@
     "recommendation": "추천/종목",
     "supply_burden": "수급부담"
   },
-  "payload_size_bytes": 68871,
+  "payload_size_bytes": 68859,
   "display_normalization": {
     "version": "2026-07-09-v7.4-display-normalization",
     "status": "OK",
@@ -1697,7 +1730,7 @@
   },
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-07-14T12:48:24+09:00",
+    "evaluated_at_kst": "2026-07-14T16:11:57+09:00",
     "publication_cutoff_kst": "08:30",
     "expected_official_trading_date": "2026-07-13",
     "kospi_actual_date": "2026-07-13",
@@ -1716,5 +1749,27 @@
   },
   "safe_to_analyze_as_latest": true,
   "analysis_latest_status": "LATEST_OFFICIAL",
-  "stale_analysis_warning": null
+  "stale_analysis_warning": null,
+  "price_position_policy": {
+    "version": "2026-07-14-v7.8-price-range-position",
+    "effective_price_priority": [
+      "request_time_price_when_lookup_succeeds",
+      "static_price_when_request_time_lookup_fails"
+    ],
+    "recalculate_after_request_time_overlay": true,
+    "range_position_formula": "(effective_price-low_3m)/(high_3m-low_3m)*100",
+    "clamp_to_zero_hundred": false,
+    "below_low_display": "3개월 저가 대비 X.X% 하회 · 범위위치 -Y.Y%",
+    "above_high_display": "3개월 고가 대비 X.X% 돌파 · 범위위치 1YY.Y%",
+    "static_reference_fields": [
+      "current_position",
+      "current_position_pct",
+      "price_zone"
+    ],
+    "forbidden_displays": [
+      "3개월 저가 하회 0%",
+      "3개월 고가 돌파 100%"
+    ]
+  },
+  "price_position_version": "2026-07-14-v7.8-price-range-position"
 }

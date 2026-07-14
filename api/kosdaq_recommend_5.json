@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260714T124824+0900-91cf7fb77c",
+  "build_id": "20260714T161157+0900-b337087a13",
   "script": "build_api_json.py v4.9_display_normalization_v74",
   "table_id": "kosdaq_recommend_5",
   "display_name": "별도 요청용 코닥 추천 5",
-  "generated_at_kst": "2026-07-14T12:48:24+09:00",
-  "source_commit_sha": "91cf7fb77c75d49ec204187965781303003884d5",
+  "generated_at_kst": "2026-07-14T16:11:57+09:00",
+  "source_commit_sha": "b337087a13f39cd7deb99a336b9471673918eb9b",
   "required": false,
   "default_output": false,
   "explicit_request_only": true,
@@ -141,8 +141,8 @@
       "mark_only_final_failures_with_white_circle"
     ]
   },
-  "rules_version": "2026-07-14-v7.7-runtime-freshness-gate",
-  "rules_sha256": "19563e65d148b40541088342d90e4739c1d0a6e90a22a8c6df2432d93f9f62ad",
+  "rules_version": "2026-07-14-v7.8-price-range-position",
+  "rules_sha256": "20e724d080c957e334f4cf44455d8d623f6b8460aa4a8054580b28593a01811f",
   "expected_rows": {
     "exact": 5,
     "minimum": null
@@ -164,7 +164,7 @@
     "source_warning": "",
     "kospi_summary_rows": 925,
     "kosdaq_summary_rows": 1790,
-    "runtime_freshness_evaluated_at_kst": "2026-07-14T12:48:24+09:00",
+    "runtime_freshness_evaluated_at_kst": "2026-07-14T16:11:57+09:00",
     "runtime_freshness_gate_version": "2026-07-14-v7.7-runtime-freshness-gate",
     "data_lag_trading_days": 0
   },
@@ -178,8 +178,8 @@
   },
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "sha256": "19563e65d148b40541088342d90e4739c1d0a6e90a22a8c6df2432d93f9f62ad"
+    "version": "2026-07-14-v7.8-price-range-position",
+    "sha256": "20e724d080c957e334f4cf44455d8d623f6b8460aa4a8054580b28593a01811f"
   },
   "status": "OK",
   "source_file": "latest/kosdaq_recommend_5_latest.csv",
@@ -272,7 +272,10 @@
     "supply_burden_latest_report_date",
     "supply_burden_latest_report_name",
     "supply_burden_report_count",
-    "supply_burden_checked_at_kst"
+    "supply_burden_checked_at_kst",
+    "current_position",
+    "current_position_pct",
+    "price_zone"
   ],
   "data_date_min": "2026-07-13",
   "data_date_max": "2026-07-13",
@@ -360,7 +363,9 @@
       "supply_burden_latest_report_date": null,
       "supply_burden_latest_report_name": null,
       "supply_burden_report_count": 0,
-      "supply_burden_checked_at_kst": "2026-07-14T10:23:47+09:00"
+      "supply_burden_checked_at_kst": "2026-07-14T10:23:47+09:00",
+      "current_position_pct": 44.94,
+      "current_position": "중간권 44.9%"
     },
     {
       "rank": 2,
@@ -442,7 +447,9 @@
       "supply_burden_latest_report_date": 20260511.0,
       "supply_burden_latest_report_name": "[기재정정]전환주식의전환청구권행사              ",
       "supply_burden_report_count": 5,
-      "supply_burden_checked_at_kst": "2026-07-14T10:23:47+09:00"
+      "supply_burden_checked_at_kst": "2026-07-14T10:23:47+09:00",
+      "current_position_pct": 31.96,
+      "current_position": "저점권~중간권 32.0%"
     },
     {
       "rank": 3,
@@ -524,7 +531,9 @@
       "supply_burden_latest_report_date": null,
       "supply_burden_latest_report_name": null,
       "supply_burden_report_count": 0,
-      "supply_burden_checked_at_kst": "2026-07-14T10:23:47+09:00"
+      "supply_burden_checked_at_kst": "2026-07-14T10:23:47+09:00",
+      "current_position_pct": -16.81,
+      "current_position": "3개월 저가 대비 7.0% 하회 · 범위위치 -16.8%"
     },
     {
       "rank": 4,
@@ -606,7 +615,9 @@
       "supply_burden_latest_report_date": 20260521.0,
       "supply_burden_latest_report_name": "자기주식처분결과보고서",
       "supply_burden_report_count": 4,
-      "supply_burden_checked_at_kst": "2026-07-14T10:23:47+09:00"
+      "supply_burden_checked_at_kst": "2026-07-14T10:23:47+09:00",
+      "current_position_pct": 45.74,
+      "current_position": "중간권 45.7%"
     },
     {
       "rank": 5,
@@ -688,12 +699,14 @@
       "supply_burden_latest_report_date": 20260626.0,
       "supply_burden_latest_report_name": "최대주주변경을수반하는주식담보제공계약체결              ",
       "supply_burden_report_count": 3,
-      "supply_burden_checked_at_kst": "2026-07-14T10:23:47+09:00"
+      "supply_burden_checked_at_kst": "2026-07-14T10:23:47+09:00",
+      "current_position_pct": 25.18,
+      "current_position": "저점권~중간권 25.2%"
     }
   ],
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-07-14T12:48:24+09:00",
+    "evaluated_at_kst": "2026-07-14T16:11:57+09:00",
     "publication_cutoff_kst": "08:30",
     "expected_official_trading_date": "2026-07-13",
     "kospi_actual_date": "2026-07-13",
@@ -712,5 +725,27 @@
   },
   "safe_to_analyze_as_latest": true,
   "analysis_latest_status": "LATEST_OFFICIAL",
-  "stale_analysis_warning": null
+  "stale_analysis_warning": null,
+  "price_position_policy": {
+    "version": "2026-07-14-v7.8-price-range-position",
+    "effective_price_priority": [
+      "request_time_price_when_lookup_succeeds",
+      "static_price_when_request_time_lookup_fails"
+    ],
+    "recalculate_after_request_time_overlay": true,
+    "range_position_formula": "(effective_price-low_3m)/(high_3m-low_3m)*100",
+    "clamp_to_zero_hundred": false,
+    "below_low_display": "3개월 저가 대비 X.X% 하회 · 범위위치 -Y.Y%",
+    "above_high_display": "3개월 고가 대비 X.X% 돌파 · 범위위치 1YY.Y%",
+    "static_reference_fields": [
+      "current_position",
+      "current_position_pct",
+      "price_zone"
+    ],
+    "forbidden_displays": [
+      "3개월 저가 하회 0%",
+      "3개월 고가 돌파 100%"
+    ]
+  },
+  "price_position_version": "2026-07-14-v7.8-price-range-position"
 }

@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "checker_version": "2026-07-10-v7.6.1-financial-payload-health",
-  "generated_at_kst": "2026-07-14T12:37:09+09:00",
+  "generated_at_kst": "2026-07-14T16:12:00+09:00",
   "status": "FAIL",
   "critical_count": 1,
   "warning_count": 0,
   "context": {
-    "build_id": "20260714T122722+0900-14153abaa9",
-    "rules_version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "rules_sha256": "19563e65d148b40541088342d90e4739c1d0a6e90a22a8c6df2432d93f9f62ad",
-    "source_commit_sha": "14153abaa924df491abcb8f0d40dbaf09158176a",
+    "build_id": "20260714T161157+0900-b337087a13",
+    "rules_version": "2026-07-14-v7.8-price-range-position",
+    "rules_sha256": "20e724d080c957e334f4cf44455d8d623f6b8460aa4a8054580b28593a01811f",
+    "source_commit_sha": "b337087a13f39cd7deb99a336b9471673918eb9b",
     "payload_limits_bytes": {
       "kospi_watchlist": 70000,
       "kosdaq_watchlist": 50000,
@@ -71,7 +71,7 @@
       "severity": "ERROR",
       "message": "kospi_watchlist 응답 크기가 시장별 제한을 넘었습니다.",
       "details": {
-        "bytes": 70429,
+        "bytes": 73491,
         "limit": 70000,
         "market": "KR"
       }
@@ -217,7 +217,7 @@
       "severity": "ERROR",
       "message": "kosdaq_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 34734,
+        "bytes": 36420,
         "limit": 50000,
         "market": "KR"
       }
@@ -361,7 +361,7 @@
       "severity": "ERROR",
       "message": "us_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 100207,
+        "bytes": 104551,
         "limit": 110000,
         "market": "US"
       }
@@ -406,63 +406,17 @@
       }
     },
     {
-      "check_id": "worker_health",
+      "check_id": "price_position_v78",
       "status": "PASS",
       "severity": "ERROR",
-      "message": "Cloudflare Worker 상태와 매니페스트 정책이 정상입니다.",
+      "message": "3개월 범위 이탈 위치표시가 정상입니다.",
       "details": {
-        "build_version": "1.3.2-manifest-freshness-merge",
-        "bytes": 1235
+        "version": "2026-07-14-v7.8-price-range-position",
+        "files_checked": 13,
+        "eligible_rows": 219,
+        "below_low_rows": 3,
+        "above_high_rows": 0
       }
-    },
-    {
-      "check_id": "worker_compact_manifest_size",
-      "status": "PASS",
-      "severity": "ERROR",
-      "message": "Worker 경량 매니페스트 응답 크기가 안전 범위입니다.",
-      "details": {
-        "bytes": 15582,
-        "limit": 65000
-      }
-    },
-    {
-      "check_id": "worker_compact_manifest_values",
-      "status": "PASS",
-      "severity": "ERROR",
-      "message": "경량 매니페스트의 핵심 상태값이 정상입니다."
-    },
-    {
-      "check_id": "worker_freshness_source",
-      "status": "PASS",
-      "severity": "ERROR",
-      "message": "최신성 값 출처가 확인됐습니다.",
-      "details": {
-        "source": "manifest.json"
-      }
-    },
-    {
-      "check_id": "worker_kospi_watchlist",
-      "status": "PASS",
-      "severity": "ERROR",
-      "message": "경량 매니페스트의 kospi_watchlist 행 수와 상태가 정상입니다."
-    },
-    {
-      "check_id": "worker_kosdaq_watchlist",
-      "status": "PASS",
-      "severity": "ERROR",
-      "message": "경량 매니페스트의 kosdaq_watchlist 행 수와 상태가 정상입니다."
-    },
-    {
-      "check_id": "worker_us_watchlist",
-      "status": "PASS",
-      "severity": "ERROR",
-      "message": "경량 매니페스트의 us_watchlist 행 수와 상태가 정상입니다."
-    },
-    {
-      "check_id": "worker_build_id",
-      "status": "PASS",
-      "severity": "ERROR",
-      "message": "Worker 경량 매니페스트 빌드 ID가 저장소와 일치합니다."
     }
   ]
 }

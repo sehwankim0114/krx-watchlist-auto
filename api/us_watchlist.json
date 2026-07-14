@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260714T124824+0900-91cf7fb77c",
+  "build_id": "20260714T161157+0900-b337087a13",
   "script": "build_api_json.py v4.9_display_normalization_v74",
   "table_id": "us_watchlist",
   "display_name": "미관종표 — S&P500 기반 미국 분석 후보 30개",
-  "generated_at_kst": "2026-07-14T12:48:24+09:00",
-  "source_commit_sha": "91cf7fb77c75d49ec204187965781303003884d5",
+  "generated_at_kst": "2026-07-14T16:11:57+09:00",
+  "source_commit_sha": "b337087a13f39cd7deb99a336b9471673918eb9b",
   "required": true,
   "default_output": true,
   "explicit_request_only": false,
@@ -141,8 +141,8 @@
       "mark_only_final_failures_with_white_circle"
     ]
   },
-  "rules_version": "2026-07-14-v7.7-runtime-freshness-gate",
-  "rules_sha256": "19563e65d148b40541088342d90e4739c1d0a6e90a22a8c6df2432d93f9f62ad",
+  "rules_version": "2026-07-14-v7.8-price-range-position",
+  "rules_sha256": "20e724d080c957e334f4cf44455d8d623f6b8460aa4a8054580b28593a01811f",
   "expected_rows": {
     "exact": 30,
     "minimum": null
@@ -175,8 +175,8 @@
   },
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "sha256": "19563e65d148b40541088342d90e4739c1d0a6e90a22a8c6df2432d93f9f62ad"
+    "version": "2026-07-14-v7.8-price-range-position",
+    "sha256": "20e724d080c957e334f4cf44455d8d623f6b8460aa4a8054580b28593a01811f"
   },
   "status": "OK",
   "source_file": "latest/us_sp500_watchlist_latest.csv",
@@ -254,7 +254,9 @@
     "value_buy_range_markdown",
     "first_sell_target_range_markdown",
     "supply_burden_display",
-    "supply_burden_keywords"
+    "supply_burden_keywords",
+    "current_position_pct",
+    "price_zone"
   ],
   "data_date_min": null,
   "data_date_max": null,
@@ -268,7 +270,7 @@
       "three_month_range": "$947.21~$1,111",
       "return_1m_display": "-1.28%",
       "liquidity_display": "$851.2M/일 · 활발",
-      "current_position": "중간권 (38.0%)",
+      "current_position": "저점권~중간권 38.0%",
       "avg_daily_range_display": "약±$12.50(±1.24%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 16.5배 · 매출성장 +27.0% · 이익성장 +45.9% · 평균목표가 여력 +24.0%",
@@ -327,7 +329,9 @@
       "first_sell_target_range_markdown": "**$1,070~$1,141**",
       "recommendation_display": "🟡 BlackRock",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 37.97,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "✅ Cigna",
@@ -337,7 +341,7 @@
       "three_month_range": "$264.90~$303.33",
       "return_1m_display": "+2.12%",
       "liquidity_display": "$470.3M/일 · 활발",
-      "current_position": "중간권 (56.5%)",
+      "current_position": "중간권 56.5%",
       "avg_daily_range_display": "약±$3.26(±1.14%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 8.6배 · 매출성장 +4.6% · 이익성장 +29.1% · 평균목표가 여력 +18.8%",
@@ -396,7 +400,9 @@
       "first_sell_target_range_markdown": "**$303.82~$323.88**",
       "recommendation_display": "🟡 Cigna",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 56.52,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "✅ AppLovin",
@@ -406,7 +412,7 @@
       "three_month_range": "$364.64~$622.00",
       "return_1m_display": "-5.53%",
       "liquidity_display": "$2.82B/일 · 매우활발",
-      "current_position": "중간권 (63.5%)",
+      "current_position": "중간권~고점권 63.5%",
       "avg_daily_range_display": "약±$16.62(±3.15%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 24.4배 · 매출성장 +59.0% · 이익성장 +113.1% · 평균목표가 여력 +24.0%",
@@ -465,7 +471,9 @@
       "first_sell_target_range_markdown": "**$584.68~$634.44**",
       "recommendation_display": "🟡 AppLovin",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 63.47,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "✅ Alphabet Inc. (Class A)",
@@ -475,7 +483,7 @@
       "three_month_range": "$297.72~$408.61",
       "return_1m_display": "-1.39%",
       "liquidity_display": "$13.05B/일 · 매우활발",
-      "current_position": "중간권 (62.5%)",
+      "current_position": "중간권~고점권 62.5%",
       "avg_daily_range_display": "약±$5.55(±1.51%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 25.2배 · 매출성장 +21.8% · 이익성장 +82.0% · 평균목표가 여력 +17.8%",
@@ -534,7 +542,9 @@
       "first_sell_target_range_markdown": "**$389.05~$416.78**",
       "recommendation_display": "🟡 Alphabet Inc. (Class A)",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 62.5,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "✅ Alphabet Inc. (Class C)",
@@ -544,7 +554,7 @@
       "three_month_range": "$295.42~$404.47",
       "return_1m_display": "-1.53%",
       "liquidity_display": "$8.69B/일 · 매우활발",
-      "current_position": "중간권 (62.5%)",
+      "current_position": "중간권~고점권 62.5%",
       "avg_daily_range_display": "약±$5.35(±1.47%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 25.0배 · 매출성장 +21.8% · 이익성장 +82.0% · 평균목표가 여력 +17.9%",
@@ -603,7 +613,9 @@
       "first_sell_target_range_markdown": "**$385.44~$412.56**",
       "recommendation_display": "🟡 Alphabet Inc. (Class C)",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 62.54,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "✅ Amazon",
@@ -613,7 +625,7 @@
       "three_month_range": "$209.08~$278.56",
       "return_1m_display": "-3.08%",
       "liquidity_display": "$14.97B/일 · 매우활발",
-      "current_position": "중간권 (53.1%)",
+      "current_position": "중간권 53.1%",
       "avg_daily_range_display": "약±$3.91(±1.59%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 24.8배 · 매출성장 +16.6% · 이익성장 +74.8% · 평균목표가 여력 +27.2%",
@@ -672,7 +684,9 @@
       "first_sell_target_range_markdown": "**$261.85~$284.13**",
       "recommendation_display": "🟡 Amazon",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 53.11,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "✅ Booking Holdings",
@@ -682,7 +696,7 @@
       "three_month_range": "$150.14~$193.92",
       "return_1m_display": "+8.63%",
       "liquidity_display": "$1.58B/일 · 매우활발",
-      "current_position": "중상단권 (72.7%)",
+      "current_position": "중간권~고점권 72.7%",
       "avg_daily_range_display": "약±$3.26(±1.79%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 14.8배 · 매출성장 +16.2% · 이익성장 +240.0% · 평균목표가 여력 +23.3%",
@@ -741,7 +755,9 @@
       "first_sell_target_range_markdown": "**$192.87~$205.60**",
       "recommendation_display": "🟡 Booking Holdings",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 72.66,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Ametek",
@@ -751,7 +767,7 @@
       "three_month_range": "$215.27~$244.71",
       "return_1m_display": "+1.29%",
       "liquidity_display": "$295.9M/일 · 보통",
-      "current_position": "중간권 (55.8%)",
+      "current_position": "중간권 55.8%",
       "avg_daily_range_display": "약±$2.57(±1.11%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 26.3배 · 매출성장 +11.3% · 이익성장 +14.5% · 평균목표가 여력 +13.1%",
@@ -810,7 +826,9 @@
       "first_sell_target_range_markdown": "**$245.60~$261.82**",
       "recommendation_display": "🟡 Ametek",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 55.81,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Broadcom",
@@ -820,7 +838,7 @@
       "three_month_range": "$321.80~$495.00",
       "return_1m_display": "-11.49%",
       "liquidity_display": "$11.91B/일 · 매우활발",
-      "current_position": "저점권반등초입 (28.3%)",
+      "current_position": "저점권~중간권 28.3%",
       "avg_daily_range_display": "약±$6.91(±1.86%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 19.1배 · 매출성장 +47.9% · 이익성장 +85.4% · 평균목표가 여력 +41.3%",
@@ -879,7 +897,9 @@
       "first_sell_target_range_markdown": "**$465.30~$504.90**",
       "recommendation_display": "🟡 Broadcom",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 28.28,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Caterpillar Inc.",
@@ -889,7 +909,7 @@
       "three_month_range": "$708.93~$1,073",
       "return_1m_display": "-0.04%",
       "liquidity_display": "$3.85B/일 · 매우활발",
-      "current_position": "중간권 (63.4%)",
+      "current_position": "중간권~고점권 63.4%",
       "avg_daily_range_display": "약±$16.91(±1.80%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 31.1배 · 매출성장 +22.2% · 이익성장 +30.2% · 평균목표가 여력 +1.9%",
@@ -948,7 +968,9 @@
       "first_sell_target_range_markdown": "**$1,009~$1,095**",
       "recommendation_display": "🟡 Caterpillar Inc.",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 63.42,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Analog Devices",
@@ -958,7 +980,7 @@
       "three_month_range": "$321.00~$445.91",
       "return_1m_display": "-11.60%",
       "liquidity_display": "$2.33B/일 · 매우활발",
-      "current_position": "중간권 (46.5%)",
+      "current_position": "중간권 46.5%",
       "avg_daily_range_display": "약±$7.41(±1.95%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 25.6배 · 매출성장 +37.2% · 이익성장 +110.5% · 평균목표가 여력 +19.7%",
@@ -1017,7 +1039,9 @@
       "first_sell_target_range_markdown": "**$419.16~$454.83**",
       "recommendation_display": "🟡 Analog Devices",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 46.46,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Citigroup",
@@ -1027,7 +1051,7 @@
       "three_month_range": "$115.75~$147.96",
       "return_1m_display": "+4.16%",
       "liquidity_display": "$1.96B/일 · 매우활발",
-      "current_position": "중상단권 (77.7%)",
+      "current_position": "중간권~고점권 77.7%",
       "avg_daily_range_display": "약±$1.62(±1.15%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 11.2배 · 매출성장 +15.9% · 이익성장 +56.1% · 평균목표가 여력 +6.4%",
@@ -1086,7 +1110,9 @@
       "first_sell_target_range_markdown": "**$149.22~$159.07**",
       "recommendation_display": "🟡 Citigroup",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 77.68,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 CF Industries",
@@ -1096,7 +1122,7 @@
       "three_month_range": "$100.70~$139.45",
       "return_1m_display": "-2.20%",
       "liquidity_display": "$320.9M/일 · 활발",
-      "current_position": "중간권 (36.8%)",
+      "current_position": "저점권~중간권 36.7%",
       "avg_daily_range_display": "약±$1.98(±1.72%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 10.2배 · 매출성장 +19.4% · 이익성장 +115.1% · 평균목표가 여력 +9.4%",
@@ -1155,7 +1181,9 @@
       "first_sell_target_range_markdown": "**$131.08~$142.24**",
       "recommendation_display": "🟡 CF Industries",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 36.75,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Adobe Inc.",
@@ -1165,7 +1193,7 @@
       "three_month_range": "$190.12~$275.44",
       "return_1m_display": "-14.27%",
       "liquidity_display": "$1.90B/일 · 매우활발",
-      "current_position": "중간권 (36.8%)",
+      "current_position": "저점권~중간권 36.8%",
       "avg_daily_range_display": "약±$4.15(±1.87%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 8.0배 · 매출성장 +12.7% · 이익성장 +7.9% · 평균목표가 여력 +26.7%",
@@ -1224,7 +1252,9 @@
       "first_sell_target_range_markdown": "**$258.91~$280.95**",
       "recommendation_display": "🟡 Adobe Inc.",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 36.83,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Autodesk",
@@ -1234,7 +1264,7 @@
       "three_month_range": "$185.50~$255.14",
       "return_1m_display": "-9.10%",
       "liquidity_display": "$689.4M/일 · 활발",
-      "current_position": "중간권 (38.6%)",
+      "current_position": "저점권~중간권 38.6%",
       "avg_daily_range_display": "약±$4.13(±1.95%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 14.9배 · 매출성장 +18.4% · 이익성장 +231.4% · 평균목표가 여력 +50.0%",
@@ -1293,7 +1323,9 @@
       "first_sell_target_range_markdown": "**$239.83~$260.24**",
       "recommendation_display": "🟡 Autodesk",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 38.6,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Abbott Laboratories",
@@ -1303,7 +1335,7 @@
       "three_month_range": "$81.97~$103.84",
       "return_1m_display": "+5.57%",
       "liquidity_display": "$1.29B/일 · 매우활발",
-      "current_position": "중간권 (63.4%)",
+      "current_position": "중간권~고점권 63.4%",
       "avg_daily_range_display": "약±$1.26(±1.31%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 15.8배 · 매출성장 +7.8% · 이익성장 -19.7% · 평균목표가 여력 +21.8%",
@@ -1362,7 +1394,9 @@
       "first_sell_target_range_markdown": "**$101.59~$108.30**",
       "recommendation_display": "🟡 Abbott Laboratories",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 63.42,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Amphenol",
@@ -1372,7 +1406,7 @@
       "three_month_range": "$118.01~$178.52",
       "return_1m_display": "+8.07%",
       "liquidity_display": "$1.55B/일 · 매우활발",
-      "current_position": "중상단권 (67.1%)",
+      "current_position": "중간권~고점권 67.1%",
       "avg_daily_range_display": "약±$3.16(±2.00%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 27.7배 · 매출성장 +58.4% · 이익성장 +24.1% · 평균목표가 여력 +16.0%",
@@ -1431,7 +1465,9 @@
       "first_sell_target_range_markdown": "**$168.13~$182.09**",
       "recommendation_display": "🟡 Amphenol",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 67.1,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Blackstone Inc.",
@@ -1441,7 +1477,7 @@
       "three_month_range": "$107.03~$133.25",
       "return_1m_display": "+1.97%",
       "liquidity_display": "$631.3M/일 · 활발",
-      "current_position": "중간권 (52.9%)",
+      "current_position": "중간권 52.9%",
       "avg_daily_range_display": "약±$2.02(±1.67%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 16.0배 · 매출성장 +5.7% · 이익성장 +3.9% · 평균목표가 여력 +18.5%",
@@ -1500,7 +1536,9 @@
       "first_sell_target_range_markdown": "**$128.14~$136.61**",
       "recommendation_display": "🟡 Blackstone Inc.",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 52.86,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Ares Management",
@@ -1510,7 +1548,7 @@
       "three_month_range": "$98.44~$141.90",
       "return_1m_display": "-7.51%",
       "liquidity_display": "$308.4M/일 · 활발",
-      "current_position": "중간권 (51.2%)",
+      "current_position": "중간권 51.2%",
       "avg_daily_range_display": "약±$2.68(±2.22%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 16.5배 · 매출성장 +28.3% · 이익성장 +770.5% · 평균목표가 여력 +20.5%",
@@ -1569,7 +1607,9 @@
       "first_sell_target_range_markdown": "**$133.39~$144.74**",
       "recommendation_display": "🟡 Ares Management",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 51.22,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Carvana",
@@ -1579,7 +1619,7 @@
       "three_month_range": "$60.82~$83.91",
       "return_1m_display": "+1.96%",
       "liquidity_display": "$802.7M/일 · 활발",
-      "current_position": "저점권반등초입 (28.9%)",
+      "current_position": "저점권~중간권 28.9%",
       "avg_daily_range_display": "약±$1.99(±2.95%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 31.2배 · 매출성장 +52.0% · 이익성장 +11.9% · 평균목표가 여력 +36.5%",
@@ -1638,7 +1678,9 @@
       "first_sell_target_range_markdown": "**$78.88~$85.59**",
       "recommendation_display": "🟡 Carvana",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 28.89,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Arista Networks",
@@ -1648,7 +1690,7 @@
       "three_month_range": "$127.55~$179.80",
       "return_1m_display": "+0.27%",
       "liquidity_display": "$1.34B/일 · 매우활발",
-      "current_position": "중상단권 (74.5%)",
+      "current_position": "중간권~고점권 74.5%",
       "avg_daily_range_display": "약±$4.13(±2.48%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 37.4배 · 매출성장 +35.1% · 이익성장 +25.0% · 평균목표가 여력 +14.2%",
@@ -1707,7 +1749,9 @@
       "first_sell_target_range_markdown": "**$176.45~$188.10**",
       "recommendation_display": "🟡 Arista Networks",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 74.47,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 CME Group",
@@ -1717,7 +1761,7 @@
       "three_month_range": "$218.31~$312.68",
       "return_1m_display": "-5.98%",
       "liquidity_display": "$1.02B/일 · 매우활발",
-      "current_position": "저점권반등초입 (23.8%)",
+      "current_position": "저점권~중간권 23.8%",
       "avg_daily_range_display": "약±$3.87(±1.61%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 18.6배 · 매출성장 +14.4% · 이익성장 +21.3% · 평균목표가 여력 +23.7%",
@@ -1776,7 +1820,9 @@
       "first_sell_target_range_markdown": "**$293.92~$318.93**",
       "recommendation_display": "🟡 CME Group",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 23.78,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 CBRE Group",
@@ -1786,7 +1832,7 @@
       "three_month_range": "$121.69~$157.60",
       "return_1m_display": "+9.76%",
       "liquidity_display": "$282.1M/일 · 보통",
-      "current_position": "중간권 (61.4%)",
+      "current_position": "중간권~고점권 61.4%",
       "avg_daily_range_display": "약±$1.91(±1.33%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 16.2배 · 매출성장 +18.6% · 이익성장 +98.1% · 평균목표가 여력 +22.7%",
@@ -1845,7 +1891,9 @@
       "first_sell_target_range_markdown": "**$152.35~$162.41**",
       "recommendation_display": "🟡 CBRE Group",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 61.38,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Clorox",
@@ -1855,7 +1903,7 @@
       "three_month_range": "$84.70~$108.89",
       "return_1m_display": "+8.68%",
       "liquidity_display": "$231.7M/일 · 보통",
-      "current_position": "중간권 (52.5%)",
+      "current_position": "중간권 52.5%",
       "avg_daily_range_display": "약±$1.39(±1.42%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 15.6배 · 매출성장 +0.1% · 이익성장 +2.7% · 평균목표가 여력 +8.1%",
@@ -1914,7 +1962,9 @@
       "first_sell_target_range_markdown": "**$103.25~$111.07**",
       "recommendation_display": "🟡 Clorox",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 52.54,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 3M",
@@ -1924,7 +1974,7 @@
       "three_month_range": "$141.39~$169.76",
       "return_1m_display": "+3.43%",
       "liquidity_display": "$628.6M/일 · 활발",
-      "current_position": "중간권 (58.6%)",
+      "current_position": "중간권 58.6%",
       "avg_daily_range_display": "약±$2.17(±1.37%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 16.7배 · 매출성장 +1.3% · 이익성장 -39.7% · 평균목표가 여력 +8.2%",
@@ -1983,7 +2033,9 @@
       "first_sell_target_range_markdown": "**$167.49~$178.55**",
       "recommendation_display": "🟡 3M",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 58.58,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Bristol Myers Squibb",
@@ -1993,7 +2045,7 @@
       "three_month_range": "$53.44~$60.78",
       "return_1m_display": "+2.42%",
       "liquidity_display": "$748.7M/일 · 활발",
-      "current_position": "중간권 (61.7%)",
+      "current_position": "중간권~고점권 61.7%",
       "avg_daily_range_display": "약±$0.72(±1.25%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 9.4배 · 매출성장 +2.6% · 이익성장 +9.2% · 평균목표가 여력 +8.7%",
@@ -2052,7 +2104,9 @@
       "first_sell_target_range_markdown": "**$61.45~$65.51**",
       "recommendation_display": "🟡 Bristol Myers Squibb",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 61.72,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Casey's",
@@ -2062,7 +2116,7 @@
       "three_month_range": "$729.19~$927.85",
       "return_1m_display": "+5.31%",
       "liquidity_display": "$598.0M/일 · 활발",
-      "current_position": "중간권 (36.6%)",
+      "current_position": "저점권~중간권 36.6%",
       "avg_daily_range_display": "약±$16.25(±2.03%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 34.1배 · 매출성장 +14.5% · 이익성장 +66.0% · 평균목표가 여력 +19.0%",
@@ -2121,7 +2175,9 @@
       "first_sell_target_range_markdown": "**$872.18~$946.41**",
       "recommendation_display": "🟡 Casey's",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 36.65,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Applied Materials",
@@ -2131,7 +2187,7 @@
       "three_month_range": "$345.50~$739.67",
       "return_1m_display": "+10.52%",
       "liquidity_display": "$8.00B/일 · 매우활발",
-      "current_position": "중간권 (53.0%)",
+      "current_position": "중간권 53.0%",
       "avg_daily_range_display": "약±$18.15(±3.27%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 33.8배 · 매출성장 +11.4% · 이익성장 +33.5% · 평균목표가 여력 +4.4%",
@@ -2190,7 +2246,9 @@
       "first_sell_target_range_markdown": "**$695.29~$754.46**",
       "recommendation_display": "🟡 Applied Materials",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 53.02,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Atmos Energy",
@@ -2200,7 +2258,7 @@
       "three_month_range": "$166.33~$192.51",
       "return_1m_display": "+5.73%",
       "liquidity_display": "$252.0M/일 · 보통",
-      "current_position": "중간권 (43.0%)",
+      "current_position": "중간권 43.0%",
       "avg_daily_range_display": "약±$1.32(±0.74%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 19.8배 · 매출성장 +0.6% · 이익성장 +14.5% · 평균목표가 여력 +5.4%",
@@ -2259,7 +2317,9 @@
       "first_sell_target_range_markdown": "**$188.23~$200.67**",
       "recommendation_display": "🟡 Atmos Energy",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 42.97,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     },
     {
       "recommend_display": "🟡 Aflac",
@@ -2269,7 +2329,7 @@
       "three_month_range": "$109.08~$122.79",
       "return_1m_display": "+5.38%",
       "liquidity_display": "$320.8M/일 · 활발",
-      "current_position": "상단권부담 (90.5%)",
+      "current_position": "고점권 90.6%",
       "avg_daily_range_display": "약±$1.16(±0.95%)",
       "earnings_guidance_event": "다음 실적일 자료제한 · 가이던스 확인 필요",
       "valuation_growth": "선행PER 16.0배 · 매출성장 +27.9% · 이익성장 +3860.0% · 평균목표가 여력 -7.5%",
@@ -2328,7 +2388,9 @@
       "first_sell_target_range_markdown": "**$128.78~$137.28**",
       "recommendation_display": "🟡 Aflac",
       "supply_burden_keywords": null,
-      "supply_burden_display": "없음"
+      "supply_burden_display": "없음",
+      "current_position_pct": 90.55,
+      "price_zone": "가치매수구간 위 · 1차 익절구간 전"
     }
   ],
   "display_contract_version": "2026-07-09-v7.4-display-normalization",
@@ -2401,7 +2463,9 @@
       "BW발행": "BW",
       "EB발행": "EB",
       "duplicate_aliases": "remove_preserve_meaning"
-    }
+    },
+    "price_position_policy_version": "2026-07-14-v7.8-price-range-position",
+    "request_time_position_recalculation_required": true
   },
   "sector_theme_available": true,
   "sector_theme_nonempty_rows": 30,
@@ -2419,5 +2483,27 @@
     "supply_aliases_deduplicated": true
   },
   "payload_size_limit_bytes": 110000,
-  "payload_size_bytes": 100175
+  "payload_size_bytes": 100171,
+  "price_position_policy": {
+    "version": "2026-07-14-v7.8-price-range-position",
+    "effective_price_priority": [
+      "request_time_price_when_lookup_succeeds",
+      "static_price_when_request_time_lookup_fails"
+    ],
+    "recalculate_after_request_time_overlay": true,
+    "range_position_formula": "(effective_price-low_3m)/(high_3m-low_3m)*100",
+    "clamp_to_zero_hundred": false,
+    "below_low_display": "3개월 저가 대비 X.X% 하회 · 범위위치 -Y.Y%",
+    "above_high_display": "3개월 고가 대비 X.X% 돌파 · 범위위치 1YY.Y%",
+    "static_reference_fields": [
+      "current_position",
+      "current_position_pct",
+      "price_zone"
+    ],
+    "forbidden_displays": [
+      "3개월 저가 하회 0%",
+      "3개월 고가 돌파 100%"
+    ]
+  },
+  "price_position_version": "2026-07-14-v7.8-price-range-position"
 }

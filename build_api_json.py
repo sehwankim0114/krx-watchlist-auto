@@ -995,6 +995,25 @@ def main() -> int:
     )
     # RUNTIME_FRESHNESS_V77_END
 
+    # PRICE_POSITION_V78_BEGIN
+    from apply_price_position_v78 import (
+        apply_price_position_v78,
+    )
+    price_position_result = apply_price_position_v78(
+        ROOT,
+        api_dir=API,
+    )
+    print(
+        "PRICE_POSITION_V78=PASS:"
+        + "rows="
+        + str(price_position_result.get("eligible_rows"))
+        + ":below="
+        + str(price_position_result.get("below_low_rows"))
+        + ":above="
+        + str(price_position_result.get("above_high_rows"))
+    )
+    # PRICE_POSITION_V78_END
+
     print(f"BUILD_ID={build_id}")
     print(f"API_STATUS={overall_status}")
     print(f"API_SYNC_OK={str(api_sync_ok).lower()}")

@@ -1241,6 +1241,42 @@ def main() -> int:
         if not any(item["status"] == "FAIL" for item in report.checks):
             report.fail("checker_local_exception", "로컬 검사 중 예외가 발생했습니다.", {"error": str(exc)})
 
+    # PRICE_POSITION_HEALTH_V78_BEGIN
+    try:
+        from apply_price_position_v78 import (
+            VERSION as PRICE_POSITION_VERSION,
+            audit_api_directory,
+        )
+        price_position = audit_api_directory(
+            root / "api",
+            write_report=False,
+        )
+        if price_position.get("status") == "PASS":
+            report.pass_check(
+                "price_position_v78",
+                "3개월 범위 이탈 위치표시가 정상입니다.",
+                {
+                    "version": PRICE_POSITION_VERSION,
+                    "files_checked": price_position.get("files_checked"),
+                    "eligible_rows": price_position.get("eligible_rows"),
+                    "below_low_rows": price_position.get("below_low_rows"),
+                    "above_high_rows": price_position.get("above_high_rows"),
+                },
+            )
+        else:
+            report.fail(
+                "price_position_v78",
+                "3개월 범위 이탈 위치표시에 모순이 있습니다.",
+                {"errors": price_position.get("errors", [])[:20]},
+            )
+    except Exception as exc:
+        report.fail(
+            "price_position_v78_exception",
+            "V7.8 가격위치 검사 중 예외가 발생했습니다.",
+            {"error": str(exc)},
+        )
+    # PRICE_POSITION_HEALTH_V78_END
+
     if not args.skip_remote and local:
         try:
             validate_worker(args.worker_base, local, report)

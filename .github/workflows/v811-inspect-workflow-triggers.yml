@@ -1,0 +1,71 @@
+name: V811 Inspect Workflow Triggers
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v811-inspect-workflow-triggers
+  cancel-in-progress: true
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+
+    env:
+      PYTHONPYCACHEPREFIX: /tmp/v811_pycache
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install parser
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check PyYAML
+
+      - name: Check diagnostic file
+        run: |
+          set -euo pipefail
+          test -f inspect_workflow_triggers_v811.py
+          test -d .github/workflows
+          echo "V811_PREREQUISITES=OK"
+
+      - name: Compile and self-test
+        run: |
+          set -euo pipefail
+          python -m py_compile inspect_workflow_triggers_v811.py
+          python inspect_workflow_triggers_v811.py --self-test
+
+      - name: Inspect top-level workflow triggers
+        run: |
+          set -euo pipefail
+          python inspect_workflow_triggers_v811.py \
+            --json-out /tmp/workflow_trigger_report_v811.json \
+            | tee /tmp/workflow_trigger_inspection_v811.txt
+          grep -q "WORKFLOW_TRIGGER_INSPECTION=PASS" \
+            /tmp/workflow_trigger_inspection_v811.txt
+          grep -q "DRY_RUN_NO_REPOSITORY_CHANGES=PASS" \
+            /tmp/workflow_trigger_inspection_v811.txt
+
+      - name: Confirm repository unchanged
+        run: |
+          set -euo pipefail
+          echo "WORKTREE_STATUS_BEGIN"
+          git status --porcelain
+          echo "WORKTREE_STATUS_END"
+          if test -n "$(git status --porcelain)"; then
+            echo "::error::Read-only diagnosis changed the repository."
+            exit 1
+          fi
+          echo "V811_READ_ONLY_GUARD=PASS"

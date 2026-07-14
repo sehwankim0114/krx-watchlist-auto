@@ -1,0 +1,234 @@
+name: V77 Runtime Freshness Gate
+
+on:
+  workflow_dispatch:
+  schedule:
+    # KST 매일 00:45 — 새벽 요청 전에 전일 기대 거래일 재판정
+    - cron: "45 15 * * *"
+    # KST 평일 08:35 — 공식 게시 컷오프 직후 재판정
+    - cron: "35 23 * * 0-4"
+    # KST 평일 17:30 — 장후 및 공식수집 결과 재판정
+    - cron: "30 8 * * 1-5"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v77-runtime-freshness-gate
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check required files
+        run: |
+          set -euo pipefail
+          test -f refresh_runtime_freshness_v77.py
+          test -f patch_runtime_freshness_v77.py
+          test -f build_api_json.py
+          test -f docs/stock_table_rules_latest.md
+          test -f api/status.json
+          test -f api/manifest.json
+          echo "V77_PREREQUISITES=OK"
+
+      - name: Install V7.7 into full API build
+        run: |
+          set -euo pipefail
+          python patch_runtime_freshness_v77.py
+          python -m py_compile \
+            refresh_runtime_freshness_v77.py \
+            patch_runtime_freshness_v77.py \
+            build_api_json.py
+          echo "V77_INSTALL=OK"
+
+      - name: Verify stale scenario self-test
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import tempfile
+          from pathlib import Path
+
+          from refresh_runtime_freshness_v77 import refresh_runtime_freshness
+
+          with tempfile.TemporaryDirectory() as tmp:
+              root = Path(tmp)
+              (root / "api").mkdir()
+              (root / "config").mkdir()
+              (root / "config" / "krx_market_holidays.json").write_text(
+                  "[]", encoding="utf-8"
+              )
+              status = {
+                  "api_sync_ok": True,
+                  "official_fresh_now": True,
+                  "kospi_actual_date": "2026-07-08",
+                  "kosdaq_actual_date": "2026-07-08",
+                  "current_price_asof_kst": "2026-07-13T16:10:19+09:00",
+                  "warnings": [],
+              }
+              (root / "api" / "status.json").write_text(
+                  json.dumps(status), encoding="utf-8"
+              )
+              (root / "api" / "manifest.json").write_text(
+                  json.dumps({"api_sync_ok": True}), encoding="utf-8"
+              )
+              table = {
+                  "table_id": "kosdaq_watchlist",
+                  "official_data": {
+                      "kospi_actual_date": "2026-07-08",
+                      "kosdaq_actual_date": "2026-07-08",
+                  },
+                  "rows": [],
+              }
+              (root / "api" / "kosdaq_watchlist.json").write_text(
+                  json.dumps(table), encoding="utf-8"
+              )
+
+              result = refresh_runtime_freshness(
+                  root,
+                  now=__import__("datetime").datetime.fromisoformat(
+                      "2026-07-14T05:13:43+09:00"
+                  ),
+                  persist=True,
+              )
+              assert result["expected_official_trading_date"] == "2026-07-10"
+              assert result["official_fresh_now"] is False
+              assert result["safe_to_analyze_as_latest"] is False
+              assert result["data_lag_trading_days"] == 2
+              assert result["newer_current_price_over_older_analysis"] is True
+              assert result["status"] == (
+                  "STALE_OFFICIAL_WITH_CURRENT_PRICE_OVERLAY"
+              )
+
+          print("V77_STALE_SCENARIO_SELF_TEST=PASS")
+          print("EXPECTED_2026_07_14_0513=2026-07-10")
+          print("OLD_2026_07_08_MARKED_LATEST=false")
+          PY
+
+      - name: Refresh runtime freshness now
+        run: |
+          set -euo pipefail
+          python refresh_runtime_freshness_v77.py --repo-root . \
+            | tee /tmp/runtime_freshness_v77.txt
+          grep -q "RUNTIME_FRESHNESS_V77=PASS" \
+            /tmp/runtime_freshness_v77.txt
+
+      - name: Verify truthful gate and table propagation
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          status = json.loads(
+              Path("api/status.json").read_text(encoding="utf-8")
+          )
+          gate = status.get("runtime_freshness_gate") or {}
+          required = {
+              "version",
+              "evaluated_at_kst",
+              "expected_official_trading_date",
+              "official_fresh_now",
+              "safe_to_analyze_as_latest",
+              "status",
+              "data_lag_trading_days",
+              "analysis_policy",
+          }
+          missing = required - set(gate)
+          if missing:
+              raise SystemExit(f"gate missing={sorted(missing)}")
+          if gate.get("version") != (
+              "2026-07-14-v7.7-runtime-freshness-gate"
+          ):
+              raise SystemExit("gate version mismatch")
+          if status.get("official_fresh_now") != gate.get(
+              "official_fresh_now"
+          ):
+              raise SystemExit("status/gate freshness mismatch")
+          if status.get("safe_to_analyze_as_latest") != gate.get(
+              "safe_to_analyze_as_latest"
+          ):
+              raise SystemExit("status/gate safe mismatch")
+
+          for filename, rows in (
+              ("kospi_watchlist.json", 30),
+              ("kosdaq_watchlist.json", 10),
+          ):
+              payload = json.loads(
+                  (Path("api") / filename).read_text(encoding="utf-8")
+              )
+              if len(payload.get("rows") or []) != rows:
+                  raise SystemExit(f"{filename}: row mismatch")
+              table_gate = payload.get("runtime_freshness_gate") or {}
+              if table_gate.get("evaluated_at_kst") != gate.get(
+                  "evaluated_at_kst"
+              ):
+                  raise SystemExit(f"{filename}: gate not propagated")
+              if payload.get("safe_to_analyze_as_latest") != gate.get(
+                  "safe_to_analyze_as_latest"
+              ):
+                  raise SystemExit(f"{filename}: safe mismatch")
+
+          print("RUNTIME_FRESHNESS_TRUTHFUL=PASS")
+          print(f"RUNTIME_STATUS={gate.get('status')}")
+          print(
+              "SAFE_TO_ANALYZE_AS_LATEST="
+              f"{str(gate.get('safe_to_analyze_as_latest')).lower()}"
+          )
+          print(
+              "DATA_LAG_TRADING_DAYS="
+              f"{gate.get('data_lag_trading_days')}"
+          )
+          print("KOSPI_GATE_PROPAGATION=PASS")
+          print("KOSDAQ_GATE_PROPAGATION=PASS")
+          PY
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          find . -type d -name __pycache__ -prune -exec rm -rf {} +
+          find . -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            refresh_runtime_freshness_v77.py \
+            patch_runtime_freshness_v77.py \
+            build_api_json.py \
+            docs/stock_table_rules_latest.md \
+            api
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Add current-time official freshness gate v7.7"
+          else
+            echo "NO_CHANGES_TO_COMMIT=true"
+          fi
+
+          echo "WORKTREE_AFTER_COMMIT_BEGIN"
+          git status --porcelain
+          echo "WORKTREE_AFTER_COMMIT_END"
+          if test -n "$(git status --porcelain)"; then
+            exit 1
+          fi
+
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+          echo "PUSH_SUCCESS=true"

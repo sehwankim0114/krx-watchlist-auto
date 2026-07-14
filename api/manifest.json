@@ -1,17 +1,17 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260714T195740+0900-aa72e9b60c",
-  "generated_at_kst": "2026-07-14T19:57:40+09:00",
-  "source_commit_sha": "aa72e9b60ce98ecf0edb4cf617a93e9cb51c4ee8",
+  "build_id": "20260715T035454+0900-7a1469eff8",
+  "generated_at_kst": "2026-07-15T03:54:54+09:00",
+  "source_commit_sha": "7a1469eff83f8ac2fcb8599120d008f3cbfe205e",
   "status": "READY",
   "api_sync_ok": true,
   "safe_to_analyze_as_latest": true,
-  "rules_version": "2026-07-14-v7.7-runtime-freshness-gate",
-  "rules_sha256": "96f2beb99166c13ecf1c685aed9ce712a3378a53fa2a6bfee97c6eb4ea358074",
+  "rules_version": "2026-07-14-v8.0-request-time-position-alignment",
+  "rules_sha256": "44e773a99978dfc6bc807177f1e8efbbc4450cbaee744459fe7c11f83d574f5f",
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "sha256": "96f2beb99166c13ecf1c685aed9ce712a3378a53fa2a6bfee97c6eb4ea358074"
+    "version": "2026-07-14-v8.0-request-time-position-alignment",
+    "sha256": "44e773a99978dfc6bc807177f1e8efbbc4450cbaee744459fe7c11f83d574f5f"
   },
   "presentation_policy": {
     "format_contract": "improvement_plan_2_final",
@@ -2774,7 +2774,7 @@
       "compact_payload": true,
       "preferred_default_action": true,
       "operation_id": "getKospiWatchlist",
-      "payload_size_bytes": 57374,
+      "payload_size_bytes": 57392,
       "candidate_analysis_date": "2026-07-13",
       "current_basis_selected": true,
       "presentation_policy": {
@@ -2931,7 +2931,7 @@
       "compact_payload": true,
       "preferred_default_action": true,
       "operation_id": "getKosdaqWatchlist",
-      "payload_size_bytes": 25887,
+      "payload_size_bytes": 25905,
       "candidate_analysis_date": "2026-07-13",
       "current_basis_selected": true,
       "presentation_policy": {
@@ -3159,7 +3159,7 @@
         "api_file": "api/kospi_watchlist.json",
         "operation_id": "getKospiWatchlist",
         "row_count": 30,
-        "payload_size_bytes": 57374,
+        "payload_size_bytes": 57392,
         "candidate_analysis_date": "2026-07-13"
       },
       {
@@ -3167,7 +3167,7 @@
         "api_file": "api/kosdaq_watchlist.json",
         "operation_id": "getKosdaqWatchlist",
         "row_count": 10,
-        "payload_size_bytes": 25887,
+        "payload_size_bytes": 25905,
         "candidate_analysis_date": "2026-07-13"
       }
     ]
@@ -3184,21 +3184,21 @@
         "market_scope": "KR",
         "row_count": 30,
         "sector_theme_nonempty_rows": 0,
-        "payload_size_bytes": 64258
+        "payload_size_bytes": 64276
       },
       {
         "filename": "kosdaq_watchlist.json",
         "market_scope": "KR",
         "row_count": 10,
         "sector_theme_nonempty_rows": 0,
-        "payload_size_bytes": 29539
+        "payload_size_bytes": 29557
       },
       {
         "filename": "us_watchlist.json",
         "market_scope": "US",
         "row_count": 30,
         "sector_theme_nonempty_rows": 30,
-        "payload_size_bytes": 95039
+        "payload_size_bytes": 95057
       }
     ]
   },
@@ -3207,7 +3207,7 @@
     "status": "OK",
     "source": "KRX_KIND_LISTED_COMPANY",
     "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download&searchType=13",
-    "generated_at_kst": "2026-07-14T19:57:40+09:00",
+    "generated_at_kst": "2026-07-15T03:54:55+09:00",
     "cache_mode": "LIVE_REFRESH",
     "regular_session_minutes": 390,
     "column_label": "평균거래량·분당거래금",
@@ -3218,7 +3218,7 @@
         "row_count": 30,
         "sector_theme_matched": 30,
         "sector_theme_coverage_pct": 100.0,
-        "payload_size_bytes": 65873
+        "payload_size_bytes": 65891
       },
       {
         "table_id": "kosdaq_watchlist",
@@ -3226,7 +3226,7 @@
         "row_count": 10,
         "sector_theme_matched": 10,
         "sector_theme_coverage_pct": 100.0,
-        "payload_size_bytes": 31487
+        "payload_size_bytes": 31505
       }
     ]
   },
@@ -3243,7 +3243,7 @@
         "row_count": 30,
         "recommendation_display_changes": 0,
         "normalized_keyword_rows": 29,
-        "payload_size_bytes": 69248,
+        "payload_size_bytes": 69266,
         "payload_size_limit_bytes": 70000
       },
       {
@@ -3252,7 +3252,7 @@
         "row_count": 10,
         "recommendation_display_changes": 0,
         "normalized_keyword_rows": 8,
-        "payload_size_bytes": 33363,
+        "payload_size_bytes": 33381,
         "payload_size_limit_bytes": 50000
       },
       {
@@ -3261,7 +3261,7 @@
         "row_count": 30,
         "recommendation_display_changes": 30,
         "normalized_keyword_rows": 0,
-        "payload_size_bytes": 100213,
+        "payload_size_bytes": 100231,
         "payload_size_limit_bytes": 110000
       }
     ]
@@ -3320,7 +3320,7 @@
   },
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-07-15T01:50:15+09:00",
+    "evaluated_at_kst": "2026-07-15T03:54:54+09:00",
     "publication_cutoff_kst": "08:30",
     "expected_official_trading_date": "2026-07-13",
     "kospi_actual_date": "2026-07-13",

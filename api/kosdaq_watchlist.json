@@ -4,12 +4,12 @@
   "compact_payload": true,
   "preferred_default_action": true,
   "operation_id": "getKosdaqWatchlist",
-  "build_id": "20260714T195740+0900-aa72e9b60c",
+  "build_id": "20260715T035454+0900-7a1469eff8",
   "script": "build_lightweight_watchlist_api_v66.py",
   "table_id": "kosdaq_watchlist",
   "display_name": "코닥표 — 코스닥 분석 후보 10개",
-  "generated_at_kst": "2026-07-14T19:57:40+09:00",
-  "source_commit_sha": "aa72e9b60ce98ecf0edb4cf617a93e9cb51c4ee8",
+  "generated_at_kst": "2026-07-15T03:54:54+09:00",
+  "source_commit_sha": "7a1469eff83f8ac2fcb8599120d008f3cbfe205e",
   "status": "OK",
   "required": false,
   "lightweight_required": true,
@@ -101,7 +101,7 @@
     "source_warning": "",
     "kospi_summary_rows": 925,
     "kosdaq_summary_rows": 1790,
-    "runtime_freshness_evaluated_at_kst": "2026-07-15T01:50:15+09:00",
+    "runtime_freshness_evaluated_at_kst": "2026-07-15T03:54:54+09:00",
     "runtime_freshness_gate_version": "2026-07-14-v7.7-runtime-freshness-gate",
     "data_lag_trading_days": 0
   },
@@ -113,12 +113,12 @@
     "time_after_hours_reflected": null,
     "freshness_mode": "official"
   },
-  "rules_version": "2026-07-14-v7.7-runtime-freshness-gate",
-  "rules_sha256": "96f2beb99166c13ecf1c685aed9ce712a3378a53fa2a6bfee97c6eb4ea358074",
+  "rules_version": "2026-07-14-v8.0-request-time-position-alignment",
+  "rules_sha256": "44e773a99978dfc6bc807177f1e8efbbc4450cbaee744459fe7c11f83d574f5f",
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "sha256": "96f2beb99166c13ecf1c685aed9ce712a3378a53fa2a6bfee97c6eb4ea358074"
+    "version": "2026-07-14-v8.0-request-time-position-alignment",
+    "sha256": "44e773a99978dfc6bc807177f1e8efbbc4450cbaee744459fe7c11f83d574f5f"
   },
   "presentation_policy": {
     "format_contract": "improvement_plan_2_final",
@@ -836,7 +836,7 @@
   "sector_theme_coverage_pct": 100.0,
   "sector_theme_source": "KRX_KIND_LISTED_COMPANY",
   "sector_theme_source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download&searchType=13",
-  "sector_theme_asof_kst": "2026-07-14T19:57:40+09:00",
+  "sector_theme_asof_kst": "2026-07-15T03:54:55+09:00",
   "sector_theme_cache_mode": "LIVE_REFRESH",
   "compact_response_policy": {
     "version": "2026-07-09-v7.2.1-payload-fix",
@@ -855,7 +855,7 @@
     "recommendation": "추천/종목",
     "supply_burden": "수급부담"
   },
-  "payload_size_bytes": 33644,
+  "payload_size_bytes": 33662,
   "display_normalization": {
     "version": "2026-07-09-v7.4-display-normalization",
     "status": "OK",
@@ -875,7 +875,7 @@
   "recommendation_icon_version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-07-15T01:50:15+09:00",
+    "evaluated_at_kst": "2026-07-15T03:54:54+09:00",
     "publication_cutoff_kst": "08:30",
     "expected_official_trading_date": "2026-07-13",
     "kospi_actual_date": "2026-07-13",

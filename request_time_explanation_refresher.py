@@ -39,11 +39,8 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Optional, Sequence, Tuple
 
 
-SCRIPT_VERSION = (
-    "request_time_explanation_refresher.py "
-    "v1.1.0-production-column-compatibility"
-)
-POLICY_VERSION = "2026-07-01-v6.0-request-time-explanation-refresh-v2"
+SCRIPT_VERSION = "request_time_explanation_refresher.py v2.0.2-price-position-self-test-fix"
+POLICY_VERSION = "2026-07-14-v8.0-request-time-position-alignment"
 
 PRICE_STATUS_OK = "OK"
 PRICE_STATUS_FAILED = "FAILED"
@@ -59,11 +56,11 @@ POSITION_LABELS = {
 }
 
 ZONE_LABELS = {
-    "BELOW_BUY_ZONE": "매수구간 아래",
-    "BUY_ZONE": "가치매수구간",
-    "ABOVE_BUY_ZONE": "매수구간 위·익절구간 전",
-    "TAKE_PROFIT_ZONE": "1차 매도·익절구간",
-    "ABOVE_TARGET": "1차 익절가 위",
+    "BELOW_BUY_ZONE": "가치매수구간 아래",
+    "BUY_ZONE": "가치매수구간 안",
+    "ABOVE_BUY_ZONE": "가치매수구간 위 · 1차 익절구간 전",
+    "TAKE_PROFIT_ZONE": "1차 익절구간 진입",
+    "ABOVE_TARGET": "1차 익절구간 상단 돌파",
     "RANGE_UNAVAILABLE": "가격구간 확인 불가",
     "QUOTE_FAILED": "요청시점 현재가 확인 불가",
 }
@@ -106,21 +103,21 @@ CHANGE_PCT_FIELDS = (
 )
 
 LOW_FIELDS = (
-    "low_1m",
-    "low_1m_intraday",
     "low_3m",
     "low_3m_intraday",
     "recent_3m_low",
     "range_low_3m",
+    "low_1m",
+    "low_1m_intraday",
 )
 
 HIGH_FIELDS = (
-    "high_1m",
-    "high_1m_intraday",
     "high_3m",
     "high_3m_intraday",
     "recent_3m_high",
     "range_high_3m",
+    "high_1m",
+    "high_1m_intraday",
 )
 
 BUY_LOW_FIELDS = (
@@ -320,24 +317,91 @@ def position_pct(
         or high <= low
     ):
         return None
-
     return round((price - low) / (high - low) * 100.0, 2)
+
+
+def range_break_status(
+    price: Optional[float],
+    low: Optional[float],
+    high: Optional[float],
+) -> str:
+    if (
+        price is None
+        or low is None
+        or high is None
+        or high <= low
+    ):
+        return "RANGE_UNAVAILABLE"
+    if price < low:
+        return "BELOW_PERIOD_LOW"
+    if price > high:
+        return "ABOVE_PERIOD_HIGH"
+    return "IN_PERIOD_RANGE"
+
+
+def range_break_pct(
+    price: Optional[float],
+    low: Optional[float],
+    high: Optional[float],
+) -> Optional[float]:
+    status = range_break_status(price, low, high)
+    if status == "BELOW_PERIOD_LOW" and low:
+        return round((low - price) / low * 100.0, 2)
+    if status == "ABOVE_PERIOD_HIGH" and high:
+        return round((price - high) / high * 100.0, 2)
+    if status == "IN_PERIOD_RANGE":
+        return 0.0
+    return None
 
 
 def position_label(value: Optional[float]) -> str:
     if value is None:
         return "확인 불가"
-    if value <= 20:
-        return POSITION_LABELS["LOW"]
-    if value <= 35:
-        return POSITION_LABELS["LOW_REBOUND"]
-    if value <= 65:
-        return POSITION_LABELS["MIDDLE"]
-    if value <= 80:
-        return POSITION_LABELS["MID_UPPER"]
-    if value <= 92:
-        return POSITION_LABELS["UPPER_BURDEN"]
-    return POSITION_LABELS["HIGH_OVERHEATED"]
+    if value < 0:
+        return "3개월 저가 하회"
+    if value < 20:
+        return "저점권"
+    if value < 40:
+        return "저점권~중간권"
+    if value < 60:
+        return "중간권"
+    if value < 80:
+        return "중간권~고점권"
+    if value <= 100:
+        return "고점권"
+    return "3개월 고가 돌파"
+
+
+def position_display(
+    price: Optional[float],
+    low: Optional[float],
+    high: Optional[float],
+    value: Optional[float],
+) -> str:
+    if (
+        price is None
+        or low is None
+        or high is None
+        or value is None
+        or high <= low
+    ):
+        return "확인 불가"
+
+    if price < low:
+        below = (low - price) / low * 100.0
+        return (
+            f"3개월 저가 대비 {below:.1f}% 하회"
+            f" · 범위위치 {value:.1f}%"
+        )
+
+    if price > high:
+        above = (price - high) / high * 100.0
+        return (
+            f"3개월 고가 대비 {above:.1f}% 돌파"
+            f" · 범위위치 {value:.1f}%"
+        )
+
+    return f"{position_label(value)} {value:.1f}%"
 
 
 def price_zone(
@@ -527,14 +591,16 @@ def zone_explanation(
 
 
 def position_explanation(
-    value: Optional[float],
-    label: str,
+    display: str,
 ) -> str:
-    if value is None:
-        return "공식 저가·고가 자료가 부족해 현재위치는 확인할 수 없습니다."
+    if display == "확인 불가":
+        return (
+            "공식 저가·고가 자료가 부족해 "
+            "현재위치는 확인할 수 없습니다."
+        )
     return (
-        f"공식 기간 저가~고가 대비 현재위치는 "
-        f"{value:.2f}%({label})입니다."
+        "공식 3개월 저가~고가 대비 현재위치는 "
+        f"{display}입니다."
     )
 
 
@@ -650,7 +716,22 @@ def refresh(
         period_high,
     )
     pos_label = position_label(pos_pct)
-
+    pos_display = position_display(
+        request_price,
+        period_low,
+        period_high,
+        pos_pct,
+    )
+    break_status = range_break_status(
+        request_price,
+        period_low,
+        period_high,
+    )
+    break_pct = range_break_pct(
+        request_price,
+        period_low,
+        period_high,
+    )
     zone = price_zone(
         request_price,
         buy_low,
@@ -683,8 +764,7 @@ def refresh(
         target_high,
     )
     position_reason = position_explanation(
-        pos_pct,
-        pos_label,
+        pos_display,
     )
     move_reason = day_move_text(change)
 
@@ -734,6 +814,9 @@ def refresh(
         ),
         "request_time_position_pct": pos_pct,
         "request_time_position_label": pos_label,
+        "request_time_position_display": pos_display,
+        "request_time_range_break_status": break_status,
+        "request_time_range_break_pct": break_pct,
         "request_time_buy_low": buy_low,
         "request_time_buy_high": buy_high,
         "request_time_buy_range_source": buy_source,
@@ -782,6 +865,9 @@ def policy_payload() -> dict[str, Any]:
             "request_time_gap_pct",
             "request_time_position_pct",
             "request_time_position_label",
+            "request_time_position_display",
+            "request_time_range_break_status",
+            "request_time_range_break_pct",
             "request_time_price_zone",
             "request_time_price_mark",
             "request_time_final_recommendation_mark",
@@ -791,12 +877,13 @@ def policy_payload() -> dict[str, Any]:
             "request_time_final_reason",
         ],
         "position_thresholds_pct": {
-            "저점권": "<=20",
-            "저점권반등초입": ">20 and <=35",
-            "중간권": ">35 and <=65",
-            "중상단권": ">65 and <=80",
-            "상단권부담": ">80 and <=92",
-            "고점권과열": ">92",
+            "3개월 저가 하회": "<0",
+            "저점권": ">=0 and <20",
+            "저점권~중간권": ">=20 and <40",
+            "중간권": ">=40 and <60",
+            "중간권~고점권": ">=60 and <80",
+            "고점권": ">=80 and <=100",
+            "3개월 고가 돌파": ">100",
         },
         "price_zone_order": [
             "BELOW_BUY_ZONE",
@@ -855,7 +942,7 @@ def run_self_test() -> int:
     )
     assert buy["request_time_price_zone"] == "BUY_ZONE"
     assert buy["request_time_final_recommendation_mark"] == "✅"
-    assert buy["request_time_position_label"] == "저점권반등초입"
+    assert buy["request_time_position_label"] == "저점권~중간권"
     assert "가치매수구간" in buy["request_time_price_explanation"]
     assert buy["old_price_dependent_reason_reused"] is False
 
@@ -943,6 +1030,34 @@ def run_self_test() -> int:
         "request_time_final_reason"
     ]
 
+    below_period = refresh(
+        base,
+        {"status": "OK", "price": 70, "change_pct": -1.0},
+    )
+    assert below_period["request_time_position_pct"] == -16.67
+    assert below_period[
+        "request_time_range_break_status"
+    ] == "BELOW_PERIOD_LOW"
+    assert below_period["request_time_range_break_pct"] == 12.5
+    assert below_period["request_time_position_display"] == (
+        "3개월 저가 대비 12.5% 하회 · 범위위치 -16.7%"
+    )
+
+    above_period = refresh(
+        base,
+        {"status": "OK", "price": 150, "change_pct": 1.0},
+    )
+    assert above_period["request_time_position_pct"] == 116.67
+    assert above_period[
+        "request_time_range_break_status"
+    ] == "ABOVE_PERIOD_HIGH"
+    assert above_period["request_time_range_break_pct"] == 7.14
+    assert above_period["request_time_position_display"] == (
+        "3개월 고가 대비 7.1% 돌파 · 범위위치 116.7%"
+    )
+
+    print("V80_LEGACY_SELF_TEST_ALIGNMENT=PASS")
+    print("V80_OUT_OF_RANGE_POSITION=PASS")
     print("SELF_TEST_STATUS=OK")
     print(
         "TESTED="

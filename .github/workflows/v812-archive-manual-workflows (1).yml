@@ -1,0 +1,180 @@
+name: V812 Archive Manual Workflows
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v812-archive-manual-workflows
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+
+    env:
+      TZ: Asia/Seoul
+      PYTHONPYCACHEPREFIX: /tmp/v812_pycache
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install parser
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check PyYAML
+
+      - name: Check V8.1.2 files
+        run: |
+          set -euo pipefail
+          test -f archive_manual_workflows_v812.py
+          test -f validate_api_sync.py
+          test -f .github/workflows/v812-archive-manual-workflows.yml
+          echo "V812_PREREQUISITES=OK"
+
+      - name: Compile and self-test
+        run: |
+          set -euo pipefail
+          python -m py_compile archive_manual_workflows_v812.py
+          python archive_manual_workflows_v812.py --self-test
+
+      - name: Record API checksum before cleanup
+        run: |
+          set -euo pipefail
+          find api -type f -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sha256sum \
+            | awk '{print $1}' \
+            > /tmp/v812_api_before.sha256
+          echo "API_CHECKSUM_BEFORE=$(cat /tmp/v812_api_before.sha256)"
+
+      - name: Archive completed manual workflows
+        run: |
+          set -euo pipefail
+          python archive_manual_workflows_v812.py \
+            | tee /tmp/v812_archive.txt
+          grep -q "V812_PREFLIGHT=PASS" /tmp/v812_archive.txt
+          grep -q "WORKFLOW_MANUAL_ARCHIVE_V812=PASS" \
+            /tmp/v812_archive.txt
+          grep -q "ACTIVE_WORKFLOW_COUNT=8" /tmp/v812_archive.txt
+
+      - name: Verify active operational workflows
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          expected = sorted(
+              [
+                  "build_api_json.yml",
+                  "collect-krx-watchlist.yml",
+                  "dart-fx-exposure-safe.yml",
+                  "maintenance-repair.yml",
+                  "safe-repository-cleanup.yml",
+                  "v6-apply-us-sp500-production.yml",
+                  "v731-daily-integrated-health.yml",
+                  "v77-runtime-freshness-gate.yml",
+              ]
+          )
+          actual = sorted(
+              path.name
+              for pattern in ("*.yml", "*.yaml")
+              for path in Path(".github/workflows").glob(pattern)
+          )
+          assert actual == expected, (actual, expected)
+          print("ACTIVE_WORKFLOW_SET_V812=PASS")
+          print(f"ACTIVE_WORKFLOW_COUNT={len(actual)}")
+          PY
+
+      - name: Confirm API files unchanged
+        run: |
+          set -euo pipefail
+          find api -type f -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sha256sum \
+            | awk '{print $1}' \
+            > /tmp/v812_api_after.sha256
+          diff -u \
+            /tmp/v812_api_before.sha256 \
+            /tmp/v812_api_after.sha256
+          echo "API_FILES_UNCHANGED=PASS"
+
+      - name: Validate production API
+        run: |
+          set -euo pipefail
+          python validate_api_sync.py --api-dir api \
+            | tee /tmp/v812_api_validation.txt
+          grep -q "API_VALIDATION_STATUS=PASS" \
+            /tmp/v812_api_validation.txt
+
+          # validate_api_sync.py refreshes this diagnostic report even when
+          # the API payload is valid. V8.1.2 is a workflow-only cleanup, so
+          # restore the tracked report and prove every API byte is unchanged.
+          git restore --worktree -- api/validation_report.json
+
+          find api -type f -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sha256sum \
+            | awk '{print $1}' \
+            > /tmp/v812_api_after_validation.sha256
+          diff -u \
+            /tmp/v812_api_before.sha256 \
+            /tmp/v812_api_after_validation.sha256
+          echo "API_VALIDATION_REPORT_RESTORED=PASS"
+          echo "API_POST_VALIDATION_UNCHANGED=PASS"
+
+      - name: Commit and push V8.1.2 cleanup
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A \
+            .github/workflows \
+            docs/workflow_archive \
+            archive_manual_workflows_v812.py
+
+          if git diff --cached --quiet; then
+            echo "::error::No workflow archive changes were produced."
+            exit 1
+          fi
+
+          git commit -m \
+            "Archive completed manual workflows v8.1.2"
+
+          echo "WORKTREE_AFTER_COMMIT_BEGIN"
+          git status --porcelain
+          echo "WORKTREE_AFTER_COMMIT_END"
+
+          if test -n "$(git status --porcelain)"; then
+            echo "::error::Uncommitted changes remain."
+            exit 1
+          fi
+
+          git fetch origin main
+          if [ "$(git rev-parse HEAD)" != \
+               "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          else
+            echo "REMOTE_MAIN_CHANGED=false"
+          fi
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"

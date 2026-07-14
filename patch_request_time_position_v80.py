@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-'''Patch request-time position refresh logic to V8.0.'''
+'''V8.0 anchor-fix patch for request-time price-position alignment.'''
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Match
 
 ROOT = Path(__file__).resolve().parent
 TARGET = ROOT / "request_time_explanation_refresher.py"
@@ -14,7 +15,7 @@ RULES = ROOT / "docs" / "stock_table_rules_latest.md"
 VERSION = "2026-07-14-v8.0-request-time-position-alignment"
 SCRIPT_VERSION = (
     "request_time_explanation_refresher.py "
-    "v2.0.0-price-position-alignment"
+    "v2.0.1-price-position-anchor-fix"
 )
 RULE_MARKER = "<!-- REQUEST_TIME_POSITION_V80 -->"
 
@@ -31,7 +32,7 @@ def replace_once(
     label: str,
     flags: int = 0,
 ) -> str:
-    changed, count = re.subn(
+    updated, count = re.subn(
         pattern,
         replacement,
         text,
@@ -40,47 +41,69 @@ def replace_once(
     )
     if count != 1:
         raise PatchError(f"{label} replacement count: {count}")
-    return changed
+    return updated
 
 
-def patch_target() -> None:
-    if not TARGET.exists():
-        raise FileNotFoundError(TARGET)
+def replace_once_func(
+    text: str,
+    pattern: str,
+    replacement,
+    *,
+    label: str,
+    flags: int = 0,
+) -> str:
+    updated, count = re.subn(
+        pattern,
+        replacement,
+        text,
+        count=1,
+        flags=flags,
+    )
+    if count != 1:
+        raise PatchError(f"{label} replacement count: {count}")
+    return updated
 
-    text = TARGET.read_text(encoding="utf-8")
+
+def patch_price_field_priority(text: str) -> str:
+    low_fields = '''LOW_FIELDS = (
+    "low_3m",
+    "low_3m_intraday",
+    "recent_3m_low",
+    "range_low_3m",
+    "low_1m",
+    "low_1m_intraday",
+)'''
+    high_fields = '''HIGH_FIELDS = (
+    "high_3m",
+    "high_3m_intraday",
+    "recent_3m_high",
+    "range_high_3m",
+    "high_1m",
+    "high_1m_intraday",
+)'''
 
     text = replace_once(
         text,
-        r'SCRIPT_VERSION\s*=\s*\(\s*"request_time_explanation_refresher\.py "\s*"[^"]+"\s*\)',
-        f'SCRIPT_VERSION = "{SCRIPT_VERSION}"',
-        label="SCRIPT_VERSION",
-        flags=re.S,
+        r"^LOW_FIELDS\s*=\s*\(.*?^\)",
+        low_fields,
+        label="LOW_FIELDS",
+        flags=re.M | re.S,
     )
     text = replace_once(
         text,
-        r'POLICY_VERSION\s*=\s*"[^"]+"',
-        f'POLICY_VERSION = "{VERSION}"',
-        label="POLICY_VERSION",
+        r"^HIGH_FIELDS\s*=\s*\(.*?^\)",
+        high_fields,
+        label="HIGH_FIELDS",
+        flags=re.M | re.S,
     )
+    return text
 
-    zone_labels = '''ZONE_LABELS = {
-    "BELOW_BUY_ZONE": "가치매수구간 아래",
-    "BUY_ZONE": "가치매수구간 안",
-    "ABOVE_BUY_ZONE": "가치매수구간 위 · 1차 익절구간 전",
-    "TAKE_PROFIT_ZONE": "1차 익절구간 진입",
-    "ABOVE_TARGET": "1차 익절구간 상단 돌파",
-    "RANGE_UNAVAILABLE": "가격구간 확인 불가",
-    "QUOTE_FAILED": "요청시점 현재가 확인 불가",
-}'''
-    text = replace_once(
-        text,
-        r"ZONE_LABELS\s*=\s*\{.*?\n\}",
-        zone_labels,
-        label="ZONE_LABELS",
-        flags=re.S,
-    )
 
-    position_block = r'''def position_pct(
+def patch_position_functions(text: str) -> str:
+    if "def range_break_status(" in text:
+        return text
+
+    block = r'''def position_pct(
     price: Optional[float],
     low: Optional[float],
     high: Optional[float],
@@ -179,15 +202,68 @@ def position_display(
     return f"{position_label(value)} {value:.1f}%"
 '''
 
-    text = replace_once(
+    return replace_once(
         text,
-        r"def position_pct\(.*?(?=\ndef price_zone\()",
-        position_block + "\n",
-        label="position functions",
-        flags=re.S,
+        r"^def position_pct\(.*?(?=^def price_zone\()",
+        block + "\n\n",
+        label="position function block",
+        flags=re.M | re.S,
     )
 
-    position_explanation = r'''def position_explanation(
+
+def patch_refresh_position_block(text: str) -> str:
+    if "pos_display = position_display(" in text:
+        return text
+
+    pattern = (
+        r"(?P<indent>^[ \t]*)"
+        r"pos_pct\s*=\s*position_pct\(\s*"
+        r"request_price\s*,\s*period_low\s*,\s*period_high\s*,?\s*\)"
+        r"\s*"
+        r"(?P=indent)pos_label\s*=\s*position_label\(\s*pos_pct\s*\)"
+        r"\s*"
+        r"(?P=indent)zone\s*=\s*price_zone\("
+    )
+
+    def repl(match: Match[str]) -> str:
+        indent = match.group("indent")
+        return (
+            f"{indent}pos_pct = position_pct(\n"
+            f"{indent}    request_price,\n"
+            f"{indent}    period_low,\n"
+            f"{indent}    period_high,\n"
+            f"{indent})\n"
+            f"{indent}pos_label = position_label(pos_pct)\n"
+            f"{indent}pos_display = position_display(\n"
+            f"{indent}    request_price,\n"
+            f"{indent}    period_low,\n"
+            f"{indent}    period_high,\n"
+            f"{indent}    pos_pct,\n"
+            f"{indent})\n"
+            f"{indent}break_status = range_break_status(\n"
+            f"{indent}    request_price,\n"
+            f"{indent}    period_low,\n"
+            f"{indent}    period_high,\n"
+            f"{indent})\n"
+            f"{indent}break_pct = range_break_pct(\n"
+            f"{indent}    request_price,\n"
+            f"{indent}    period_low,\n"
+            f"{indent}    period_high,\n"
+            f"{indent})\n"
+            f"{indent}zone = price_zone("
+        )
+
+    return replace_once_func(
+        text,
+        pattern,
+        repl,
+        label="refresh position block",
+        flags=re.M | re.S,
+    )
+
+
+def patch_position_explanation(text: str) -> str:
+    function = r'''def position_explanation(
     display: str,
 ) -> str:
     if display == "확인 불가":
@@ -202,103 +278,89 @@ def position_display(
 '''
     text = replace_once(
         text,
-        r"def position_explanation\(.*?(?=\ndef score_text\()",
-        position_explanation + "\n",
-        label="position_explanation",
+        r"^def position_explanation\(.*?(?=^def score_text\()",
+        function + "\n\n",
+        label="position_explanation function",
+        flags=re.M | re.S,
+    )
+
+    if re.search(
+        r"position_reason\s*=\s*position_explanation\(\s*pos_display\s*\)",
+        text,
+        flags=re.S,
+    ):
+        return text
+
+    return replace_once(
+        text,
+        r"position_reason\s*=\s*position_explanation\(\s*"
+        r"pos_pct\s*,\s*pos_label\s*,?\s*\)",
+        "position_reason = position_explanation(\n"
+        "        pos_display,\n"
+        "    )",
+        label="position_explanation call",
         flags=re.S,
     )
 
-    refresh_anchor = '''    pos_pct = position_pct(
-        request_price,
-        period_low,
-        period_high,
-    )
-    pos_label = position_label(pos_pct)
-    zone = price_zone(
-'''
-    refresh_replacement = '''    pos_pct = position_pct(
-        request_price,
-        period_low,
-        period_high,
-    )
-    pos_label = position_label(pos_pct)
-    pos_display = position_display(
-        request_price,
-        period_low,
-        period_high,
-        pos_pct,
-    )
-    break_status = range_break_status(
-        request_price,
-        period_low,
-        period_high,
-    )
-    break_pct = range_break_pct(
-        request_price,
-        period_low,
-        period_high,
-    )
-    zone = price_zone(
-'''
-    if text.count(refresh_anchor) != 1:
-        raise PatchError(
-            f"refresh position anchor count: {text.count(refresh_anchor)}"
-        )
-    text = text.replace(refresh_anchor, refresh_replacement, 1)
 
-    call_anchor = '''    position_reason = position_explanation(
-        pos_pct,
-        pos_label,
-    )
-'''
-    call_replacement = '''    position_reason = position_explanation(
-        pos_display,
-    )
-'''
-    if text.count(call_anchor) != 1:
-        raise PatchError(
-            f"position explanation call count: {text.count(call_anchor)}"
-        )
-    text = text.replace(call_anchor, call_replacement, 1)
+def patch_return_fields(text: str) -> str:
+    if '"request_time_position_display": pos_display' in text:
+        return text
 
-    return_anchor = '''        "request_time_position_pct": pos_pct,
-        "request_time_position_label": pos_label,
-'''
-    return_replacement = '''        "request_time_position_pct": pos_pct,
-        "request_time_position_label": pos_label,
-        "request_time_position_display": pos_display,
-        "request_time_range_break_status": break_status,
-        "request_time_range_break_pct": break_pct,
-'''
-    if text.count(return_anchor) != 1:
-        raise PatchError(
-            f"return fields anchor count: {text.count(return_anchor)}"
-        )
-    text = text.replace(return_anchor, return_replacement, 1)
-
-    refresh_fields_anchor = '''            "request_time_position_pct",
-            "request_time_position_label",
-            "request_time_price_zone",
-'''
-    refresh_fields_replacement = '''            "request_time_position_pct",
-            "request_time_position_label",
-            "request_time_position_display",
-            "request_time_range_break_status",
-            "request_time_range_break_pct",
-            "request_time_price_zone",
-'''
-    if text.count(refresh_fields_anchor) != 1:
-        raise PatchError(
-            "policy refresh fields anchor count: "
-            f"{text.count(refresh_fields_anchor)}"
-        )
-    text = text.replace(
-        refresh_fields_anchor,
-        refresh_fields_replacement,
-        1,
+    pattern = (
+        r'(?P<indent>^[ \t]*)'
+        r'"request_time_position_pct"\s*:\s*pos_pct\s*,\s*'
+        r'(?P=indent)"request_time_position_label"\s*:\s*pos_label\s*,'
     )
 
-    thresholds_replacement = '''"position_thresholds_pct": {
+    def repl(match: Match[str]) -> str:
+        indent = match.group("indent")
+        return (
+            f'{indent}"request_time_position_pct": pos_pct,\n'
+            f'{indent}"request_time_position_label": pos_label,\n'
+            f'{indent}"request_time_position_display": pos_display,\n'
+            f'{indent}"request_time_range_break_status": break_status,\n'
+            f'{indent}"request_time_range_break_pct": break_pct,'
+        )
+
+    return replace_once_func(
+        text,
+        pattern,
+        repl,
+        label="refresh return fields",
+        flags=re.M | re.S,
+    )
+
+
+def patch_policy_payload(text: str) -> str:
+    if '"request_time_position_display",' not in text:
+        pattern = (
+            r'(?P<indent>^[ \t]*)'
+            r'"request_time_position_pct"\s*,\s*'
+            r'(?P=indent)"request_time_position_label"\s*,\s*'
+            r'(?P=indent)"request_time_price_zone"\s*,'
+        )
+
+        def repl(match: Match[str]) -> str:
+            indent = match.group("indent")
+            return (
+                f'{indent}"request_time_position_pct",\n'
+                f'{indent}"request_time_position_label",\n'
+                f'{indent}"request_time_position_display",\n'
+                f'{indent}"request_time_range_break_status",\n'
+                f'{indent}"request_time_range_break_pct",\n'
+                f'{indent}"request_time_price_zone",'
+            )
+
+        text = replace_once_func(
+            text,
+            pattern,
+            repl,
+            label="policy refresh fields",
+            flags=re.M | re.S,
+        )
+
+    thresholds = '''"position_thresholds_pct": {
             "3개월 저가 하회": "<0",
             "저점권": ">=0 and <20",
             "저점권~중간권": ">=20 and <40",
@@ -307,59 +369,138 @@ def position_display(
             "고점권": ">=80 and <=100",
             "3개월 고가 돌파": ">100",
         },'''
+    return replace_once(
+        text,
+        r'"position_thresholds_pct"\s*:\s*\{.*?^\s*\},',
+        thresholds,
+        label="position thresholds",
+        flags=re.M | re.S,
+    )
+
+
+def patch_zone_labels(text: str) -> str:
+    block = '''ZONE_LABELS = {
+    "BELOW_BUY_ZONE": "가치매수구간 아래",
+    "BUY_ZONE": "가치매수구간 안",
+    "ABOVE_BUY_ZONE": "가치매수구간 위 · 1차 익절구간 전",
+    "TAKE_PROFIT_ZONE": "1차 익절구간 진입",
+    "ABOVE_TARGET": "1차 익절구간 상단 돌파",
+    "RANGE_UNAVAILABLE": "가격구간 확인 불가",
+    "QUOTE_FAILED": "요청시점 현재가 확인 불가",
+}'''
+    return replace_once(
+        text,
+        r"^ZONE_LABELS\s*=\s*\{.*?^\}",
+        block,
+        label="ZONE_LABELS",
+        flags=re.M | re.S,
+    )
+
+
+def patch_self_test(text: str) -> str:
+    if "V80_OUT_OF_RANGE_POSITION=PASS" in text:
+        return text
+
+    pattern = r'(?P<indent>^[ \t]*)print\("SELF_TEST_STATUS=OK"\)'
+
+    def repl(match: Match[str]) -> str:
+        indent = match.group("indent")
+        return f'''{indent}below_period = refresh(
+{indent}    base,
+{indent}    {{"status": "OK", "price": 70, "change_pct": -1.0}},
+{indent})
+{indent}assert below_period["request_time_position_pct"] == -16.67
+{indent}assert below_period[
+{indent}    "request_time_range_break_status"
+{indent}] == "BELOW_PERIOD_LOW"
+{indent}assert below_period["request_time_range_break_pct"] == 12.5
+{indent}assert below_period["request_time_position_display"] == (
+{indent}    "3개월 저가 대비 12.5% 하회 · 범위위치 -16.7%"
+{indent})
+
+{indent}above_period = refresh(
+{indent}    base,
+{indent}    {{"status": "OK", "price": 150, "change_pct": 1.0}},
+{indent})
+{indent}assert above_period["request_time_position_pct"] == 116.67
+{indent}assert above_period[
+{indent}    "request_time_range_break_status"
+{indent}] == "ABOVE_PERIOD_HIGH"
+{indent}assert above_period["request_time_range_break_pct"] == 7.14
+{indent}assert above_period["request_time_position_display"] == (
+{indent}    "3개월 고가 대비 7.1% 돌파 · 범위위치 116.7%"
+{indent})
+
+{indent}print("V80_OUT_OF_RANGE_POSITION=PASS")
+{indent}print("SELF_TEST_STATUS=OK")'''
+
+    return replace_once_func(
+        text,
+        pattern,
+        repl,
+        label="self-test marker",
+        flags=re.M,
+    )
+
+
+def patch_target() -> None:
+    if not TARGET.exists():
+        raise FileNotFoundError(TARGET)
+
+    text = TARGET.read_text(encoding="utf-8")
+
     text = replace_once(
         text,
-        r'"position_thresholds_pct":\s*\{.*?\n\s*\},',
-        thresholds_replacement,
-        label="position thresholds",
+        r'SCRIPT_VERSION\s*=\s*\(\s*'
+        r'"request_time_explanation_refresher\.py "\s*"[^"]+"\s*\)',
+        f'SCRIPT_VERSION = "{SCRIPT_VERSION}"',
+        label="SCRIPT_VERSION",
         flags=re.S,
     )
-
-    self_test_anchor = '    print("SELF_TEST_STATUS=OK")\n'
-    self_test_insert = '''    below_period = refresh(
-        base,
-        {"status": "OK", "price": 70, "change_pct": -1.0},
-    )
-    assert below_period["request_time_position_pct"] == -16.67
-    assert below_period[
-        "request_time_range_break_status"
-    ] == "BELOW_PERIOD_LOW"
-    assert below_period["request_time_range_break_pct"] == 12.5
-    assert below_period["request_time_position_display"] == (
-        "3개월 저가 대비 12.5% 하회 · 범위위치 -16.7%"
+    text = replace_once(
+        text,
+        r'POLICY_VERSION\s*=\s*"[^"]+"',
+        f'POLICY_VERSION = "{VERSION}"',
+        label="POLICY_VERSION",
     )
 
-    above_period = refresh(
-        base,
-        {"status": "OK", "price": 150, "change_pct": 1.0},
-    )
-    assert above_period["request_time_position_pct"] == 116.67
-    assert above_period[
-        "request_time_range_break_status"
-    ] == "ABOVE_PERIOD_HIGH"
-    assert above_period["request_time_range_break_pct"] == 7.14
-    assert above_period["request_time_position_display"] == (
-        "3개월 고가 대비 7.1% 돌파 · 범위위치 116.7%"
-    )
+    text = patch_price_field_priority(text)
+    text = patch_zone_labels(text)
+    text = patch_position_functions(text)
+    text = patch_refresh_position_block(text)
+    text = patch_position_explanation(text)
+    text = patch_return_fields(text)
+    text = patch_policy_payload(text)
+    text = patch_self_test(text)
 
-    print("V80_OUT_OF_RANGE_POSITION=PASS")
-    print("SELF_TEST_STATUS=OK")
-'''
-    if text.count(self_test_anchor) != 1:
-        raise PatchError(
-            f"self-test anchor count: {text.count(self_test_anchor)}"
-        )
-    text = text.replace(self_test_anchor, self_test_insert, 1)
-
-    for token in (
+    required = (
         VERSION,
+        "v2.0.1-price-position-anchor-fix",
         "request_time_position_display",
         "request_time_range_break_status",
         "request_time_range_break_pct",
         "V80_OUT_OF_RANGE_POSITION=PASS",
-    ):
+    )
+    for token in required:
         if token not in text:
             raise PatchError(f"required token missing: {token}")
+
+    low_block = re.search(
+        r"^LOW_FIELDS\s*=\s*\(.*?^\)",
+        text,
+        flags=re.M | re.S,
+    )
+    high_block = re.search(
+        r"^HIGH_FIELDS\s*=\s*\(.*?^\)",
+        text,
+        flags=re.M | re.S,
+    )
+    if not low_block or not high_block:
+        raise PatchError("price range field blocks missing")
+    if low_block.group(0).index('"low_3m"') > low_block.group(0).index('"low_1m"'):
+        raise PatchError("3-month low priority was not applied")
+    if high_block.group(0).index('"high_3m"') > high_block.group(0).index('"high_1m"'):
+        raise PatchError("3-month high priority was not applied")
 
     TARGET.write_text(text, encoding="utf-8")
 
@@ -379,7 +520,7 @@ def patch_rules() -> None:
         raise PatchError(f"rules version replacement count: {count}")
 
     if RULE_MARKER not in text:
-        rules_appendix = r'''
+        appendix = r'''
 
 ---
 
@@ -387,37 +528,18 @@ def patch_rules() -> None:
 
 <!-- REQUEST_TIME_POSITION_V80 -->
 
-요청시점 현재가 조회 성공 후에는 정적 `현재위치`를 복사하지 않고
-다음 동적 필드를 다시 계산한다.
+요청시점 현재가 조회 성공 후에는 정적 현재위치를 복사하지 않고
+요청가격으로 현재위치·저가하회율·고가돌파율·가격구간을 다시 계산한다.
 
-- `request_time_position_pct`
-- `request_time_position_label`
-- `request_time_position_display`
-- `request_time_range_break_status`
-- `request_time_range_break_pct`
-- `request_time_price_zone`
-- `request_time_price_zone_label`
+3개월 저가·고가 필드를 1개월 필드보다 우선 사용한다.
 
-범위위치 계산값은 0~100으로 제한하지 않는다.
+- 저가 아래: `3개월 저가 대비 X.X% 하회 · 범위위치 -Y.Y%`
+- 범위 안: `저점권/중간권/고점권 + 범위위치`
+- 고가 위: `3개월 고가 대비 X.X% 돌파 · 범위위치 1YY.Y%`
 
-- 3개월 저가 아래:
-  `3개월 저가 대비 X.X% 하회 · 범위위치 -Y.Y%`
-- 3개월 범위 안:
-  `저점권/중간권/고점권 + 범위위치`
-- 3개월 고가 위:
-  `3개월 고가 대비 X.X% 돌파 · 범위위치 1YY.Y%`
-
-가치매수·익절 위치 문구는 다음으로 통일한다.
-
-- `가치매수구간 아래`
-- `가치매수구간 안`
-- `가치매수구간 위 · 1차 익절구간 전`
-- `1차 익절구간 진입`
-- `1차 익절구간 상단 돌파`
-
-표의 `현재위치`에는 `request_time_position_display`를 우선 사용한다.
+표의 현재위치에는 `request_time_position_display`를 우선 사용한다.
 '''
-        text = text.rstrip() + rules_appendix + "\n"
+        text = text.rstrip() + appendix + "\n"
 
     RULES.write_text(text, encoding="utf-8")
 
@@ -426,6 +548,8 @@ def main() -> int:
     patch_target()
     patch_rules()
     print("PATCH_REQUEST_TIME_POSITION_V80=OK")
+    print("PATCH_ANCHOR_MODE=REGEX_IDENTIFIER_BASED")
+    print("THREE_MONTH_RANGE_PRIORITY=PASS")
     print(f"RULES_VERSION={VERSION}")
     return 0
 

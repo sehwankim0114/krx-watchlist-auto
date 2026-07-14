@@ -1,0 +1,123 @@
+name: V81 Archive Obsolete Workflows
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v81-archive-obsolete-workflows
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Check cleanup files
+        run: |
+          set -euo pipefail
+          test -f archive_obsolete_workflows_v81.py
+          test -f .github/workflows/build_api_json.yml
+          test -f .github/workflows/collect-krx-watchlist.yml
+          test -f .github/workflows/v731-daily-integrated-health.yml
+          echo "V81_PREREQUISITES=OK"
+
+      - name: Compile cleanup script
+        run: |
+          set -euo pipefail
+          python -m py_compile archive_obsolete_workflows_v81.py
+          echo "V81_COMPILE=PASS"
+
+      - name: Archive completed manual workflows
+        run: |
+          set -euo pipefail
+          python archive_obsolete_workflows_v81.py \
+            | tee /tmp/v81_cleanup.txt
+          grep -q "WORKFLOW_ARCHIVE_CLEANUP=PASS" \
+            /tmp/v81_cleanup.txt
+
+      - name: Verify active workflow set
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          expected = sorted(
+              [
+                  "build_api_json.yml",
+                  "collect-krx-watchlist.yml",
+                  "dart-fx-exposure-safe.yml",
+                  "maintenance-repair.yml",
+                  "safe-repository-cleanup.yml",
+                  "v731-daily-integrated-health.yml",
+              ]
+          )
+          actual = sorted(
+              path.name
+              for path in Path(".github/workflows").glob("*.y*ml")
+          )
+          assert actual == expected, (actual, expected)
+          print("ACTIVE_WORKFLOW_SET=PASS")
+          print(f"ACTIVE_WORKFLOW_COUNT={len(actual)}")
+          PY
+
+      - name: Validate production API remains unchanged
+        run: |
+          set -euo pipefail
+          python validate_api_sync.py --api-dir api \
+            | tee /tmp/v81_api_validation.txt
+          grep -q "API_VALIDATION_STATUS=PASS" \
+            /tmp/v81_api_validation.txt
+
+      - name: Commit and push cleanup
+        run: |
+          set -euo pipefail
+
+          find . -type d -name __pycache__ -prune \
+            -exec rm -rf {} +
+          find . -type f \( -name "*.pyc" -o -name "*.pyo" \) \
+            -delete
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A \
+            .github/workflows \
+            docs/workflow_archive \
+            archive_obsolete_workflows_v81.py
+
+          git commit -m \
+            "Archive obsolete one-time workflows v8.1"
+
+          echo "WORKTREE_AFTER_COMMIT_BEGIN"
+          git status --porcelain
+          echo "WORKTREE_AFTER_COMMIT_END"
+
+          if test -n "$(git status --porcelain)"; then
+            echo "::error::Uncommitted changes remain."
+            exit 1
+          fi
+
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"

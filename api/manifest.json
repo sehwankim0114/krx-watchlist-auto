@@ -3,9 +3,9 @@
   "build_id": "20260710T080315+0900-ba0dd40ac2",
   "generated_at_kst": "2026-07-10T08:03:15+09:00",
   "source_commit_sha": "ba0dd40ac2b3031325cd74091e8ddd6867d33e20",
-  "status": "READY",
+  "status": "STALE_OFFICIAL",
   "api_sync_ok": true,
-  "safe_to_analyze_as_latest": true,
+  "safe_to_analyze_as_latest": false,
   "rules_version": "2026-07-10-v7.6.1-financial-payload-compact",
   "rules_sha256": "85b91f0f2657fad6aed51a524a3e2abbb52fbc4c34742aa125f3bb24376e69bc",
   "rules": {
@@ -3265,5 +3265,30 @@
         "payload_size_limit_bytes": 110000
       }
     ]
-  }
+  },
+  "runtime_freshness_gate": {
+    "version": "2026-07-14-v7.7-runtime-freshness-gate",
+    "evaluated_at_kst": "2026-07-14T09:58:35+09:00",
+    "publication_cutoff_kst": "08:30",
+    "expected_official_trading_date": "2026-07-13",
+    "kospi_actual_date": "2026-07-08",
+    "kosdaq_actual_date": "2026-07-08",
+    "same_market_date": true,
+    "official_fresh_now": false,
+    "api_sync_ok": true,
+    "safe_to_analyze_as_latest": false,
+    "status": "STALE_OFFICIAL_WITH_CURRENT_PRICE_OVERLAY",
+    "display_label": "직전 확정 공식자료 + 더 최신 현재가 혼합",
+    "stale_reasons": [
+      "KOSPI_BEHIND_EXPECTED",
+      "KOSDAQ_BEHIND_EXPECTED",
+      "NEWER_REQUEST_PRICE_OVER_OLDER_ANALYSIS"
+    ],
+    "data_lag_trading_days": 3,
+    "current_price_asof_kst": "2026-07-09T21:21:21+09:00",
+    "newer_current_price_over_older_analysis": true,
+    "analysis_policy": "May describe as latest official only when safe_to_analyze_as_latest=true. When false, keep the table available only as the last confirmed reference, show the stale warning, and do not present score/buy/target ranges as current."
+  },
+  "runtime_freshness_gate_version": "2026-07-14-v7.7-runtime-freshness-gate",
+  "official_fresh_now": false
 }

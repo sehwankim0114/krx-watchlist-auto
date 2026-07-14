@@ -976,6 +976,25 @@ def main() -> int:
     )
     # DISPLAY_NORMALIZATION_V74_END
 
+    # RUNTIME_FRESHNESS_V77_BEGIN
+    from refresh_runtime_freshness_v77 import (
+        refresh_runtime_freshness,
+    )
+    runtime_gate = refresh_runtime_freshness(
+        ROOT,
+        now=now,
+        persist=True,
+    )
+    print(
+        "RUNTIME_FRESHNESS_GATE="
+        + str(runtime_gate.get("status"))
+        + ":expected="
+        + str(runtime_gate.get("expected_official_trading_date"))
+        + ":lag="
+        + str(runtime_gate.get("data_lag_trading_days"))
+    )
+    # RUNTIME_FRESHNESS_V77_END
+
     print(f"BUILD_ID={build_id}")
     print(f"API_STATUS={overall_status}")
     print(f"API_SYNC_OK={str(api_sync_ok).lower()}")

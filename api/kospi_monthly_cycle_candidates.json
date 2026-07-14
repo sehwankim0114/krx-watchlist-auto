@@ -151,19 +151,22 @@
     "source_file": "official_data_status_latest.json",
     "source_run_at_kst": "2026-07-09T10:58:55+09:00",
     "source_expected_official_trading_date": "2026-07-08",
-    "computed_expected_official_trading_date": "2026-07-08",
+    "computed_expected_official_trading_date": "2026-07-13",
     "kospi_actual_date": "2026-07-08",
     "kosdaq_actual_date": "2026-07-08",
     "basis_date_for_display": "2026-07-08",
     "same_market_date": true,
     "official_fresh_at_source": true,
-    "official_fresh_now": true,
+    "official_fresh_now": false,
     "collector_return_code": 0,
     "source_status": "FRESH",
-    "source_display_label": "최신 공식판",
-    "source_warning": "",
+    "source_display_label": "직전 확정 공식자료 + 더 최신 현재가 혼합",
+    "source_warning": "KOSPI_BEHIND_EXPECTED;KOSDAQ_BEHIND_EXPECTED;NEWER_REQUEST_PRICE_OVER_OLDER_ANALYSIS",
     "kospi_summary_rows": 925,
-    "kosdaq_summary_rows": 1789
+    "kosdaq_summary_rows": 1789,
+    "runtime_freshness_evaluated_at_kst": "2026-07-14T09:58:35+09:00",
+    "runtime_freshness_gate_version": "2026-07-14-v7.7-runtime-freshness-gate",
+    "data_lag_trading_days": 3
   },
   "current_price_basis": {
     "current_price_asof_kst": "2026-07-09T21:21:21+09:00",
@@ -13298,5 +13301,31 @@
       "score": 42.0,
       "reason": "대형 반복 후보 2회; 평균 29.0거래일 주기; 평균 파동폭 18.61%; 고점권; 고점권 추격주의; 저유동성/매매곤란 주의"
     }
-  ]
+  ],
+  "runtime_freshness_gate": {
+    "version": "2026-07-14-v7.7-runtime-freshness-gate",
+    "evaluated_at_kst": "2026-07-14T09:58:35+09:00",
+    "publication_cutoff_kst": "08:30",
+    "expected_official_trading_date": "2026-07-13",
+    "kospi_actual_date": "2026-07-08",
+    "kosdaq_actual_date": "2026-07-08",
+    "same_market_date": true,
+    "official_fresh_now": false,
+    "api_sync_ok": true,
+    "safe_to_analyze_as_latest": false,
+    "status": "STALE_OFFICIAL_WITH_CURRENT_PRICE_OVERLAY",
+    "display_label": "직전 확정 공식자료 + 더 최신 현재가 혼합",
+    "stale_reasons": [
+      "KOSPI_BEHIND_EXPECTED",
+      "KOSDAQ_BEHIND_EXPECTED",
+      "NEWER_REQUEST_PRICE_OVER_OLDER_ANALYSIS"
+    ],
+    "data_lag_trading_days": 3,
+    "current_price_asof_kst": "2026-07-09T21:21:21+09:00",
+    "newer_current_price_over_older_analysis": true,
+    "analysis_policy": "May describe as latest official only when safe_to_analyze_as_latest=true. When false, keep the table available only as the last confirmed reference, show the stale warning, and do not present score/buy/target ranges as current."
+  },
+  "safe_to_analyze_as_latest": false,
+  "analysis_latest_status": "STALE_OFFICIAL_WITH_CURRENT_PRICE_OVERLAY",
+  "stale_analysis_warning": "분석자료 기준일이 현재 기대 공식 거래일보다 오래되었습니다. 요청시점 현재가가 더 최신이어도 점수·가치매수구간·익절가는 직전 확정 분석 기준이므로 최신 투자판단으로 단정하지 마십시오."
 }

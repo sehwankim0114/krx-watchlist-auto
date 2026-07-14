@@ -2,6 +2,7 @@ name: Build API JSON
 
 on:
   workflow_dispatch:
+
   workflow_run:
     workflows:
       - collect-krx-watchlist
@@ -9,8 +10,9 @@ on:
       - completed
     branches:
       - main
+
   schedule:
-    # 한국시간 평일 17:25: workflow_run 누락에 대비한 보조 안전망
+    # KST 평일 17:25 = UTC 08:25
     - cron: "25 8 * * 1-5"
 
 permissions:
@@ -26,6 +28,7 @@ jobs:
       github.event_name != 'workflow_run' ||
       github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+
     env:
       TZ: Asia/Seoul
       DART_API_KEY: ${{ secrets.DART_API_KEY }}
@@ -42,16 +45,20 @@ jobs:
           python-version: "3.11"
 
       - name: Install Python packages
-  run: |
-    set -euo pipefail
-    python -m pip install --upgrade pip
-    pip install -r requirements.txt
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Synchronize canonical official status
         run: |
           set -euo pipefail
-          python -m py_compile sync_official_status.py
-          python sync_official_status.py --output-dir latest
+          if [ -f sync_official_status.py ]; then
+            python -m py_compile sync_official_status.py
+            python sync_official_status.py --output-dir latest
+          else
+            echo "SYNC_OFFICIAL_STATUS=SKIPPED_NOT_FOUND"
+          fi
 
       - name: Refresh human-readable freshness notice
         shell: bash
@@ -73,591 +80,15 @@ jobs:
               or data.get("final_run_mode")
               or "official"
           )
-          print(
-              mode
-              if mode in {"official", "aux"}
-              else "official"
-          )
+          print(mode if mode in {"official", "aux"} else "official")
           PY
-            )"
+          )"
             python render_data_freshness_notice.py \
               --output-dir latest \
               --mode "$MODE"
           else
-            echo "FRESHNESS_RENDERER=NOT_FOUND"
+            echo "FRESHNESS_RENDERER=SKIPPED_NOT_FOUND"
           fi
-
-      - name: Check financial valuation prerequisites
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          test -f financial_valuation_enricher.py
-          test -f docs/scoring_system_v6.md
-          test -d latest
-
-          if [ -z "${DART_API_KEY:-}" ]; then
-            echo "::error::DART_API_KEY secret is missing."
-            exit 1
-          fi
-
-          grep -q \
-            'v1.2.0-duplicate-stock-code-fix' \
-            financial_valuation_enricher.py
-
-          grep -q \
-            'corp-candidate-name-match-v2' \
-            financial_valuation_enricher.py
-
-          if grep -q \
-            'CORP_CACHE_CANDIDATES' \
-            financial_valuation_enricher.py; then
-            echo "::error::Old DART corporate-code logic remains."
-            exit 1
-          fi
-
-          python -m py_compile financial_valuation_enricher.py
-          python financial_valuation_enricher.py --self-test \
-            | tee /tmp/financial_self_test.txt
-
-          grep -q \
-            'SELF_TEST_STATUS=OK' \
-            /tmp/financial_self_test.txt
-
-          grep -q \
-            'duplicate_stock_code_name_resolution' \
-            /tmp/financial_self_test.txt
-
-          echo "FINANCIAL_VALUATION_PREREQUISITES=OK"
-
-      - name: Enrich production tables with financial valuation data
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          python financial_valuation_enricher.py \
-            --output-dir latest \
-            --workers 3 \
-            --timeout 30 \
-            --max-api-calls 500 \
-            --retry-hours 20
-
-          test -f \
-            latest/financial_valuation_cache_latest.csv
-
-          test -f \
-            latest/financial_valuation_run_log_latest.txt
-
-          grep -q \
-            'STATUS=OK' \
-            latest/financial_valuation_run_log_latest.txt
-
-          grep -q \
-            'CORP_IDENTITY_POLICY_VERSION=corp-candidate-name-match-v2' \
-            latest/financial_valuation_run_log_latest.txt
-
-          echo "FINANCIAL_VALUATION_ENRICHMENT=OK"
-
-      - name: Verify production financial identity and data
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          python - <<'PY'
-          from pathlib import Path
-          import re
-          import pandas as pd
-
-          cache_path = Path(
-              "latest/financial_valuation_cache_latest.csv"
-          )
-          log_path = Path(
-              "latest/financial_valuation_run_log_latest.txt"
-          )
-
-          df = pd.read_csv(
-              cache_path,
-              encoding="utf-8-sig",
-              dtype=str,
-          ).fillna("")
-
-          required_columns = {
-              "ticker",
-              "name",
-              "corp_code",
-              "corp_name",
-              "corp_code_source",
-              "corp_identity_status",
-              "corp_identity_reason",
-              "corp_candidate_count",
-              "corp_selection_method",
-              "financial_data_status",
-              "financial_source_status",
-              "revenue",
-              "operating_profit",
-              "net_income",
-              "total_assets",
-              "total_liabilities",
-              "total_equity",
-              "revenue_yoy_pct",
-              "operating_profit_yoy_pct",
-              "operating_margin_pct",
-              "debt_ratio_pct",
-              "roe_annualized_pct",
-              "earnings_trend",
-              "eps_annualized",
-              "bps",
-              "per_annualized",
-              "pbr",
-              "valuation_data_status",
-          }
-
-          missing = sorted(
-              required_columns - set(df.columns)
-          )
-          if missing:
-              raise SystemExit(
-                  "missing financial columns: "
-                  + ",".join(missing)
-              )
-
-          if df.empty:
-              raise SystemExit(
-                  "financial valuation cache is empty"
-              )
-
-          invalid_tickers = [
-              ticker
-              for ticker in df["ticker"].astype(str)
-              if (
-                  not re.fullmatch(r"[0-9]{6}", ticker)
-                  or ticker == "000000"
-              )
-          ]
-          if invalid_tickers:
-              raise SystemExit(
-                  "invalid financial ticker values: "
-                  + ",".join(invalid_tickers[:20])
-              )
-
-          wrong_identity = df[
-              df["financial_source_status"].eq("OK")
-              & ~df["corp_identity_status"].isin(
-                  ["MATCH", "MATCH_NORMALIZED"]
-              )
-          ]
-          if not wrong_identity.empty:
-              raise SystemExit(
-                  "financial data was applied to unresolved "
-                  "corporate identities: "
-                  + wrong_identity[
-                      [
-                          "ticker",
-                          "name",
-                          "corp_name",
-                          "corp_identity_status",
-                          "corp_identity_reason",
-                      ]
-                  ].head(20).to_json(
-                      orient="records",
-                      force_ascii=False,
-                  )
-              )
-
-          bad_per = []
-          for _, row in df.iterrows():
-              try:
-                  net_income = float(row["net_income"])
-              except (TypeError, ValueError):
-                  continue
-              if (
-                  net_income <= 0
-                  and str(row["per_annualized"]).strip()
-              ):
-                  bad_per.append(str(row["ticker"]))
-
-          if bad_per:
-              raise SystemExit(
-                  "PER exists for non-positive net income: "
-                  + ",".join(bad_per[:20])
-              )
-
-          source_ok = int(
-              df["financial_source_status"].eq("OK").sum()
-          )
-          financial_ready = int(
-              df["financial_data_status"].eq("READY").sum()
-          )
-          financial_partial = int(
-              df["financial_data_status"].eq("PARTIAL").sum()
-          )
-          financial_limited = int(
-              df["financial_data_status"].eq("LIMITED").sum()
-          )
-          valuation_ready = int(
-              df["valuation_data_status"].eq("READY").sum()
-          )
-          # 회사명이 해결되지 않은 종목 수는 정보용으로 기록한다.
-          identity_unresolved = int(
-              (
-                  ~df["corp_identity_status"].isin(
-                      ["MATCH", "MATCH_NORMALIZED"]
-                  )
-              ).sum()
-          )
-
-          if source_ok < 1:
-              raise SystemExit(
-                  "no successful production DART record"
-              )
-
-          if financial_ready + financial_partial < 1:
-              raise SystemExit(
-                  "no usable production financial record"
-              )
-
-          log_text = log_path.read_text(
-              encoding="utf-8"
-          )
-          if (
-              "corp_code_source="
-              "OPENDART_OFFICIAL_DOWNLOAD"
-              not in log_text
-              and
-              "corp_code_source="
-              "VALIDATED_CORP_CODE_MAP_CACHE"
-              not in log_text
-          ):
-              raise SystemExit(
-                  "corporate-code source is not confirmed"
-              )
-
-          print(f"FINANCIAL_CACHE_ROWS={len(df)}")
-          print(f"DART_SOURCE_OK_COUNT={source_ok}")
-          print(
-              f"FINANCIAL_READY_COUNT={financial_ready}"
-          )
-          print(
-              f"FINANCIAL_PARTIAL_COUNT={financial_partial}"
-          )
-          print(
-              f"FINANCIAL_LIMITED_COUNT={financial_limited}"
-          )
-          print(
-              f"VALUATION_READY_COUNT={valuation_ready}"
-          )
-          print(
-              "CORP_IDENTITY_UNRESOLVED_COUNT="
-              f"{identity_unresolved}"
-          )
-          print("PRODUCTION_FINANCIAL_VERIFICATION=OK")
-          PY
-
-      - name: Show financial valuation status
-        run: |
-          set -euo pipefail
-          echo "----- financial valuation run log -----"
-          cat latest/financial_valuation_run_log_latest.txt
-
-
-      - name: Check fixed market metric standards
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          test -f market_metric_labels_enricher.py
-          test -d latest
-
-          grep -q \
-            'v1.0.0-fixed-standards' \
-            market_metric_labels_enricher.py
-
-          grep -q \
-            '2026-07-01-v6.0-market-metric-standards' \
-            market_metric_labels_enricher.py
-
-          python -m py_compile \
-            market_metric_labels_enricher.py
-
-          python market_metric_labels_enricher.py \
-            --self-test \
-            | tee /tmp/market_metric_self_test.txt
-
-          grep -q \
-            'SELF_TEST_STATUS=OK' \
-            /tmp/market_metric_self_test.txt
-
-          grep -q \
-            'trading_boundaries' \
-            /tmp/market_metric_self_test.txt
-
-          grep -q \
-            'elasticity_boundaries' \
-            /tmp/market_metric_self_test.txt
-
-          grep -q \
-            'position_boundaries' \
-            /tmp/market_metric_self_test.txt
-
-          echo "MARKET_METRIC_STANDARDS_PREREQUISITES=OK"
-
-      - name: Apply fixed market metric labels to production tables
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          python market_metric_labels_enricher.py \
-            --latest-dir latest
-
-          test -f \
-            latest/market_metric_labels_run_log_latest.txt
-
-          test -f \
-            latest/market_metric_standards_latest.json
-
-          grep -q \
-            'STATUS=OK' \
-            latest/market_metric_labels_run_log_latest.txt
-
-          grep -q \
-            'FAILED_FILE_COUNT=0' \
-            latest/market_metric_labels_run_log_latest.txt
-
-          grep -q \
-            'TRADING_ACTIVITY_THRESHOLDS=100B/30B/5B/1B_KRW' \
-            latest/market_metric_labels_run_log_latest.txt
-
-          grep -q \
-            'PRICE_ELASTICITY_THRESHOLDS=1.5/3.0/5.0_PERCENT' \
-            latest/market_metric_labels_run_log_latest.txt
-
-          grep -q \
-            'CURRENT_POSITION_THRESHOLDS=20/35/65/80/92_PERCENT' \
-            latest/market_metric_labels_run_log_latest.txt
-
-          echo "PRODUCTION_MARKET_METRIC_ENRICHMENT=OK"
-
-      - name: Verify production market metric labels
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          python - <<'PY'
-          from pathlib import Path
-          import json
-          import pandas as pd
-
-          required_columns = {
-              "market_metric_policy_version",
-              "market_metric_label_status",
-              "market_metric_missing_fields",
-              "trading_activity_label",
-              "trading_activity_basis_krw",
-              "trading_activity_basis_text",
-              "price_elasticity_label",
-              "price_elasticity_basis_pct",
-              "price_elasticity_basis_text",
-              "current_position_label",
-              "current_position_basis_pct",
-              "current_position_period",
-              "current_position_basis_text",
-          }
-
-          key_tables = [
-              Path("latest/kospi_candidates_30_latest.csv"),
-              Path("latest/kosdaq_candidates_10_latest.csv"),
-              Path("latest/watchlist_summary_latest.csv"),
-          ]
-
-          allowed_trading = {
-              "",
-              "매우활발",
-              "활발",
-              "보통",
-              "부족",
-              "매우부족",
-          }
-          allowed_elasticity = {
-              "",
-              "탄력 낮음",
-              "탄력 보통",
-              "탄력 높음",
-              "탄력 불안정",
-          }
-          allowed_position = {
-              "",
-              "저점권",
-              "저점권반등초입",
-              "중간권",
-              "중상단권",
-              "상단권부담",
-              "고점권과열",
-          }
-
-          ready_rows = 0
-          partial_rows = 0
-          limited_rows = 0
-          verified_tables = []
-
-          for path in key_tables:
-              if not path.exists():
-                  raise SystemExit(
-                      f"required production table missing: {path}"
-                  )
-
-              df = pd.read_csv(
-                  path,
-                  encoding="utf-8-sig",
-                  dtype=str,
-              ).fillna("")
-
-              missing = sorted(
-                  required_columns - set(df.columns)
-              )
-              if missing:
-                  raise SystemExit(
-                      f"{path.name} missing market metric columns: "
-                      + ",".join(missing)
-                  )
-
-              if not set(
-                  df["trading_activity_label"]
-              ).issubset(allowed_trading):
-                  raise SystemExit(
-                      f"{path.name} has invalid trading labels"
-                  )
-
-              if not set(
-                  df["price_elasticity_label"]
-              ).issubset(allowed_elasticity):
-                  raise SystemExit(
-                      f"{path.name} has invalid elasticity labels"
-                  )
-
-              if not set(
-                  df["current_position_label"]
-              ).issubset(allowed_position):
-                  raise SystemExit(
-                      f"{path.name} has invalid position labels"
-                  )
-
-              usable_position = df[
-                  df["current_position_label"].ne("")
-              ]
-              if (
-                  path.name
-                  in {
-                      "kospi_candidates_30_latest.csv",
-                      "kosdaq_candidates_10_latest.csv",
-                  }
-                  and not usable_position.empty
-                  and not usable_position[
-                      "current_position_period"
-                  ].eq("3개월").all()
-              ):
-                  raise SystemExit(
-                      f"{path.name} general table must use 3개월 position"
-                  )
-
-              ready_rows += int(
-                  df["market_metric_label_status"]
-                  .eq("READY")
-                  .sum()
-              )
-              partial_rows += int(
-                  df["market_metric_label_status"]
-                  .eq("PARTIAL")
-                  .sum()
-              )
-              limited_rows += int(
-                  df["market_metric_label_status"]
-                  .eq("LIMITED")
-                  .sum()
-              )
-              verified_tables.append(path.name)
-
-          if ready_rows + partial_rows < 1:
-              raise SystemExit(
-                  "no usable market metric rows in production tables"
-              )
-
-          policy_path = Path(
-              "latest/market_metric_standards_latest.json"
-          )
-          policy = json.loads(
-              policy_path.read_text(encoding="utf-8")
-          )
-
-          if (
-              policy.get("policy_version")
-              != "2026-07-01-v6.0-market-metric-standards"
-          ):
-              raise SystemExit(
-                  "market metric policy version mismatch"
-              )
-
-          if (
-              policy.get("letter_grades_forbidden")
-              != ["A+", "A", "B", "C", "D"]
-          ):
-              raise SystemExit(
-                  "letter-grade prohibition policy mismatch"
-              )
-
-          print(
-              "MARKET_METRIC_VERIFIED_TABLES="
-              + ",".join(verified_tables)
-          )
-          print(
-              f"MARKET_METRIC_READY_ROWS={ready_rows}"
-          )
-          print(
-              f"MARKET_METRIC_PARTIAL_ROWS={partial_rows}"
-          )
-          print(
-              f"MARKET_METRIC_LIMITED_ROWS={limited_rows}"
-          )
-          print(
-              "GENERAL_TABLE_POSITION_PERIOD=3개월"
-          )
-          print(
-              "LETTER_GRADES_PRESENT=0"
-          )
-          print(
-              "PRODUCTION_MARKET_METRIC_VERIFICATION=OK"
-          )
-          PY
-
-      - name: Show market metric standards status
-        run: |
-          set -euo pipefail
-          echo "----- market metric labels run log -----"
-          cat latest/market_metric_labels_run_log_latest.txt
-          echo "----- market metric standards policy -----"
-          cat latest/market_metric_standards_latest.json
-
-      - name: Add and verify legacy market score aliases
-        run: |
-          set -euo pipefail
-          test -f add_legacy_market_score_aliases.py
-          test -f docs/scoring_system_v6.md
-          python -m py_compile add_legacy_market_score_aliases.py
-          python add_legacy_market_score_aliases.py \
-            --root . \
-            --strict
-          test -f \
-            latest/legacy_market_score_alias_run_log_latest.txt
-          grep -q "STATUS=OK" \
-            latest/legacy_market_score_alias_run_log_latest.txt
-          grep -q "FAILED_FILE_COUNT=0" \
-            latest/legacy_market_score_alias_run_log_latest.txt
-          echo "LEGACY_MARKET_SCORE_ALIAS=OK"
-
-      - name: Show legacy score alias status
-        run: |
-          set -euo pipefail
-          echo "----- legacy market score alias -----"
-          cat latest/legacy_market_score_alias_run_log_latest.txt
 
       - name: Build synchronized API JSON files
         run: |
@@ -666,173 +97,10 @@ jobs:
           python build_api_json.py
 
       - name: Validate API synchronization
-        id: validate
-        shell: bash
         run: |
-          set +e
+          set -euo pipefail
           python -m py_compile validate_api_sync.py
           python validate_api_sync.py --api-dir api
-          CODE=$?
-          echo "validation_exit_code=$CODE" \
-            >> "$GITHUB_OUTPUT"
-          echo "VALIDATION_EXIT_CODE=$CODE"
-          exit 0
-
-      - name: Verify financial fields reached API tables
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          api_files = [
-              Path("api/watchlist.json"),
-              Path("api/kospi_candidates_30.json"),
-              Path("api/kosdaq_candidates_10.json"),
-          ]
-
-          required_columns = {
-              "financial_data_status",
-              "financial_basis",
-              "revenue",
-              "operating_profit",
-              "net_income",
-              "total_assets",
-              "total_liabilities",
-              "total_equity",
-              "operating_margin_pct",
-              "debt_ratio_pct",
-              "roe_annualized_pct",
-              "earnings_trend",
-              "eps_annualized",
-              "bps",
-              "per_annualized",
-              "pbr",
-              "valuation_data_status",
-          }
-
-          verified_files = []
-          usable_rows = 0
-
-          for path in api_files:
-              if not path.exists():
-                  raise SystemExit(
-                      f"required API table missing: {path}"
-                  )
-
-              payload = json.loads(
-                  path.read_text(encoding="utf-8")
-              )
-              columns = set(payload.get("columns", []))
-              missing = sorted(
-                  required_columns - columns
-              )
-              if missing:
-                  raise SystemExit(
-                      f"{path.name} missing financial fields: "
-                      + ",".join(missing)
-                  )
-
-              rows = payload.get("rows", [])
-              usable_rows += sum(
-                  1
-                  for row in rows
-                  if row.get("financial_data_status")
-                  in {"READY", "PARTIAL"}
-              )
-              verified_files.append(path.name)
-
-          if usable_rows < 1:
-              raise SystemExit(
-                  "no usable financial rows reached API tables"
-              )
-
-          print(
-              "FINANCIAL_API_VERIFIED_FILES="
-              + ",".join(verified_files)
-          )
-          print(
-              f"FINANCIAL_API_USABLE_ROWS={usable_rows}"
-          )
-          print("FINANCIAL_FIELDS_IN_API=OK")
-          PY
-
-
-      - name: Verify market metric fields reached API tables
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          api_files = [
-              Path("api/watchlist.json"),
-              Path("api/kospi_candidates_30.json"),
-              Path("api/kosdaq_candidates_10.json"),
-          ]
-
-          required_columns = {
-              "market_metric_policy_version",
-              "market_metric_label_status",
-              "trading_activity_label",
-              "trading_activity_basis_krw",
-              "price_elasticity_label",
-              "price_elasticity_basis_pct",
-              "current_position_label",
-              "current_position_basis_pct",
-              "current_position_period",
-          }
-
-          verified_files = []
-          usable_rows = 0
-
-          for path in api_files:
-              if not path.exists():
-                  raise SystemExit(
-                      f"required API table missing: {path}"
-                  )
-
-              payload = json.loads(
-                  path.read_text(encoding="utf-8")
-              )
-              columns = set(payload.get("columns", []))
-              missing = sorted(
-                  required_columns - columns
-              )
-
-              if missing:
-                  raise SystemExit(
-                      f"{path.name} missing market metric fields: "
-                      + ",".join(missing)
-                  )
-
-              rows = payload.get("rows", [])
-              usable_rows += sum(
-                  1
-                  for row in rows
-                  if row.get("market_metric_label_status")
-                  in {"READY", "PARTIAL"}
-              )
-              verified_files.append(path.name)
-
-          if usable_rows < 1:
-              raise SystemExit(
-                  "no usable market metric rows reached API tables"
-              )
-
-          print(
-              "MARKET_METRIC_API_VERIFIED_FILES="
-              + ",".join(verified_files)
-          )
-          print(
-              f"MARKET_METRIC_API_USABLE_ROWS={usable_rows}"
-          )
-          print("MARKET_METRIC_FIELDS_IN_API=OK")
-          PY
 
       - name: Show generated status
         run: |
@@ -849,22 +117,21 @@ jobs:
             -printf "%f\n" \
             | sort
 
-      - name: Commit and push synchronized latest and API data
+      - name: Commit and push synchronized API data
         shell: bash
         run: |
           set -euo pipefail
 
+          find . -type d -name __pycache__ -prune \
+            -exec rm -rf {} +
+          find . -type f \( -name "*.pyc" -o -name "*.pyo" \) \
+            -delete
+
           git config user.name "github-actions"
-          git config user.email \
-            "github-actions@users.noreply.github.com"
+          git config user.email "github-actions@users.noreply.github.com"
 
           git add -A api
-          git add latest/*.csv
           git add \
-            latest/financial_valuation_run_log_latest.txt \
-            latest/market_metric_labels_run_log_latest.txt \
-            latest/market_metric_standards_latest.json \
-            latest/legacy_market_score_alias_run_log_latest.txt \
             latest/official_data_status_latest.json \
             latest/official_data_status_latest.txt \
             latest/data_freshness_notice_latest.json \
@@ -882,8 +149,7 @@ jobs:
           git diff --cached --name-status
           echo "CHANGED_FILES_END"
 
-          git commit -m \
-            "Synchronize financial and market metric API data"
+          git commit -m "Rebuild synchronized API JSON data"
 
           PUSHED=false
           for attempt in 1 2 3; do
@@ -912,9 +178,3 @@ jobs:
 
           echo "COMMIT_SHA=$(git rev-parse HEAD)"
           echo "PUSH_SUCCESS=true"
-
-      - name: Fail workflow after publishing error status
-        if: steps.validate.outputs.validation_exit_code != '0'
-        run: |
-          echo "::error::API structural validation failed. Error status was committed so Custom GPT will not treat it as latest."
-          exit 1

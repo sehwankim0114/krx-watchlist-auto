@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "checker_version": "2026-07-10-v7.6.1-financial-payload-health",
-  "generated_at_kst": "2026-07-14T18:51:36+09:00",
+  "generated_at_kst": "2026-07-15T12:38:04+09:00",
   "status": "FAIL",
   "critical_count": 1,
   "warning_count": 0,
   "context": {
-    "build_id": "20260714T185132+0900-f719ef2272",
-    "rules_version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
-    "rules_sha256": "c0a41970aa4256b61a7892fa567c3a1d4e686b4e4c89ae78b25a7c9c284fbf58",
-    "source_commit_sha": "f719ef22726d83d8f833cde61c98be1f514fc81c",
+    "build_id": "20260715T122718+0900-f1995a06ba",
+    "rules_version": "2026-07-14-v7.7-runtime-freshness-gate",
+    "rules_sha256": "5b5fff9a1c6b6f5278c46a507c7db9596509b410e864d54d4847f5e1d7096d16",
+    "source_commit_sha": "f1995a06ba91bfbcae8de52252121f293bd619e6",
     "payload_limits_bytes": {
       "kospi_watchlist": 70000,
       "kosdaq_watchlist": 50000,
@@ -71,7 +71,7 @@
       "severity": "ERROR",
       "message": "kospi_watchlist 응답 크기가 시장별 제한을 넘었습니다.",
       "details": {
-        "bytes": 73978,
+        "bytes": 73878,
         "limit": 70000,
         "market": "KR"
       }
@@ -143,9 +143,8 @@
       "message": "kospi_watchlist 재무수집 상태 집계가 전 행과 일치합니다.",
       "details": {
         "counts": {
-          "LIMITED": 1,
           "PARTIAL": 1,
-          "READY": 28
+          "READY": 29
         },
         "total": 30
       }
@@ -156,7 +155,7 @@
       "severity": "ERROR",
       "message": "kospi_watchlist 재무기준 연결률이 최소 기준 이상입니다.",
       "details": {
-        "covered": 29,
+        "covered": 30,
         "total": 30,
         "minimum": 18,
         "basis_values": [
@@ -170,7 +169,7 @@
       "severity": "ERROR",
       "message": "kospi_watchlist 재무증감률 연결률이 최소 기준 이상입니다.",
       "details": {
-        "covered": 29,
+        "covered": 30,
         "total": 30,
         "minimum": 15
       }
@@ -182,14 +181,13 @@
       "message": "kospi_watchlist 밸류에이션 상태·기준일·PBR 연결이 정상입니다.",
       "details": {
         "status_counts": {
-          "LIMITED_NO_FINANCIAL_DATA": 1,
           "PARTIAL_LOSS_PER_NA": 1,
-          "READY": 28
+          "READY": 29
         },
-        "basis_date": 29,
+        "basis_date": 30,
         "basis_min": "2026-06-30",
-        "basis_max": "2026-07-13",
-        "pbr": 29,
+        "basis_max": "2026-07-14",
+        "pbr": 30,
         "total": 30
       }
     },
@@ -217,7 +215,7 @@
       "severity": "ERROR",
       "message": "kosdaq_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 36614,
+        "bytes": 36316,
         "limit": 50000,
         "market": "KR"
       }
@@ -289,8 +287,7 @@
       "message": "kosdaq_watchlist 재무수집 상태 집계가 전 행과 일치합니다.",
       "details": {
         "counts": {
-          "PARTIAL": 1,
-          "READY": 9
+          "READY": 10
         },
         "total": 10
       }
@@ -332,7 +329,7 @@
         },
         "basis_date": 10,
         "basis_min": "2026-06-30",
-        "basis_max": "2026-07-13",
+        "basis_max": "2026-07-14",
         "pbr": 10,
         "total": 10
       }
@@ -361,7 +358,7 @@
       "severity": "ERROR",
       "message": "us_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 104864,
+        "bytes": 104839,
         "limit": 110000,
         "market": "US"
       }
@@ -402,7 +399,7 @@
       "severity": "ERROR",
       "message": "KRX KIND 전체 섹터 캐시 행 수가 정상입니다.",
       "details": {
-        "row_count": 2727
+        "row_count": 2726
       }
     },
     {
@@ -413,9 +410,9 @@
       "details": {
         "version": "2026-07-14-v7.8-price-range-position",
         "files_checked": 13,
-        "eligible_rows": 219,
-        "below_low_rows": 3,
-        "above_high_rows": 2
+        "eligible_rows": 218,
+        "below_low_rows": 0,
+        "above_high_rows": 5
       }
     },
     {
@@ -434,6 +431,65 @@
           "⚪": 0
         }
       }
+    },
+    {
+      "check_id": "worker_health",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "Cloudflare Worker 상태와 매니페스트 정책이 정상입니다.",
+      "details": {
+        "build_version": "1.3.2-manifest-freshness-merge",
+        "bytes": 1235
+      }
+    },
+    {
+      "check_id": "worker_compact_manifest_size",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "Worker 경량 매니페스트 응답 크기가 안전 범위입니다.",
+      "details": {
+        "bytes": 15582,
+        "limit": 65000
+      }
+    },
+    {
+      "check_id": "worker_compact_manifest_values",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "경량 매니페스트의 핵심 상태값이 정상입니다."
+    },
+    {
+      "check_id": "worker_freshness_source",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "최신성 값 출처가 확인됐습니다.",
+      "details": {
+        "source": "manifest.json"
+      }
+    },
+    {
+      "check_id": "worker_kospi_watchlist",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "경량 매니페스트의 kospi_watchlist 행 수와 상태가 정상입니다."
+    },
+    {
+      "check_id": "worker_kosdaq_watchlist",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "경량 매니페스트의 kosdaq_watchlist 행 수와 상태가 정상입니다."
+    },
+    {
+      "check_id": "worker_us_watchlist",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "경량 매니페스트의 us_watchlist 행 수와 상태가 정상입니다."
+    },
+    {
+      "check_id": "worker_build_id",
+      "status": "PASS",
+      "severity": "ERROR",
+      "message": "Worker 경량 매니페스트 빌드 ID가 저장소와 일치합니다."
     }
   ]
 }

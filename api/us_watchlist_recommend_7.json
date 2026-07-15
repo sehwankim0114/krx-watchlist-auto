@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260715T035454+0900-7a1469eff8",
+  "build_id": "20260715T095939+0900-0fe68362df",
   "script": "build_api_json.py v5.2_recommendation_policy_isolation",
   "table_id": "us_watchlist_recommend_7",
   "display_name": "별도 요청용 미관종표 추천 7",
-  "generated_at_kst": "2026-07-15T03:54:54+09:00",
-  "source_commit_sha": "7a1469eff83f8ac2fcb8599120d008f3cbfe205e",
+  "generated_at_kst": "2026-07-15T09:59:39+09:00",
+  "source_commit_sha": "0fe68362df8d4fd21add894fce01e1ef9186e1b7",
   "required": false,
   "default_output": false,
   "explicit_request_only": true,
@@ -141,24 +141,24 @@
       "mark_only_final_failures_with_white_circle"
     ]
   },
-  "rules_version": "2026-07-14-v8.0-request-time-position-alignment",
-  "rules_sha256": "44e773a99978dfc6bc807177f1e8efbbc4450cbaee744459fe7c11f83d574f5f",
+  "rules_version": "2026-07-14-v7.7-runtime-freshness-gate",
+  "rules_sha256": "5b5fff9a1c6b6f5278c46a507c7db9596509b410e864d54d4847f5e1d7096d16",
   "expected_rows": {
     "exact": 7,
     "minimum": null
   },
   "official_data": {
     "source_file": "official_data_status_latest.json",
-    "source_run_at_kst": "2026-07-14T10:19:02+09:00",
-    "source_expected_official_trading_date": "2026-07-13",
-    "computed_expected_official_trading_date": "2026-07-13",
-    "kospi_actual_date": "2026-07-13",
-    "kosdaq_actual_date": "2026-07-13",
-    "basis_date_for_display": "2026-07-13",
+    "source_run_at_kst": "2026-07-15T09:40:41+09:00",
+    "source_expected_official_trading_date": "2026-07-14",
+    "computed_expected_official_trading_date": "2026-07-14",
+    "kospi_actual_date": "2026-07-14",
+    "kosdaq_actual_date": "2026-07-14",
+    "basis_date_for_display": "2026-07-14",
     "same_market_date": true,
     "official_fresh_at_source": true,
     "official_fresh_now": true,
-    "collector_return_code": null,
+    "collector_return_code": 0,
     "source_status": "FRESH",
     "source_display_label": "최신 공식판",
     "source_warning": "",
@@ -166,7 +166,7 @@
     "kosdaq_summary_rows": 1790
   },
   "current_price_basis": {
-    "current_price_asof_kst": "2026-07-14T19:57:01+09:00",
+    "current_price_asof_kst": "2026-07-15T09:58:39+09:00",
     "current_price_basis_status": "OK",
     "aux_price_count": 100,
     "current_basis_ok_files": 4,
@@ -175,8 +175,8 @@
   },
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-14-v8.0-request-time-position-alignment",
-    "sha256": "44e773a99978dfc6bc807177f1e8efbbc4450cbaee744459fe7c11f83d574f5f"
+    "version": "2026-07-14-v7.7-runtime-freshness-gate",
+    "sha256": "5b5fff9a1c6b6f5278c46a507c7db9596509b410e864d54d4847f5e1d7096d16"
   },
   "status": "OK",
   "source_file": "latest/us_sp500_recommend_7_latest.csv",

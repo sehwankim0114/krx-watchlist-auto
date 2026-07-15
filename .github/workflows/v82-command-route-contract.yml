@@ -1,0 +1,153 @@
+name: V82 Restore 13 Command Route Contract
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v82-command-route-contract
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+
+    env:
+      TZ: Asia/Seoul
+      PYTHONPYCACHEPREFIX: /tmp/v82_pycache
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Python packages
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check -r requirements.txt
+
+      - name: Check V8.2 files
+        run: |
+          set -euo pipefail
+          test -f table_command_routes_v82.py
+          test -f patch_table_command_routes_v82.py
+          test -f validate_table_command_routes_v82.py
+          test -f build_api_json.py
+          test -f validate_api_sync.py
+          test -f .github/workflows/v82-command-route-contract.yml
+          echo "V82_PREREQUISITES=OK"
+
+      - name: Compile and self-test V8.2
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            table_command_routes_v82.py \
+            patch_table_command_routes_v82.py \
+            validate_table_command_routes_v82.py
+          python table_command_routes_v82.py --self-test \
+            | tee /tmp/v82_contract_self_test.txt
+          grep -q "TABLE_COMMAND_ROUTES_V82_SELF_TEST=PASS" \
+            /tmp/v82_contract_self_test.txt
+          python patch_table_command_routes_v82.py --self-test \
+            | tee /tmp/v82_patch_self_test.txt
+          grep -q "PATCH_TABLE_COMMAND_ROUTES_V82_SELF_TEST=PASS" \
+            /tmp/v82_patch_self_test.txt
+
+      - name: Install V8.2 contract
+        run: |
+          set -euo pipefail
+          python patch_table_command_routes_v82.py \
+            | tee /tmp/v82_patch.txt
+          grep -q "TABLE_COMMAND_ROUTE_PATCH_V82=PASS" \
+            /tmp/v82_patch.txt
+          python -m py_compile build_api_json.py
+          echo "V82_INSTALL=PASS"
+
+      - name: Rebuild synchronized API
+        run: |
+          set -euo pipefail
+          python build_api_json.py | tee /tmp/v82_build.txt
+          grep -q "BUILD_ID=" /tmp/v82_build.txt
+          echo "V82_API_REBUILD=PASS"
+
+      - name: Validate 13-command contract
+        run: |
+          set -euo pipefail
+          python validate_table_command_routes_v82.py \
+            | tee /tmp/v82_route_validation.txt
+          grep -q "COMMAND_COUNT=13" /tmp/v82_route_validation.txt
+          grep -q "READY_COUNT=13" /tmp/v82_route_validation.txt
+          grep -q "DUPLICATE_OPERATION_ID_CONFLICTS=0" \
+            /tmp/v82_route_validation.txt
+          grep -q "THIRTEEN_COMMAND_ROUTE_CONTRACT_V82=PASS" \
+            /tmp/v82_route_validation.txt
+
+      - name: Validate production API
+        run: |
+          set -euo pipefail
+          python validate_api_sync.py --api-dir api \
+            | tee /tmp/v82_api_validation.txt
+          grep -q "API_VALIDATION_STATUS=PASS" \
+            /tmp/v82_api_validation.txt
+
+      - name: Commit and push V8.2
+        run: |
+          set -euo pipefail
+
+          find . -type d -name __pycache__ -prune \
+            -exec rm -rf {} +
+          find . -type f \( -name "*.pyc" -o -name "*.pyo" \) \
+            -delete
+
+          # This installer is intentionally one-shot.  Removing it after a
+          # successful validation restores the eight operational workflows.
+          rm -f .github/workflows/v82-command-route-contract.yml
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A \
+            build_api_json.py \
+            table_command_routes_v82.py \
+            patch_table_command_routes_v82.py \
+            validate_table_command_routes_v82.py \
+            api \
+            latest \
+            .github/workflows/v82-command-route-contract.yml
+
+          if git diff --cached --quiet; then
+            echo "::error::No V8.2 changes were produced."
+            exit 1
+          fi
+
+          git commit -m "Restore 13-command route contract v8.2"
+
+          echo "WORKTREE_AFTER_COMMIT_BEGIN"
+          git status --porcelain
+          echo "WORKTREE_AFTER_COMMIT_END"
+          if test -n "$(git status --porcelain)"; then
+            echo "::error::Uncommitted changes remain."
+            exit 1
+          fi
+
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != \
+               "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          else
+            echo "REMOTE_MAIN_CHANGED=false"
+          fi
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"

@@ -71,15 +71,31 @@ def patch_rules() -> None:
     if not RULES.exists():
         raise FileNotFoundError(RULES)
     text = RULES.read_text(encoding="utf-8")
-    text, count = re.subn(
-        r"(- 규칙 버전:\s*`)[^`]+(`)",
-        rf"\g<1>{VERSION}\g<2>",
+    # V822_GLOBAL_RULES_VERSION_PROTECTION
+    version_match = re.search(
+        r"- 규칙 버전:\s*`([^`]+)`",
         text,
-        count=1,
     )
-    if count != 1:
-        raise PatchError(f"규칙 버전 교체 수 오류: {count}")
+    current_version = version_match.group(1) if version_match else ""
 
+    def version_tuple(value: str):
+        match = re.search(r"-v(\d+)\.(\d+)", value)
+        return tuple(map(int, match.groups())) if match else (0, 0)
+
+    if version_tuple(current_version) > (7, 7):
+        print(
+            "PRESERVE_NEWER_GLOBAL_RULES_VERSION="
+            + current_version
+        )
+    else:
+        text, count = re.subn(
+            r"(- 규칙 버전:\s*`)[^`]+(`)",
+            rf"\g<1>{VERSION}\g<2>",
+            text,
+            count=1,
+        )
+        if count != 1:
+            raise PatchError(f"규칙 버전 교체 수 오류: {count}")
     if RULE_MARKER not in text:
         text = text.rstrip() + r'''
 

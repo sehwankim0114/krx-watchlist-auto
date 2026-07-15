@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260715T184915+0900-5e5770c26f",
+  "build_id": "20260715T192720+0900-34198fd694",
   "script": "build_api_json.py v5.2_recommendation_policy_isolation",
   "table_id": "us_watchlist_recommend_7",
   "display_name": "별도 요청용 미관종표 추천 7",
-  "generated_at_kst": "2026-07-15T18:49:15+09:00",
-  "source_commit_sha": "5e5770c26f2514d0076c16672449d683eeb1f8cf",
+  "generated_at_kst": "2026-07-15T19:27:20+09:00",
+  "source_commit_sha": "34198fd69491c819c1ee9be8eaf2f0c89a01e022",
   "required": false,
   "default_output": false,
   "explicit_request_only": true,
@@ -141,8 +141,8 @@
       "mark_only_final_failures_with_white_circle"
     ]
   },
-  "rules_version": "2026-07-14-v7.7-runtime-freshness-gate",
-  "rules_sha256": "5b5fff9a1c6b6f5278c46a507c7db9596509b410e864d54d4847f5e1d7096d16",
+  "rules_version": "2026-07-14-v8.0-request-time-position-alignment",
+  "rules_sha256": "44e773a99978dfc6bc807177f1e8efbbc4450cbaee744459fe7c11f83d574f5f",
   "expected_rows": {
     "exact": 7,
     "minimum": null
@@ -175,8 +175,8 @@
   },
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
-    "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "sha256": "5b5fff9a1c6b6f5278c46a507c7db9596509b410e864d54d4847f5e1d7096d16"
+    "version": "2026-07-14-v8.0-request-time-position-alignment",
+    "sha256": "44e773a99978dfc6bc807177f1e8efbbc4450cbaee744459fe7c11f83d574f5f"
   },
   "status": "OK",
   "source_file": "latest/us_sp500_recommend_7_latest.csv",

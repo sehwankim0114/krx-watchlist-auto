@@ -1,8 +1,8 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260715T174452+0900-0c6c39ae97",
-  "generated_at_kst": "2026-07-15T17:44:52+09:00",
-  "source_commit_sha": "0c6c39ae97ba5a85c8668778a547d82c28251d98",
+  "build_id": "20260715T184915+0900-5e5770c26f",
+  "generated_at_kst": "2026-07-15T18:49:15+09:00",
+  "source_commit_sha": "5e5770c26f2514d0076c16672449d683eeb1f8cf",
   "status": "READY",
   "api_sync_ok": true,
   "safe_to_analyze_as_latest": true,
@@ -3145,6 +3145,264 @@
     "api/stock_table_rules.json",
     "api/validation_report.json"
   ],
+  "command_route_contract": {
+    "schema_version": "8.2",
+    "contract_version": "2026-07-15-v8.2-command-route-contract",
+    "single_action_domain": "https://krx-live-price-ksh.diaconos.workers.dev",
+    "action_domain_count": 1,
+    "raw_github_action_required": false,
+    "command_count": 13,
+    "ready_count": 13,
+    "actual_output_available_count": 13,
+    "structure_ok": true,
+    "intentional_shared_operation_ids": {
+      "getWatchlist": [
+        "관종표",
+        "분석표"
+      ]
+    },
+    "duplicate_operation_id_conflicts": {},
+    "commands": [
+      {
+        "command": "관종표",
+        "table_id": "watchlist",
+        "route_mode": "DIRECT_ACTION",
+        "status": "READY_DIRECT",
+        "operation_id": "getWatchlist",
+        "operation_ids": [
+          "getWatchlist"
+        ],
+        "api_file": "api/watchlist.json",
+        "manifest_collection": "tables",
+        "manifest_id": "watchlist",
+        "actual_output_available": true,
+        "manifest_item_present": true,
+        "data_status": "OK",
+        "row_count": 47
+      },
+      {
+        "command": "분석표",
+        "table_id": "analysis",
+        "source_table_id": "watchlist",
+        "alias_of": "관종표",
+        "route_mode": "ALIAS_RENDER",
+        "status": "READY_ALIAS",
+        "operation_id": "getWatchlist",
+        "operation_ids": [
+          "getWatchlist"
+        ],
+        "api_file": "api/watchlist.json",
+        "manifest_collection": "tables",
+        "manifest_id": "watchlist",
+        "actual_output_available": true,
+        "note": "관종표 데이터를 종목 분석 보기로 출력하는 의도된 별칭",
+        "manifest_item_present": true,
+        "data_status": "OK",
+        "row_count": 47
+      },
+      {
+        "command": "코피표",
+        "table_id": "kospi_watchlist",
+        "route_mode": "DIRECT_ACTION",
+        "status": "READY_DIRECT",
+        "operation_id": "getKospiWatchlist",
+        "operation_ids": [
+          "getKospiWatchlist",
+          "getKospiCandidates"
+        ],
+        "api_file": "api/kospi_watchlist.json",
+        "manifest_collection": "tables",
+        "manifest_id": "kospi_watchlist",
+        "actual_output_available": true,
+        "manifest_item_present": false,
+        "data_status": "MANIFEST_ITEM_NOT_PRESENT"
+      },
+      {
+        "command": "코피표1개월",
+        "table_id": "kospi_1m_candidates_30",
+        "route_mode": "DIRECT_ACTION_WITH_RECOMMENDATION_VIEW",
+        "status": "READY_DIRECT",
+        "operation_id": "getKospiOneMonthCandidates",
+        "operation_ids": [
+          "getKospiOneMonthCandidates",
+          "getKospiOneMonthRecommendations"
+        ],
+        "api_file": "api/kospi_1m_candidates_30.json",
+        "manifest_collection": "tables",
+        "manifest_id": "kospi_1m_candidates_30",
+        "actual_output_available": true,
+        "manifest_item_present": true,
+        "data_status": "OK",
+        "row_count": 30
+      },
+      {
+        "command": "코닥표",
+        "table_id": "kosdaq_watchlist",
+        "route_mode": "DIRECT_ACTION",
+        "status": "READY_DIRECT",
+        "operation_id": "getKosdaqWatchlist",
+        "operation_ids": [
+          "getKosdaqWatchlist",
+          "getKosdaqCandidates"
+        ],
+        "api_file": "api/kosdaq_watchlist.json",
+        "manifest_collection": "tables",
+        "manifest_id": "kosdaq_watchlist",
+        "actual_output_available": true,
+        "manifest_item_present": false,
+        "data_status": "MANIFEST_ITEM_NOT_PRESENT"
+      },
+      {
+        "command": "코닥표1개월",
+        "table_id": "kosdaq_1m_candidates_10",
+        "route_mode": "DIRECT_ACTION_WITH_RECOMMENDATION_VIEW",
+        "status": "READY_DIRECT",
+        "operation_id": "getKosdaqOneMonthCandidates",
+        "operation_ids": [
+          "getKosdaqOneMonthCandidates",
+          "getKosdaqOneMonthRecommendations"
+        ],
+        "api_file": "api/kosdaq_1m_candidates_10.json",
+        "manifest_collection": "tables",
+        "manifest_id": "kosdaq_1m_candidates_10",
+        "actual_output_available": true,
+        "manifest_item_present": true,
+        "data_status": "OK",
+        "row_count": 10
+      },
+      {
+        "command": "코급표",
+        "table_id": "kospi_gainers_1m",
+        "route_mode": "DIRECT_ACTION",
+        "status": "READY_DIRECT",
+        "operation_id": "getKospiGainers",
+        "operation_ids": [
+          "getKospiGainers"
+        ],
+        "api_file": "api/kospi_gainers_1m.json",
+        "manifest_collection": "tables",
+        "manifest_id": "kospi_gainers_1m",
+        "actual_output_available": true,
+        "manifest_item_present": true,
+        "data_status": "OK",
+        "row_count": 20
+      },
+      {
+        "command": "월사이클표",
+        "table_id": "kospi_monthly_cycle",
+        "route_mode": "DIRECT_ACTION",
+        "status": "READY_DIRECT",
+        "operation_id": "getMonthlyCycle",
+        "operation_ids": [
+          "getMonthlyCycle"
+        ],
+        "api_file": "api/kospi_monthly_cycle.json",
+        "manifest_collection": "tables",
+        "manifest_id": "kospi_monthly_cycle",
+        "actual_output_available": true,
+        "manifest_item_present": true,
+        "data_status": "OK",
+        "row_count": 40
+      },
+      {
+        "command": "단상표",
+        "table_id": "kospi_short_term_candidates_30",
+        "route_mode": "DIRECT_ACTION",
+        "status": "READY_DIRECT",
+        "operation_id": "getShortTermCandidates",
+        "operation_ids": [
+          "getShortTermCandidates"
+        ],
+        "api_file": "api/kospi_short_term_candidates_30.json",
+        "manifest_collection": "tables",
+        "manifest_id": "kospi_short_term_candidates_30",
+        "actual_output_available": true,
+        "manifest_item_present": true,
+        "data_status": "OK",
+        "row_count": 30
+      },
+      {
+        "command": "환율약세표",
+        "table_id": "kospi_fx_weakness_candidates_30",
+        "route_mode": "DIRECT_ACTION",
+        "status": "READY_DIRECT",
+        "operation_id": "getFxWeaknessCandidates",
+        "operation_ids": [
+          "getFxWeaknessCandidates"
+        ],
+        "api_file": "api/kospi_fx_weakness_candidates_30.json",
+        "manifest_collection": "tables",
+        "manifest_id": "kospi_fx_weakness_candidates_30",
+        "actual_output_available": true,
+        "manifest_item_present": true,
+        "data_status": "OK",
+        "row_count": 30
+      },
+      {
+        "command": "시장상태표",
+        "table_id": "market_status",
+        "route_mode": "SNAPSHOT_ACTION",
+        "status": "READY_SNAPSHOT",
+        "operation_id": "getMarketStatus",
+        "operation_ids": [
+          "getMarketStatus"
+        ],
+        "api_file": "api/market_status.json",
+        "manifest_collection": "snapshots",
+        "manifest_id": "market_status",
+        "actual_output_available": true,
+        "manifest_item_present": true,
+        "data_status": "OK"
+      },
+      {
+        "command": "보유종목표",
+        "table_id": "holdings_private_runtime",
+        "route_mode": "PRIVATE_RUNTIME_COMPOSITE",
+        "status": "READY_PRIVATE_RUNTIME",
+        "operation_id": "getHoldingsReferenceManifest",
+        "operation_ids": [
+          "getHoldingsReferenceManifest",
+          "getStockReferenceShard"
+        ],
+        "api_file": null,
+        "manifest_collection": null,
+        "manifest_id": null,
+        "actual_output_available": true,
+        "private_runtime_input_required": true,
+        "public_holdings_storage": false,
+        "missing_public_file_is_error": false,
+        "note": "보유수량·매입가는 공개 저장소에 저장하지 않고 대화 시점의 비공개 입력과 공개 종목 참고자료를 런타임에서 결합",
+        "manifest_item_present": false,
+        "data_status": "PRIVATE_INPUT_AT_REQUEST_TIME"
+      },
+      {
+        "command": "미관종표",
+        "table_id": "us_watchlist",
+        "route_mode": "DIRECT_ACTION_WITH_RECOMMENDATION_VIEW",
+        "status": "READY_DIRECT",
+        "operation_id": "getUsWatchlist",
+        "operation_ids": [
+          "getUsWatchlist",
+          "getUsWatchlistRecommendations"
+        ],
+        "api_file": "api/us_watchlist.json",
+        "manifest_collection": "tables",
+        "manifest_id": "us_watchlist",
+        "actual_output_available": true,
+        "manifest_item_present": true,
+        "data_status": "OK",
+        "row_count": 30
+      }
+    ]
+  },
+  "command_route_summary": {
+    "contract_version": "2026-07-15-v8.2-command-route-contract",
+    "command_count": 13,
+    "ready_count": 13,
+    "actual_output_available_count": 13,
+    "structure_ok": true,
+    "single_action_domain": "https://krx-live-price-ksh.diaconos.workers.dev"
+  },
   "lightweight_watchlists": {
     "contract_version": "2026-07-08-v6.6-lightweight-watchlists",
     "preferred_actions": {
@@ -3207,7 +3465,7 @@
     "status": "OK",
     "source": "KRX_KIND_LISTED_COMPANY",
     "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download&searchType=13",
-    "generated_at_kst": "2026-07-15T17:44:52+09:00",
+    "generated_at_kst": "2026-07-15T18:49:16+09:00",
     "cache_mode": "LIVE_REFRESH",
     "regular_session_minutes": 390,
     "column_label": "평균거래량·분당거래금",
@@ -3320,7 +3578,7 @@
   },
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-07-15T17:44:52+09:00",
+    "evaluated_at_kst": "2026-07-15T18:49:15+09:00",
     "publication_cutoff_kst": "08:30",
     "expected_official_trading_date": "2026-07-14",
     "kospi_actual_date": "2026-07-14",

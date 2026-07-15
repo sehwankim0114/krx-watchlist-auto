@@ -29,6 +29,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import pandas as pd
 
+from table_command_routes_v82 import attach_command_route_contract_v82
 try:
     from zoneinfo import ZoneInfo
 except Exception:  # pragma: no cover
@@ -915,6 +916,7 @@ def main() -> int:
             "api/validation_report.json",
         ],
     }
+    manifest_payload = attach_command_route_contract_v82(manifest_payload)
     write_json(API / "manifest.json", manifest_payload)
 
     # LIGHTWEIGHT_WATCHLIST_BUILD_V66_BEGIN

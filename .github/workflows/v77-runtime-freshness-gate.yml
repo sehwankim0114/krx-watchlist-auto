@@ -46,16 +46,6 @@ jobs:
           test -f api/manifest.json
           echo "V77_PREREQUISITES=OK"
 
-      - name: Install V7.7 into full API build
-        run: |
-          set -euo pipefail
-          python patch_runtime_freshness_v77.py
-          python -m py_compile \
-            refresh_runtime_freshness_v77.py \
-            patch_runtime_freshness_v77.py \
-            build_api_json.py
-          echo "V77_INSTALL=OK"
-
       - name: Verify stale scenario self-test
         run: |
           set -euo pipefail
@@ -198,6 +188,52 @@ jobs:
           print("KOSDAQ_GATE_PROPAGATION=PASS")
           PY
 
+      - name: Protect global rules version
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          marker = "V822_GLOBAL_RULES_VERSION_PROTECTION"
+          rules_text = Path(
+              "docs/stock_table_rules_latest.md"
+          ).read_text(encoding="utf-8")
+          match = re.search(
+              r"- 규칙 버전:\s*`([^`]+)`",
+              rules_text,
+          )
+          if not match:
+              raise SystemExit("global rules version header missing")
+          global_version = match.group(1)
+          if global_version == (
+              "2026-07-14-v7.7-runtime-freshness-gate"
+          ):
+              raise SystemExit("global rules version downgraded to V7.7")
+
+          for filename in (
+              "status.json",
+              "stock_table_rules.json",
+              "manifest.json",
+          ):
+              payload = json.loads(
+                  (Path("api") / filename).read_text(encoding="utf-8")
+              )
+              if filename == "manifest.json":
+                  api_version = (payload.get("rules") or {}).get("version")
+              else:
+                  api_version = payload.get("rules_version")
+              if api_version != global_version:
+                  raise SystemExit(
+                      f"{filename}: rules version mismatch "
+                      f"{api_version} != {global_version}"
+                  )
+
+          print(f"{marker}=PASS")
+          print(f"GLOBAL_RULES_VERSION={global_version}")
+          PY
+
       - name: Commit and push
         run: |
           set -euo pipefail
@@ -208,15 +244,10 @@ jobs:
           git config user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add \
-            refresh_runtime_freshness_v77.py \
-            patch_runtime_freshness_v77.py \
-            build_api_json.py \
-            docs/stock_table_rules_latest.md \
-            api
+          git add api
 
           if ! git diff --cached --quiet; then
-            git commit -m "Add current-time official freshness gate v7.7"
+            git commit -m "Refresh current-time official freshness status"
           else
             echo "NO_CHANGES_TO_COMMIT=true"
           fi

@@ -161,8 +161,6 @@ jobs:
           find . -type f \( -name "*.pyc" -o -name "*.pyo" \) \
             -delete
 
-          rm -f .github/workflows/v822-prevent-v77-rules-regression.yml
-
           git config user.name "github-actions[bot]"
           git config user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
@@ -172,8 +170,6 @@ jobs:
             patch_runtime_freshness_v77.py \
             build_api_json.py \
             docs/stock_table_rules_latest.md \
-            .github/workflows/v77-runtime-freshness-gate.yml \
-            .github/workflows/v822-prevent-v77-rules-regression.yml \
             api \
             latest
 
@@ -203,3 +199,4 @@ jobs:
 
           echo "COMMIT_SHA=$(git rev-parse HEAD)"
           echo "PUSH_SUCCESS=true"
+          echo "MANUAL_WORKFLOW_CLEANUP_REQUIRED=true"

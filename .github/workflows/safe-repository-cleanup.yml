@@ -1,5 +1,5 @@
-# V8.2.5 read-only repository audit
-name: Safe repository audit v8.2.5
+# V8.2.6 live read-only repository audit
+name: Safe repository audit v8.2.6
 
 "on":
   workflow_dispatch:
@@ -40,6 +40,21 @@ jobs:
             build_api_json.py \
             build_stock_reference_api.py \
             validate_api_sync.py
+
+          validation_hash_before="$(
+            sha256sum api/validation_report.json | awk '{print $1}'
+          )"
+          python -W error::DeprecationWarning \
+            validate_api_sync.py --check-only
+          validation_hash_after="$(
+            sha256sum api/validation_report.json | awk '{print $1}'
+          )"
+          if test "$validation_hash_before" != \
+            "$validation_hash_after"; then
+            echo "::error::Check-only validation changed the report."
+            exit 1
+          fi
+          echo "LIVE_API_VALIDATION_CHECK_ONLY=PASS"
 
           python - <<'PY'
           from __future__ import annotations
@@ -204,6 +219,20 @@ jobs:
                       "CUSTOM_GPT_INSTRUCTIONS_TOKEN_MISSING=" + token
                   )
 
+          validator_text = (
+              root / "validate_api_sync.py"
+          ).read_text(encoding="utf-8")
+          validator_tokens = (
+              "validate_api_sync.py v1.7_read_only_check_v826",
+              'parser.add_argument("--check-only", action="store_true")',
+              "datetime.now(timezone.utc)",
+          )
+          for token in validator_tokens:
+              if token not in validator_text:
+                  raise SystemExit(
+                      "VALIDATOR_V826_TOKEN_MISSING=" + token
+                  )
+
           readme = (root / "README_사용법.md").read_text(
               encoding="utf-8"
           )
@@ -246,6 +275,7 @@ jobs:
           print("RAW_GITHUB_ACTION_PRESENT=false")
           print("HOLDINGS_EXACT_TICKER_CONTRACT=PASS")
           print("SEPARATE_LIVE_PRICE_SCHEMA_ACTIVE=false")
+          print("VALIDATOR_CHECK_ONLY_MODE=PASS")
           PY
 
           find . -type d -name __pycache__ -prune \

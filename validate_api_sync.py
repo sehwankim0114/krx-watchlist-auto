@@ -14,12 +14,12 @@ import argparse
 import hashlib
 import json
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
 
-SCRIPT_VERSION = "validate_api_sync.py v1.6_unified_action_v825"
+SCRIPT_VERSION = "validate_api_sync.py v1.7_read_only_check_v826"
 
 
 def read_json(path: Path) -> Dict[str, Any]:
@@ -40,6 +40,7 @@ def write_json(path: Path, payload: Dict[str, Any]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--api-dir", default="api")
+    parser.add_argument("--check-only", action="store_true")
     args = parser.parse_args()
 
     api = Path(args.api_dir)
@@ -489,7 +490,9 @@ def main() -> int:
 
     report = {
         "script": SCRIPT_VERSION,
-        "validated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "validated_at": datetime.now(timezone.utc).isoformat(
+            timespec="seconds"
+        ).replace("+00:00", "Z"),
         "status": "PASS" if not errors else "FAIL",
         "build_id": next(iter(build_ids)) if len(build_ids) == 1 else None,
         "api_sync_ok": not errors,
@@ -500,7 +503,8 @@ def main() -> int:
         "errors": errors,
         "warnings": warnings,
     }
-    write_json(api / "validation_report.json", report)
+    if not args.check_only:
+        write_json(api / "validation_report.json", report)
 
     print(f"API_VALIDATION_STATUS={report['status']}")
     print(f"API_VALIDATION_ERROR_COUNT={len(errors)}")

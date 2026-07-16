@@ -14,7 +14,7 @@
 ## 수동 유지보수 워크플로
 
 - `maintenance-repair.yml`: 필요한 경우에만 실행하는 복구 도구
-- `safe-repository-cleanup.yml`: `--check-only` 실시간 API 검증과 미국 운영경로 검사를 포함하고 저장소를 변경하지 않는 읽기 전용 V8.2.7 감사 도구
+- `safe-repository-cleanup.yml`: `--check-only` 실시간 API 검증, 미국 운영경로 및 Worker 원본 회귀검사를 포함하고 저장소를 변경하지 않는 읽기 전용 V8.2.8 감사 도구
 
 일회성 적용 워크플로는 작업 완료 후 `.github/workflows`에서 제거하고, 필요한 기록은 `docs/workflow_archive/`에 보관합니다.
 
@@ -25,6 +25,7 @@
 - `latest/deprecated/`: 현재 분석에 사용하지 않는 구형 상태파일
 - `docs/archive/`: 과거 문서·스키마 기록
 - `docs/workflow_archive/`: 완료된 과거 GitHub Actions 기록
+- `worker/`: 배포된 단일 Action Worker 원본과 회귀검증기
 
 ## 단일 운영 원본
 
@@ -33,6 +34,8 @@
 - 설치용 통합 Action 스키마: `docs/custom_gpt_action_schema.yaml`
 - 개인정보처리방침: `docs/custom_gpt_privacy_policy.md`
 - 보유종목 비저장 계약: `docs/holdings_private_runtime_contract.md`
+- Worker 배포 원본: `worker/krx-live-price-worker.js`
+- Worker 회귀검증기: `worker/validate_worker.mjs`
 
 ## 단일 Worker Action
 

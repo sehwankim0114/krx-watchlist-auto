@@ -1,4 +1,5 @@
-name: V6 Apply US S&P500 Production
+# V8.2.7 stable US production workflow without legacy route patching
+name: US S&P500 Production v8.2.7
 
 on:
   workflow_dispatch:
@@ -56,7 +57,6 @@ jobs:
           required_files=(
             "collect_us_sp500.py"
             "us_sp500_watchlist.py"
-            "patch_us_watchlist_production_routes.py"
             "build_api_json.py"
             "table_route_registry.py"
             "docs/custom_gpt_action_schema.yaml"
@@ -75,14 +75,10 @@ jobs:
           grep -q \
             'v1.0.0-sp500-candidate30-recommend7' \
             us_sp500_watchlist.py
-          grep -q \
-            'v1.0.0-thirteen-of-thirteen' \
-            patch_us_watchlist_production_routes.py
 
           python -m py_compile \
             collect_us_sp500.py \
             us_sp500_watchlist.py \
-            patch_us_watchlist_production_routes.py \
             build_api_json.py \
             table_route_registry.py
 
@@ -101,10 +97,6 @@ jobs:
             --self-test \
             | tee /tmp/us_generator_self_test.txt
 
-          python patch_us_watchlist_production_routes.py \
-            --self-test \
-            | tee /tmp/us_patcher_self_test.txt
-
           grep -q \
             'SELF_TEST_STATUS=OK' \
             /tmp/us_collector_self_test.txt
@@ -117,14 +109,90 @@ jobs:
           grep -q \
             'recommend_subset' \
             /tmp/us_generator_self_test.txt
-          grep -q \
-            'SELF_TEST_STATUS=OK' \
-            /tmp/us_patcher_self_test.txt
-          grep -q \
-            'thirteen_ready_zero_missing' \
-            /tmp/us_patcher_self_test.txt
 
           echo "US_PRODUCTION_SELF_TESTS=OK"
+
+      - name: Verify current unified Action route contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          import yaml
+
+
+          schema_path = Path("docs/custom_gpt_action_schema.yaml")
+          schema_text = schema_path.read_text(encoding="utf-8")
+          schema = yaml.safe_load(schema_text)
+
+          servers = schema.get("servers") or []
+          expected_servers = [{
+              "url": (
+                  "https://krx-live-price-ksh.diaconos.workers.dev"
+              )
+          }]
+          if servers != expected_servers:
+              raise SystemExit(f"Action server mismatch: {servers}")
+          if "https://raw.githubusercontent.com" in schema_text:
+              raise SystemExit("raw GitHub Action server is forbidden")
+
+          operation_ids = []
+          for path_item in (schema.get("paths") or {}).values():
+              for operation in (path_item or {}).values():
+                  if not isinstance(operation, dict):
+                      continue
+                  operation_id = operation.get("operationId")
+                  if operation_id:
+                      operation_ids.append(operation_id)
+          if len(operation_ids) != 30:
+              raise SystemExit(
+                  f"operationId count mismatch: {len(operation_ids)}"
+              )
+          if len(operation_ids) != len(set(operation_ids)):
+              raise SystemExit("duplicate operationId detected")
+          for required in (
+              "getUsWatchlist",
+              "getUsWatchlistRecommendations",
+          ):
+              if operation_ids.count(required) != 1:
+                  raise SystemExit(
+                      f"US operationId mismatch: {required}"
+                  )
+
+          registry = json.loads(
+              Path(
+                  "latest/table_route_registry_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+          counts = registry.get("counts") or {}
+          if counts.get("ready_total") != 13:
+              raise SystemExit("registry ready_total mismatch")
+          if counts.get("missing") != 0:
+              raise SystemExit("registry missing route detected")
+          if counts.get("broken") != 0:
+              raise SystemExit("registry broken route detected")
+          route = next(
+              (
+                  row for row in registry.get("routes") or []
+                  if row.get("route_id") == "us_watchlist"
+              ),
+              None,
+          )
+          if not route or route.get("status") != "READY_DIRECT":
+              raise SystemExit("US route is not READY_DIRECT")
+          if route.get("operation_ids") != ["getUsWatchlist"]:
+              raise SystemExit("US route operationId mismatch")
+
+          print("US_UNIFIED_ACTION_CONTRACT=PASS")
+          print("US_ACTION_OPERATION_ID_COUNT=30")
+          print("US_ACTION_DOMAIN_COUNT=1")
+          print("US_RAW_GITHUB_ACTION_PRESENT=false")
+          print("US_ROUTE_STATUS=READY_DIRECT")
+          print("US_ROUTE_PATCHER_USED=false")
+          PY
 
       - name: Validate complete build in isolated repository
         shell: bash
@@ -142,22 +210,6 @@ jobs:
             /tmp/us_sp500_production_repo/
 
           cd /tmp/us_sp500_production_repo
-
-          python patch_us_watchlist_production_routes.py \
-            --root . \
-            | tee /tmp/isolated_us_patch.txt
-
-          python patch_us_watchlist_production_routes.py \
-            --root . \
-            --check-only \
-            | tee /tmp/isolated_us_patch_check.txt
-
-          grep -q \
-            'US_WATCHLIST_PRODUCTION_PATCH=OK' \
-            /tmp/isolated_us_patch.txt
-          grep -q \
-            'US_WATCHLIST_PRODUCTION_PATCH_STATUS=ALREADY_APPLIED' \
-            /tmp/isolated_us_patch_check.txt
 
           rm -rf .us_build
           mkdir -p .us_build/latest
@@ -416,29 +468,6 @@ jobs:
           print("ISOLATED_ALL_THIRTEEN_COMPLETE=true")
           print("ISOLATED_US_CONTRACTS=OK")
           PY
-
-      - name: Apply production route patch
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          python patch_us_watchlist_production_routes.py \
-            --root . \
-            | tee /tmp/live_us_patch.txt
-
-          python patch_us_watchlist_production_routes.py \
-            --root . \
-            --check-only \
-            | tee /tmp/live_us_patch_check.txt
-
-          grep -q \
-            'US_WATCHLIST_PRODUCTION_PATCH=OK' \
-            /tmp/live_us_patch.txt
-          grep -q \
-            'US_WATCHLIST_PRODUCTION_PATCH_STATUS=ALREADY_APPLIED' \
-            /tmp/live_us_patch_check.txt
-
-          echo "LIVE_US_ROUTE_PATCH=OK"
 
       - name: Collect live US production data
         shell: bash
@@ -732,8 +761,10 @@ jobs:
           )"
 
           {
-            echo "TABLE_SYSTEM_VERSION=V6"
+            echo "TABLE_SYSTEM_VERSION=V8.2.7"
             echo "US_COLLECTION_SCHEDULE_KST=Tuesday-Saturday_07:20"
+            echo "US_ROUTE_PATCHER_USED=false"
+            echo "US_UNIFIED_ACTION_SCHEMA_PRESERVED=true"
             echo "US_CONSTITUENT_SOURCE=$CONSTITUENT_SOURCE"
             echo "US_CONSTITUENT_COUNT=$CONSTITUENT_COUNT"
             echo "US_PRICE_OK_ROWS=$PRICE_OK_ROWS"
@@ -798,7 +829,7 @@ jobs:
           echo "CHANGED_FILES_END"
 
           git commit -m \
-            "Complete US S&P500 production route"
+            "Refresh US S&P500 production outputs v8.2.7"
 
           PUSHED=false
           for attempt in 1 2 3; do

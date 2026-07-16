@@ -327,10 +327,16 @@ jobs:
             exit 0
           fi
 
-          UNSTAGED="$(git status --porcelain | awk '$1 != "M" && $1 != "D" && $1 != "R" {print}')"
-          if test -n "$UNSTAGED"; then
-            echo "::error::Unexpected untracked or unstaged files."
-            printf '%s\n' "$UNSTAGED"
+          if ! git diff --quiet; then
+            echo "::error::Unexpected unstaged tracked-file changes."
+            git diff --name-status
+            exit 1
+          fi
+
+          UNTRACKED="$(git ls-files --others --exclude-standard)"
+          if test -n "$UNTRACKED"; then
+            echo "::error::Unexpected untracked files."
+            printf '%s\n' "$UNTRACKED"
             exit 1
           fi
 

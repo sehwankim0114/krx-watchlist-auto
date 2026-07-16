@@ -1,5 +1,5 @@
-# V8.2.6 live read-only repository audit
-name: Safe repository audit v8.2.6
+# V8.2.7 live read-only repository audit
+name: Safe repository audit v8.2.7
 
 "on":
   workflow_dispatch:
@@ -90,6 +90,33 @@ jobs:
               raise SystemExit(f"MISSING_OPERATIONAL_WORKFLOWS={missing}")
           if unexpected:
               raise SystemExit(f"UNEXPECTED_WORKFLOWS={unexpected}")
+
+          us_workflow_path = (
+              workflow_dir / "v6-apply-us-sp500-production.yml"
+          )
+          us_workflow_text = us_workflow_path.read_text(
+              encoding="utf-8"
+          )
+          us_workflow = yaml.safe_load(us_workflow_text)
+          if us_workflow.get("name") != (
+              "US S&P500 Production v8.2.7"
+          ):
+              raise SystemExit("US_PRODUCTION_WORKFLOW_VERSION_MISMATCH")
+          if "patch_us_watchlist_production_routes.py" in (
+              us_workflow_text
+          ):
+              raise SystemExit("LEGACY_US_ROUTE_PATCHER_STILL_ACTIVE")
+          us_workflow_tokens = (
+              "US_UNIFIED_ACTION_CONTRACT=PASS",
+              "US_ROUTE_PATCHER_USED=false",
+              "TABLE_SYSTEM_VERSION=V8.2.7",
+              'cron: "20 22 * * 1-5"',
+          )
+          for token in us_workflow_tokens:
+              if token not in us_workflow_text:
+                  raise SystemExit(
+                      "US_PRODUCTION_WORKFLOW_TOKEN_MISSING=" + token
+                  )
 
           def read_json(path: Path) -> dict:
               value = json.loads(path.read_text(encoding="utf-8"))
@@ -276,6 +303,8 @@ jobs:
           print("HOLDINGS_EXACT_TICKER_CONTRACT=PASS")
           print("SEPARATE_LIVE_PRICE_SCHEMA_ACTIVE=false")
           print("VALIDATOR_CHECK_ONLY_MODE=PASS")
+          print("US_PRODUCTION_NO_LEGACY_PATCHER=PASS")
+          print("US_PRODUCTION_UNIFIED_ACTION_CONTRACT=PASS")
           PY
 
           find . -type d -name __pycache__ -prune \

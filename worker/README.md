@@ -3,7 +3,7 @@
 이 폴더는 Custom GPT 단일 Action 도메인의 배포 원본과 회귀검증기를 보관합니다.
 
 - 배포 도메인: `https://krx-live-price-ksh.diaconos.workers.dev`
-- 현재 배포 계약: `1.3.6-us-watchlist-compact`
+- 현재 배포 계약: `1.3.7-table-response-compact`
 - 운영 원본: `krx-live-price-worker.js`
 - 회귀검증기: `validate_worker.mjs`
 
@@ -22,8 +22,9 @@ node worker/validate_worker.mjs .
 - 13개 표 명령 경로 보존
 - 관종표 47행 압축 응답과 원본 값 보존
 - 미관종표 30행 압축 응답, 순서·값 보존 및 응답 크기 제한
+- 코피·코닥·1개월·코급·월사이클·환율약세·단상 등 10개 표 경로의 압축 응답, 행 순서·값 보존 및 45,000바이트 제한
 - 보유종목 공개 참고행의 정확 티커 필터와 개인정보 비포함
-- Worker 상태 응답의 배포 버전
+- Worker 상태 응답의 배포 버전과 압축 경로 수
 
 ## 배포 원칙
 

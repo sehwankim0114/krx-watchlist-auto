@@ -17,7 +17,7 @@
  */
 
 const SERVICE_VERSION = "1.2.0";
-const BUILD_VERSION = "1.3.6-us-watchlist-compact";
+const BUILD_VERSION = "1.3.7-table-response-compact";
 const MAX_ITEMS = 50;
 const FETCH_TIMEOUT_MS = 8000;
 const CONCURRENCY = 4;
@@ -96,6 +96,10 @@ export default {
           us_watchlist_response_mode: "COMPACT_FOR_CUSTOM_GPT",
           us_watchlist_rows_preserved: true,
           us_watchlist_values_recalculated: false,
+          table_response_mode: "COMPACT_FOR_CUSTOM_GPT",
+          table_rows_preserved: true,
+          table_values_recalculated: false,
+          compact_table_path_count: 10,
           stock_reference_response_mode: "EXACT_TICKER_FILTER",
           stock_reference_ticker_required: true,
           stock_reference_user_holdings_stored: false,
@@ -437,6 +441,54 @@ async function handleGitHubJsonProxy(request, url) {
         ),
         "X-US-Watchlist-Rows-Preserved": "true",
         "X-US-Watchlist-Values-Recalculated": "false",
+      },
+    });
+  } else if (isCompactTablePath(relativePath)) {
+    const sourceText = await upstreamResponse.text();
+    let sourcePayload;
+
+    try {
+      sourcePayload = JSON.parse(sourceText);
+    } catch (error) {
+      return jsonResponse(
+        {
+          status: "ERROR",
+          error: "TABLE_JSON_PARSE_FAILED",
+          path: relativePath,
+          upstream: upstreamName,
+          message:
+            error instanceof Error ? error.message : String(error),
+        },
+        502,
+      );
+    }
+
+    const compactPayload = compactTablePayload(
+      sourcePayload,
+      relativePath,
+    );
+    const compactBody = JSON.stringify(compactPayload);
+
+    response = new Response(compactBody, {
+      status: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET,OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": `public, max-age=${GITHUB_PROXY_CACHE_TTL_SECONDS}`,
+        "X-GitHub-Proxy-Upstream": upstreamName,
+        "X-GitHub-Proxy-Cache": "MISS",
+        "X-GitHub-Proxy-Transform": "COMPACT_TABLE_V1",
+        "X-Compact-Table-Path": relativePath,
+        "X-Table-Original-Bytes": String(
+          new TextEncoder().encode(sourceText).length,
+        ),
+        "X-Table-Compact-Bytes": String(
+          new TextEncoder().encode(compactBody).length,
+        ),
+        "X-Table-Rows-Preserved": "true",
+        "X-Table-Values-Recalculated": "false",
       },
     });
   } else if (stockReferenceQuery) {
@@ -910,6 +962,236 @@ function compactUsWatchlistRow(value) {
     "sector_theme",
     "warning_count",
   ]) || {};
+
+  for (const key of Object.keys(row)) {
+    if (row[key] === null || row[key] === undefined) {
+      delete row[key];
+    }
+  }
+
+  return row;
+}
+
+const COMPACT_TABLE_TOP_LEVEL_KEYS = [
+  "schema_version",
+  "table_id",
+  "display_name",
+  "status",
+  "row_count",
+  "row_count_ok",
+  "expected_rows",
+  "build_id",
+  "generated_at_kst",
+  "source_commit_sha",
+  "rules_version",
+  "rules_sha256",
+  "safe_to_analyze_as_latest",
+  "current_basis_selected",
+  "current_price_basis",
+  "data_date_min",
+  "data_date_max",
+  "candidate_analysis_date",
+  "analysis_latest_status",
+  "stale_analysis_warning",
+  "request_time_price_policy",
+  "official_data",
+];
+
+const COMPACT_LIGHT_MARKET_ROW_KEYS = [
+  "rank",
+  "name",
+  "code",
+  "quote_key",
+  "quote_market",
+  "static_price",
+  "recommendation_display",
+  "operating_loss",
+  "supply_burden",
+  "supply_burden_display",
+  "value_buy_range_markdown",
+  "first_sell_target_range_markdown",
+  "low_3m",
+  "high_3m",
+  "return_1m_pct",
+  "avg_volume",
+  "avg_trading_value_per_minute_display",
+  "trading_activity",
+  "price_elasticity",
+  "current_position",
+  "avg_daily_move",
+  "earnings_trend",
+  "operating_profit_yoy_pct",
+  "revenue_yoy_pct",
+  "per_annualized",
+  "pbr",
+  "score",
+  "score_reason",
+  "sector_theme",
+  "supply_check_status",
+  "supply_burden_level",
+];
+
+const COMPACT_ONE_MONTH_ROW_KEYS = [
+  "rank",
+  "name",
+  "code",
+  "market",
+  "asof_date",
+  "close",
+  "buy_range",
+  "sell_range",
+  "low_1m",
+  "high_1m",
+  "return_1m_pct",
+  "return_3m_pct",
+  "avg_volume",
+  "avg_trading_value",
+  "avg_daily_move_text",
+  "liquidity_flag",
+  "position_in_1m_range_pct",
+  "current_position_period",
+  "overheat_flag",
+  "score",
+  "one_month_market_score",
+  "one_month_market_reason",
+  "recommend_flag",
+  "reason",
+];
+
+const COMPACT_ENRICHED_MARKET_ROW_KEYS = [
+  "rank",
+  "name",
+  "code",
+  "market",
+  "asof_date",
+  "close",
+  "buy_range",
+  "sell_range",
+  "low_3m",
+  "high_3m",
+  "return_1m_pct",
+  "return_3m_pct",
+  "return_5d_pct",
+  "avg_volume",
+  "avg_trading_value",
+  "avg_daily_move_text",
+  "avg_wave_days",
+  "liquidity_flag",
+  "current_position",
+  "position_in_3m_range_pct",
+  "overheat_flag",
+  "score",
+  "short_term_score",
+  "final_score",
+  "recommend_flag",
+  "reason",
+  "fx_benefit_structure",
+  "fx_proxy_score",
+  "import_cost_risk",
+  "financial_data_status",
+  "revenue_yoy_pct",
+  "operating_profit_yoy_pct",
+  "net_income_yoy_pct",
+  "operating_margin_pct",
+  "operating_loss_flag",
+  "roe_annualized_pct",
+  "per_annualized",
+  "pbr",
+  "debt_ratio_pct",
+  "earnings_trend",
+  "supply_check_status",
+  "supply_burden_detected",
+  "supply_burden_level",
+  "supply_burden_keywords",
+];
+
+const COMPACT_MONTHLY_CYCLE_ROW_KEYS = [
+  "rank",
+  "name",
+  "code",
+  "market",
+  "close",
+  "buy_range",
+  "sell_range",
+  "low_6m",
+  "high_6m",
+  "avg_trading_value",
+  "avg_daily_move_text",
+  "liquidity_flag",
+  "position_in_6m_range_pct",
+  "cycle_count_6m",
+  "avg_cycle_days",
+  "avg_swing_pct",
+  "latest_position",
+  "cycle_marker",
+  "status_flag",
+  "reason",
+  "financial_data_status",
+  "revenue_yoy_pct",
+  "operating_profit_yoy_pct",
+  "net_income_yoy_pct",
+  "operating_margin_pct",
+  "operating_loss_flag",
+  "roe_annualized_pct",
+  "per_annualized",
+  "pbr",
+  "debt_ratio_pct",
+  "earnings_trend",
+  "supply_check_status",
+  "supply_burden_detected",
+  "supply_burden_level",
+];
+
+const COMPACT_TABLE_PROFILES = {
+  "kospi_watchlist.json": COMPACT_LIGHT_MARKET_ROW_KEYS,
+  "kosdaq_watchlist.json": COMPACT_LIGHT_MARKET_ROW_KEYS,
+  "kospi_1m_candidates_30.json": COMPACT_ONE_MONTH_ROW_KEYS,
+  "kosdaq_1m_candidates_10.json": COMPACT_ONE_MONTH_ROW_KEYS,
+  "kospi_gainers_1m.json": COMPACT_ENRICHED_MARKET_ROW_KEYS,
+  "kospi_monthly_cycle.json": COMPACT_MONTHLY_CYCLE_ROW_KEYS,
+  "kospi_fx_weakness_candidates_30.json":
+    COMPACT_ENRICHED_MARKET_ROW_KEYS,
+  "kospi_short_term_candidates_30.json":
+    COMPACT_ENRICHED_MARKET_ROW_KEYS,
+  "kospi_candidates_30.json": COMPACT_ENRICHED_MARKET_ROW_KEYS,
+  "kosdaq_candidates_10.json": COMPACT_ENRICHED_MARKET_ROW_KEYS,
+};
+
+function isCompactTablePath(relativePath) {
+  return Object.prototype.hasOwnProperty.call(
+    COMPACT_TABLE_PROFILES,
+    relativePath,
+  );
+}
+
+function compactTablePayload(source, relativePath) {
+  const table = source && typeof source === "object" ? source : {};
+  const rows = Array.isArray(table.rows) ? table.rows : [];
+  const rowKeys = COMPACT_TABLE_PROFILES[relativePath] || [];
+  const compact = compactObject(
+    table,
+    COMPACT_TABLE_TOP_LEVEL_KEYS,
+  ) || {};
+
+  compact.compact_response = {
+    mode: "COMPACT_FOR_CUSTOM_GPT",
+    transform_version: "1.0",
+    source_path: relativePath,
+    source_row_count: table.row_count ?? rows.length,
+    rows_preserved: true,
+    values_recalculated: false,
+  };
+  compact.rows = rows.map((row) => compactTableRow(row, rowKeys));
+  compact.row_count = table.row_count ?? compact.rows.length;
+  compact.returned_row_count = compact.rows.length;
+  compact.row_count_ok =
+    compact.row_count === compact.returned_row_count;
+
+  return compact;
+}
+
+function compactTableRow(value, allowedKeys) {
+  const row = compactObject(value, allowedKeys) || {};
 
   for (const key of Object.keys(row)) {
     if (row[key] === null || row[key] === undefined) {

@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
-SCRIPT_VERSION = "validate_api_sync.py v1.5_holdings_exact_ticker_v824"
+SCRIPT_VERSION = "validate_api_sync.py v1.6_unified_action_v825"
 
 
 def read_json(path: Path) -> Dict[str, Any]:
@@ -408,6 +408,9 @@ def main() -> int:
         required_tokens = (
             "version: 7.0.1",
             "https://krx-live-price-ksh.diaconos.workers.dev",
+            "operationId: getRequestTimePriceHealth",
+            "operationId: getRequestTimePrices",
+            "operationId: getHoldingsReferenceManifest",
             "operationId: getStockReferenceShard",
             "name: ticker",
             "name: market",
@@ -425,6 +428,39 @@ def main() -> int:
         if schema_text.count("\n- url: ") != 1:
             errors.append(
                 "canonical custom GPT schema must use one server"
+            )
+        operation_ids = re.findall(
+            r"(?m)^\s+operationId:\s*([^\s]+)\s*$",
+            schema_text,
+        )
+        if len(operation_ids) != 30:
+            errors.append(
+                "canonical custom GPT operationId count must be 30"
+            )
+        if len(operation_ids) != len(set(operation_ids)):
+            errors.append(
+                "canonical custom GPT operationId values must be unique"
+            )
+
+        active_legacy_schema = (
+            api.parent
+            / "docs"
+            / "custom_gpt_live_price_action_schema.yaml"
+        )
+        archived_legacy_schema = (
+            api.parent
+            / "docs"
+            / "archive"
+            / "legacy-schemas"
+            / "custom_gpt_live_price_action_schema-v1.1.0.yaml"
+        )
+        if active_legacy_schema.exists():
+            errors.append(
+                "separate live-price Action schema must not remain active"
+            )
+        if not archived_legacy_schema.exists():
+            errors.append(
+                "legacy live-price schema archive is missing"
             )
 
     instructions_path = (
@@ -449,23 +485,6 @@ def main() -> int:
                 )
     # HOLDINGS_EXACT_TICKER_CONTRACT_V824_END
 
-    live_schema_path = (
-        api.parent / "docs" / "custom_gpt_live_price_action_schema.yaml"
-    )
-    if not live_schema_path.exists():
-        errors.append("custom_gpt_live_price_action_schema.yaml missing")
-    else:
-        live_schema_text = live_schema_path.read_text(encoding="utf-8")
-        required_schema_tokens = (
-            "operationId: getRequestTimePriceHealth",
-            "operationId: getRequestTimePrices",
-            "https://krx-live-price-ksh.diaconos.workers.dev",
-        )
-        for schema_token in required_schema_tokens:
-            if schema_token not in live_schema_text:
-                errors.append(
-                    f"live price action schema missing token: {schema_token}"
-                )
     # REQUEST_TIME_PRICE_CONTRACT_V51_END
 
     report = {

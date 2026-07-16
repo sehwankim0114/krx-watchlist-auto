@@ -1,5 +1,5 @@
-# V8.2.8 live read-only repository audit
-name: Safe repository audit v8.2.8
+# V8.2.9 live read-only repository audit
+name: Safe repository audit v8.2.9
 
 "on":
   workflow_dispatch:
@@ -309,12 +309,20 @@ jobs:
                       "WORKER_CONTRACT_FILE_MISSING=" + str(worker_path)
                   )
           worker_text = worker_source.read_text(encoding="utf-8")
-          if 'BUILD_VERSION = "1.3.6-us-watchlist-compact"' not in (
+          if 'BUILD_VERSION = "1.3.7-table-response-compact"' not in (
               worker_text
           ):
               raise SystemExit("WORKER_BUILD_VERSION_MISMATCH")
-          if "COMPACT_US_WATCHLIST_V1" not in worker_text:
-              raise SystemExit("US_WATCHLIST_COMPACT_TRANSFORM_MISSING")
+          worker_tokens = (
+              "COMPACT_US_WATCHLIST_V1",
+              "COMPACT_TABLE_V1",
+              "compact_table_path_count: 10",
+          )
+          for token in worker_tokens:
+              if token not in worker_text:
+                  raise SystemExit(
+                      "WORKER_V137_TOKEN_MISSING=" + token
+                  )
           if "worker/krx-live-price-worker.js" not in structure:
               raise SystemExit("WORKER_STRUCTURE_DOCUMENTATION_MISSING")
 
@@ -332,7 +340,9 @@ jobs:
           print("VALIDATOR_CHECK_ONLY_MODE=PASS")
           print("US_PRODUCTION_NO_LEGACY_PATCHER=PASS")
           print("US_PRODUCTION_UNIFIED_ACTION_CONTRACT=PASS")
-          print("WORKER_SOURCE_BUILD=1.3.6-us-watchlist-compact")
+          print("WORKER_SOURCE_BUILD=1.3.7-table-response-compact")
+          print("WORKER_COMPACT_TABLE_PATH_COUNT=10")
+          print("WORKER_TABLE_RESPONSE_COMPACT_CONTRACT=PASS")
           print("WORKER_SOURCE_CONTRACT=PASS")
           PY
 

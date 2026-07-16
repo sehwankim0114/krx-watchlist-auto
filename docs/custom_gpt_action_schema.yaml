@@ -1,13 +1,52 @@
 openapi: 3.1.0
 info:
-  title: KRX Watchlist Auto Read API
-  version: 6.1.0
-  description: Read-only synchronized KRX strict-contract API. For default KOSPI/KOSDAQ tables, use the
-    compact getKospiWatchlist/getKosdaqWatchlist operations, never reconstruct rows from CSV, and use
-    the legacy full candidate endpoints only for explicit diagnostics.
+  title: KRX Watchlist and Request-Time Price Unified API
+  version: 7.0.1
+  description: Single-domain unified Action for synchronized GitHub stock-table JSON, request-time KR/US auxiliary
+    quotes, and health checks. Use this schema as the only Action set for krx-live-price-ksh.diaconos.workers.dev.
 servers:
-- url: https://raw.githubusercontent.com
+- url: https://krx-live-price-ksh.diaconos.workers.dev
 paths:
+  /health:
+    get:
+      operationId: getRequestTimePriceHealth
+      summary: Check unified Worker health and provider configuration
+      responses:
+        '200':
+          description: Worker health information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /quotes:
+    get:
+      operationId: getRequestTimePrices
+      summary: Get request-time auxiliary prices for Korean or US stocks
+      description: 'Pass comma-separated KEY|MARKET items. Examples: 005930|KOSPI,000660|KOSPI or AAPL|USA,NVDA|USA.
+        The GPT must normally call at most 10 items per initial batch, then retry only failures in batches of at
+        most 5 and 2.'
+      parameters:
+      - name: items
+        in: query
+        required: true
+        description: Comma-separated stock keys with market, for example 005930|KOSPI,000660|KOSPI or AAPL|USA.
+        schema:
+          type: string
+          minLength: 1
+          example: 005930|KOSPI,000660|KOSPI
+      responses:
+        '200':
+          description: Quote lookup result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteResponse'
+        '400':
+          description: Invalid or excessive items
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteResponse'
   /sehwankim0114/krx-watchlist-auto/main/api/status.json:
     get:
       operationId: getApiStatus
@@ -67,9 +106,8 @@ paths:
     get:
       operationId: getKospiWatchlist
       summary: Get compact KOSPI watchlist candidate rows
-      description: Preferred default endpoint for 코피표. Returns exactly 30 compact rows with quote keys,
-        price ranges, current position, liquidity, financial, supply burden, score, and source metadata.
-        Do not fall back to CSV or the legacy full endpoint if this call fails.
+      description: Preferred default endpoint for 코피표. Exactly 30 compact rows. Do not fall back to CSV or legacy
+        full candidates.
       responses:
         '200':
           description: Get compact KOSPI watchlist candidate rows
@@ -81,9 +119,8 @@ paths:
     get:
       operationId: getKosdaqWatchlist
       summary: Get compact KOSDAQ watchlist candidate rows
-      description: Preferred default endpoint for 코닥표. Returns exactly 10 compact rows with quote keys,
-        price ranges, current position, liquidity, financial, supply burden, score, and source metadata.
-        Do not fall back to CSV or the legacy full endpoint if this call fails.
+      description: Preferred default endpoint for 코닥표. Exactly 10 compact rows. Do not fall back to CSV or legacy
+        full candidates.
       responses:
         '200':
           description: Get compact KOSDAQ watchlist candidate rows
@@ -94,7 +131,7 @@ paths:
   /sehwankim0114/krx-watchlist-auto/main/api/kospi_candidates_30.json:
     get:
       operationId: getKospiCandidates
-      summary: Legacy full KOSPI candidate payload for diagnostics
+      summary: Get the single KOSPI candidate table with embedded recommendation markings
       responses:
         '200':
           description: KOSPI candidates
@@ -102,12 +139,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnyObject'
-      description: Large legacy payload. Do not use for the default stock table when the compact watchlist
-        endpoint is available.
   /sehwankim0114/krx-watchlist-auto/main/api/kosdaq_candidates_10.json:
     get:
       operationId: getKosdaqCandidates
-      summary: Legacy full KOSDAQ candidate payload for diagnostics
+      summary: Get the single KOSDAQ candidate table with embedded recommendation markings
       responses:
         '200':
           description: KOSDAQ candidates
@@ -115,8 +150,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnyObject'
-      description: Large legacy payload. Do not use for the default stock table when the compact watchlist
-        endpoint is available.
   /sehwankim0114/krx-watchlist-auto/main/api/kospi_1m_candidates_30.json:
     get:
       operationId: getKospiOneMonthCandidates
@@ -296,7 +329,10 @@ paths:
   /sehwankim0114/krx-watchlist-auto/main/api/stock_reference_shards/{prefix}.json:
     get:
       operationId: getStockReferenceShard
-      summary: Get a public stock-reference shard by the first two ticker digits
+      summary: Get one exact public stock-reference row by prefix and ticker
+      description: For holdings-table runtime lookup, always send the ticker's first two digits as prefix and
+        the full six-digit ticker as the required ticker query. Optionally send KOSPI or KOSDAQ as market.
+        Never call this operation with prefix alone. The response contains no user holdings.
       parameters:
       - name: prefix
         in: path
@@ -305,9 +341,32 @@ paths:
         schema:
           type: string
           pattern: ^[0-9]{2}$
+      - name: ticker
+        in: query
+        required: true
+        description: Exact six-digit Korean ticker. Its first two digits must match prefix.
+        schema:
+          type: string
+          pattern: ^[0-9]{6}$
+          example: '005930'
+      - name: market
+        in: query
+        required: false
+        description: Optional exact market filter. Use it when the user's market is known.
+        schema:
+          type: string
+          enum:
+          - KOSPI
+          - KOSDAQ
       responses:
         '200':
-          description: Public market and company reference rows; no user holdings
+          description: One exact public market reference row; no user holdings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnyObject'
+        '400':
+          description: Missing or invalid ticker, prefix mismatch, or invalid market
           content:
             application/json:
               schema:
@@ -489,4 +548,181 @@ components:
           type: string
         row_count:
           type: integer
+      additionalProperties: true
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+        version:
+          type: string
+        build_version:
+          type: string
+        max_items:
+          type: integer
+        endpoints:
+          type: array
+          items:
+            type: string
+        providers:
+          type: object
+          additionalProperties: true
+        github_proxy_policy:
+          type: object
+          additionalProperties: true
+        us_price_policy:
+          type: object
+          additionalProperties: true
+        generated_at:
+          type: string
+      additionalProperties: true
+    QuoteResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+        version:
+          type: string
+        build_version:
+          type: string
+        request_started_at:
+          type: string
+        request_finished_at:
+          type: string
+        generated_at:
+          type: string
+        requested_count:
+          type: integer
+        ok_count:
+          type: integer
+        failed_count:
+          type: integer
+        provider_summary:
+          type: object
+          additionalProperties: true
+        after_hours_reflected:
+          type: boolean
+        source_notice:
+          type: string
+        quotes:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuoteRow'
+        failures:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuoteFailure'
+        error:
+          type: string
+        message:
+          type: string
+      additionalProperties: true
+    QuoteRow:
+      type: object
+      properties:
+        input:
+          type: string
+        quote_key:
+          type: string
+        ticker:
+          type:
+          - string
+          - 'null'
+        symbol:
+          type:
+          - string
+          - 'null'
+        code:
+          type:
+          - string
+          - 'null'
+        market:
+          type: string
+        status:
+          type: string
+        ok:
+          type: boolean
+        current_price:
+          type:
+          - number
+          - 'null'
+        price:
+          type:
+          - number
+          - 'null'
+        currency:
+          type: string
+        source:
+          type:
+          - string
+          - 'null'
+        price_source:
+          type:
+          - string
+          - 'null'
+        source_kind:
+          type: string
+        provider_ticker:
+          type:
+          - string
+          - 'null'
+        price_time:
+          type:
+          - string
+          - 'null'
+        traded_at:
+          type:
+          - string
+          - 'null'
+        price_as_of:
+          type:
+          - string
+          - 'null'
+        price_timestamp:
+          type:
+          - integer
+          - number
+          - 'null'
+        market_status:
+          type: string
+        session_status:
+          type: string
+        exchange:
+          type: string
+        previous_close:
+          type:
+          - number
+          - 'null'
+        after_hours_reflected:
+          type: boolean
+        is_after_hours:
+          type: boolean
+        error_code:
+          type:
+          - string
+          - 'null'
+        error:
+          type:
+          - string
+          - 'null'
+      additionalProperties: true
+    QuoteFailure:
+      type: object
+      properties:
+        quote_key:
+          type: string
+        market:
+          type: string
+        error_code:
+          type:
+          - string
+          - 'null'
+        error:
+          type:
+          - string
+          - 'null'
       additionalProperties: true

@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
-SCRIPT_VERSION = "validate_api_sync.py v1.4_quote_key_aliases_v64"
+SCRIPT_VERSION = "validate_api_sync.py v1.5_holdings_exact_ticker_v824"
 
 
 def read_json(path: Path) -> Dict[str, Any]:
@@ -350,6 +350,104 @@ def main() -> int:
                 errors.append(
                     f"{table_id}: quote key column missing for live lookup (ticker/symbol/code/종목코드/stock_code)"
                 )
+
+    # HOLDINGS_EXACT_TICKER_CONTRACT_V824_BEGIN
+    holdings_manifest = read_json(
+        api / "stock_reference_manifest.json"
+    )
+    if not holdings_manifest:
+        errors.append(
+            "stock_reference_manifest.json missing or invalid"
+        )
+    else:
+        action_contract = holdings_manifest.get(
+            "action_contract"
+        ) or {}
+        usage = holdings_manifest.get("usage") or {}
+        if action_contract.get("operation_id") != (
+            "getStockReferenceShard"
+        ):
+            errors.append(
+                "holdings exact-ticker operation contract missing"
+            )
+        if action_contract.get("required_parameters") != [
+            "prefix",
+            "ticker",
+        ]:
+            errors.append(
+                "holdings required parameters must be prefix+ticker"
+            )
+        if action_contract.get(
+            "prefix_only_call_forbidden"
+        ) is not True:
+            errors.append(
+                "holdings prefix-only call must be forbidden"
+            )
+        if usage.get("prefix_only_call_forbidden") is not True:
+            errors.append(
+                "holdings usage allows prefix-only call"
+            )
+        step_3 = str(usage.get("step_3") or "")
+        if not all(
+            token in step_3
+            for token in ("prefix", "ticker", "market")
+        ):
+            errors.append(
+                "holdings usage step_3 lacks exact parameters"
+            )
+
+    canonical_schema_path = (
+        api.parent / "docs" / "custom_gpt_action_schema.yaml"
+    )
+    if not canonical_schema_path.exists():
+        errors.append("canonical custom GPT schema missing")
+    else:
+        schema_text = canonical_schema_path.read_text(
+            encoding="utf-8"
+        )
+        required_tokens = (
+            "version: 7.0.1",
+            "https://krx-live-price-ksh.diaconos.workers.dev",
+            "operationId: getStockReferenceShard",
+            "name: ticker",
+            "name: market",
+        )
+        for token in required_tokens:
+            if token not in schema_text:
+                errors.append(
+                    "canonical custom GPT schema missing token: "
+                    + token
+                )
+        if "https://raw.githubusercontent.com" in schema_text:
+            errors.append(
+                "raw GitHub Action domain is forbidden"
+            )
+        if schema_text.count("\n- url: ") != 1:
+            errors.append(
+                "canonical custom GPT schema must use one server"
+            )
+
+    instructions_path = (
+        api.parent / "docs" / "custom_gpt_instructions.md"
+    )
+    if not instructions_path.exists():
+        errors.append("canonical custom GPT instructions missing")
+    else:
+        instructions_text = instructions_path.read_text(
+            encoding="utf-8"
+        )
+        instruction_tokens = (
+            "2026-07-16-v6.8.1-holdings-exact-filter",
+            "## 12. 보유종목표 개인정보 비저장 런타임",
+            "getStockReferenceShard를 prefix만으로 호출하지 않는다.",
+        )
+        for token in instruction_tokens:
+            if token not in instructions_text:
+                errors.append(
+                    "canonical custom GPT instructions missing "
+                    "token: " + token
+                )
+    # HOLDINGS_EXACT_TICKER_CONTRACT_V824_END
 
     live_schema_path = (
         api.parent / "docs" / "custom_gpt_live_price_action_schema.yaml"

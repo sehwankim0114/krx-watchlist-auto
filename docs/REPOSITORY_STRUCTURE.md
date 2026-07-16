@@ -34,12 +34,12 @@
 - 개인정보처리방침: `docs/custom_gpt_privacy_policy.md`
 
 <!-- REQUEST_TIME_PRICE_STRUCTURE_V51_BEGIN -->
-## 요청시점 현재가 Action
+## 단일 Worker Action
 
-- Worker: `https://krx-live-price-ksh.diaconos.workers.dev`
-- Action 스키마: `docs/custom_gpt_live_price_action_schema.yaml`
-- 호출 작업: `getRequestTimePriceHealth`, `getRequestTimePrices`
-- 공식 KRX 과거자료는 GitHub API에 유지한다.
+- 단일 Action 도메인: `https://krx-live-price-ksh.diaconos.workers.dev`
+- 설치용 통합 스키마: `docs/custom_gpt_action_schema.yaml`
+- `raw.githubusercontent.com`을 별도 Action으로 등록하지 않는다.
+- `docs/custom_gpt_live_price_action_schema.yaml`은 과거 요청시점 가격 계약의 호환 참고파일이며 별도 Action으로 설치하지 않는다.
 - 요청시점 가격은 Custom GPT 응답 작성 단계에서 모든 표 행에 결합한다.
-- 한 호출당 최대 50개이며 큰 표는 여러 배치로 나눈다.
+- 보유종목 공개 참고행은 `prefix+ticker`와 선택 `market`으로 정확히 한 행만 조회한다.
 <!-- REQUEST_TIME_PRICE_STRUCTURE_V51_END -->

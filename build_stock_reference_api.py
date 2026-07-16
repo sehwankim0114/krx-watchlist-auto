@@ -34,10 +34,10 @@ import pandas as pd
 
 SCRIPT_VERSION = (
     "build_stock_reference_api.py "
-    "v1.1.0-summary-label-compat-v741"
+    "v1.2.0-exact-ticker-action-v824"
 )
 POLICY_VERSION = (
-    "2026-07-03-v6.0-private-holdings-runtime"
+    "2026-07-16-v8.2.4-holdings-exact-ticker"
 )
 KST = timezone(timedelta(hours=9))
 
@@ -476,23 +476,51 @@ def build_api(
                 "assistant response runtime only"
             ),
         },
+        "action_contract": {
+            "version": "2026-07-16-v8.2.4-exact-ticker-filter",
+            "operation_id": "getStockReferenceShard",
+            "action_domain": (
+                "https://krx-live-price-ksh.diaconos.workers.dev"
+            ),
+            "required_parameters": ["prefix", "ticker"],
+            "optional_parameters": ["market"],
+            "prefix_only_call_forbidden": True,
+            "expected_response": {
+                "status": "OK",
+                "exact_match": True,
+                "returned_row_count": 1,
+                "contains_user_holdings": False,
+                "values_recalculated": False,
+            },
+        },
         "usage": {
             "step_1": (
                 "Read ticker from the user's current message."
             ),
             "step_2": (
-                "Use the first two ticker digits as prefix."
+                "Use the first two ticker digits as prefix and keep "
+                "the full six-digit ticker."
             ),
             "step_3": (
-                "Call getStockReferenceShard(prefix)."
+                "Call getStockReferenceShard with prefix, ticker "
+                "and, when known, market."
             ),
             "step_4": (
-                "Find the exact market+ticker row."
+                "Require status=OK, exact_match=true, "
+                "returned_row_count=1 and "
+                "contains_user_holdings=false."
             ),
             "step_5": (
+                "Use only the returned exact market+ticker row; "
+                "do not substitute another row or source."
+            ),
+            "step_6": (
                 "Calculate quantity, cost basis, market value, "
                 "profit/loss and return only in the conversation."
             ),
+            "prefix_only_call_forbidden": True,
+            "required_parameters": ["prefix", "ticker"],
+            "optional_parameters": ["market"],
             "cash_credit_rule": (
                 "Keep cash and credit lots as separate rows."
             ),
@@ -621,6 +649,20 @@ def run_self_test() -> int:
         assert (
             "average_price"
             not in manifest["public_columns"]
+        )
+
+        assert manifest["action_contract"][
+            "prefix_only_call_forbidden"
+        ] is True
+        assert manifest["action_contract"][
+            "required_parameters"
+        ] == ["prefix", "ticker"]
+        assert manifest["usage"][
+            "prefix_only_call_forbidden"
+        ] is True
+        assert manifest["usage"]["step_3"] == (
+            "Call getStockReferenceShard with prefix, ticker "
+            "and, when known, market."
         )
 
         shard_files = sorted(

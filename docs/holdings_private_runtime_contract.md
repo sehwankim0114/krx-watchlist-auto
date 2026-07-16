@@ -1,6 +1,6 @@
 # 보유종목표 개인정보 비저장 런타임 계약
 
-`holdings_private_runtime_contract v1.0.0`
+`holdings_private_runtime_contract v1.1.0-exact-ticker-filter-v824`
 
 ## 목적
 
@@ -29,12 +29,28 @@
 
 ## 요청 처리 순서
 
-1. 현재 대화에서 보유 종목코드, 수량, 평균매수가, 현금/신용 구분을 읽는다.
-2. 종목코드 앞 두 자리로 `getStockReferenceShard`를 호출한다.
-3. 시장과 6자리 종목코드가 모두 일치하는 공개 참고행을 선택한다.
-4. 동일 종목의 현금과 신용은 합치지 않고 별도 행으로 계산한다.
-5. 신용행은 추가 신용매수 금지와 비중축소 기준을 더 엄격하게 적용한다.
-6. 계산 결과는 응답에만 표시하고 저장소에는 저장하지 않는다.
+1. 현재 메시지에서 보유 종목코드, 수량, 평균매수가, 현금/신용 구분을 읽는다.
+2. `getHoldingsReferenceManifest`를 호출해 개인정보 비저장 정책과 정확 종목 조회 계약을 확인한다.
+3. 종목별로 `getStockReferenceShard`를 `prefix`, `ticker`, `market`과 함께 호출한다.
+   - `prefix`: 6자리 종목코드의 앞 두 자리
+   - `ticker`: 정확한 6자리 종목코드 전체
+   - `market`: 확인된 경우 `KOSPI` 또는 `KOSDAQ`
+4. `getStockReferenceShard`를 `prefix`만으로 호출하지 않는다.
+5. 응답의 `status=OK`, `exact_match=true`, `returned_row_count=1`, `contains_user_holdings=false`를 확인한다.
+6. 종목코드와 시장이 정확히 일치하는 공개 참고행 한 개만 사용한다.
+7. 동일 종목의 현금과 신용은 합치지 않고 별도 행으로 계산한다.
+8. 신용행은 추가 신용매수 금지와 비중축소 기준을 더 엄격하게 적용한다.
+9. 계산 결과는 응답에만 표시하고 저장소에는 저장하지 않는다.
+
+## Action 응답 계약
+
+- 단일 Action 도메인: `https://krx-live-price-ksh.diaconos.workers.dev`
+- 공개 참고자료 operationId: `getStockReferenceShard`
+- 필수 인수: `prefix`, `ticker`
+- 선택 인수: `market`
+- `prefix` 단독 호출: 금지
+- 기대 반환 행 수: 정확히 1행
+- 사용자 보유정보 포함 여부: 항상 `false`
 
 ## 상태명
 

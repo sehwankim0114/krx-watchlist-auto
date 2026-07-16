@@ -5,7 +5,7 @@
 - `collect-krx-watchlist.yml`: 공식 KRX 자료와 보조자료 수집
 - `build_api_json.yml`: API 생성·검증·푸시
 - `dart-fx-exposure-safe.yml`: DART 환율노출 안전 분석
-- `v6-apply-us-sp500-production.yml`: 미국 S&P500 운영자료 생성
+- `v6-apply-us-sp500-production.yml`: 통합 Action 계약을 보존하고 구형 route patch 없이 미국 S&P500 운영자료 생성
 - `v731-daily-integrated-health.yml`: 일일 통합 상태 점검
 - `v77-runtime-freshness-gate.yml`: 요청시점 최신성 상태 갱신
 
@@ -14,7 +14,7 @@
 ## 수동 유지보수 워크플로
 
 - `maintenance-repair.yml`: 필요한 경우에만 실행하는 복구 도구
-- `safe-repository-cleanup.yml`: `--check-only` 실시간 API 검증을 포함하고 저장소를 변경하지 않는 읽기 전용 V8.2.6 감사 도구
+- `safe-repository-cleanup.yml`: `--check-only` 실시간 API 검증과 미국 운영경로 검사를 포함하고 저장소를 변경하지 않는 읽기 전용 V8.2.7 감사 도구
 
 일회성 적용 워크플로는 작업 완료 후 `.github/workflows`에서 제거하고, 필요한 기록은 `docs/workflow_archive/`에 보관합니다.
 

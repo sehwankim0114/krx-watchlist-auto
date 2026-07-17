@@ -198,6 +198,121 @@ for (const filename of compactTableFiles) {
   compactTableSizes.set(filename, compactBytes);
 }
 
+const kospiWatchlist = readApi("kospi_watchlist.json");
+const compactKospiWatchlist = compactTablePayloads.get(
+  "kospi_watchlist.json",
+);
+assert.ok(compactKospiWatchlist);
+assert.equal(compactKospiWatchlist.row_count, 30);
+assert.equal(compactKospiWatchlist.returned_row_count, 30);
+assert.equal(compactKospiWatchlist.row_count_ok, true);
+assert.equal(
+  compactKospiWatchlist.compact_response.response_profile,
+  "KOSPI_ACTION_V2",
+);
+assert.equal(
+  compactKospiWatchlist.compact_response.transform_version,
+  "1.1",
+);
+assert.equal(
+  Object.hasOwn(compactKospiWatchlist, "request_time_price_policy"),
+  false,
+);
+assert.equal(
+  Object.hasOwn(compactKospiWatchlist, "official_data"),
+  false,
+);
+
+const requiredKospiDisplayKeys = [
+  "name",
+  "code",
+  "quote_key",
+  "quote_market",
+  "static_price",
+  "recommendation_display",
+  "supply_burden_display",
+  "value_buy_range_markdown",
+  "first_sell_target_range_markdown",
+  "low_3m",
+  "high_3m",
+  "return_1m_pct",
+  "avg_volume",
+  "avg_trading_value_per_minute_display",
+  "trading_activity",
+  "price_elasticity",
+  "avg_daily_move",
+  "earnings_trend",
+  "score",
+  "score_reason",
+  "sector_theme",
+];
+const removedKospiDuplicateKeys = [
+  "rank",
+  "operating_loss",
+  "supply_burden",
+  "current_position",
+  "supply_check_status",
+  "supply_burden_level",
+];
+const observedKospiDisplayKeys = new Set();
+for (let index = 0; index < compactKospiWatchlist.rows.length; index += 1) {
+  const sourceRow = kospiWatchlist.rows[index];
+  const compactRow = compactKospiWatchlist.rows[index];
+  for (const key of requiredKospiDisplayKeys) {
+    if (sourceRow[key] === null || sourceRow[key] === undefined) {
+      assert.equal(
+        Object.hasOwn(compactRow, key),
+        false,
+        `KOSPI empty value was not omitted: ${index}.${key}`,
+      );
+      continue;
+    }
+    observedKospiDisplayKeys.add(key);
+    assert.equal(
+      Object.hasOwn(compactRow, key),
+      true,
+      `KOSPI required value missing: ${index}.${key}`,
+    );
+    assert.deepEqual(
+      compactRow[key],
+      sourceRow[key],
+      `KOSPI required value changed: ${index}.${key}`,
+    );
+  }
+  for (const key of removedKospiDuplicateKeys) {
+    assert.equal(
+      Object.hasOwn(compactRow, key),
+      false,
+      `KOSPI duplicate key remains: ${index}.${key}`,
+    );
+  }
+}
+for (const key of requiredKospiDisplayKeys) {
+  assert.equal(
+    observedKospiDisplayKeys.has(key),
+    true,
+    `KOSPI required display field was never observed: ${key}`,
+  );
+}
+
+const kospiSourceBytes = Buffer.byteLength(
+  JSON.stringify(kospiWatchlist),
+  "utf8",
+);
+const kospiCompactBytes = Buffer.byteLength(
+  JSON.stringify(compactKospiWatchlist),
+  "utf8",
+);
+assert.ok(
+  kospiSourceBytes > 55000,
+  `Unexpected KOSPI source size: ${kospiSourceBytes}`,
+);
+assert.ok(
+  kospiCompactBytes < 30000,
+  `KOSPI Action response too large: ${kospiCompactBytes}`,
+);
+assert.ok(kospiCompactBytes < kospiSourceBytes / 2);
+
 const query = parseStockReferenceQuery(
   "stock_reference_shards/00.json",
   new URLSearchParams("ticker=005930&market=KOSPI"),
@@ -215,7 +330,7 @@ const healthResponse = await __worker_default__.fetch(
 );
 const health = await healthResponse.json();
 assert.equal(health.status, "OK");
-assert.equal(health.build_version, "1.3.7-table-response-compact");
+assert.equal(health.build_version, "1.3.8-kospi-action-compact");
 assert.equal(
   health.github_proxy_policy.us_watchlist_response_mode,
   "COMPACT_FOR_CUSTOM_GPT",
@@ -236,6 +351,30 @@ assert.equal(
 assert.equal(health.github_proxy_policy.table_rows_preserved, true);
 assert.equal(health.github_proxy_policy.table_values_recalculated, false);
 assert.equal(health.github_proxy_policy.compact_table_path_count, 10);
+assert.equal(
+  health.github_proxy_policy.kospi_watchlist_response_profile,
+  "KOSPI_ACTION_V2",
+);
+assert.equal(
+  health.github_proxy_policy.kospi_watchlist_max_bytes,
+  30000,
+);
+assert.equal(
+  health.github_proxy_policy.kospi_watchlist_static_position_omitted,
+  true,
+);
+assert.equal(
+  health.github_proxy_policy.fallback_on_primary_fetch_error,
+  true,
+);
+assert.equal(
+  health.github_proxy_policy.primary_fetch_timeout_ms,
+  6000,
+);
+assert.equal(
+  health.github_proxy_policy.fallback_fetch_timeout_ms,
+  6000,
+);
 
 const originalFetch = globalThis.fetch;
 let cachedResponse = null;
@@ -323,6 +462,48 @@ for (const filename of compactTableFiles) {
   );
   assert.ok(cachedResponse instanceof Response, filename);
 }
+
+let simulatedPrimaryErrors = 0;
+let simulatedFallbackSuccesses = 0;
+cachedResponse = null;
+globalThis.fetch = async (resource) => {
+  const upstreamUrl = new URL(String(resource));
+  if (upstreamUrl.hostname === "raw.githubusercontent.com") {
+    simulatedPrimaryErrors += 1;
+    throw new Error("simulated primary GitHub timeout");
+  }
+  assert.equal(upstreamUrl.hostname, "api.github.com");
+  assert.match(upstreamUrl.pathname, /kospi_watchlist\.json$/);
+  assert.equal(upstreamUrl.searchParams.get("ref"), "main");
+  simulatedFallbackSuccesses += 1;
+  return new Response(
+    JSON.stringify(readApi("kospi_watchlist.json"), null, 2),
+    {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    },
+  );
+};
+
+const timeoutFallbackResponse = await __worker_default__.fetch(
+  new Request(
+    "https://krx-live-price-ksh.diaconos.workers.dev/" +
+      "sehwankim0114/krx-watchlist-auto/main/api/" +
+      "kospi_watchlist.json",
+  ),
+);
+assert.equal(timeoutFallbackResponse.status, 200);
+assert.equal(simulatedPrimaryErrors, 1);
+assert.equal(simulatedFallbackSuccesses, 1);
+assert.equal(
+  timeoutFallbackResponse.headers.get("X-GitHub-Proxy-Upstream"),
+  "GITHUB_CONTENTS_API",
+);
+assert.deepEqual(
+  await timeoutFallbackResponse.json(),
+  compactKospiWatchlist,
+);
+assert.ok(cachedResponse instanceof Response);
 globalThis.fetch = originalFetch;
 
 console.log("WORKER_JS_SYNTAX_AND_HEALTH=PASS");
@@ -347,4 +528,12 @@ console.log("ALL_COMPACT_TABLE_RESPONSES_UNDER_45000=PASS");
 console.log("COMPACT_TABLE_ROW_ORDER_PRESERVED=PASS");
 console.log("COMPACT_TABLE_VALUES_RECALCULATED=false");
 console.log("COMPACT_TABLE_PROXY_INTEGRATION=PASS");
-console.log("WORKER_V137_VALIDATION=PASS");
+console.log(`KOSPI_WATCHLIST_SOURCE_MINIFIED_BYTES=${kospiSourceBytes}`);
+console.log(`KOSPI_WATCHLIST_COMPACT_BYTES=${kospiCompactBytes}`);
+console.log("KOSPI_WATCHLIST_RESPONSE_SIZE_UNDER_30000=PASS");
+console.log("KOSPI_WATCHLIST_REQUIRED_DISPLAY_FIELDS=PASS");
+console.log("KOSPI_WATCHLIST_NULL_FIELDS_OMITTED=PASS");
+console.log("KOSPI_WATCHLIST_DUPLICATE_FIELDS_REMOVED=PASS");
+console.log("KOSPI_STATIC_POSITION_OMITTED_FOR_REQUEST_TIME_RECALC=PASS");
+console.log("GITHUB_PRIMARY_FETCH_ERROR_FALLBACK=PASS");
+console.log("WORKER_V138_VALIDATION=PASS");

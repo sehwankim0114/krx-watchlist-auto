@@ -17,7 +17,7 @@
  */
 
 const SERVICE_VERSION = "1.2.0";
-const BUILD_VERSION = "1.3.7-table-response-compact";
+const BUILD_VERSION = "1.3.8-kospi-action-compact";
 const MAX_ITEMS = 50;
 const FETCH_TIMEOUT_MS = 8000;
 const CONCURRENCY = 4;
@@ -29,7 +29,8 @@ const GITHUB_RAW_BASE =
 const GITHUB_API_BASE =
   "https://api.github.com/repos/sehwankim0114/krx-watchlist-auto/contents/api/";
 const GITHUB_PROXY_CACHE_TTL_SECONDS = 120;
-const GITHUB_PROXY_FETCH_TIMEOUT_MS = 10000;
+const GITHUB_PROXY_PRIMARY_FETCH_TIMEOUT_MS = 6000;
+const GITHUB_PROXY_FALLBACK_FETCH_TIMEOUT_MS = 6000;
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -87,6 +88,11 @@ export default {
           api_prefix: GITHUB_PROXY_PREFIX,
           edge_cache_ttl_seconds: GITHUB_PROXY_CACHE_TTL_SECONDS,
           fallback_on_429_or_5xx: true,
+          fallback_on_primary_fetch_error: true,
+          primary_fetch_timeout_ms:
+            GITHUB_PROXY_PRIMARY_FETCH_TIMEOUT_MS,
+          fallback_fetch_timeout_ms:
+            GITHUB_PROXY_FALLBACK_FETCH_TIMEOUT_MS,
           manifest_response_mode: "COMPACT_FOR_CUSTOM_GPT",
           manifest_source_preserved: true,
           manifest_freshness_merge: "status.json",
@@ -100,6 +106,9 @@ export default {
           table_rows_preserved: true,
           table_values_recalculated: false,
           compact_table_path_count: 10,
+          kospi_watchlist_response_profile: "KOSPI_ACTION_V2",
+          kospi_watchlist_max_bytes: 30000,
+          kospi_watchlist_static_position_omitted: true,
           stock_reference_response_mode: "EXACT_TICKER_FILTER",
           stock_reference_ticker_required: true,
           stock_reference_user_holdings_stored: false,
@@ -260,33 +269,58 @@ async function handleGitHubJsonProxy(request, url) {
   }
 
   const primaryUrl = `${GITHUB_RAW_BASE}${relativePath}`;
-  let upstreamResponse = await fetchWithTimeout(
-    primaryUrl,
-    {
-      headers: {
-        Accept: "application/json, text/plain;q=0.9, */*;q=0.8",
-        "User-Agent": "krx-watchlist-cloudflare-proxy/1.3.0",
+  let upstreamResponse;
+  let primaryFetchError = null;
+
+  try {
+    upstreamResponse = await fetchWithTimeout(
+      primaryUrl,
+      {
+        headers: {
+          Accept: "application/json, text/plain;q=0.9, */*;q=0.8",
+          "User-Agent": "krx-watchlist-cloudflare-proxy/1.3.8",
+        },
       },
-    },
-    GITHUB_PROXY_FETCH_TIMEOUT_MS,
-  );
+      GITHUB_PROXY_PRIMARY_FETCH_TIMEOUT_MS,
+    );
+  } catch (error) {
+    primaryFetchError =
+      error instanceof Error ? error.message : String(error);
+    upstreamResponse = new Response(primaryFetchError, { status: 599 });
+  }
   let upstreamName = "RAW_GITHUB";
 
   if (shouldUseGitHubApiFallback(upstreamResponse.status)) {
     const fallbackUrl = `${GITHUB_API_BASE}${relativePath}?ref=main`;
-    const fallbackResponse = await fetchWithTimeout(
-      fallbackUrl,
-      {
-        headers: {
-          Accept: "application/vnd.github.raw+json",
-          "User-Agent": "krx-watchlist-cloudflare-proxy/1.3.0",
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-      },
-      GITHUB_PROXY_FETCH_TIMEOUT_MS,
-    );
+    let fallbackResponse = null;
 
-    if (fallbackResponse.ok || !upstreamResponse.ok) {
+    try {
+      fallbackResponse = await fetchWithTimeout(
+        fallbackUrl,
+        {
+          headers: {
+            Accept: "application/vnd.github.raw+json",
+            "User-Agent": "krx-watchlist-cloudflare-proxy/1.3.8",
+            "X-GitHub-Api-Version": "2022-11-28",
+          },
+        },
+        GITHUB_PROXY_FALLBACK_FETCH_TIMEOUT_MS,
+      );
+    } catch (error) {
+      const fallbackFetchError =
+        error instanceof Error ? error.message : String(error);
+      if (!upstreamResponse.ok) {
+        upstreamResponse = new Response(
+          [primaryFetchError, fallbackFetchError]
+            .filter(Boolean)
+            .join(" | "),
+          { status: 599 },
+        );
+        upstreamName = "GITHUB_UPSTREAM_FETCH_ERROR";
+      }
+    }
+
+    if (fallbackResponse && (fallbackResponse.ok || !upstreamResponse.ok)) {
       upstreamResponse = fallbackResponse;
       upstreamName = "GITHUB_CONTENTS_API";
     }
@@ -577,7 +611,7 @@ async function fetchStatusForCompactManifest() {
           "User-Agent": "krx-watchlist-cloudflare-proxy/1.3.2",
         },
       },
-      GITHUB_PROXY_FETCH_TIMEOUT_MS,
+      GITHUB_PROXY_PRIMARY_FETCH_TIMEOUT_MS,
     );
     let source = "RAW_GITHUB_STATUS";
 
@@ -592,7 +626,7 @@ async function fetchStatusForCompactManifest() {
             "X-GitHub-Api-Version": "2022-11-28",
           },
         },
-        GITHUB_PROXY_FETCH_TIMEOUT_MS,
+        GITHUB_PROXY_FALLBACK_FETCH_TIMEOUT_MS,
       );
 
       if (fallbackResponse.ok || !response.ok) {
@@ -1031,6 +1065,32 @@ const COMPACT_LIGHT_MARKET_ROW_KEYS = [
   "supply_burden_level",
 ];
 
+// KOSPI has 30 Korean-language rows. Keep every field required to render the
+// production table, while dropping duplicate flags already represented by
+// recommendation_display and supply_burden_display. Static current_position
+// is omitted because V8.0 requires recalculation from the request-time price
+// and the preserved 3-month low/high. The request-time policy and official
+// freshness objects are obtained from their dedicated Actions.
+const COMPACT_KOSPI_WATCHLIST_TOP_LEVEL_KEYS =
+  COMPACT_TABLE_TOP_LEVEL_KEYS.filter(
+    (key) => ![
+      "request_time_price_policy",
+      "official_data",
+    ].includes(key),
+  );
+
+const COMPACT_KOSPI_WATCHLIST_ROW_KEYS =
+  COMPACT_LIGHT_MARKET_ROW_KEYS.filter(
+    (key) => ![
+      "rank",
+      "operating_loss",
+      "supply_burden",
+      "current_position",
+      "supply_check_status",
+      "supply_burden_level",
+    ].includes(key),
+  );
+
 const COMPACT_ONE_MONTH_ROW_KEYS = [
   "rank",
   "name",
@@ -1143,7 +1203,7 @@ const COMPACT_MONTHLY_CYCLE_ROW_KEYS = [
 ];
 
 const COMPACT_TABLE_PROFILES = {
-  "kospi_watchlist.json": COMPACT_LIGHT_MARKET_ROW_KEYS,
+  "kospi_watchlist.json": COMPACT_KOSPI_WATCHLIST_ROW_KEYS,
   "kosdaq_watchlist.json": COMPACT_LIGHT_MARKET_ROW_KEYS,
   "kospi_1m_candidates_30.json": COMPACT_ONE_MONTH_ROW_KEYS,
   "kosdaq_1m_candidates_10.json": COMPACT_ONE_MONTH_ROW_KEYS,
@@ -1168,19 +1228,26 @@ function compactTablePayload(source, relativePath) {
   const table = source && typeof source === "object" ? source : {};
   const rows = Array.isArray(table.rows) ? table.rows : [];
   const rowKeys = COMPACT_TABLE_PROFILES[relativePath] || [];
+  const topLevelKeys = relativePath === "kospi_watchlist.json"
+    ? COMPACT_KOSPI_WATCHLIST_TOP_LEVEL_KEYS
+    : COMPACT_TABLE_TOP_LEVEL_KEYS;
   const compact = compactObject(
     table,
-    COMPACT_TABLE_TOP_LEVEL_KEYS,
+    topLevelKeys,
   ) || {};
 
   compact.compact_response = {
     mode: "COMPACT_FOR_CUSTOM_GPT",
-    transform_version: "1.0",
+    transform_version:
+      relativePath === "kospi_watchlist.json" ? "1.1" : "1.0",
     source_path: relativePath,
     source_row_count: table.row_count ?? rows.length,
     rows_preserved: true,
     values_recalculated: false,
   };
+  if (relativePath === "kospi_watchlist.json") {
+    compact.compact_response.response_profile = "KOSPI_ACTION_V2";
+  }
   compact.rows = rows.map((row) => compactTableRow(row, rowKeys));
   compact.row_count = table.row_count ?? compact.rows.length;
   compact.returned_row_count = compact.rows.length;

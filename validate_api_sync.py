@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
-SCRIPT_VERSION = "validate_api_sync.py v1.7_read_only_check_v826"
+SCRIPT_VERSION = "validate_api_sync.py v1.8_request_time_final_display_v831"
 
 
 def read_json(path: Path) -> Dict[str, Any]:
@@ -474,7 +474,10 @@ def main() -> int:
             encoding="utf-8"
         )
         instruction_tokens = (
-            "2026-07-16-v6.8.1-holdings-exact-filter",
+            "2026-07-17-v6.8.2-request-time-final-display",
+            "### 5-1. V8.0 요청시점 최종 표시",
+            "request_time_final_recommendation_mark",
+            "가치매수구간 위 · 1차 익절구간 전",
             "## 12. 보유종목표 개인정보 비저장 런타임",
             "getStockReferenceShard를 prefix만으로 호출하지 않는다.",
         )

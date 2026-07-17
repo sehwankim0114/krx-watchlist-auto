@@ -7,5 +7,67 @@
   "official_fresh_now": true,
   "safe_to_analyze_as_latest": true,
   "errors": [],
-  "warnings": []
+  "warnings": [],
+  "recommendation_icon_policy": {
+    "version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
+    "allowed_icons": [
+      "✅",
+      "🟡",
+      "⚠️",
+      "🔻",
+      "⚪"
+    ],
+    "default_candidate_icon": "🟡",
+    "icon_required_for_every_row": true,
+    "preserve_existing_valid_icon": true,
+    "missing_icon_behavior": "assign_yellow_watch_icon",
+    "loss_marker_position": "left_of_recommendation_icon",
+    "supply_marker_position": "right_of_recommendation_icon",
+    "rank_number_prefix_allowed": false,
+    "display_format": "[-][ICON][_ ]종목명"
+  },
+  "recommendation_icon_version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
+  "recommendation_icon_validation": {
+    "version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
+    "status": "PASS",
+    "files_checked": 3,
+    "rows_checked": 70,
+    "icon_counts": {
+      "✅": 12,
+      "🟡": 58,
+      "⚠️": 0,
+      "🔻": 0,
+      "⚪": 0
+    },
+    "error_count": 0,
+    "modified_rows": 0,
+    "defaulted_rows": 0
+  },
+  "output_contract": {
+    "recommendation_icon_policy_version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
+    "recommendation_icon_required": true,
+    "do_not_prefix_rank_to_recommendation": true,
+    "allowed_recommendation_icons": [
+      "✅",
+      "🟡",
+      "⚠️",
+      "🔻",
+      "⚪"
+    ],
+    "default_candidate_icon": "🟡",
+    "recommendation_display_format": "[-][ICON][_ ]종목명",
+    "loss_marker_position": "left_of_recommendation_icon",
+    "supply_marker_position": "right_of_recommendation_icon",
+    "rank_field_use": "sorting_only"
+  },
+  "price_position_validation": {
+    "version": "2026-07-14-v7.8-price-range-position",
+    "status": "PASS",
+    "files_checked": 13,
+    "eligible_rows": 217,
+    "below_low_rows": 0,
+    "above_high_rows": 0,
+    "error_count": 0
+  },
+  "price_position_version": "2026-07-14-v7.8-price-range-position"
 }

@@ -1,0 +1,395 @@
+# One-time V8.3.3 permission-safe Custom GPT display contract update.
+# This workflow intentionally does not modify permanent workflow files.
+name: Enforce single recommendation icon display v8.3.3
+
+"on":
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: single-recommendation-icon-v833
+  cancel-in-progress: false
+
+jobs:
+  enforce:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Install schema validator
+        run: python -m pip install --quiet pyyaml
+
+      - name: Apply V6.8.3 single-icon contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          from pathlib import Path
+
+
+          root = Path.cwd()
+
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              if new in text:
+                  return text
+              if text.count(old) != 1:
+                  raise SystemExit(
+                      f"{label}_ANCHOR_COUNT={text.count(old)}"
+                  )
+              return text.replace(old, new, 1)
+
+
+          instructions_path = root / "docs" / "custom_gpt_instructions.md"
+          instructions = instructions_path.read_text(encoding="utf-8")
+
+          old_version = "2026-07-17-v6.8.2-request-time-final-display"
+          new_version = "2026-07-18-v6.8.3-single-recommendation-icon"
+          if new_version not in instructions:
+              count = instructions.count(old_version)
+              if count != 2:
+                  raise SystemExit(
+                      f"V682_INSTRUCTION_VERSION_COUNT={count}"
+                  )
+              instructions = instructions.replace(old_version, new_version)
+
+          old_display_rule = (
+              "최종 표시가 `🟡`이면 점수·추천·주의사유에도 `우선검토`라고 "
+              "쓰지 않고 `관찰·눌림대기`라고 쓴다.\n"
+              "정적 사유의 `매수위치·현재위치·추격·눌림` 문구를 그대로 "
+              "복사하지 말고 요청시점 계산 결과에 맞게 다시 쓴다."
+          )
+          new_display_rule = (
+              "최종 표시가 `🟡`이면 점수·추천·주의사유에도 `우선검토`라고 "
+              "쓰지 않고 `관찰·눌림대기`라고 쓴다.\n"
+              "추천 아이콘은 각 본표 행 전체에서 정확히 1개만 사용한다.\n"
+              "추천 아이콘 `✅·🟡·⚠️·🔻`은 첫 열 `추천/종목`의 맨 앞에만 "
+              "표시한다.\n"
+              "`점수·추천·주의사유` 칸에는 추천 아이콘을 반복하지 않고 "
+              "`투자적격·우선검토`, `관찰·눌림대기`, `주의`, "
+              "`현재 매수 부적합` 중 해당 글자만 쓴다.\n"
+              "현재가 차이 아이콘 `🟦·🟠·🔴·⚪`은 `요청시점 현재가` 칸에서만 "
+              "사용하며 추천 아이콘 개수 검사에서 제외한다.\n"
+              "예: 첫 열은 `🟡_ 종목명`, 점수 칸은 "
+              "`120점 · 관찰·눌림대기 · 주의사유`로 쓰고 `🟡`을 다시 쓰지 "
+              "않는다.\n"
+              "정적 사유의 `매수위치·현재위치·추격·눌림` 문구를 그대로 "
+              "복사하지 말고 요청시점 계산 결과에 맞게 다시 쓴다."
+          )
+          instructions = replace_once(
+              instructions,
+              old_display_rule,
+              new_display_rule,
+              "SINGLE_ICON_DISPLAY_RULE",
+          )
+
+          old_check = (
+              "- 정적 추천표시가 아니라 요청시점 최종 추천표시를 사용했는가"
+          )
+          new_check = (
+              "- 정적 추천표시가 아니라 요청시점 최종 추천표시를 사용했는가\n"
+              "- 각 본표 행에 `✅·🟡·⚠️·🔻` 중 추천 아이콘이 정확히 1개이고 "
+              "첫 열에만 있는가\n"
+              "- `점수·추천·주의사유` 칸에는 추천 아이콘 없이 글자 설명만 "
+              "있는가"
+          )
+          instructions = replace_once(
+              instructions,
+              old_check,
+              new_check,
+              "SINGLE_ICON_FINAL_CHECK",
+          )
+          instructions_path.write_text(instructions, encoding="utf-8")
+
+          validator_path = root / "validate_api_sync.py"
+          validator = validator_path.read_text(encoding="utf-8")
+          validator = replace_once(
+              validator,
+              'SCRIPT_VERSION = "validate_api_sync.py '
+              'v1.8_request_time_final_display_v831"',
+              'SCRIPT_VERSION = "validate_api_sync.py '
+              'v1.9_single_recommendation_icon_v833"',
+              "VALIDATOR_VERSION",
+          )
+
+          old_tokens = (
+              "instruction_tokens = (\n"
+              '            "2026-07-17-v6.8.2-request-time-final-display",\n'
+              '            "### 5-1. V8.0 요청시점 최종 표시",\n'
+              '            "request_time_final_recommendation_mark",\n'
+              '            "가치매수구간 위 · 1차 익절구간 전",\n'
+              '            "## 12. 보유종목표 개인정보 비저장 런타임",\n'
+              '            "getStockReferenceShard를 prefix만으로 '
+              '호출하지 않는다.",\n'
+              "        )"
+          )
+          new_tokens = (
+              "instruction_tokens = (\n"
+              '            "2026-07-18-v6.8.3-single-recommendation-icon",\n'
+              '            "### 5-1. V8.0 요청시점 최종 표시",\n'
+              '            "request_time_final_recommendation_mark",\n'
+              '            "가치매수구간 위 · 1차 익절구간 전",\n'
+              '            "추천 아이콘은 각 본표 행 전체에서 정확히 1개만 '
+              '사용한다.",\n'
+              '            "점수·추천·주의사유` 칸에는 추천 아이콘을 '
+              '반복하지 않고",\n'
+              '            "## 12. 보유종목표 개인정보 비저장 런타임",\n'
+              '            "getStockReferenceShard를 prefix만으로 '
+              '호출하지 않는다.",\n'
+              "        )"
+          )
+          validator = replace_once(
+              validator,
+              old_tokens,
+              new_tokens,
+              "VALIDATOR_INSTRUCTION_TOKENS",
+          )
+          validator_path.write_text(validator, encoding="utf-8")
+
+          structure_path = root / "docs" / "REPOSITORY_STRUCTURE.md"
+          structure = structure_path.read_text(encoding="utf-8")
+          old_audit = (
+              "- `safe-repository-cleanup.yml`: `--check-only` 실시간 API "
+              "검증, Worker V1.3.8 및 Custom GPT V6.8.2 요청시점 최종표시 "
+              "회귀검사를 포함하고 저장소를 변경하지 않는 읽기 전용 "
+              "V8.3.1 감사 도구"
+          )
+          new_audit = (
+              "- `safe-repository-cleanup.yml`: `--check-only` 실시간 API "
+              "검증, Worker V1.3.8 및 Custom GPT V6.8.3 단일 추천 아이콘 "
+              "회귀검사를 포함하고 저장소를 변경하지 않는 읽기 전용 "
+              "V8.3.3 감사 도구"
+          )
+          structure = replace_once(
+              structure,
+              old_audit,
+              new_audit,
+              "V833_STRUCTURE_AUDIT",
+          )
+          structure_path.write_text(structure, encoding="utf-8")
+
+          print("CUSTOM_GPT_INSTRUCTIONS_VERSION=" + new_version)
+          print("SINGLE_RECOMMENDATION_ICON_CONTRACT=PASS")
+          print("VALIDATOR_VERSION=v1.9_single_recommendation_icon_v833")
+          print("PERMISSION_SAFE_NO_WORKFLOW_UPDATE=true")
+          PY
+
+      - name: Validate V8.3.3 contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+
+          import yaml
+
+
+          root = Path.cwd()
+          workflow_dir = root / ".github" / "workflows"
+          expected = {
+              "build_api_json.yml",
+              "collect-krx-watchlist.yml",
+              "dart-fx-exposure-safe.yml",
+              "maintenance-repair.yml",
+              "safe-repository-cleanup.yml",
+              "v6-apply-us-sp500-production.yml",
+              "v731-daily-integrated-health.yml",
+              "v77-runtime-freshness-gate.yml",
+              "v833-single-recommendation-icon.yml",
+          }
+          actual = {
+              path.name for path in workflow_dir.glob("*.yml")
+          } | {
+              path.name for path in workflow_dir.glob("*.yaml")
+          }
+          if actual != expected:
+              raise SystemExit(
+                  "WORKFLOW_SET_MISMATCH="
+                  + str({
+                      "missing": sorted(expected - actual),
+                      "unexpected": sorted(actual - expected),
+                  })
+              )
+
+          one_time = yaml.safe_load(
+              (workflow_dir / "v833-single-recommendation-icon.yml")
+              .read_text(encoding="utf-8")
+          )
+          if one_time.get("name") != (
+              "Enforce single recommendation icon display v8.3.3"
+          ):
+              raise SystemExit("PERMISSION_SAFE_V833_NOT_INSTALLED")
+
+          safe_yaml = yaml.safe_load(
+              (workflow_dir / "safe-repository-cleanup.yml")
+              .read_text(encoding="utf-8")
+          )
+          if safe_yaml.get("name") != "Safe repository audit v8.3.1":
+              raise SystemExit(
+                  "PERMANENT_SAFE_AUDIT_WAS_UNEXPECTEDLY_CHANGED"
+              )
+
+          instructions = (
+              root / "docs" / "custom_gpt_instructions.md"
+          ).read_text(encoding="utf-8")
+          instruction_tokens = (
+              "2026-07-18-v6.8.3-single-recommendation-icon",
+              "추천 아이콘은 각 본표 행 전체에서 정확히 1개만 사용한다.",
+              "추천 아이콘 `✅·🟡·⚠️·🔻`은 첫 열 `추천/종목`의 맨 앞에만 표시한다.",
+              "`점수·추천·주의사유` 칸에는 추천 아이콘을 반복하지 않고",
+              "현재가 차이 아이콘 `🟦·🟠·🔴·⚪`",
+              "getStockReferenceShard를 prefix만으로 호출하지 않는다.",
+          )
+          for token in instruction_tokens:
+              if token not in instructions:
+                  raise SystemExit(
+                      "V683_INSTRUCTION_TOKEN_MISSING=" + token
+                  )
+
+          validator = (
+              root / "validate_api_sync.py"
+          ).read_text(encoding="utf-8")
+          validator_tokens = (
+              "validate_api_sync.py v1.9_single_recommendation_icon_v833",
+              "2026-07-18-v6.8.3-single-recommendation-icon",
+              "추천 아이콘은 각 본표 행 전체에서 정확히 1개만 사용한다.",
+          )
+          for token in validator_tokens:
+              if token not in validator:
+                  raise SystemExit(
+                      "VALIDATOR_V833_TOKEN_MISSING=" + token
+                  )
+
+          structure = (
+              root / "docs" / "REPOSITORY_STRUCTURE.md"
+          ).read_text(encoding="utf-8")
+          if "읽기 전용 V8.3.3 감사 도구" not in structure:
+              raise SystemExit("V833_DOCUMENTATION_MISSING")
+
+          print("V833_PERMISSION_SAFE_CONTRACT=PASS")
+          print("WORKFLOW_COUNT=9_PRE_CLEANUP")
+          print("SINGLE_RECOMMENDATION_ICON_CONTRACT=PASS")
+          print("PERMANENT_WORKFLOW_CHANGED=false")
+          PY
+
+          python -m py_compile validate_api_sync.py
+          node --check worker/krx-live-price-worker.js
+          node worker/validate_worker.mjs .
+
+          python -W error::DeprecationWarning \
+            validate_api_sync.py --api-dir api
+
+          report_hash_before="$(
+            sha256sum api/validation_report.json | awk '{print $1}'
+          )"
+          python -W error::DeprecationWarning \
+            validate_api_sync.py --api-dir api --check-only
+          report_hash_after="$(
+            sha256sum api/validation_report.json | awk '{print $1}'
+          )"
+          if test "$report_hash_before" != "$report_hash_after"; then
+            echo "::error::Check-only validation changed the report."
+            exit 1
+          fi
+          echo "API_VALIDATION_CHECK_ONLY=PASS"
+
+          if ! git diff --quiet -- \
+            .github/workflows/safe-repository-cleanup.yml; then
+            echo "::error::Permanent workflow was changed."
+            exit 1
+          fi
+          echo "PERMISSION_SAFE_NO_WORKFLOW_UPDATE=PASS"
+
+          find . -type d -name __pycache__ -prune \
+            -exec rm -rf {} +
+          find . -type f \( -name "*.pyc" -o -name "*.pyo" \) \
+            -delete
+
+      - name: Commit and push V8.3.3 contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email \
+            "github-actions@users.noreply.github.com"
+
+          git add -- \
+            api/validation_report.json \
+            docs/REPOSITORY_STRUCTURE.md \
+            docs/custom_gpt_instructions.md \
+            validate_api_sync.py
+
+          echo "CHANGED_FILES_BEGIN"
+          git diff --cached --name-status
+          echo "CHANGED_FILES_END"
+
+          if git diff --cached --quiet; then
+            echo "ALREADY_APPLIED=true"
+            echo "PUSH_SUCCESS=true"
+            echo "MANUAL_CUSTOM_GPT_INSTRUCTIONS_UPDATE_REQUIRED=true"
+            echo "MANUAL_SAFE_AUDIT_REPLACEMENT_REQUIRED=true"
+            echo "MANUAL_WORKFLOW_CLEANUP_REQUIRED=true"
+            exit 0
+          fi
+
+          if ! git diff --quiet; then
+            echo "::error::Unexpected unstaged tracked-file changes."
+            git diff --name-status
+            exit 1
+          fi
+
+          untracked="$(git ls-files --others --exclude-standard)"
+          if test -n "$untracked"; then
+            echo "::error::Unexpected untracked files."
+            printf '%s\n' "$untracked"
+            exit 1
+          fi
+
+          git commit -m \
+            "Enforce single recommendation icon display v8.3.3"
+
+          if test -n "$(git status --porcelain)"; then
+            echo "::error::Uncommitted changes remain."
+            git status --short
+            exit 1
+          fi
+
+          git fetch origin main
+          if test "$(git rev-parse HEAD^)" != \
+            "$(git rev-parse origin/main)"; then
+            git rebase origin/main
+          else
+            echo "REMOTE_MAIN_CHANGED=false"
+          fi
+
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "MANUAL_CUSTOM_GPT_INSTRUCTIONS_UPDATE_REQUIRED=true"
+          echo "MANUAL_SAFE_AUDIT_REPLACEMENT_REQUIRED=true"
+          echo "MANUAL_WORKFLOW_CLEANUP_REQUIRED=true"

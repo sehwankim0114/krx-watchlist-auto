@@ -1,5 +1,5 @@
-# V8.3.1 live read-only repository audit
-name: Safe repository audit v8.3.1
+# V8.3.3 live read-only repository audit
+name: Safe repository audit v8.3.3
 
 "on":
   workflow_dispatch:
@@ -146,6 +146,10 @@ jobs:
               raise SystemExit("API_VALIDATION_NOT_PASS")
           if validation.get("errors"):
               raise SystemExit("API_VALIDATION_ERRORS_PRESENT")
+          if validation.get("script") != (
+              "validate_api_sync.py v1.9_single_recommendation_icon_v833"
+          ):
+              raise SystemExit("API_VALIDATION_SCRIPT_VERSION_MISMATCH")
 
           build_ids = {
               item.get("build_id")
@@ -241,11 +245,14 @@ jobs:
               root / "docs" / "custom_gpt_instructions.md"
           ).read_text(encoding="utf-8")
           required_instruction_tokens = (
-              "2026-07-17-v6.8.2-request-time-final-display",
+              "2026-07-18-v6.8.3-single-recommendation-icon",
               "### 5-1. V8.0 요청시점 최종 표시",
               "request_time_final_recommendation_mark",
               "중간권 · 범위위치 42.3%",
               "가치매수구간 위 · 1차 익절구간 전",
+              "추천 아이콘은 각 본표 행 전체에서 정확히 1개만 사용한다.",
+              "추천 아이콘 `✅·🟡·⚠️·🔻`은 첫 열 `추천/종목`의 맨 앞에만 표시한다.",
+              "`점수·추천·주의사유` 칸에는 추천 아이콘을 반복하지 않고",
               "## 12. 보유종목표 개인정보 비저장 런타임",
               "getStockReferenceShard를 prefix만으로 호출하지 않는다.",
           )
@@ -259,14 +266,14 @@ jobs:
               root / "validate_api_sync.py"
           ).read_text(encoding="utf-8")
           validator_tokens = (
-              "validate_api_sync.py v1.8_request_time_final_display_v831",
+              "validate_api_sync.py v1.9_single_recommendation_icon_v833",
               'parser.add_argument("--check-only", action="store_true")',
               "datetime.now(timezone.utc)",
           )
           for token in validator_tokens:
               if token not in validator_text:
                   raise SystemExit(
-                      "VALIDATOR_V831_TOKEN_MISSING=" + token
+                      "VALIDATOR_V833_TOKEN_MISSING=" + token
                   )
 
           readme = (root / "README_사용법.md").read_text(
@@ -284,6 +291,8 @@ jobs:
           for token in stale_tokens:
               if token in combined_docs:
                   raise SystemExit("STALE_DOCUMENT_TOKEN=" + token)
+          if "읽기 전용 V8.3.3 감사 도구" not in structure:
+              raise SystemExit("V833_STRUCTURE_DOCUMENTATION_MISSING")
 
           active_legacy_schema = (
               root / "docs" / "custom_gpt_live_price_action_schema.yaml"
@@ -348,8 +357,9 @@ jobs:
           print("HOLDINGS_EXACT_TICKER_CONTRACT=PASS")
           print("SEPARATE_LIVE_PRICE_SCHEMA_ACTIVE=false")
           print("VALIDATOR_CHECK_ONLY_MODE=PASS")
-          print("CUSTOM_GPT_INSTRUCTIONS_VERSION=2026-07-17-v6.8.2-request-time-final-display")
+          print("CUSTOM_GPT_INSTRUCTIONS_VERSION=2026-07-18-v6.8.3-single-recommendation-icon")
           print("REQUEST_TIME_FINAL_DISPLAY_CONTRACT=PASS")
+          print("SINGLE_RECOMMENDATION_ICON_CONTRACT=PASS")
           print("US_PRODUCTION_NO_LEGACY_PATCHER=PASS")
           print("US_PRODUCTION_UNIFIED_ACTION_CONTRACT=PASS")
           print("WORKER_SOURCE_BUILD=1.3.8-kospi-action-compact")

@@ -1,4 +1,4 @@
-# V8.2.7 stable US production workflow without legacy route patching
+# V8.3.2 validation-report sync hardening for stable V8.2.7 US production
 name: US S&P500 Production v8.2.7
 
 on:
@@ -58,6 +58,7 @@ jobs:
             "collect_us_sp500.py"
             "us_sp500_watchlist.py"
             "build_api_json.py"
+            "validate_api_sync.py"
             "table_route_registry.py"
             "docs/custom_gpt_action_schema.yaml"
           )
@@ -80,6 +81,7 @@ jobs:
             collect_us_sp500.py \
             us_sp500_watchlist.py \
             build_api_json.py \
+            validate_api_sync.py \
             table_route_registry.py
 
           echo "US_PRODUCTION_PREREQUISITES=OK"
@@ -262,6 +264,36 @@ jobs:
 
           python build_api_json.py \
             | tee /tmp/isolated_us_build_api.txt
+
+          python validate_api_sync.py --api-dir api \
+            | tee /tmp/isolated_us_validate_api.txt
+
+          grep -q \
+            'API_VALIDATION_STATUS=PASS' \
+            /tmp/isolated_us_validate_api.txt
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+
+          api = Path("api")
+          status = json.loads(
+              (api / "status.json").read_text(encoding="utf-8")
+          )
+          report = json.loads(
+              (api / "validation_report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          if report.get("status") != "PASS":
+              raise SystemExit("isolated validation report is not PASS")
+          if report.get("build_id") != status.get("build_id"):
+              raise SystemExit(
+                  "isolated validation report build_id mismatch"
+              )
+          print("ISOLATED_VALIDATION_REPORT_SYNC=PASS")
+          PY
 
           python table_route_registry.py \
             --self-test \
@@ -592,6 +624,36 @@ jobs:
           python build_api_json.py \
             | tee /tmp/live_us_build_api.txt
 
+          python validate_api_sync.py --api-dir api \
+            | tee /tmp/live_us_validate_api.txt
+
+          grep -q \
+            'API_VALIDATION_STATUS=PASS' \
+            /tmp/live_us_validate_api.txt
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+
+          api = Path("api")
+          status = json.loads(
+              (api / "status.json").read_text(encoding="utf-8")
+          )
+          report = json.loads(
+              (api / "validation_report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          if report.get("status") != "PASS":
+              raise SystemExit("live validation report is not PASS")
+          if report.get("build_id") != status.get("build_id"):
+              raise SystemExit(
+                  "live validation report build_id mismatch"
+              )
+          print("LIVE_VALIDATION_REPORT_SYNC=PASS")
+          PY
+
           python table_route_registry.py \
             --self-test \
             | tee /tmp/live_us_registry_self_test.txt
@@ -774,6 +836,7 @@ jobs:
             echo "US_HARD_RED_RECOMMENDED=0"
             echo "US_API_MAIN=OK"
             echo "US_API_RECOMMEND=OK"
+            echo "US_VALIDATION_REPORT_SYNC=PASS"
             echo "US_ACTION_OPERATION_COUNT=2"
             echo "US_WATCHLIST_ROUTE=READY_DIRECT"
             echo "READY_TOTAL_COUNT=13"

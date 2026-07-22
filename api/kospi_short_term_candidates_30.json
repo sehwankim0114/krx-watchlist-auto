@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260722T081811+0900-49f6e958b6",
+  "build_id": "20260722T102635+0900-aefb3bfe79",
   "script": "build_api_json.py v5.2_recommendation_policy_isolation",
   "table_id": "kospi_short_term_candidates_30",
   "display_name": "단상표 후보 30",
-  "generated_at_kst": "2026-07-22T08:18:11+09:00",
-  "source_commit_sha": "49f6e958b633e941f9acd653fd1b262968f78aa7",
+  "generated_at_kst": "2026-07-22T10:26:35+09:00",
+  "source_commit_sha": "aefb3bfe79d75ab224f9ca5a6b511f884bc5c032",
   "required": false,
   "default_output": true,
   "explicit_request_only": false,
@@ -149,27 +149,27 @@
   },
   "official_data": {
     "source_file": "official_data_status_latest.json",
-    "source_run_at_kst": "2026-07-21T10:20:16+09:00",
-    "source_expected_official_trading_date": "2026-07-20",
+    "source_run_at_kst": "2026-07-22T10:10:56+09:00",
+    "source_expected_official_trading_date": "2026-07-21",
     "computed_expected_official_trading_date": "2026-07-21",
     "kospi_actual_date": "2026-07-20",
     "kosdaq_actual_date": "2026-07-20",
     "basis_date_for_display": "2026-07-20",
     "same_market_date": true,
-    "official_fresh_at_source": true,
+    "official_fresh_at_source": false,
     "official_fresh_now": false,
     "collector_return_code": 0,
-    "source_status": "FRESH",
+    "source_status": "STALE_KRX_EMPTY_OR_DELAY",
     "source_display_label": "직전 확정 공식자료 + 더 최신 현재가 혼합",
     "source_warning": "KOSPI_BEHIND_EXPECTED;KOSDAQ_BEHIND_EXPECTED;NEWER_REQUEST_PRICE_OVER_OLDER_ANALYSIS",
-    "kospi_summary_rows": 924,
-    "kosdaq_summary_rows": 1788,
-    "runtime_freshness_evaluated_at_kst": "2026-07-22T09:55:36+09:00",
+    "kospi_summary_rows": 204,
+    "kosdaq_summary_rows": 1029,
+    "runtime_freshness_evaluated_at_kst": "2026-07-22T10:26:35+09:00",
     "runtime_freshness_gate_version": "2026-07-14-v7.7-runtime-freshness-gate",
     "data_lag_trading_days": 1
   },
   "current_price_basis": {
-    "current_price_asof_kst": "2026-07-21T20:19:03+09:00",
+    "current_price_asof_kst": "2026-07-22T10:25:41+09:00",
     "current_price_basis_status": "OK",
     "aux_price_count": 101,
     "current_basis_ok_files": 4,
@@ -365,7 +365,7 @@
       "supply_burden_latest_report_date": 20260626.0,
       "supply_burden_latest_report_name": "유상증자결정(자회사의 주요경영사항)              ",
       "supply_burden_report_count": 8,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 48.08
     },
     {
@@ -450,7 +450,7 @@
       "supply_burden_latest_report_date": 20260512.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 1,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 51.88
     },
     {
@@ -535,7 +535,7 @@
       "supply_burden_latest_report_date": 20260630.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 5,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 73.93
     },
     {
@@ -619,8 +619,8 @@
       "supply_burden_keywords": "대량보유,주요주주변동",
       "supply_burden_latest_report_date": 20260706.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
-      "supply_burden_report_count": 6,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_report_count": 5,
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 48.25
     },
     {
@@ -704,8 +704,8 @@
       "supply_burden_keywords": "대량보유,자사주처분,주요주주변동",
       "supply_burden_latest_report_date": 20260715.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(약식)",
-      "supply_burden_report_count": 21,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_report_count": 19,
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 41.92
     },
     {
@@ -790,7 +790,7 @@
       "supply_burden_latest_report_date": 20260609.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(일반)",
       "supply_burden_report_count": 3,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 69.9
     },
     {
@@ -875,7 +875,7 @@
       "supply_burden_latest_report_date": 20260707.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(일반)",
       "supply_burden_report_count": 10,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 63.01
     },
     {
@@ -960,7 +960,7 @@
       "supply_burden_latest_report_date": 20260521.0,
       "supply_burden_latest_report_name": "[기재정정]감자결정(종속회사의주요경영사항)              ",
       "supply_burden_report_count": 3,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 43.13
     },
     {
@@ -1045,7 +1045,7 @@
       "supply_burden_latest_report_date": 20260624.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(일반)",
       "supply_burden_report_count": 3,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 63.56
     },
     {
@@ -1130,7 +1130,7 @@
       "supply_burden_latest_report_date": 20260626.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 1,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 59.37
     },
     {
@@ -1215,7 +1215,7 @@
       "supply_burden_latest_report_date": null,
       "supply_burden_latest_report_name": null,
       "supply_burden_report_count": 0,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 42.34
     },
     {
@@ -1300,7 +1300,7 @@
       "supply_burden_latest_report_date": 20260605.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 2,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 49.57
     },
     {
@@ -1385,7 +1385,7 @@
       "supply_burden_latest_report_date": 20260701.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(약식)",
       "supply_burden_report_count": 13,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 54.55
     },
     {
@@ -1470,7 +1470,7 @@
       "supply_burden_latest_report_date": 20260703.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(약식)",
       "supply_burden_report_count": 6,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 54.23
     },
     {
@@ -1555,7 +1555,7 @@
       "supply_burden_latest_report_date": 20260529.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(약식)",
       "supply_burden_report_count": 2,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 49.35
     },
     {
@@ -1640,7 +1640,7 @@
       "supply_burden_latest_report_date": 20260619.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(일반)",
       "supply_burden_report_count": 2,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 42.5
     },
     {
@@ -1725,7 +1725,7 @@
       "supply_burden_latest_report_date": null,
       "supply_burden_latest_report_name": null,
       "supply_burden_report_count": 0,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 42.68
     },
     {
@@ -1810,7 +1810,7 @@
       "supply_burden_latest_report_date": 20260630.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 8,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 61.63
     },
     {
@@ -1895,7 +1895,7 @@
       "supply_burden_latest_report_date": 20260520.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 1,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 30.31
     },
     {
@@ -1980,7 +1980,7 @@
       "supply_burden_latest_report_date": 20260715.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(일반)",
       "supply_burden_report_count": 7,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 37.82
     },
     {
@@ -2065,7 +2065,7 @@
       "supply_burden_latest_report_date": 20260623.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(일반)",
       "supply_burden_report_count": 2,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 40.46
     },
     {
@@ -2150,7 +2150,7 @@
       "supply_burden_latest_report_date": 20260720.0,
       "supply_burden_latest_report_name": "주요사항보고서(자기주식처분결정)(자회사의 주요경영사항)              ",
       "supply_burden_report_count": 13,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 46.0
     },
     {
@@ -2228,14 +2228,14 @@
       "supply_check_status": "LIMITED",
       "supply_check_scope": "DART 최근 90일 공시 제목 기준",
       "supply_check_limited_reason": "DART_WHOLE_MARKET_LOOKBACK_CAPPED_90D_FROM_180D",
-      "supply_burden_detected": false,
-      "supply_burden_flag": false,
-      "supply_burden_level": "없음",
-      "supply_burden_keywords": null,
-      "supply_burden_latest_report_date": null,
-      "supply_burden_latest_report_name": null,
-      "supply_burden_report_count": 0,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_detected": true,
+      "supply_burden_flag": true,
+      "supply_burden_level": "주의",
+      "supply_burden_keywords": "주요주주변동",
+      "supply_burden_latest_report_date": 20260721.0,
+      "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
+      "supply_burden_report_count": 1,
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 43.18
     },
     {
@@ -2319,8 +2319,8 @@
       "supply_burden_keywords": "대량보유,유상증자,주요주주변동",
       "supply_burden_latest_report_date": 20260716.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(일반)",
-      "supply_burden_report_count": 81,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_report_count": 80,
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 26.36
     },
     {
@@ -2405,7 +2405,7 @@
       "supply_burden_latest_report_date": 20260713.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 3,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 52.19
     },
     {
@@ -2490,7 +2490,7 @@
       "supply_burden_latest_report_date": 20260701.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(약식)",
       "supply_burden_report_count": 3,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 22.52
     },
     {
@@ -2575,7 +2575,7 @@
       "supply_burden_latest_report_date": 20260709.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(약식)",
       "supply_burden_report_count": 4,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 34.87
     },
     {
@@ -2660,7 +2660,7 @@
       "supply_burden_latest_report_date": 20260424.0,
       "supply_burden_latest_report_name": "유상증자결정(종속회사의주요경영사항)              ",
       "supply_burden_report_count": 1,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 34.86
     },
     {
@@ -2745,7 +2745,7 @@
       "supply_burden_latest_report_date": 20260617.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(일반)",
       "supply_burden_report_count": 5,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 71.95
     },
     {
@@ -2830,13 +2830,13 @@
       "supply_burden_latest_report_date": 20260702.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 1,
-      "supply_burden_checked_at_kst": "2026-07-21T10:25:03+09:00",
+      "supply_burden_checked_at_kst": "2026-07-22T10:11:47+09:00",
       "current_position_pct": 70.16
     }
   ],
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-07-22T09:55:36+09:00",
+    "evaluated_at_kst": "2026-07-22T10:26:35+09:00",
     "publication_cutoff_kst": "08:30",
     "expected_official_trading_date": "2026-07-21",
     "kospi_actual_date": "2026-07-20",
@@ -2853,7 +2853,7 @@
       "NEWER_REQUEST_PRICE_OVER_OLDER_ANALYSIS"
     ],
     "data_lag_trading_days": 1,
-    "current_price_asof_kst": "2026-07-21T20:19:03+09:00",
+    "current_price_asof_kst": "2026-07-22T10:25:41+09:00",
     "newer_current_price_over_older_analysis": true,
     "analysis_policy": "May describe as latest official only when safe_to_analyze_as_latest=true. When false, keep the table available only as the last confirmed reference, show the stale warning, and do not present score/buy/target ranges as current."
   },

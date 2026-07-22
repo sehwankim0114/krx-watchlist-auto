@@ -1,5 +1,5 @@
 script=universe_output_guard.py v1.1_row_count_first_log_warn
-run_at_kst=2026-07-21T10:20:18+09:00
+run_at_kst=2026-07-22T10:10:57+09:00
 output_dir=latest
 backup_dir=/tmp/latest_universe_backup
 kospi_min_rows=800
@@ -7,16 +7,37 @@ kosdaq_min_rows=1500
 gainers_min_rows=15
 restore_on_fail=True
 decision_rule=row_count_first_log_patterns_are_warn_only_when_rows_valid
-CURRENT_ROWS kospi_universe_summary_latest.csv: 924
-CURRENT_ROWS kosdaq_universe_summary_latest.csv: 1788
+CURRENT_ROWS kospi_universe_summary_latest.csv: 204
+CURRENT_ROWS kosdaq_universe_summary_latest.csv: 1029
 CURRENT_ROWS kospi_gainers_1m_latest.csv: 20
 CURRENT_ROWS kospi_candidates_30_latest.csv: 30
 CURRENT_ROWS kospi_recommend_7_latest.csv: 7
 CURRENT_ROWS kosdaq_candidates_10_latest.csv: 10
 CURRENT_ROWS kosdaq_recommend_5_latest.csv: 5
+LOG_WARN_PATTERN_HIT universe_run_log_latest.txt:status=403
+LOG_WARN_PATTERN_HIT universe_run_log_latest.txt:Access Denied
 LOG_WARN_PATTERN_HIT universe_run_log_latest.txt:empty after normalize
+LOG_WARN_PATTERN_HIT universe_run_log_latest.txt:fresh=0
 LOG_WARN_PATTERN_HIT universe_run_log_latest.txt:EMPTY
-guard_decision=ACCEPT_CURRENT_WITH_LOG_WARN
-log_warn_hit_count=2
-status=OK_WITH_LOG_WARN
-action=ACCEPT_CURRENT
+LOG_WARN_PATTERN_HIT krx_official_retry_status_latest.txt:EMPTY
+guard_decision=CURRENT_INVALID
+CURRENT_FAILURE KOSPI summary rows too low: 204 < 800
+CURRENT_FAILURE KOSDAQ summary rows too low: 1029 < 1500
+BACKUP_ROWS kospi_universe_summary_latest.csv: 924
+BACKUP_ROWS kosdaq_universe_summary_latest.csv: 1788
+BACKUP_ROWS kospi_gainers_1m_latest.csv: 20
+BACKUP_ROWS kospi_candidates_30_latest.csv: 30
+BACKUP_ROWS kospi_recommend_7_latest.csv: 7
+BACKUP_ROWS kosdaq_candidates_10_latest.csv: 10
+BACKUP_ROWS kosdaq_recommend_5_latest.csv: 5
+RESTORE_FILE universe_raw_history_latest.csv: OK
+RESTORE_FILE kospi_universe_summary_latest.csv: OK
+RESTORE_FILE kosdaq_universe_summary_latest.csv: OK
+RESTORE_FILE kospi_candidates_30_latest.csv: OK
+RESTORE_FILE kospi_recommend_7_latest.csv: OK
+RESTORE_FILE kosdaq_candidates_10_latest.csv: OK
+RESTORE_FILE kosdaq_recommend_5_latest.csv: OK
+RESTORE_FILE kospi_gainers_1m_latest.csv: OK
+guard_decision=RESTORED_FROM_BACKUP
+status=RESTORED_FROM_BACKUP
+action=RESTORED_FROM_BACKUP

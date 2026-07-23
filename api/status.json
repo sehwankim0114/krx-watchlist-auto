@@ -1,9 +1,9 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260723T193715+0900-640b100c4c",
+  "build_id": "20260723T202059+0900-b3bc4329ad",
   "script": "build_api_json.py v5.2_recommendation_policy_isolation",
-  "generated_at_kst": "2026-07-23T19:37:15+09:00",
-  "source_commit_sha": "640b100c4c5333a9f24036ffd362ad8df7a4cd32",
+  "generated_at_kst": "2026-07-23T20:20:59+09:00",
+  "source_commit_sha": "b3bc4329add50c2cbaef44ac48721143ea30a586",
   "status": "READY",
   "api_sync_ok": true,
   "official_fresh_now": true,
@@ -14,7 +14,7 @@
   "kosdaq_actual_date": "2026-07-22",
   "official_status_source": "official_data_status_latest.json",
   "official_status_source_run_at_kst": "2026-07-23T10:23:41+09:00",
-  "current_price_asof_kst": "2026-07-23T18:09:14+09:00",
+  "current_price_asof_kst": "2026-07-23T20:20:13+09:00",
   "current_price_basis_status": "OK",
   "rules_version": "2026-07-14-v8.0-request-time-position-alignment",
   "rules_sha256": "44e773a99978dfc6bc807177f1e8efbbc4450cbaee744459fe7c11f83d574f5f",
@@ -159,7 +159,7 @@
     "version": "2026-07-09-v7.2-kr-sector-theme",
     "status": "OK",
     "source": "KRX_KIND_LISTED_COMPANY",
-    "generated_at_kst": "2026-07-23T19:37:15+09:00",
+    "generated_at_kst": "2026-07-23T20:20:59+09:00",
     "cache_mode": "LIVE_REFRESH",
     "coverage": {
       "kospi_watchlist": 100.0,
@@ -227,7 +227,7 @@
   "static_official_fresh_at_api_build": true,
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-07-23T19:40:41+09:00",
+    "evaluated_at_kst": "2026-07-23T20:20:59+09:00",
     "publication_cutoff_kst": "08:30",
     "expected_official_trading_date": "2026-07-22",
     "kospi_actual_date": "2026-07-22",
@@ -240,12 +240,12 @@
     "display_label": "최신 공식자료 기준",
     "stale_reasons": [],
     "data_lag_trading_days": 0,
-    "current_price_asof_kst": "2026-07-23T18:09:14+09:00",
+    "current_price_asof_kst": "2026-07-23T20:20:13+09:00",
     "newer_current_price_over_older_analysis": false,
     "analysis_policy": "May describe as latest official only when safe_to_analyze_as_latest=true. When false, keep the table available only as the last confirmed reference, show the stale warning, and do not present score/buy/target ranges as current."
   },
   "runtime_freshness_gate_version": "2026-07-14-v7.7-runtime-freshness-gate",
-  "runtime_freshness_evaluated_at_kst": "2026-07-23T19:40:41+09:00",
+  "runtime_freshness_evaluated_at_kst": "2026-07-23T20:20:59+09:00",
   "price_position_policy": {
     "version": "2026-07-14-v7.8-price-range-position",
     "effective_price_priority": [

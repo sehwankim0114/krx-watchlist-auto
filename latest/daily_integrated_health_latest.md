@@ -1,18 +1,18 @@
 # V7.3 일일 통합 건강검사
 
-- 검사시각(KST): 2026-07-22T12:49:18+09:00
+- 검사시각(KST): 2026-07-23T12:47:11+09:00
 - 최종상태: **FAIL**
-- 치명 오류: 5
+- 치명 오류: 2
 - 경고: 0
-- 빌드 ID: `20260722T102635+0900-aefb3bfe79`
+- 빌드 ID: `20260723T124001+0900-337cbcc4b1`
 - 규칙 버전: `2026-07-14-v8.0-request-time-position-alignment`
 
 | 결과 | 검사 항목 | 설명 |
 |---|---|---|
 | ✅ | `required_files` | 필수 API·규칙 파일이 모두 존재합니다. |
 | ✅ | `status_api_sync_ok` | api_sync_ok=true |
-| ❌ | `status_official_fresh_now` | official_fresh_now가 true가 아닙니다. |
-| ❌ | `status_safe_to_analyze_as_latest` | safe_to_analyze_as_latest가 true가 아닙니다. |
+| ✅ | `status_official_fresh_now` | official_fresh_now=true |
+| ✅ | `status_safe_to_analyze_as_latest` | safe_to_analyze_as_latest=true |
 | ✅ | `validation_report` | validation_report.json 상태가 PASS입니다. |
 | ✅ | `rules_sha256` | 규칙 파일 SHA-256이 status/manifest와 일치합니다. |
 | ✅ | `rules_version_text` | 규칙 문서에 현재 규칙 버전이 표시됩니다. |
@@ -64,7 +64,7 @@
 | ✅ | `recommendation_icon_v79` | 추천 아이콘과 손실·수급 표시 순서가 정상입니다. |
 | ❌ | `worker_health` | Cloudflare Worker 상태 또는 정책이 예상과 다릅니다. |
 | ✅ | `worker_compact_manifest_size` | Worker 경량 매니페스트 응답 크기가 안전 범위입니다. |
-| ❌ | `worker_compact_manifest_values` | 경량 매니페스트의 핵심 상태값이 비정상입니다. |
+| ✅ | `worker_compact_manifest_values` | 경량 매니페스트의 핵심 상태값이 정상입니다. |
 | ✅ | `worker_freshness_source` | 최신성 값 출처가 확인됐습니다. |
 | ✅ | `worker_kospi_watchlist` | 경량 매니페스트의 kospi_watchlist 행 수와 상태가 정상입니다. |
 | ✅ | `worker_kosdaq_watchlist` | 경량 매니페스트의 kosdaq_watchlist 행 수와 상태가 정상입니다. |

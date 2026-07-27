@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260727T213742+0900-83678f90f7",
-  "generated_at_kst": "2026-07-27T21:37:42+09:00",
-  "source_commit_sha": "83678f90f7b89c49f6b101e6a7137d8cca696ea3",
-  "status": "READY",
+  "build_id": "20260728T083233+0900-b7a5e4c402",
+  "generated_at_kst": "2026-07-28T08:32:33+09:00",
+  "source_commit_sha": "b7a5e4c4024ef6d7ba4e5ae37625a22c41e9c746",
+  "status": "STALE_OFFICIAL",
   "api_sync_ok": true,
-  "safe_to_analyze_as_latest": true,
+  "safe_to_analyze_as_latest": false,
   "rules_version": "2026-07-14-v8.0-request-time-position-alignment",
   "rules_sha256": "44e773a99978dfc6bc807177f1e8efbbc4450cbaee744459fe7c11f83d574f5f",
   "rules": {
@@ -2774,7 +2774,7 @@
       "compact_payload": true,
       "preferred_default_action": true,
       "operation_id": "getKospiWatchlist",
-      "payload_size_bytes": 57432,
+      "payload_size_bytes": 57433,
       "candidate_analysis_date": "2026-07-24",
       "current_basis_selected": true,
       "presentation_policy": {
@@ -2931,7 +2931,7 @@
       "compact_payload": true,
       "preferred_default_action": true,
       "operation_id": "getKosdaqWatchlist",
-      "payload_size_bytes": 25705,
+      "payload_size_bytes": 25706,
       "candidate_analysis_date": "2026-07-24",
       "current_basis_selected": true,
       "presentation_policy": {
@@ -3417,7 +3417,7 @@
         "api_file": "api/kospi_watchlist.json",
         "operation_id": "getKospiWatchlist",
         "row_count": 30,
-        "payload_size_bytes": 57432,
+        "payload_size_bytes": 57433,
         "candidate_analysis_date": "2026-07-24"
       },
       {
@@ -3425,7 +3425,7 @@
         "api_file": "api/kosdaq_watchlist.json",
         "operation_id": "getKosdaqWatchlist",
         "row_count": 10,
-        "payload_size_bytes": 25705,
+        "payload_size_bytes": 25706,
         "candidate_analysis_date": "2026-07-24"
       }
     ]
@@ -3442,21 +3442,21 @@
         "market_scope": "KR",
         "row_count": 30,
         "sector_theme_nonempty_rows": 0,
-        "payload_size_bytes": 64291
+        "payload_size_bytes": 64292
       },
       {
         "filename": "kosdaq_watchlist.json",
         "market_scope": "KR",
         "row_count": 10,
         "sector_theme_nonempty_rows": 0,
-        "payload_size_bytes": 29345
+        "payload_size_bytes": 29346
       },
       {
         "filename": "us_watchlist.json",
         "market_scope": "US",
         "row_count": 30,
         "sector_theme_nonempty_rows": 30,
-        "payload_size_bytes": 93984
+        "payload_size_bytes": 93864
       }
     ]
   },
@@ -3465,7 +3465,7 @@
     "status": "OK",
     "source": "KRX_KIND_LISTED_COMPANY",
     "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download&searchType=13",
-    "generated_at_kst": "2026-07-27T21:37:43+09:00",
+    "generated_at_kst": "2026-07-28T08:32:33+09:00",
     "cache_mode": "LIVE_REFRESH",
     "regular_session_minutes": 390,
     "column_label": "평균거래량·분당거래금",
@@ -3476,7 +3476,7 @@
         "row_count": 30,
         "sector_theme_matched": 30,
         "sector_theme_coverage_pct": 100.0,
-        "payload_size_bytes": 66028
+        "payload_size_bytes": 66029
       },
       {
         "table_id": "kosdaq_watchlist",
@@ -3484,7 +3484,7 @@
         "row_count": 10,
         "sector_theme_matched": 10,
         "sector_theme_coverage_pct": 100.0,
-        "payload_size_bytes": 31177
+        "payload_size_bytes": 31178
       }
     ]
   },
@@ -3501,7 +3501,7 @@
         "row_count": 30,
         "recommendation_display_changes": 0,
         "normalized_keyword_rows": 28,
-        "payload_size_bytes": 69383,
+        "payload_size_bytes": 69384,
         "payload_size_limit_bytes": 70000
       },
       {
@@ -3510,7 +3510,7 @@
         "row_count": 10,
         "recommendation_display_changes": 0,
         "normalized_keyword_rows": 6,
-        "payload_size_bytes": 32928,
+        "payload_size_bytes": 32929,
         "payload_size_limit_bytes": 50000
       },
       {
@@ -3519,7 +3519,7 @@
         "row_count": 30,
         "recommendation_display_changes": 30,
         "normalized_keyword_rows": 0,
-        "payload_size_bytes": 99200,
+        "payload_size_bytes": 99084,
         "payload_size_limit_bytes": 110000
       }
     ]
@@ -3578,25 +3578,29 @@
   },
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-07-28T02:21:53+09:00",
+    "evaluated_at_kst": "2026-07-28T08:32:33+09:00",
     "publication_cutoff_kst": "08:30",
-    "expected_official_trading_date": "2026-07-24",
+    "expected_official_trading_date": "2026-07-27",
     "kospi_actual_date": "2026-07-24",
     "kosdaq_actual_date": "2026-07-24",
     "same_market_date": true,
-    "official_fresh_now": true,
+    "official_fresh_now": false,
     "api_sync_ok": true,
-    "safe_to_analyze_as_latest": true,
-    "status": "LATEST_OFFICIAL",
-    "display_label": "최신 공식자료 기준",
-    "stale_reasons": [],
-    "data_lag_trading_days": 0,
+    "safe_to_analyze_as_latest": false,
+    "status": "STALE_OFFICIAL_WITH_CURRENT_PRICE_OVERLAY",
+    "display_label": "직전 확정 공식자료 + 더 최신 현재가 혼합",
+    "stale_reasons": [
+      "KOSPI_BEHIND_EXPECTED",
+      "KOSDAQ_BEHIND_EXPECTED",
+      "NEWER_REQUEST_PRICE_OVER_OLDER_ANALYSIS"
+    ],
+    "data_lag_trading_days": 1,
     "current_price_asof_kst": "2026-07-27T21:37:01+09:00",
-    "newer_current_price_over_older_analysis": false,
+    "newer_current_price_over_older_analysis": true,
     "analysis_policy": "May describe as latest official only when safe_to_analyze_as_latest=true. When false, keep the table available only as the last confirmed reference, show the stale warning, and do not present score/buy/target ranges as current."
   },
   "runtime_freshness_gate_version": "2026-07-14-v7.7-runtime-freshness-gate",
-  "official_fresh_now": true,
+  "official_fresh_now": false,
   "price_position_policy": {
     "version": "2026-07-14-v7.8-price-range-position",
     "effective_price_priority": [

@@ -1,6 +1,6 @@
 {
   "script": "apply_current_price_basis.py v1.1_current_close_support",
-  "run_at_kst": "2026-07-28T12:51:40+09:00",
+  "run_at_kst": "2026-07-28T18:19:23+09:00",
   "output_dir": "latest",
   "source_files": [
     "kospi_candidates_30_latest.csv",
@@ -17,9 +17,9 @@
       "status": "OK",
       "rows": 30,
       "matched": 30,
-      "marked_blue": 4,
-      "marked_orange": 8,
-      "marked_red": 15,
+      "marked_blue": 2,
+      "marked_orange": 2,
+      "marked_red": 23,
       "marked_fail": 0,
       "changed_price_cells": 30,
       "price_column": "close"
@@ -31,8 +31,8 @@
       "rows": 10,
       "matched": 10,
       "marked_blue": 1,
-      "marked_orange": 2,
-      "marked_red": 7,
+      "marked_orange": 1,
+      "marked_red": 8,
       "marked_fail": 0,
       "changed_price_cells": 10,
       "price_column": "close"
@@ -44,7 +44,7 @@
       "rows": 20,
       "matched": 20,
       "marked_blue": 0,
-      "marked_orange": 4,
+      "marked_orange": 5,
       "marked_red": 15,
       "marked_fail": 0,
       "changed_price_cells": 20,
@@ -56,9 +56,9 @@
       "status": "OK",
       "rows": 47,
       "matched": 44,
-      "marked_blue": 2,
-      "marked_orange": 10,
-      "marked_red": 31,
+      "marked_blue": 0,
+      "marked_orange": 6,
+      "marked_red": 37,
       "marked_fail": 0,
       "changed_price_cells": 44,
       "price_column": "current_close"
@@ -73,9 +73,9 @@
     "⚪": "보조 현재가 확인 실패"
   },
   "summary": {
-    "blue": 7,
-    "orange": 24,
-    "red": 68,
+    "blue": 3,
+    "orange": 14,
+    "red": 83,
     "fail": 0
   },
   "status": "OK"

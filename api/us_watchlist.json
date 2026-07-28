@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260728T083233+0900-b7a5e4c402",
+  "build_id": "20260728T102516+0900-9de4cfcb6f",
   "script": "build_api_json.py v5.2_recommendation_policy_isolation",
   "table_id": "us_watchlist",
   "display_name": "미관종표 — S&P500 기반 미국 분석 후보 30개",
-  "generated_at_kst": "2026-07-28T08:32:33+09:00",
-  "source_commit_sha": "b7a5e4c4024ef6d7ba4e5ae37625a22c41e9c746",
+  "generated_at_kst": "2026-07-28T10:25:16+09:00",
+  "source_commit_sha": "9de4cfcb6fe9389d3f96d3f1943d73be51de5aff",
   "required": true,
   "default_output": true,
   "explicit_request_only": false,
@@ -149,15 +149,15 @@
   },
   "official_data": {
     "source_file": "official_data_status_latest.json",
-    "source_run_at_kst": "2026-07-25T10:26:06+09:00",
-    "source_expected_official_trading_date": "2026-07-24",
+    "source_run_at_kst": "2026-07-28T09:40:40+09:00",
+    "source_expected_official_trading_date": "2026-07-27",
     "computed_expected_official_trading_date": "2026-07-27",
-    "kospi_actual_date": "2026-07-24",
-    "kosdaq_actual_date": "2026-07-24",
-    "basis_date_for_display": "2026-07-24",
+    "kospi_actual_date": "2026-07-27",
+    "kosdaq_actual_date": "2026-07-27",
+    "basis_date_for_display": "2026-07-27",
     "same_market_date": true,
     "official_fresh_at_source": true,
-    "official_fresh_now": false,
+    "official_fresh_now": true,
     "collector_return_code": 0,
     "source_status": "FRESH",
     "source_display_label": "최신 공식판",
@@ -166,9 +166,9 @@
     "kosdaq_summary_rows": 1787
   },
   "current_price_basis": {
-    "current_price_asof_kst": "2026-07-27T21:37:01+09:00",
+    "current_price_asof_kst": "2026-07-28T10:20:17+09:00",
     "current_price_basis_status": "OK",
-    "aux_price_count": 101,
+    "aux_price_count": 100,
     "current_basis_ok_files": 4,
     "time_after_hours_reflected": null,
     "freshness_mode": "official"
@@ -2451,7 +2451,7 @@
     "supply_aliases_deduplicated": true
   },
   "payload_size_limit_bytes": 110000,
-  "payload_size_bytes": 99365,
+  "payload_size_bytes": 99364,
   "recommendation_icon_policy": {
     "version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
     "required": true,

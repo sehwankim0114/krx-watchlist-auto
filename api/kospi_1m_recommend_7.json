@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260730T124639+0900-966702eb39",
+  "build_id": "20260730T181631+0900-1eca1c5d2e",
   "script": "build_api_json.py v5.2_recommendation_policy_isolation",
   "table_id": "kospi_1m_recommend_7",
   "display_name": "별도 요청용 코피표1개월 추천 7",
-  "generated_at_kst": "2026-07-30T12:46:39+09:00",
-  "source_commit_sha": "966702eb39c8056b555d19f08c805b330b43d6fe",
+  "generated_at_kst": "2026-07-30T18:16:31+09:00",
+  "source_commit_sha": "1eca1c5d2e51292bf3f616faa96a6ca35bd392e0",
   "required": false,
   "default_output": false,
   "explicit_request_only": true,
@@ -164,12 +164,12 @@
     "source_warning": "",
     "kospi_summary_rows": 924,
     "kosdaq_summary_rows": 1787,
-    "runtime_freshness_evaluated_at_kst": "2026-07-30T12:46:39+09:00",
+    "runtime_freshness_evaluated_at_kst": "2026-07-30T18:16:31+09:00",
     "runtime_freshness_gate_version": "2026-07-14-v7.7-runtime-freshness-gate",
     "data_lag_trading_days": 0
   },
   "current_price_basis": {
-    "current_price_asof_kst": "2026-07-30T12:45:50+09:00",
+    "current_price_asof_kst": "2026-07-30T18:15:44+09:00",
     "current_price_basis_status": "OK",
     "aux_price_count": 99,
     "current_basis_ok_files": 4,
@@ -448,7 +448,7 @@
   ],
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-07-30T12:46:39+09:00",
+    "evaluated_at_kst": "2026-07-30T18:16:31+09:00",
     "publication_cutoff_kst": "08:30",
     "expected_official_trading_date": "2026-07-29",
     "kospi_actual_date": "2026-07-29",
@@ -461,7 +461,7 @@
     "display_label": "최신 공식자료 기준",
     "stale_reasons": [],
     "data_lag_trading_days": 0,
-    "current_price_asof_kst": "2026-07-30T12:45:50+09:00",
+    "current_price_asof_kst": "2026-07-30T18:15:44+09:00",
     "newer_current_price_over_older_analysis": false,
     "analysis_policy": "May describe as latest official only when safe_to_analyze_as_latest=true. When false, keep the table available only as the last confirmed reference, show the stale warning, and do not present score/buy/target ranges as current."
   },

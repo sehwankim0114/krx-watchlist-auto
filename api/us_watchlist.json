@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260730T081949+0900-f22f0cf98a",
+  "build_id": "20260730T094757+0900-1a7000671f",
   "script": "build_api_json.py v5.2_recommendation_policy_isolation",
   "table_id": "us_watchlist",
   "display_name": "미관종표 — S&P500 기반 미국 분석 후보 30개",
-  "generated_at_kst": "2026-07-30T08:19:49+09:00",
-  "source_commit_sha": "f22f0cf98a55aa96ffcada548bc4322d27bf45a4",
+  "generated_at_kst": "2026-07-30T09:47:57+09:00",
+  "source_commit_sha": "1a7000671f86dd1651a9a498cede81fde8b1c6ec",
   "required": true,
   "default_output": true,
   "explicit_request_only": false,
@@ -149,12 +149,12 @@
   },
   "official_data": {
     "source_file": "official_data_status_latest.json",
-    "source_run_at_kst": "2026-07-29T09:24:26+09:00",
-    "source_expected_official_trading_date": "2026-07-28",
-    "computed_expected_official_trading_date": "2026-07-28",
-    "kospi_actual_date": "2026-07-28",
-    "kosdaq_actual_date": "2026-07-28",
-    "basis_date_for_display": "2026-07-28",
+    "source_run_at_kst": "2026-07-30T09:28:13+09:00",
+    "source_expected_official_trading_date": "2026-07-29",
+    "computed_expected_official_trading_date": "2026-07-29",
+    "kospi_actual_date": "2026-07-29",
+    "kosdaq_actual_date": "2026-07-29",
+    "basis_date_for_display": "2026-07-29",
     "same_market_date": true,
     "official_fresh_at_source": true,
     "official_fresh_now": true,
@@ -166,9 +166,9 @@
     "kosdaq_summary_rows": 1787
   },
   "current_price_basis": {
-    "current_price_asof_kst": "2026-07-29T20:34:23+09:00",
+    "current_price_asof_kst": "2026-07-30T09:46:48+09:00",
     "current_price_basis_status": "OK",
-    "aux_price_count": 101,
+    "aux_price_count": 99,
     "current_basis_ok_files": 4,
     "time_after_hours_reflected": null,
     "freshness_mode": "official"
@@ -2451,7 +2451,7 @@
     "supply_aliases_deduplicated": true
   },
   "payload_size_limit_bytes": 110000,
-  "payload_size_bytes": 99512,
+  "payload_size_bytes": 99511,
   "recommendation_icon_policy": {
     "version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
     "required": true,

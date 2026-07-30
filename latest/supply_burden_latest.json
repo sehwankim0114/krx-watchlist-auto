@@ -1,7 +1,7 @@
 {
   "script": "supply_burden_enricher.py v2.0.0-check-status-separated",
   "policy_version": "2026-07-01-v6.0-supply-status-separated",
-  "run_at_kst": "2026-07-29T09:25:11+09:00",
+  "run_at_kst": "2026-07-30T09:29:07+09:00",
   "status": "LIMITED",
   "check_scope": "DART 최근 90일 공시 제목 기준",
   "check_limited_reason": "DART_WHOLE_MARKET_LOOKBACK_CAPPED_90D_FROM_180D",
@@ -10,32 +10,32 @@
   "effective_lookback_days": 90,
   "dart_whole_market_max_days": 90,
   "target_tickers": 2711,
-  "hit_reports": 11406,
-  "supply_burden_detected_tickers": 1830,
-  "danger_tickers": 610,
-  "warning_tickers": 669,
-  "caution_tickers": 551,
+  "hit_reports": 11218,
+  "supply_burden_detected_tickers": 1819,
+  "danger_tickers": 598,
+  "warning_tickers": 672,
+  "caution_tickers": 549,
   "dart_status": {
-    "bgn_de": "20260430",
-    "end_de": "20260729",
+    "bgn_de": "20260501",
+    "end_de": "20260730",
     "lookback_days": 90,
     "corp_cls": {
       "Y": {
-        "pages_requested": 156,
-        "total_page": 156,
-        "raw_reports": 15539,
-        "target_reports": 15539,
-        "matched_reports": 4307
+        "pages_requested": 154,
+        "total_page": 154,
+        "raw_reports": 15335,
+        "target_reports": 15335,
+        "matched_reports": 4223
       },
       "K": {
-        "pages_requested": 167,
-        "total_page": 167,
-        "raw_reports": 16681,
-        "target_reports": 16531,
-        "matched_reports": 7099
+        "pages_requested": 162,
+        "total_page": 162,
+        "raw_reports": 16184,
+        "target_reports": 16039,
+        "matched_reports": 6995
       }
     },
-    "api_calls": 323,
+    "api_calls": 316,
     "api_errors": []
   },
   "enrich_results": [
@@ -54,7 +54,7 @@
       "status": "OK",
       "rows": 10,
       "matched_rows": 10,
-      "burden_detected_rows": 6,
+      "burden_detected_rows": 7,
       "check_limited_rows": 10,
       "check_failed_rows": 0,
       "note": ""
@@ -84,7 +84,7 @@
       "status": "OK",
       "rows": 5,
       "matched_rows": 5,
-      "burden_detected_rows": 3,
+      "burden_detected_rows": 4,
       "check_limited_rows": 5,
       "check_failed_rows": 0,
       "note": ""
@@ -114,7 +114,7 @@
       "status": "OK",
       "rows": 1787,
       "matched_rows": 1787,
-      "burden_detected_rows": 1256,
+      "burden_detected_rows": 1248,
       "check_limited_rows": 1787,
       "check_failed_rows": 0,
       "note": ""
@@ -294,7 +294,7 @@
       "status": "OK",
       "rows": 7,
       "matched_rows": 7,
-      "burden_detected_rows": 6,
+      "burden_detected_rows": 7,
       "check_limited_rows": 7,
       "check_failed_rows": 0,
       "note": ""
@@ -354,7 +354,7 @@
       "status": "OK",
       "rows": 7,
       "matched_rows": 7,
-      "burden_detected_rows": 6,
+      "burden_detected_rows": 5,
       "check_limited_rows": 7,
       "check_failed_rows": 0,
       "note": ""
@@ -384,7 +384,7 @@
       "status": "OK",
       "rows": 924,
       "matched_rows": 924,
-      "burden_detected_rows": 574,
+      "burden_detected_rows": 571,
       "check_limited_rows": 924,
       "check_failed_rows": 0,
       "note": ""

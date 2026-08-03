@@ -1,9 +1,9 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260803T191506+0900-3e5c95f1e1",
+  "build_id": "20260803T205112+0900-f91f2e6d59",
   "script": "build_api_json.py v5.2_recommendation_policy_isolation",
-  "generated_at_kst": "2026-08-03T19:15:06+09:00",
-  "source_commit_sha": "3e5c95f1e17574ec3cbd36fcb55691defe2b617e",
+  "generated_at_kst": "2026-08-03T20:51:12+09:00",
+  "source_commit_sha": "f91f2e6d59335e6deb213d3268787960049950d6",
   "status": "READY",
   "api_sync_ok": true,
   "official_fresh_now": true,
@@ -159,8 +159,8 @@
     "version": "2026-07-09-v7.2-kr-sector-theme",
     "status": "OK",
     "source": "KRX_KIND_LISTED_COMPANY",
-    "generated_at_kst": "2026-08-03T13:21:25+09:00",
-    "cache_mode": "STALE_CACHE_FALLBACK",
+    "generated_at_kst": "2026-08-03T20:51:12+09:00",
+    "cache_mode": "LIVE_REFRESH",
     "coverage": {
       "kospi_watchlist": 100.0,
       "kosdaq_watchlist": 100.0
@@ -227,7 +227,7 @@
   "static_official_fresh_at_api_build": true,
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-08-03T19:15:06+09:00",
+    "evaluated_at_kst": "2026-08-03T20:51:12+09:00",
     "publication_cutoff_kst": "08:30",
     "expected_official_trading_date": "2026-07-31",
     "kospi_actual_date": "2026-07-31",
@@ -245,7 +245,7 @@
     "analysis_policy": "May describe as latest official only when safe_to_analyze_as_latest=true. When false, keep the table available only as the last confirmed reference, show the stale warning, and do not present score/buy/target ranges as current."
   },
   "runtime_freshness_gate_version": "2026-07-14-v7.7-runtime-freshness-gate",
-  "runtime_freshness_evaluated_at_kst": "2026-08-03T19:15:06+09:00",
+  "runtime_freshness_evaluated_at_kst": "2026-08-03T20:51:12+09:00",
   "price_position_policy": {
     "version": "2026-07-14-v7.8-price-range-position",
     "effective_price_priority": [

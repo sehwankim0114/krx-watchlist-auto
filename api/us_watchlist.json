@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260808T080030+0900-4a7528f8f5",
+  "build_id": "20260808T094112+0900-6a12b80501",
   "script": "build_api_json.py v5.2_recommendation_policy_isolation",
   "table_id": "us_watchlist",
   "display_name": "미관종표 — S&P500 기반 미국 분석 후보 30개",
-  "generated_at_kst": "2026-08-08T08:00:30+09:00",
-  "source_commit_sha": "4a7528f8f5f484afb59beeb9d87c068a6fe2b77a",
+  "generated_at_kst": "2026-08-08T09:41:12+09:00",
+  "source_commit_sha": "6a12b80501b6815e2e67c9f3501951b27f8a80d2",
   "required": true,
   "default_output": true,
   "explicit_request_only": false,
@@ -149,12 +149,12 @@
   },
   "official_data": {
     "source_file": "official_data_status_latest.json",
-    "source_run_at_kst": "2026-08-07T11:04:03+09:00",
-    "source_expected_official_trading_date": "2026-08-06",
-    "computed_expected_official_trading_date": "2026-08-06",
-    "kospi_actual_date": "2026-08-06",
-    "kosdaq_actual_date": "2026-08-06",
-    "basis_date_for_display": "2026-08-06",
+    "source_run_at_kst": "2026-08-08T09:23:09+09:00",
+    "source_expected_official_trading_date": "2026-08-07",
+    "computed_expected_official_trading_date": "2026-08-07",
+    "kospi_actual_date": "2026-08-07",
+    "kosdaq_actual_date": "2026-08-07",
+    "basis_date_for_display": "2026-08-07",
     "same_market_date": true,
     "official_fresh_at_source": true,
     "official_fresh_now": true,
@@ -163,12 +163,12 @@
     "source_display_label": "최신 공식판",
     "source_warning": "",
     "kospi_summary_rows": 923,
-    "kosdaq_summary_rows": 1787
+    "kosdaq_summary_rows": 1786
   },
   "current_price_basis": {
-    "current_price_asof_kst": "2026-08-07T19:10:27+09:00",
+    "current_price_asof_kst": "2026-08-08T09:40:09+09:00",
     "current_price_basis_status": "OK",
-    "aux_price_count": 101,
+    "aux_price_count": 97,
     "current_basis_ok_files": 4,
     "time_after_hours_reflected": null,
     "freshness_mode": "official"
@@ -2451,7 +2451,7 @@
     "supply_aliases_deduplicated": true
   },
   "payload_size_limit_bytes": 110000,
-  "payload_size_bytes": 99621,
+  "payload_size_bytes": 99620,
   "recommendation_icon_policy": {
     "version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
     "required": true,

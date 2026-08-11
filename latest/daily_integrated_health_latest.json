@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "checker_version": "2026-07-10-v7.6.1-financial-payload-health",
-  "generated_at_kst": "2026-08-10T11:36:04+09:00",
+  "generated_at_kst": "2026-08-11T11:29:20+09:00",
   "status": "FAIL",
-  "critical_count": 2,
+  "critical_count": 5,
   "warning_count": 0,
   "context": {
-    "build_id": "20260810T090507+0900-4e93c5d0d6",
+    "build_id": "20260810T115754+0900-9724fa17fb",
     "rules_version": "2026-07-14-v8.0-request-time-position-alignment",
     "rules_sha256": "44e773a99978dfc6bc807177f1e8efbbc4450cbaee744459fe7c11f83d574f5f",
-    "source_commit_sha": "4e93c5d0d62aa6ced8049c05551224d6b3e0caca",
+    "source_commit_sha": "9724fa17fbe9f416169454fd36784e1594179cdb",
     "payload_limits_bytes": {
       "kospi_watchlist": 70000,
       "kosdaq_watchlist": 50000,
@@ -31,15 +31,21 @@
     },
     {
       "check_id": "status_official_fresh_now",
-      "status": "PASS",
+      "status": "FAIL",
       "severity": "ERROR",
-      "message": "official_fresh_now=true"
+      "message": "official_fresh_now가 true가 아닙니다.",
+      "details": {
+        "actual": false
+      }
     },
     {
       "check_id": "status_safe_to_analyze_as_latest",
-      "status": "PASS",
+      "status": "FAIL",
       "severity": "ERROR",
-      "message": "safe_to_analyze_as_latest=true"
+      "message": "safe_to_analyze_as_latest가 true가 아닙니다.",
+      "details": {
+        "actual": false
+      }
     },
     {
       "check_id": "validation_report",
@@ -71,7 +77,7 @@
       "severity": "ERROR",
       "message": "kospi_watchlist 응답 크기가 시장별 제한을 넘었습니다.",
       "details": {
-        "bytes": 74368,
+        "bytes": 75181,
         "limit": 70000,
         "market": "KR"
       }
@@ -214,7 +220,7 @@
       "severity": "ERROR",
       "message": "kosdaq_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 36379,
+        "bytes": 36967,
         "limit": 50000,
         "market": "KR"
       }
@@ -448,15 +454,19 @@
       "severity": "ERROR",
       "message": "Worker 경량 매니페스트 응답 크기가 안전 범위입니다.",
       "details": {
-        "bytes": 24426,
+        "bytes": 24437,
         "limit": 65000
       }
     },
     {
       "check_id": "worker_compact_manifest_values",
-      "status": "PASS",
+      "status": "FAIL",
       "severity": "ERROR",
-      "message": "경량 매니페스트의 핵심 상태값이 정상입니다."
+      "message": "경량 매니페스트의 핵심 상태값이 비정상입니다.",
+      "details": {
+        "official_fresh_now": false,
+        "safe_to_analyze_as_latest": false
+      }
     },
     {
       "check_id": "worker_freshness_source",

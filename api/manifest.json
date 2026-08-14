@@ -1,8 +1,8 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260814T221357+0900-130f2b13fc",
-  "generated_at_kst": "2026-08-14T22:13:57+09:00",
-  "source_commit_sha": "130f2b13fcc70c23b867226c871988d55a5e85f9",
+  "build_id": "20260815T074603+0900-135d48a38d",
+  "generated_at_kst": "2026-08-15T07:46:03+09:00",
+  "source_commit_sha": "135d48a38dc86770cc90274fe11c6a34cbc21037",
   "status": "READY",
   "api_sync_ok": true,
   "safe_to_analyze_as_latest": true,
@@ -3456,7 +3456,7 @@
         "market_scope": "US",
         "row_count": 30,
         "sector_theme_nonempty_rows": 30,
-        "payload_size_bytes": 94102
+        "payload_size_bytes": 94162
       }
     ]
   },
@@ -3466,7 +3466,7 @@
     "source": "KRX_KIND_LISTED_COMPANY",
     "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download&searchType=13",
     "generated_at_kst": "2026-08-14T22:13:58+09:00",
-    "cache_mode": "LIVE_REFRESH",
+    "cache_mode": "STALE_CACHE_FALLBACK",
     "regular_session_minutes": 390,
     "column_label": "평균거래량·분당거래금",
     "entries": [
@@ -3476,7 +3476,7 @@
         "row_count": 30,
         "sector_theme_matched": 30,
         "sector_theme_coverage_pct": 100.0,
-        "payload_size_bytes": 66564
+        "payload_size_bytes": 66572
       },
       {
         "table_id": "kosdaq_watchlist",
@@ -3484,7 +3484,7 @@
         "row_count": 10,
         "sector_theme_matched": 10,
         "sector_theme_coverage_pct": 100.0,
-        "payload_size_bytes": 31125
+        "payload_size_bytes": 31133
       }
     ]
   },
@@ -3501,7 +3501,7 @@
         "row_count": 30,
         "recommendation_display_changes": 0,
         "normalized_keyword_rows": 24,
-        "payload_size_bytes": 69724,
+        "payload_size_bytes": 69732,
         "payload_size_limit_bytes": 70000
       },
       {
@@ -3510,7 +3510,7 @@
         "row_count": 10,
         "recommendation_display_changes": 0,
         "normalized_keyword_rows": 0,
-        "payload_size_bytes": 32722,
+        "payload_size_bytes": 32730,
         "payload_size_limit_bytes": 50000
       },
       {
@@ -3519,7 +3519,7 @@
         "row_count": 30,
         "recommendation_display_changes": 30,
         "normalized_keyword_rows": 0,
-        "payload_size_bytes": 99315,
+        "payload_size_bytes": 99421,
         "payload_size_limit_bytes": 110000
       }
     ]
@@ -3578,7 +3578,7 @@
   },
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-08-15T01:30:44+09:00",
+    "evaluated_at_kst": "2026-08-15T07:46:03+09:00",
     "publication_cutoff_kst": "08:30",
     "expected_official_trading_date": "2026-08-13",
     "kospi_actual_date": "2026-08-13",
@@ -3622,8 +3622,8 @@
   "price_position_validation": {
     "version": "2026-07-14-v7.8-price-range-position",
     "status": "PASS",
-    "files_checked": 13,
-    "eligible_rows": 219,
+    "files_checked": 14,
+    "eligible_rows": 254,
     "below_low_rows": 0,
     "above_high_rows": 4,
     "error_count": 0

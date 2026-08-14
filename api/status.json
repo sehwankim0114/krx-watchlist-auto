@@ -1,9 +1,9 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260814T221357+0900-130f2b13fc",
+  "build_id": "20260815T074603+0900-135d48a38d",
   "script": "build_api_json.py v5.2_recommendation_policy_isolation",
-  "generated_at_kst": "2026-08-14T22:13:57+09:00",
-  "source_commit_sha": "130f2b13fcc70c23b867226c871988d55a5e85f9",
+  "generated_at_kst": "2026-08-15T07:46:03+09:00",
+  "source_commit_sha": "135d48a38dc86770cc90274fe11c6a34cbc21037",
   "status": "READY",
   "api_sync_ok": true,
   "official_fresh_now": true,
@@ -160,7 +160,7 @@
     "status": "OK",
     "source": "KRX_KIND_LISTED_COMPANY",
     "generated_at_kst": "2026-08-14T22:13:58+09:00",
-    "cache_mode": "LIVE_REFRESH",
+    "cache_mode": "STALE_CACHE_FALLBACK",
     "coverage": {
       "kospi_watchlist": 100.0,
       "kosdaq_watchlist": 100.0
@@ -227,7 +227,7 @@
   "static_official_fresh_at_api_build": true,
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-08-15T01:30:44+09:00",
+    "evaluated_at_kst": "2026-08-15T07:46:03+09:00",
     "publication_cutoff_kst": "08:30",
     "expected_official_trading_date": "2026-08-13",
     "kospi_actual_date": "2026-08-13",
@@ -245,7 +245,7 @@
     "analysis_policy": "May describe as latest official only when safe_to_analyze_as_latest=true. When false, keep the table available only as the last confirmed reference, show the stale warning, and do not present score/buy/target ranges as current."
   },
   "runtime_freshness_gate_version": "2026-07-14-v7.7-runtime-freshness-gate",
-  "runtime_freshness_evaluated_at_kst": "2026-08-15T01:30:44+09:00",
+  "runtime_freshness_evaluated_at_kst": "2026-08-15T07:46:03+09:00",
   "price_position_policy": {
     "version": "2026-07-14-v7.8-price-range-position",
     "effective_price_priority": [
@@ -271,8 +271,8 @@
   "price_position_validation": {
     "version": "2026-07-14-v7.8-price-range-position",
     "status": "PASS",
-    "files_checked": 13,
-    "eligible_rows": 219,
+    "files_checked": 14,
+    "eligible_rows": 254,
     "below_low_rows": 0,
     "above_high_rows": 4,
     "error_count": 0

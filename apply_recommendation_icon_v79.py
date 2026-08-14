@@ -476,8 +476,12 @@ def apply_recommendation_icon_v79(
 
         max_bytes = int(target["max_payload_bytes"])
         payload["payload_size_limit_bytes"] = max_bytes
-        size = write_json(path, payload)
-        payload["payload_size_bytes"] = size
+
+        # payload_size_bytes를 JSON 내부에 저장하면 그 필드 자체가
+        # 파일 크기를 증가시켜 경계값에서 다시 제한을 넘을 수 있다.
+        # 최종 실제 크기는 아래 path.stat().st_size에서 계산한다.
+        payload.pop("payload_size_bytes", None)
+
         size = write_json(path, payload)
         if size > max_bytes:
             raise RecommendationIconError(

@@ -1,0 +1,96 @@
+name: KOSPI Consecutive Decliners
+
+on:
+  workflow_dispatch:
+    inputs:
+      min_streak:
+        description: "최소 연속 하락일"
+        required: true
+        default: "3"
+        type: choice
+        options:
+          - "3"
+          - "4"
+          - "5"
+
+      lookback_days:
+        description: "평균등락주기 계산 거래일"
+        required: true
+        default: "60"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kospi-consecutive-decliners
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      TZ: Asia/Seoul
+      PRICE_API_BASE: https://krx-live-price-ksh.diaconos.workers.dev
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Build consecutive decliners
+        run: |
+          python kospi_consecutive_decliners.py \
+            --min-streak "${{ inputs.min_streak }}" \
+            --lookback-days "${{ inputs.lookback_days }}" \
+            --output-dir latest \
+            --api-dir api
+
+      - name: Validate output
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path("api/kospi_consecutive_decliners.json")
+          data = json.loads(p.read_text(encoding="utf-8"))
+
+          assert data["status"] == "OK"
+          assert data["universe_count"] >= 800
+          assert data["min_streak_days"] >= 3
+          assert isinstance(data["rows"], list)
+
+          print("CONSECUTIVE_DECLINERS_VALIDATION=PASS")
+          print("UNIVERSE_COUNT=", data["universe_count"])
+          print("ROW_COUNT=", len(data["rows"]))
+          PY
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            api/kospi_consecutive_decliners.json \
+            latest/kospi_consecutive_decliners_latest.csv \
+            latest/kospi_consecutive_decliners_latest.json \
+            latest/kospi_consecutive_decliners_run_log_latest.txt
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES=true"
+            exit 0
+          fi
+
+          git commit -m "Update KOSPI consecutive decliners"
+          git pull --rebase origin main
+          git push origin HEAD:main

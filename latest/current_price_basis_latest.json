@@ -1,6 +1,6 @@
 {
   "script": "apply_current_price_basis.py v1.1_current_close_support",
-  "run_at_kst": "2026-08-13T19:21:33+09:00",
+  "run_at_kst": "2026-08-14T09:48:24+09:00",
   "output_dir": "latest",
   "source_files": [
     "kospi_candidates_30_latest.csv",
@@ -8,7 +8,7 @@
     "kospi_gainers_1m_latest.csv",
     "watchlist_summary_latest.csv"
   ],
-  "aux_price_count": 98,
+  "aux_price_count": 96,
   "ok_files": 4,
   "results": [
     {
@@ -17,9 +17,9 @@
       "status": "OK",
       "rows": 30,
       "matched": 30,
-      "marked_blue": 12,
-      "marked_orange": 12,
-      "marked_red": 4,
+      "marked_blue": 7,
+      "marked_orange": 8,
+      "marked_red": 7,
       "marked_fail": 0,
       "changed_price_cells": 29,
       "price_column": "close"
@@ -30,11 +30,11 @@
       "status": "OK",
       "rows": 10,
       "matched": 10,
-      "marked_blue": 0,
-      "marked_orange": 5,
-      "marked_red": 3,
+      "marked_blue": 5,
+      "marked_orange": 2,
+      "marked_red": 2,
       "marked_fail": 0,
-      "changed_price_cells": 9,
+      "changed_price_cells": 10,
       "price_column": "close"
     },
     {
@@ -44,10 +44,10 @@
       "rows": 20,
       "matched": 20,
       "marked_blue": 3,
-      "marked_orange": 1,
-      "marked_red": 13,
+      "marked_orange": 5,
+      "marked_red": 6,
       "marked_fail": 0,
-      "changed_price_cells": 20,
+      "changed_price_cells": 19,
       "price_column": "close"
     },
     {
@@ -56,11 +56,11 @@
       "status": "OK",
       "rows": 47,
       "matched": 44,
-      "marked_blue": 0,
-      "marked_orange": 0,
-      "marked_red": 0,
+      "marked_blue": 11,
+      "marked_orange": 14,
+      "marked_red": 17,
       "marked_fail": 0,
-      "changed_price_cells": 0,
+      "changed_price_cells": 44,
       "price_column": "current_close"
     }
   ],
@@ -73,9 +73,9 @@
     "⚪": "보조 현재가 확인 실패"
   },
   "summary": {
-    "blue": 15,
-    "orange": 18,
-    "red": 20,
+    "blue": 26,
+    "orange": 29,
+    "red": 32,
     "fail": 0
   },
   "status": "OK"

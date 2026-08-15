@@ -1,11 +1,37 @@
 {
   "script": "universe_output_guard.py v1.1_row_count_first_log_warn",
-  "run_at_kst": "2026-08-14T16:25:01+09:00",
-  "status": "OK_WITH_LOG_WARN",
-  "action": "ACCEPT_CURRENT",
+  "run_at_kst": "2026-08-15T10:09:23+09:00",
+  "status": "RESTORED_FROM_BACKUP",
+  "action": "RESTORED_FROM_BACKUP",
   "current": {
-    "rows_valid": true,
+    "rows_valid": false,
+    "is_valid": false,
+    "row_counts": {
+      "kospi_universe_summary_latest.csv": 203,
+      "kosdaq_universe_summary_latest.csv": 1027,
+      "kospi_gainers_1m_latest.csv": 20,
+      "kospi_candidates_30_latest.csv": 30,
+      "kospi_recommend_7_latest.csv": 7,
+      "kosdaq_candidates_10_latest.csv": 10,
+      "kosdaq_recommend_5_latest.csv": 5
+    },
+    "row_failures": [
+      "KOSPI summary rows too low: 203 < 800",
+      "KOSDAQ summary rows too low: 1027 < 1500"
+    ],
+    "log_warn_hits": [
+      "universe_run_log_latest.txt:status=403",
+      "universe_run_log_latest.txt:Access Denied",
+      "universe_run_log_latest.txt:empty after normalize",
+      "universe_run_log_latest.txt:fresh=0",
+      "universe_run_log_latest.txt:EMPTY",
+      "krx_official_retry_status_latest.txt:EMPTY"
+    ],
+    "log_warn_hit_count": 6
+  },
+  "backup_status": {
     "is_valid": true,
+    "failures": [],
     "row_counts": {
       "kospi_universe_summary_latest.csv": 923,
       "kosdaq_universe_summary_latest.csv": 1786,
@@ -14,17 +40,19 @@
       "kospi_recommend_7_latest.csv": 7,
       "kosdaq_candidates_10_latest.csv": 10,
       "kosdaq_recommend_5_latest.csv": 5
-    },
-    "row_failures": [],
-    "log_warn_hits": [
-      "universe_run_log_latest.txt:empty after normalize",
-      "universe_run_log_latest.txt:EMPTY"
-    ],
-    "log_warn_hit_count": 2
+    }
   },
-  "backup_status": {},
   "restore_result": {
-    "restored": [],
+    "restored": [
+      "universe_raw_history_latest.csv",
+      "kospi_universe_summary_latest.csv",
+      "kosdaq_universe_summary_latest.csv",
+      "kospi_candidates_30_latest.csv",
+      "kospi_recommend_7_latest.csv",
+      "kosdaq_candidates_10_latest.csv",
+      "kosdaq_recommend_5_latest.csv",
+      "kospi_gainers_1m_latest.csv"
+    ],
     "missing": []
   }
 }

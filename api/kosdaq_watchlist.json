@@ -88,7 +88,7 @@
     "source_file": "official_data_status_latest.json",
     "source_run_at_kst": "2026-08-15T11:05:35+09:00",
     "source_expected_official_trading_date": "2026-08-14",
-    "computed_expected_official_trading_date": "2026-08-18",
+    "computed_expected_official_trading_date": "2026-08-19",
     "kospi_actual_date": "2026-08-14",
     "kosdaq_actual_date": "2026-08-14",
     "basis_date_for_display": "2026-08-14",
@@ -101,9 +101,9 @@
     "source_warning": "KOSPI_BEHIND_EXPECTED;KOSDAQ_BEHIND_EXPECTED;NEWER_REQUEST_PRICE_OVER_OLDER_ANALYSIS",
     "kospi_summary_rows": 923,
     "kosdaq_summary_rows": 1786,
-    "runtime_freshness_evaluated_at_kst": "2026-08-20T01:02:34+09:00",
+    "runtime_freshness_evaluated_at_kst": "2026-08-20T08:47:54+09:00",
     "runtime_freshness_gate_version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "data_lag_trading_days": 1
+    "data_lag_trading_days": 2
   },
   "current_price_basis": {
     "current_price_asof_kst": "2026-08-18T08:33:30+09:00",
@@ -873,9 +873,9 @@
   "recommendation_icon_version": "2026-07-14-v7.9.2-recommendation-policy-isolation",
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-08-20T01:02:34+09:00",
+    "evaluated_at_kst": "2026-08-20T08:47:54+09:00",
     "publication_cutoff_kst": "08:30",
-    "expected_official_trading_date": "2026-08-18",
+    "expected_official_trading_date": "2026-08-19",
     "kospi_actual_date": "2026-08-14",
     "kosdaq_actual_date": "2026-08-14",
     "same_market_date": true,
@@ -889,7 +889,7 @@
       "KOSDAQ_BEHIND_EXPECTED",
       "NEWER_REQUEST_PRICE_OVER_OLDER_ANALYSIS"
     ],
-    "data_lag_trading_days": 1,
+    "data_lag_trading_days": 2,
     "current_price_asof_kst": "2026-08-18T08:33:30+09:00",
     "newer_current_price_over_older_analysis": true,
     "analysis_policy": "May describe as latest official only when safe_to_analyze_as_latest=true. When false, keep the table available only as the last confirmed reference, show the stale warning, and do not present score/buy/target ranges as current."

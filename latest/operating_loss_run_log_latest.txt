@@ -1,21 +1,21 @@
 script=operating_loss_enricher.py v1.1_syntax_fix_and_fresh_tables
-run_at_kst=2026-08-15T11:05:37+09:00
+run_at_kst=2026-08-19T08:51:13+09:00
 output_dir=latest
 workers=4
 max_api_calls=5000
-candidate_periods=2026_11013,2025_11011,2025_11014,2025_11012,2025_11013,2024_11011
-target_period_key=2026_11013
-target_tickers=2709
-cache_rows_for_target=2709
+candidate_periods=2026_11012,2026_11013,2025_11011,2025_11014,2025_11012,2025_11013,2024_11011
+target_period_key=2026_11012
+target_tickers=2710
+cache_rows_for_target=0
 corp_code_map_source=cache, rows=3943
-cache_hit_ok=2612
-to_fetch=97
-cache_output_rows=2709
-operating_loss_count=985
-source_status_counts={'OK': 2612, 'NO_CORP_CODE': 90, 'API_STATUS_013:조회된 데이타가 없습니다.': 7}
+cache_hit_ok=0
+to_fetch=2710
+cache_output_rows=2710
+operating_loss_count=908
+source_status_counts={'OK': 2616, 'NO_CORP_CODE': 91, 'API_STATUS_013:조회된 데이타가 없습니다.': 3}
 ENRICH_FILE watchlist_summary_latest.csv: status=ok, rows=47, matched=44
 ENRICH_FILE kospi_universe_summary_latest.csv: status=ok, rows=923, matched=923
-ENRICH_FILE kosdaq_universe_summary_latest.csv: status=ok, rows=1786, matched=1786
+ENRICH_FILE kosdaq_universe_summary_latest.csv: status=ok, rows=1787, matched=1787
 ENRICH_FILE kospi_candidates_30_latest.csv: status=ok, rows=30, matched=30
 ENRICH_FILE kospi_recommend_7_latest.csv: status=ok, rows=7, matched=7
 ENRICH_FILE kosdaq_candidates_10_latest.csv: status=ok, rows=10, matched=10
@@ -24,7 +24,7 @@ ENRICH_FILE kospi_gainers_1m_latest.csv: status=ok, rows=20, matched=20
 ENRICH_FILE kospi_monthly_cycle_latest.csv: status=ok, rows=40, matched=40
 ENRICH_FILE kospi_short_term_candidates_30_latest.csv: status=ok, rows=30, matched=30
 ENRICH_FILE kospi_short_term_recommend_7_latest.csv: status=ok, rows=7, matched=7
-ENRICH_FILE kospi_fx_weakness_candidates_30_latest.csv: status=ok, rows=30, matched=30
-ENRICH_FILE kospi_fx_weakness_recommend_7_latest.csv: status=ok, rows=7, matched=7
-enriched_files=13
+ENRICH_FILE kospi_fx_weakness_candidates_30_latest.csv: status=no_ticker_column, rows=30, matched=0
+ENRICH_FILE kospi_fx_weakness_recommend_7_latest.csv: status=no_ticker_column, rows=7, matched=0
+enriched_files=11
 status=OK

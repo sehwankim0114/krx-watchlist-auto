@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0",
   "checker_version": "2026-07-10-v7.6.1-financial-payload-health",
-  "generated_at_kst": "2026-08-18T10:52:21+09:00",
+  "generated_at_kst": "2026-08-19T10:54:34+09:00",
   "status": "FAIL",
-  "critical_count": 2,
+  "critical_count": 5,
   "warning_count": 0,
   "context": {
     "build_id": "20260818T083427+0900-5f906f1eff",
@@ -31,15 +31,21 @@
     },
     {
       "check_id": "status_official_fresh_now",
-      "status": "PASS",
+      "status": "FAIL",
       "severity": "ERROR",
-      "message": "official_fresh_now=true"
+      "message": "official_fresh_now가 true가 아닙니다.",
+      "details": {
+        "actual": false
+      }
     },
     {
       "check_id": "status_safe_to_analyze_as_latest",
-      "status": "PASS",
+      "status": "FAIL",
       "severity": "ERROR",
-      "message": "safe_to_analyze_as_latest=true"
+      "message": "safe_to_analyze_as_latest가 true가 아닙니다.",
+      "details": {
+        "actual": false
+      }
     },
     {
       "check_id": "validation_report",
@@ -71,7 +77,7 @@
       "severity": "ERROR",
       "message": "kospi_watchlist 응답 크기가 시장별 제한을 넘었습니다.",
       "details": {
-        "bytes": 74007,
+        "bytes": 74582,
         "limit": 70000,
         "market": "KR"
       }
@@ -216,7 +222,7 @@
       "severity": "ERROR",
       "message": "kosdaq_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 36284,
+        "bytes": 36859,
         "limit": 50000,
         "market": "KR"
       }
@@ -451,15 +457,19 @@
       "severity": "ERROR",
       "message": "Worker 경량 매니페스트 응답 크기가 안전 범위입니다.",
       "details": {
-        "bytes": 24434,
+        "bytes": 24445,
         "limit": 65000
       }
     },
     {
       "check_id": "worker_compact_manifest_values",
-      "status": "PASS",
+      "status": "FAIL",
       "severity": "ERROR",
-      "message": "경량 매니페스트의 핵심 상태값이 정상입니다."
+      "message": "경량 매니페스트의 핵심 상태값이 비정상입니다.",
+      "details": {
+        "official_fresh_now": false,
+        "safe_to_analyze_as_latest": false
+      }
     },
     {
       "check_id": "worker_freshness_source",

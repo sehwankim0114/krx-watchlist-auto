@@ -1,15 +1,15 @@
 script=operating_loss_enricher.py v1.1_syntax_fix_and_fresh_tables
-run_at_kst=2026-08-20T08:55:44+09:00
+run_at_kst=2026-08-21T08:52:34+09:00
 output_dir=latest
 workers=4
 max_api_calls=5000
 candidate_periods=2026_11012,2026_11013,2025_11011,2025_11014,2025_11012,2025_11013,2024_11011
 target_period_key=2026_11012
 target_tickers=2708
-cache_rows_for_target=2710
+cache_rows_for_target=2708
 corp_code_map_source=cache, rows=3944
-cache_hit_ok=2614
-to_fetch=94
+cache_hit_ok=2615
+to_fetch=93
 cache_output_rows=2708
 operating_loss_count=907
 source_status_counts={'OK': 2615, 'NO_CORP_CODE': 90, 'API_STATUS_013:조회된 데이타가 없습니다.': 3}

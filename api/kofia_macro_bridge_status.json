@@ -1,10 +1,10 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260821T105446+0900-12d5b77302",
+  "build_id": "20260822T093340+0900-4a93861859",
   "snapshot_id": "kofia_macro_bridge_status",
   "display_name": "KOFIA 연결 상태",
-  "generated_at_kst": "2026-08-21T10:54:46+09:00",
-  "source_commit_sha": "12d5b7730256f3baf48cf07e971f5cd644cf3673",
+  "generated_at_kst": "2026-08-22T09:33:40+09:00",
+  "source_commit_sha": "4a93861859e4c914c4754af04c7ae19e091567c7",
   "source_file": "latest/kofia_macro_bridge_status_latest.json",
   "status": "OK",
   "rules_version": "2026-07-14-v8.0-request-time-position-alignment",
@@ -148,7 +148,7 @@
   },
   "data": {
     "script": "kofia_macro_bridge.py v1.0_local_csv_bridge",
-    "run_at_kst": "2026-08-21T09:03:52+09:00",
+    "run_at_kst": "2026-08-22T09:31:34+09:00",
     "overall_status": "OK_ALL_3",
     "bridge_indicator_count": 3,
     "bridge_indicator_codes": [
@@ -162,7 +162,7 @@
       "KOFIA_INVESTOR_DEPOSIT_MILLION_KRW": "2026-08-19"
     },
     "bridge_rows": 2243,
-    "macro_history_rows_after_merge": 1380,
+    "macro_history_rows_after_merge": 1378,
     "next_step": "Run macro_leverage_status.py after this bridge so bubble_risk_latest.json receives the KOFIA snapshot."
   }
 }

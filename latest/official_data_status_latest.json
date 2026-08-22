@@ -1,5 +1,5 @@
 {
-  "script": "run_universe_latest.py v1.5_one_month_runtime_hook",
+  "script": "sync_official_status.py v1.0_canonical_status",
   "run_at_kst": "2026-08-22T09:17:15+09:00",
   "run_mode": "official",
   "final_run_mode": "official",
@@ -10,7 +10,7 @@
   "official_fresh": true,
   "display_label": "최신 공식판",
   "warning": "",
-  "reason": "KOSPI/KOSDAQ official summaries match the expected official trading date.",
+  "reason": "Canonical official status matches the current expected KRX trading date.",
   "kospi_actual_date": "2026-08-21",
   "kosdaq_actual_date": "2026-08-21",
   "actual_min_date": "2026-08-21",
@@ -22,5 +22,9 @@
   "holiday_file": "config/krx_market_holidays.json",
   "holiday_file_exists": true,
   "official_publication_cutoff_kst": "08:30",
-  "collector_return_code": 0
+  "collector_return_code": 0,
+  "synchronized_at_kst": "2026-08-22T09:33:39+09:00",
+  "source_status_file": "official_data_status_latest.json",
+  "source_run_at_kst": "2026-08-22T09:17:15+09:00",
+  "source_expected_official_trading_date": "2026-08-21"
 }

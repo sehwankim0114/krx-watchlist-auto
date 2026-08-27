@@ -1,11 +1,13 @@
 {
   "script": "validate_api_sync.py v1.9_single_recommendation_icon_v833",
-  "validated_at": "2026-08-26T09:57:18Z",
+  "validated_at": "2026-08-27T03:26:07Z",
   "status": "PASS",
-  "build_id": "20260826T185714+0900-8fa2bc350e",
+  "build_id": "20260827T122604+0900-d2348a7eaf",
   "api_sync_ok": true,
-  "official_fresh_now": true,
-  "safe_to_analyze_as_latest": true,
+  "official_fresh_now": false,
+  "safe_to_analyze_as_latest": false,
   "errors": [],
-  "warnings": []
+  "warnings": [
+    "Official data is not fresh for the current expected trading date. API is published with safe_to_analyze_as_latest=false."
+  ]
 }

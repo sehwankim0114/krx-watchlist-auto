@@ -1,9 +1,9 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260828T045136+0900-33cddb5504",
+  "build_id": "20260828T151327+0900-d954ad5910",
   "script": "build_api_json.py v5.2_recommendation_policy_isolation",
-  "generated_at_kst": "2026-08-28T04:51:36+09:00",
-  "source_commit_sha": "33cddb55049187fa4f080f4ec5c3b422c31e2c77",
+  "generated_at_kst": "2026-08-28T15:13:27+09:00",
+  "source_commit_sha": "d954ad59103c0ddd11b539be68f89bece98080e0",
   "status": "STALE_OFFICIAL",
   "api_sync_ok": true,
   "official_fresh_now": false,
@@ -22,6 +22,7 @@
   "generated_table_count": 18,
   "critical_errors": [],
   "warnings": [
+    "OFFICIAL_DATA_NOT_FRESH_NOW:expected=2026-08-27,kospi=2026-08-26,kosdaq=2026-08-26",
     "RUNTIME_FRESHNESS_V77:expected=2026-08-27,kospi=2026-08-26,kosdaq=2026-08-26,lag=1,mixed_price=true"
   ],
   "presentation_policy": {
@@ -161,7 +162,7 @@
     "version": "2026-07-09-v7.2-kr-sector-theme",
     "status": "OK",
     "source": "KRX_KIND_LISTED_COMPANY",
-    "generated_at_kst": "2026-08-28T04:51:36+09:00",
+    "generated_at_kst": "2026-08-28T15:13:28+09:00",
     "cache_mode": "LIVE_REFRESH",
     "coverage": {
       "kospi_watchlist": 100.0,
@@ -226,10 +227,10 @@
     "supply_marker_position": "right_of_recommendation_icon",
     "rank_field_use": "sorting_only"
   },
-  "static_official_fresh_at_api_build": true,
+  "static_official_fresh_at_api_build": false,
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-08-28T09:36:10+09:00",
+    "evaluated_at_kst": "2026-08-28T15:13:27+09:00",
     "publication_cutoff_kst": "08:30",
     "expected_official_trading_date": "2026-08-27",
     "kospi_actual_date": "2026-08-26",
@@ -251,7 +252,7 @@
     "analysis_policy": "May describe as latest official only when safe_to_analyze_as_latest=true. When false, keep the table available only as the last confirmed reference, show the stale warning, and do not present score/buy/target ranges as current."
   },
   "runtime_freshness_gate_version": "2026-07-14-v7.7-runtime-freshness-gate",
-  "runtime_freshness_evaluated_at_kst": "2026-08-28T09:36:10+09:00",
+  "runtime_freshness_evaluated_at_kst": "2026-08-28T15:13:27+09:00",
   "price_position_policy": {
     "version": "2026-07-14-v7.8-price-range-position",
     "effective_price_priority": [

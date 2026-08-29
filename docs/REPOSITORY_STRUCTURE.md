@@ -8,13 +8,14 @@
 - `v6-apply-us-sp500-production.yml`: 통합 Action 계약을 보존하고 구형 route patch 없이 미국 S&P500 운영자료 생성
 - `v731-daily-integrated-health.yml`: 일일 통합 상태 점검
 - `v77-runtime-freshness-gate.yml`: 요청시점 최신성 상태 갱신
+- `kospi-consecutive-decliners.yml`: 코스피 연속하락 후보 생성(현재 수동 실행, 정식 Action 경로 통합 전)
 
 위 파일은 `workflow_dispatch`도 지원하지만 예약 또는 연계 실행이 있는 운영 파일이므로 임의로 보관 폴더로 옮기지 않습니다.
 
 ## 수동 유지보수 워크플로
 
 - `maintenance-repair.yml`: 필요한 경우에만 실행하는 복구 도구
-- `safe-repository-cleanup.yml`: `--check-only` 실시간 API 검증, Worker V1.3.8 및 Custom GPT V6.8.3 단일 추천 아이콘 회귀검사를 포함하고 저장소를 변경하지 않는 읽기 전용 V8.3.3 감사 도구
+- `safe-repository-cleanup.yml`: `--check-only` 실시간 API 검증, Worker V1.3.8 및 Custom GPT V6.8.3 단일 추천 아이콘 회귀검사를 포함하고 저장소를 변경하지 않는 읽기 전용 V8.4.0 감사 도구
 
 일회성 적용 워크플로는 작업 완료 후 `.github/workflows`에서 제거하고, 필요한 기록은 `docs/workflow_archive/`에 보관합니다.
 

@@ -34,10 +34,10 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 SCHEMA_VERSION = "1.0"
-CHECKER_VERSION = "2026-07-10-v7.6.1-financial-payload-health"
+CHECKER_VERSION = "2026-08-29-v8.4.0-worker-v138-health-alignment"
 DEFAULT_WORKER_BASE = "https://krx-live-price-ksh.diaconos.workers.dev"
-EXPECTED_WORKER_BUILD_PREFIX = "1.3.2-"
-DEFAULT_MAX_WATCHLIST_BYTES = 70000
+EXPECTED_WORKER_BUILD_PREFIX = "1.3.8-"
+DEFAULT_MAX_WATCHLIST_BYTES = 90000
 MAX_COMPACT_MANIFEST_BYTES = 65000
 KRX_SECTOR_SOURCE = "KRX_KIND_LISTED_COMPANY"
 ALLOWED_TRADING_ACTIVITY = {
@@ -60,7 +60,7 @@ TABLE_SPECS = (
         "filename": "kospi_watchlist.json",
         "expected_rows": 30,
         "market": "KR",
-        "max_payload_bytes": 70000,
+        "max_payload_bytes": 90000,
     },
     {
         "table_id": "kosdaq_watchlist",

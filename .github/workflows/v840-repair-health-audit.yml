@@ -1,4 +1,4 @@
-name: Repair health and audit contracts v8.4.0
+name: Repair daily health contract v8.4.0
 
 "on":
   workflow_dispatch:
@@ -52,20 +52,6 @@ jobs:
           replace(health, '"max_payload_bytes": 70000,',
                           '"max_payload_bytes": 90000,')
 
-          audit = ".github/workflows/safe-repository-cleanup.yml"
-          replace(audit, '# V8.3.3 live read-only repository audit',
-                         '# V8.4.0 live read-only repository audit')
-          replace(audit, 'name: Safe repository audit v8.3.3',
-                         'name: Safe repository audit v8.4.0')
-          replace(audit,
-              '              "dart-fx-exposure-safe.yml",\n'
-              '              "maintenance-repair.yml",',
-              '              "dart-fx-exposure-safe.yml",\n'
-              '              "kospi-consecutive-decliners.yml",\n'
-              '              "maintenance-repair.yml",')
-          replace(audit, 'print("WORKFLOW_COUNT=8")',
-                         'print("WORKFLOW_COUNT=9")')
-
           structure = "docs/REPOSITORY_STRUCTURE.md"
           replace(structure,
               '- `v77-runtime-freshness-gate.yml`: 요청시점 최신성 상태 갱신',
@@ -88,17 +74,16 @@ jobs:
             --output-md /tmp/v840-health.md
           python - <<'PY'
           import json
-          import yaml
           from pathlib import Path
 
           report = json.loads(Path('/tmp/v840-health.json').read_text())
           assert report['status'] == 'PASS'
           assert report['critical_count'] == 0
           assert report['warning_count'] == 0
-          yaml.safe_load(Path('.github/workflows/safe-repository-cleanup.yml').read_text())
           print('V840_HEALTH_ALIGNMENT=PASS')
           print('WORKFLOW_COUNT=9')
           print('DAILY_HEALTH_CRITICAL_COUNT=0')
+          print('MANUAL_SAFE_AUDIT_REPLACEMENT_REQUIRED=true')
           PY
 
       - name: Commit and push
@@ -109,7 +94,6 @@ jobs:
           git config user.email "github-actions@users.noreply.github.com"
           git add -- \
             validate_daily_integrated_health_v731.py \
-            .github/workflows/safe-repository-cleanup.yml \
             docs/REPOSITORY_STRUCTURE.md
           if git diff --cached --quiet; then
             echo "NO_CHANGES=true"

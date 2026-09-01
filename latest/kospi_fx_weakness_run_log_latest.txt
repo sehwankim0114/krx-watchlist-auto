@@ -1,12 +1,12 @@
 script=currency_weakness_kospi.py v1.0_kospi_currency_weakness
-run_at=2026-08-29T13:37:34+09:00
+run_at=2026-09-01T11:10:05+09:00
 output_dir=latest
 method=sector_name_proxy_plus_price_liquidity_position
 note=환헤지비율/달러매출비중/외화부채 재무주석 직접 추출은 아님
 input_path=latest/kospi_universe_summary_latest.csv
 input_rows=923
 input_columns=name,ticker,market,status,last_date,current_close,split_buy_low_ref,split_buy_high_ref,target1_ref,target2_ref,stop_ref,avg_daily_move_abs,avg_daily_move_pct,avg_wave_days,low_1m_intraday,high_1m_intraday,low_1m_close,high_1m_close,range_1m_pct,position_in_1m_range_pct,data_rows_1m,low_3m_intraday,high_3m_intraday,low_3m_close,high_3m_close,range_3m_pct,position_in_3m_range_pct,return_1m_pct,return_3m_pct,last_volume,last_trading_value,avg20_trading_value,low_liquidity,market_cap,listed_shares,data_rows,source_used,operating_profit,operating_profit_unit,operating_loss_flag,operating_loss_basis,operating_loss_source_status
-fx_weakness_actual_data_last_date=2026-08-28
+fx_weakness_actual_data_last_date=2026-08-31
 input_kospi_rows=923
 after_common_stock_filter_rows=809
 fx_weakness_candidates_rows=30

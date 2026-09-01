@@ -1,17 +1,17 @@
 script=kofia_market_status.py v1.0_three_api_collector
-run_at_kst=2026-08-29T13:19:53+09:00
+run_at_kst=2026-09-01T10:48:13+09:00
 service_key_configured=True
-API_RECEIVED cma: rows=1000, cols=6, parse=json
-HISTORY_WRITTEN cma: fresh=1000, total=1696, file=latest/kofia_cma_history_latest.csv
-API_RECEIVED credit: rows=1000, cols=9, parse=json
-HISTORY_WRITTEN credit: fresh=1000, total=2058, file=latest/kofia_credit_history_latest.csv
-API_RECEIVED market_funds: rows=1000, cols=7, parse=json
-HISTORY_WRITTEN market_funds: fresh=1000, total=2058, file=latest/kofia_market_funds_history_latest.csv
+API_REQUEST_EXCEPTION cma: ConnectTimeout: HTTPSConnectionPool(host='apis.data.go.kr', port=443): Max retries exceeded with url: /1160100/service/GetKofiaStatisticsInfoService/getCMAStatus?pageNo=1&numOfRows=1000&resultType=json&serviceKey=28604f28bc268d7919d423ad99d99b4e33039c6e7fd552deaccd45f369b7c4a6 (Caused by ConnectTimeoutError(<HTTPSConnection(host='apis.data.go.kr', port=443) at 0x7fc100084250>, 'Connection to apis.data.go.kr timed out. (connect timeout=35)'))
+HISTORY_PRESERVED cma: existing_rows=1696
+API_REQUEST_EXCEPTION credit: ConnectTimeout: HTTPSConnectionPool(host='apis.data.go.kr', port=443): Max retries exceeded with url: /1160100/service/GetKofiaStatisticsInfoService/getGrantingOfCreditBalanceInfo?pageNo=1&numOfRows=1000&resultType=json&serviceKey=28604f28bc268d7919d423ad99d99b4e33039c6e7fd552deaccd45f369b7c4a6 (Caused by ConnectTimeoutError(<HTTPSConnection(host='apis.data.go.kr', port=443) at 0x7fc1000b3a90>, 'Connection to apis.data.go.kr timed out. (connect timeout=35)'))
+HISTORY_PRESERVED credit: existing_rows=2058
+API_REQUEST_EXCEPTION market_funds: ConnectTimeout: HTTPSConnectionPool(host='apis.data.go.kr', port=443): Max retries exceeded with url: /1160100/service/GetKofiaStatisticsInfoService/getSecuritiesMarketTotalCapitalInfo?pageNo=1&numOfRows=1000&resultType=json&serviceKey=28604f28bc268d7919d423ad99d99b4e33039c6e7fd552deaccd45f369b7c4a6 (Caused by ConnectTimeoutError(<HTTPSConnection(host='apis.data.go.kr', port=443) at 0x7fc0ffd68990>, 'Connection to apis.data.go.kr timed out. (connect timeout=35)'))
+HISTORY_PRESERVED market_funds: existing_rows=2058
 SUMMARY_WRITTEN rows=16, file=latest/kofia_market_funds_summary_latest.csv
-overall_status=OK_ALL_FRESH
+overall_status=NO_FRESH_USING_PRESERVED_HISTORY
 configured_api_count=3
-fresh_success_count=3
-preserved_existing_count=0
+fresh_success_count=0
+preserved_existing_count=3
 usable_history_count=3
 summary_rows=16
 status_file=latest/kofia_market_funds_status_latest.json

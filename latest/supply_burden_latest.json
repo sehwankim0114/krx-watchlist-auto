@@ -1,7 +1,7 @@
 {
   "script": "supply_burden_enricher.py v2.0.0-check-status-separated",
   "policy_version": "2026-07-01-v6.0-supply-status-separated",
-  "run_at_kst": "2026-08-29T13:42:02+09:00",
+  "run_at_kst": "2026-09-01T11:10:48+09:00",
   "status": "LIMITED",
   "check_scope": "DART 최근 90일 공시 제목 기준",
   "check_limited_reason": "DART_WHOLE_MARKET_LOOKBACK_CAPPED_90D_FROM_180D",
@@ -10,47 +10,37 @@
   "effective_lookback_days": 90,
   "dart_whole_market_max_days": 90,
   "target_tickers": 2710,
-  "hit_reports": 11521,
-  "supply_burden_detected_tickers": 1815,
-  "danger_tickers": 614,
-  "warning_tickers": 667,
-  "caution_tickers": 534,
+  "hit_reports": 11335,
+  "supply_burden_detected_tickers": 1809,
+  "danger_tickers": 610,
+  "warning_tickers": 661,
+  "caution_tickers": 538,
   "dart_status": {
-    "bgn_de": "20260531",
-    "end_de": "20260829",
+    "bgn_de": "20260603",
+    "end_de": "20260901",
     "lookback_days": 90,
     "corp_cls": {
       "Y": {
-        "pages_requested": 159,
-        "total_page": 159,
-        "raw_reports": 15870,
-        "target_reports": 15870,
-        "matched_reports": 4226
+        "pages_requested": 153,
+        "total_page": 153,
+        "raw_reports": 15267,
+        "target_reports": 15267,
+        "matched_reports": 4173
       },
       "K": {
-        "pages_requested": 169,
-        "total_page": 169,
-        "raw_reports": 16877,
-        "target_reports": 16756,
-        "matched_reports": 7295
+        "pages_requested": 167,
+        "total_page": 167,
+        "raw_reports": 16653,
+        "target_reports": 16532,
+        "matched_reports": 7162
       }
     },
-    "api_calls": 328,
+    "api_calls": 320,
     "api_errors": []
   },
   "enrich_results": [
     {
       "file": "kosdaq_candidates_10_current_basis_latest.csv",
-      "status": "OK",
-      "rows": 10,
-      "matched_rows": 10,
-      "burden_detected_rows": 9,
-      "check_limited_rows": 10,
-      "check_failed_rows": 0,
-      "note": ""
-    },
-    {
-      "file": "kosdaq_candidates_10_latest.csv",
       "status": "OK",
       "rows": 10,
       "matched_rows": 10,
@@ -60,11 +50,21 @@
       "note": ""
     },
     {
-      "file": "kosdaq_candidates_10_supplemented_latest.csv",
+      "file": "kosdaq_candidates_10_latest.csv",
       "status": "OK",
       "rows": 10,
       "matched_rows": 10,
       "burden_detected_rows": 9,
+      "check_limited_rows": 10,
+      "check_failed_rows": 0,
+      "note": ""
+    },
+    {
+      "file": "kosdaq_candidates_10_supplemented_latest.csv",
+      "status": "OK",
+      "rows": 10,
+      "matched_rows": 10,
+      "burden_detected_rows": 10,
       "check_limited_rows": 10,
       "check_failed_rows": 0,
       "note": ""
@@ -114,7 +114,7 @@
       "status": "OK",
       "rows": 1787,
       "matched_rows": 1787,
-      "burden_detected_rows": 1233,
+      "burden_detected_rows": 1226,
       "check_limited_rows": 1787,
       "check_failed_rows": 0,
       "note": ""
@@ -134,7 +134,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 26,
+      "burden_detected_rows": 27,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -144,7 +144,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 26,
+      "burden_detected_rows": 27,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -154,7 +154,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 26,
+      "burden_detected_rows": 27,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -174,7 +174,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 27,
+      "burden_detected_rows": 28,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -204,7 +204,7 @@
       "status": "OK",
       "rows": 7,
       "matched_rows": 7,
-      "burden_detected_rows": 7,
+      "burden_detected_rows": 6,
       "check_limited_rows": 7,
       "check_failed_rows": 0,
       "note": ""
@@ -224,7 +224,7 @@
       "status": "OK",
       "rows": 20,
       "matched_rows": 20,
-      "burden_detected_rows": 12,
+      "burden_detected_rows": 13,
       "check_limited_rows": 20,
       "check_failed_rows": 0,
       "note": ""
@@ -234,7 +234,7 @@
       "status": "OK",
       "rows": 20,
       "matched_rows": 20,
-      "burden_detected_rows": 13,
+      "burden_detected_rows": 16,
       "check_limited_rows": 20,
       "check_failed_rows": 0,
       "note": ""
@@ -244,7 +244,7 @@
       "status": "OK",
       "rows": 20,
       "matched_rows": 20,
-      "burden_detected_rows": 12,
+      "burden_detected_rows": 13,
       "check_limited_rows": 20,
       "check_failed_rows": 0,
       "note": ""
@@ -264,7 +264,7 @@
       "status": "OK",
       "rows": 40,
       "matched_rows": 40,
-      "burden_detected_rows": 31,
+      "burden_detected_rows": 29,
       "check_limited_rows": 40,
       "check_failed_rows": 0,
       "note": ""
@@ -294,7 +294,7 @@
       "status": "OK",
       "rows": 7,
       "matched_rows": 7,
-      "burden_detected_rows": 6,
+      "burden_detected_rows": 7,
       "check_limited_rows": 7,
       "check_failed_rows": 0,
       "note": ""
@@ -324,7 +324,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 25,
+      "burden_detected_rows": 26,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -354,7 +354,7 @@
       "status": "OK",
       "rows": 7,
       "matched_rows": 7,
-      "burden_detected_rows": 5,
+      "burden_detected_rows": 6,
       "check_limited_rows": 7,
       "check_failed_rows": 0,
       "note": ""
@@ -384,7 +384,7 @@
       "status": "OK",
       "rows": 923,
       "matched_rows": 923,
-      "burden_detected_rows": 582,
+      "burden_detected_rows": 583,
       "check_limited_rows": 923,
       "check_failed_rows": 0,
       "note": ""

@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "checker_version": "2026-08-29-v8.4.0-worker-v138-health-alignment",
-  "generated_at_kst": "2026-09-01T14:14:12+09:00",
-  "status": "PASS",
-  "critical_count": 0,
+  "generated_at_kst": "2026-09-02T13:39:05+09:00",
+  "status": "FAIL",
+  "critical_count": 3,
   "warning_count": 0,
   "context": {
-    "build_id": "20260901T135913+0900-4766df2e4f",
+    "build_id": "20260902T092143+0900-ae03d1f154",
     "rules_version": "2026-07-14-v8.0-request-time-position-alignment",
     "rules_sha256": "44e773a99978dfc6bc807177f1e8efbbc4450cbaee744459fe7c11f83d574f5f",
-    "source_commit_sha": "4766df2e4fcf049016ef4e6b28c80aebb7e4e899",
+    "source_commit_sha": "ae03d1f1543f29e7b999b83afa0ecab96154656c",
     "payload_limits_bytes": {
       "kospi_watchlist": 90000,
       "kosdaq_watchlist": 50000,
@@ -31,15 +31,21 @@
     },
     {
       "check_id": "status_official_fresh_now",
-      "status": "PASS",
+      "status": "FAIL",
       "severity": "ERROR",
-      "message": "official_fresh_now=true"
+      "message": "official_fresh_now가 true가 아닙니다.",
+      "details": {
+        "actual": false
+      }
     },
     {
       "check_id": "status_safe_to_analyze_as_latest",
-      "status": "PASS",
+      "status": "FAIL",
       "severity": "ERROR",
-      "message": "safe_to_analyze_as_latest=true"
+      "message": "safe_to_analyze_as_latest가 true가 아닙니다.",
+      "details": {
+        "actual": false
+      }
     },
     {
       "check_id": "validation_report",
@@ -71,7 +77,7 @@
       "severity": "ERROR",
       "message": "kospi_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 74666,
+        "bytes": 75136,
         "limit": 90000,
         "market": "KR"
       }
@@ -216,7 +222,7 @@
       "severity": "ERROR",
       "message": "kosdaq_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 36641,
+        "bytes": 37221,
         "limit": 50000,
         "market": "KR"
       }
@@ -359,7 +365,7 @@
       "severity": "ERROR",
       "message": "us_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 103824,
+        "bytes": 103659,
         "limit": 110000,
         "market": "US"
       }
@@ -449,15 +455,19 @@
       "severity": "ERROR",
       "message": "Worker 경량 매니페스트 응답 크기가 안전 범위입니다.",
       "details": {
-        "bytes": 24426,
+        "bytes": 24437,
         "limit": 65000
       }
     },
     {
       "check_id": "worker_compact_manifest_values",
-      "status": "PASS",
+      "status": "FAIL",
       "severity": "ERROR",
-      "message": "경량 매니페스트의 핵심 상태값이 정상입니다."
+      "message": "경량 매니페스트의 핵심 상태값이 비정상입니다.",
+      "details": {
+        "official_fresh_now": false,
+        "safe_to_analyze_as_latest": false
+      }
     },
     {
       "check_id": "worker_freshness_source",

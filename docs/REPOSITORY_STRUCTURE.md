@@ -15,7 +15,7 @@
 ## 수동 유지보수 워크플로
 
 - `maintenance-repair.yml`: 필요한 경우에만 실행하는 복구 도구
-- `safe-repository-cleanup.yml`: `--check-only` 실시간 API 검증, Worker V1.3.8 및 Custom GPT V6.8.3 단일 추천 아이콘 회귀검사를 포함하고 저장소를 변경하지 않는 읽기 전용 V8.4.0 감사 도구
+- `safe-repository-cleanup.yml`: `--check-only` 실시간 API 검증, Worker V1.3.9 및 Custom GPT V6.8.3 단일 추천 아이콘 회귀검사를 포함하고 저장소를 변경하지 않는 읽기 전용 V8.4.1 감사 도구
 
 일회성 적용 워크플로는 작업 완료 후 `.github/workflows`에서 제거하고, 필요한 기록은 `docs/workflow_archive/`에 보관합니다.
 

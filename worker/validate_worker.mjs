@@ -175,7 +175,12 @@ for (const filename of compactTableFiles) {
     const sourceRow = source.rows[index];
     const compactRow = compact.rows[index];
     assert.equal(compactRow.name, sourceRow.name, `${filename}.${index}`);
-    assert.equal(compactRow.code, sourceRow.code, `${filename}.${index}`);
+    if (filename === "kospi_watchlist.json") {
+      assert.equal(compactRow.quote_key, sourceRow.quote_key, `${filename}.${index}`);
+      assert.equal(Object.hasOwn(compactRow, "code"), false, `${filename}.${index}.code`);
+    } else {
+      assert.equal(compactRow.code, sourceRow.code, `${filename}.${index}`);
+    }
     for (const [key, value] of Object.entries(compactRow)) {
       assert.ok(
         Object.prototype.hasOwnProperty.call(sourceRow, key),
@@ -212,7 +217,7 @@ assert.equal(
 );
 assert.equal(
   compactKospiWatchlist.compact_response.transform_version,
-  "1.1",
+  "1.2",
 );
 assert.equal(
   Object.hasOwn(compactKospiWatchlist, "request_time_price_policy"),
@@ -225,9 +230,7 @@ assert.equal(
 
 const requiredKospiDisplayKeys = [
   "name",
-  "code",
   "quote_key",
-  "quote_market",
   "static_price",
   "recommendation_display",
   "supply_burden_display",
@@ -248,6 +251,8 @@ const requiredKospiDisplayKeys = [
 ];
 const removedKospiDuplicateKeys = [
   "rank",
+  "code",
+  "quote_market",
   "operating_loss",
   "supply_burden",
   "current_position",
@@ -330,7 +335,7 @@ const healthResponse = await __worker_default__.fetch(
 );
 const health = await healthResponse.json();
 assert.equal(health.status, "OK");
-assert.equal(health.build_version, "1.3.8-kospi-action-compact");
+assert.equal(health.build_version, "1.3.9-kospi-action-compact-v2");
 assert.equal(
   health.github_proxy_policy.us_watchlist_response_mode,
   "COMPACT_FOR_CUSTOM_GPT",
@@ -536,4 +541,4 @@ console.log("KOSPI_WATCHLIST_NULL_FIELDS_OMITTED=PASS");
 console.log("KOSPI_WATCHLIST_DUPLICATE_FIELDS_REMOVED=PASS");
 console.log("KOSPI_STATIC_POSITION_OMITTED_FOR_REQUEST_TIME_RECALC=PASS");
 console.log("GITHUB_PRIMARY_FETCH_ERROR_FALLBACK=PASS");
-console.log("WORKER_V138_VALIDATION=PASS");
+console.log("WORKER_V139_VALIDATION=PASS");

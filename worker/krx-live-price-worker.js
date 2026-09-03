@@ -17,7 +17,7 @@
  */
 
 const SERVICE_VERSION = "1.2.0";
-const BUILD_VERSION = "1.3.8-kospi-action-compact";
+const BUILD_VERSION = "1.3.9-kospi-action-compact-v2";
 const MAX_ITEMS = 50;
 const FETCH_TIMEOUT_MS = 8000;
 const CONCURRENCY = 4;
@@ -278,7 +278,7 @@ async function handleGitHubJsonProxy(request, url) {
       {
         headers: {
           Accept: "application/json, text/plain;q=0.9, */*;q=0.8",
-          "User-Agent": "krx-watchlist-cloudflare-proxy/1.3.8",
+          "User-Agent": "krx-watchlist-cloudflare-proxy/1.3.9",
         },
       },
       GITHUB_PROXY_PRIMARY_FETCH_TIMEOUT_MS,
@@ -300,7 +300,7 @@ async function handleGitHubJsonProxy(request, url) {
         {
           headers: {
             Accept: "application/vnd.github.raw+json",
-            "User-Agent": "krx-watchlist-cloudflare-proxy/1.3.8",
+            "User-Agent": "krx-watchlist-cloudflare-proxy/1.3.9",
             "X-GitHub-Api-Version": "2022-11-28",
           },
         },
@@ -1069,7 +1069,9 @@ const COMPACT_LIGHT_MARKET_ROW_KEYS = [
 // production table, while dropping duplicate flags already represented by
 // recommendation_display and supply_burden_display. Static current_position
 // is omitted because V8.0 requires recalculation from the request-time price
-// and the preserved 3-month low/high. The request-time policy and official
+// and the preserved 3-month low/high. code duplicates quote_key, and
+// quote_market duplicates this KOSPI-only table's market identity, so both are
+// omitted from the compact response. The request-time policy and official
 // freshness objects are obtained from their dedicated Actions.
 const COMPACT_KOSPI_WATCHLIST_TOP_LEVEL_KEYS =
   COMPACT_TABLE_TOP_LEVEL_KEYS.filter(
@@ -1083,6 +1085,8 @@ const COMPACT_KOSPI_WATCHLIST_ROW_KEYS =
   COMPACT_LIGHT_MARKET_ROW_KEYS.filter(
     (key) => ![
       "rank",
+      "code",
+      "quote_market",
       "operating_loss",
       "supply_burden",
       "current_position",
@@ -1239,7 +1243,7 @@ function compactTablePayload(source, relativePath) {
   compact.compact_response = {
     mode: "COMPACT_FOR_CUSTOM_GPT",
     transform_version:
-      relativePath === "kospi_watchlist.json" ? "1.1" : "1.0",
+      relativePath === "kospi_watchlist.json" ? "1.2" : "1.0",
     source_path: relativePath,
     source_row_count: table.row_count ?? rows.length,
     rows_preserved: true,

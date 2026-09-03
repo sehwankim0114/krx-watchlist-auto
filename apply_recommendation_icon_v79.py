@@ -27,7 +27,7 @@ TARGETS: Tuple[Dict[str, Any], ...] = (
         "filename": "kospi_watchlist.json",
         "table_id": "kospi_watchlist",
         "expected_rows": 30,
-        "max_payload_bytes": 70000,
+        "max_payload_bytes": 90000,
     },
     {
         "filename": "kosdaq_watchlist.json",

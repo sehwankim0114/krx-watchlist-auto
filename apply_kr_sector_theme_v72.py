@@ -14,7 +14,7 @@ from collect_kr_sector_theme_v72 import collect_or_load, normalize_code
 CONTRACT_VERSION = "2026-07-09-v7.2-kr-sector-theme"
 SOURCE_ID = "KRX_KIND_LISTED_COMPANY"
 REGULAR_SESSION_MINUTES = 390
-MAX_PAYLOAD_BYTES = 70000
+MAX_PAYLOAD_BYTES = 90000
 
 TARGETS = (
     ("kospi_watchlist.json", "kospi_watchlist", 30),

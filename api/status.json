@@ -9,7 +9,7 @@
   "official_fresh_now": false,
   "safe_to_analyze_as_latest": false,
   "confirmed_basis_date": "2026-08-31",
-  "computed_expected_official_trading_date": "2026-09-01",
+  "computed_expected_official_trading_date": "2026-09-02",
   "kospi_actual_date": "2026-08-31",
   "kosdaq_actual_date": "2026-08-31",
   "official_status_source": "official_data_status_latest.json",
@@ -23,7 +23,7 @@
   "critical_errors": [],
   "warnings": [
     "OFFICIAL_DATA_NOT_FRESH_NOW:expected=2026-09-01,kospi=2026-08-31,kosdaq=2026-08-31",
-    "RUNTIME_FRESHNESS_V77:expected=2026-09-01,kospi=2026-08-31,kosdaq=2026-08-31,lag=1,mixed_price=true"
+    "RUNTIME_FRESHNESS_V77:expected=2026-09-02,kospi=2026-08-31,kosdaq=2026-08-31,lag=2,mixed_price=true"
   ],
   "presentation_policy": {
     "format_contract": "improvement_plan_2_final",
@@ -230,9 +230,9 @@
   "static_official_fresh_at_api_build": false,
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-09-03T03:56:41+09:00",
+    "evaluated_at_kst": "2026-09-03T10:18:35+09:00",
     "publication_cutoff_kst": "08:30",
-    "expected_official_trading_date": "2026-09-01",
+    "expected_official_trading_date": "2026-09-02",
     "kospi_actual_date": "2026-08-31",
     "kosdaq_actual_date": "2026-08-31",
     "same_market_date": true,
@@ -246,13 +246,13 @@
       "KOSDAQ_BEHIND_EXPECTED",
       "NEWER_REQUEST_PRICE_OVER_OLDER_ANALYSIS"
     ],
-    "data_lag_trading_days": 1,
+    "data_lag_trading_days": 2,
     "current_price_asof_kst": "2026-09-01T23:09:20+09:00",
     "newer_current_price_over_older_analysis": true,
     "analysis_policy": "May describe as latest official only when safe_to_analyze_as_latest=true. When false, keep the table available only as the last confirmed reference, show the stale warning, and do not present score/buy/target ranges as current."
   },
   "runtime_freshness_gate_version": "2026-07-14-v7.7-runtime-freshness-gate",
-  "runtime_freshness_evaluated_at_kst": "2026-09-03T03:56:41+09:00",
+  "runtime_freshness_evaluated_at_kst": "2026-09-03T10:18:35+09:00",
   "price_position_policy": {
     "version": "2026-07-14-v7.8-price-range-position",
     "effective_price_priority": [

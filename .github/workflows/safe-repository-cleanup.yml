@@ -1,5 +1,5 @@
-# V8.3.3 live read-only repository audit
-name: Safe repository audit v8.3.3
+# V8.4.0 live read-only repository audit
+name: Safe repository audit v8.4.0
 
 "on":
   workflow_dispatch:
@@ -76,6 +76,7 @@ jobs:
               "build_api_json.yml",
               "collect-krx-watchlist.yml",
               "dart-fx-exposure-safe.yml",
+              "kospi-consecutive-decliners.yml",
               "maintenance-repair.yml",
               "safe-repository-cleanup.yml",
               "v6-apply-us-sp500-production.yml",
@@ -291,8 +292,8 @@ jobs:
           for token in stale_tokens:
               if token in combined_docs:
                   raise SystemExit("STALE_DOCUMENT_TOKEN=" + token)
-          if "읽기 전용 V8.3.3 감사 도구" not in structure:
-              raise SystemExit("V833_STRUCTURE_DOCUMENTATION_MISSING")
+          if "읽기 전용 V8.4.0 감사 도구" not in structure:
+              raise SystemExit("V840_STRUCTURE_DOCUMENTATION_MISSING")
 
           active_legacy_schema = (
               root / "docs" / "custom_gpt_live_price_action_schema.yaml"
@@ -346,7 +347,7 @@ jobs:
               raise SystemExit("WORKER_STRUCTURE_DOCUMENTATION_MISSING")
 
           print("SAFE_REPOSITORY_AUDIT=PASS")
-          print("WORKFLOW_COUNT=8")
+          print("WORKFLOW_COUNT=9")
           print("API_SYNC_OK=true")
           print("API_VALIDATION=PASS")
           print("BUILD_ID=" + next(iter(build_ids)))

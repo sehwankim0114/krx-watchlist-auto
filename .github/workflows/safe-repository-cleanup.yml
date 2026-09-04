@@ -1,5 +1,5 @@
-# V8.4.1 read-only repository audit; Worker V1.3.9 / KOSPI 90KB sources
-name: Safe repository audit v8.4.1
+# V8.5.2 read-only audit; exact live V1.4.0 and all shadow pages; no activation
+name: Safe repository audit v8.5.2
 
 "on":
   workflow_dispatch:
@@ -14,7 +14,7 @@ concurrency:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       TZ: Asia/Seoul
 
@@ -23,6 +23,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -41,6 +42,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if test -n "$(git status --porcelain)"; then
+            echo "::error::Audit requires a clean checkout. No files were changed."
+            exit 1
+          fi
 
           # Keep Python cache files outside the repository; do not delete files.
           export PYTHONPYCACHEPREFIX="$(mktemp -d)"
@@ -51,7 +56,13 @@ jobs:
             apply_display_normalization_v74.py \
             apply_recommendation_icon_v79.py \
             validate_daily_integrated_health_v731.py \
-            validate_api_sync.py
+            validate_api_sync.py \
+            stock_table_metrics_v850.py \
+            build_stock_table_preview_v850.py \
+            build_two_table_shadow_v851.py \
+            test_stock_table_metrics_v850.py \
+            test_two_table_shadow_v851.py \
+            test_worker_rollout_health_v852.py
 
           validation_hash_before="$(
             sha256sum api/validation_report.json | awk '{print $1}'
@@ -304,8 +315,8 @@ jobs:
           for token in stale_tokens:
               if token in combined_docs:
                   raise SystemExit("STALE_DOCUMENT_TOKEN=" + token)
-          if "읽기 전용 V8.4.1 감사 도구" not in structure:
-              raise SystemExit("V841_STRUCTURE_DOCUMENTATION_MISSING")
+          if "읽기 전용 감사 도구" not in structure:
+              raise SystemExit("READ_ONLY_AUDIT_DOCUMENTATION_MISSING")
 
           active_legacy_schema = (
               root / "docs" / "custom_gpt_live_price_action_schema.yaml"
@@ -335,7 +346,7 @@ jobs:
                       "WORKER_CONTRACT_FILE_MISSING=" + str(worker_path)
                   )
           worker_text = worker_source.read_text(encoding="utf-8")
-          if 'BUILD_VERSION = "1.3.9-kospi-action-compact-v2"' not in (
+          if 'BUILD_VERSION = "1.4.0-two-table-guarded-preview"' not in (
               worker_text
           ):
               raise SystemExit("WORKER_BUILD_VERSION_MISMATCH")
@@ -354,15 +365,15 @@ jobs:
           for token in worker_tokens:
               if token not in worker_text:
                   raise SystemExit(
-                      "WORKER_V139_TOKEN_MISSING=" + token
+                      "WORKER_V140_TOKEN_MISSING=" + token
                   )
           if "worker/krx-live-price-worker.js" not in structure:
               raise SystemExit("WORKER_STRUCTURE_DOCUMENTATION_MISSING")
 
-          if "WORKER_V139_VALIDATION=PASS" not in (
+          if "WORKER_V140_LEGACY_REGRESSION=PASS" not in (
               worker_validator.read_text(encoding="utf-8")
           ):
-              raise SystemExit("WORKER_V139_VALIDATOR_MISSING")
+              raise SystemExit("WORKER_V140_VALIDATOR_MISSING")
 
           def literal_setting(filename: str, name: str):
               tree = ast.parse((root / filename).read_text(encoding="utf-8"))
@@ -396,9 +407,40 @@ jobs:
                   raise SystemExit(f"KOSPI_SOURCE_LIMIT_MISMATCH={filename}:{kospi_limits}")
           if literal_setting(
               "validate_daily_integrated_health_v731.py", "EXPECTED_WORKER_BUILD_PREFIX"
-          ) != "1.3.9-":
+          ) != "1.4.0-":
               raise SystemExit("DAILY_HEALTH_WORKER_BUILD_MISMATCH")
 
+          if literal_setting(
+              "validate_daily_integrated_health_v731.py", "EXPECTED_WORKER_BUILD"
+          ) != "1.4.0-two-table-guarded-preview":
+              raise SystemExit("DAILY_HEALTH_EXACT_WORKER_BUILD_MISMATCH")
+
+          from build_two_table_shadow_v851 import validate_bundle
+          shadow = validate_bundle(root / "api" / "two_table_v1", root)
+          if shadow.get("release_stage") != "SCHEDULED_SHADOW_ONLY":
+              raise SystemExit("V852_REQUIRES_SHADOW_RELEASE_STAGE")
+          for key in (
+              "production_activation_allowed", "custom_gpt_route_enabled",
+              "safe_to_analyze_as_latest", "standalone_swing_table_enabled",
+          ):
+              if shadow.get(key) is not False:
+                  raise SystemExit("V852_ACTIVATION_FLAG_MISMATCH=" + key)
+          for filename, tokens in (
+              ("build_api_json.py", ("publish_two_table_shadow(ROOT)", "V851_REGULAR_BUILD_HOOK=PASS")),
+              ("validate_api_sync.py", ("from build_two_table_shadow_v851 import DIRECTORY, validate_bundle",)),
+              ("worker/krx-live-price-worker.js", ("TWO_TABLE_GUARDED_PROXY_V852_BEGIN",
+                  "TWO_TABLE_BUILD_ID_REQUIRED_FOR_NEXT_PAGE", "TWO_TABLE_NOT_ACTIVATED")),
+              ("worker/validate_two_table_proxy_v852.mjs", ("V852_TWO_TABLE_WORKER_CONTRACT=PASS",)),
+              ("test_worker_rollout_health_v852.py", ("LEGACY_ALLOWED_SHADOW_ONLY",)),
+          ):
+              contents = (root / filename).read_text(encoding="utf-8")
+              for token in tokens:
+                  if token not in contents:
+                      raise SystemExit("V852_REQUIRED_SOURCE_CONTRACT_MISSING=" + filename)
+
+          print("V852_SHADOW_SOURCE_CONTRACT=PASS")
+          print("PRODUCTION_ACTIVATION_ALLOWED=false")
+          print("STANDALONE_SWING_TABLE_ENABLED=false")
           print("REPOSITORY_CONTRACT_CHECK=PASS")
           print("WORKFLOW_COUNT=9")
           print("API_SYNC_OK=true")
@@ -418,7 +460,7 @@ jobs:
           print("SINGLE_RECOMMENDATION_ICON_CONTRACT=PASS")
           print("US_PRODUCTION_NO_LEGACY_PATCHER=PASS")
           print("US_PRODUCTION_UNIFIED_ACTION_CONTRACT=PASS")
-          print("WORKER_SOURCE_BUILD=1.3.9-kospi-action-compact-v2")
+          print("WORKER_SOURCE_BUILD=1.4.0-two-table-guarded-preview")
           print("KOSPI_SOURCE_BUILD_STAGES_LIMIT_90000=PASS")
           print("DAILY_HEALTH_WORKER_CONTRACT=PASS")
           print("WORKER_KOSPI_COMPACT_TRANSFORM_VERSION=1.2")
@@ -431,8 +473,206 @@ jobs:
           print("WORKER_SOURCE_CONTRACT=PASS")
           PY
 
+          python -m unittest -v \
+            test_stock_table_metrics_v850 \
+            test_two_table_shadow_v851 \
+            test_worker_rollout_health_v852
+          echo "V852_PYTHON_REGRESSION=PASS"
           node worker/validate_worker.mjs .
+          node worker/validate_two_table_proxy_v852.mjs .
           echo "WORKER_REGRESSION_VALIDATION=PASS"
+
+          # Health report outputs stay outside the checkout. Never rebuild API data.
+          v852_health_dir="$(mktemp -d)"
+          python validate_daily_integrated_health_v731.py --repo-root . \
+            --output-json "$v852_health_dir/health.json" \
+            --output-md "$v852_health_dir/health.md"
+          python - "$v852_health_dir/health.json" <<'PY'
+          import json
+          import sys
+          report = json.load(open(sys.argv[1], encoding="utf-8"))
+          if report.get("status") != "PASS" or report.get("critical_count") != 0 or report.get("warning_count") != 0:
+              raise SystemExit("V852_DAILY_HEALTH_NOT_CLEAN")
+          print("V852_DAILY_HEALTH_LOCAL_AND_LIVE=PASS")
+          PY
+
+          # Execute the project-restricted GET-only live verifier without installing files.
+          node --input-type=module - . <<'JS'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import os from 'node:os';
+          import path from 'node:path';
+          import { createHash } from 'node:crypto';
+          import { execFile } from 'node:child_process';
+          import { promisify } from 'node:util';
+
+          // Read-only live checks. Requests are restricted to this project's public Worker.
+          const repo = path.resolve(process.argv[2] || '.');
+          const base = 'https://krx-live-price-ksh.diaconos.workers.dev';
+          const prefix = '/sehwankim0114/krx-watchlist-auto/main/api/';
+          const build = '1.4.0-two-table-guarded-preview';
+          const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'v852-live-audit-'));
+          const exec = promisify(execFile);
+          const read = p => JSON.parse(fs.readFileSync(path.join(repo, p), 'utf8'));
+          const source = fs.readFileSync(path.join(repo, 'worker/krx-live-price-worker.js'), 'utf8');
+          const exports = new Function(source.replace('export default {', 'const worker = {') +
+            '\nreturn {compactManifestPayload, compactWatchlistPayload, compactUsWatchlistPayload, compactTablePayload, COMPACT_TABLE_PROFILES, expectedTwoTableDate};')();
+          const status = read('api/status.json');
+          const manifest = read('api/two_table_v1/manifest.json');
+          const calendar = read('config/krx_market_holidays.json');
+          assert.equal(status.build_id, manifest.source_build_id);
+          for (const key of ['api_sync_ok', 'official_fresh_now', 'safe_to_analyze_as_latest']) assert.equal(status[key], true);
+          for (const key of ['production_activation_allowed', 'custom_gpt_route_enabled', 'safe_to_analyze_as_latest', 'standalone_swing_table_enabled']) assert.equal(manifest[key], false);
+          const report = { checked_at_utc: new Date().toISOString(), worker_build: build,
+            source_build_id: manifest.source_build_id, basis_date: manifest.basis_date,
+            legacy_tables: [], preview_tables: [], production_activated: false };
+          let requestNumber = 0;
+
+          async function get(relative, maxBytes = 100000) {
+            const url = new URL(relative, base);
+            assert.equal(url.origin, base);
+            assert.equal(url.username + url.password + url.hash, '');
+            assert.ok(url.pathname === '/health' || url.pathname.startsWith(prefix) || url.pathname.startsWith('/tables/v1/'));
+            const id = ++requestNumber;
+            const bodyPath = path.join(temp, `${id}.body`);
+            const headerPath = path.join(temp, `${id}.headers`);
+            let http;
+            try {
+              const result = await exec('curl', ['--silent', '--show-error', '--proto', '=https',
+                '--max-time', '40', '--max-filesize', String(maxBytes),
+                '--header', 'Accept: application/json', '--header', 'Cache-Control: no-cache',
+                '--dump-header', headerPath, '--output', bodyPath, '--write-out', '%{http_code}', url.href],
+                { timeout: 45000, maxBuffer: 8192 });
+              http = Number(result.stdout);
+            } catch { throw new Error(`LIVE_HTTP_FETCH_FAILED:${url.pathname}`); }
+            const raw = fs.readFileSync(bodyPath);
+            assert.ok(raw.length <= maxBytes, `LIVE_RESPONSE_TOO_LARGE:${url.pathname}`);
+            const blocks = fs.readFileSync(headerPath, 'utf8').trim().split(/\r?\n\r?\n/);
+            const headers = {};
+            for (const line of blocks.at(-1).split(/\r?\n/).slice(1)) {
+              const i = line.indexOf(':');
+              if (i > 0) headers[line.slice(0, i).toLowerCase()] = line.slice(i + 1).trim();
+            }
+            let payload;
+            try { payload = JSON.parse(raw.toString('utf8')); }
+            catch { throw new Error(`LIVE_RESPONSE_NOT_JSON:${url.pathname}:${http}`); }
+            return { http, payload, bytes: raw.length, headers };
+          }
+
+          async function health() {
+            const r = await get('/health');
+            assert.equal(r.http, 200); assert.equal(r.payload.status, 'OK');
+            assert.equal(r.payload.build_version, build);
+            const p = r.payload.two_table_proxy;
+            assert.deepEqual(p.paths, ['/tables/v1/kospi', '/tables/v1/decliners', '/tables/v1/decliners24']);
+            for (const [key, value] of Object.entries({ version: '1', page_limit_bytes: 30000,
+              page_limit_rows: 30, sha256_required: true, later_pages_require_build_id: true,
+              preview_requires_mode_parameter: true, values_recalculated: false,
+              standalone_swing_table_enabled: false, cache_mode: 'NO_STORE_CONTROL_RECHECK',
+              calendar_rule: 'REPOSITORY_KRX_CALENDAR_0830_KST' })) assert.equal(p[key], value);
+            return r;
+          }
+
+          async function bounded(items, fn) {
+            let next = 0;
+            await Promise.all(Array.from({ length: Math.min(3, items.length) }, async () => {
+              while (next < items.length) { const item = items[next++]; await fn(item); }
+            }));
+          }
+
+          await health();
+          console.log('LIVE_WORKER_V140_HEALTH=PASS');
+          const liveStatus = await get(prefix + 'status.json');
+          assert.equal(liveStatus.http, 200);
+          assert.deepEqual(liveStatus.payload, status, 'LIVE_STATUS_SNAPSHOT_CHANGED_RETRY');
+          const liveManifest = await get(prefix + 'manifest.json');
+          assert.equal(liveManifest.http, 200);
+          assert.deepEqual(liveManifest.payload, exports.compactManifestPayload(read('api/manifest.json'), status));
+          assert.equal(liveManifest.payload.command_route_contract.command_count, 13);
+          assert.equal(liveManifest.payload.command_route_contract.ready_count, 13);
+          console.log('LIVE_LEGACY_MANIFEST_13_COMMANDS=PASS');
+
+          const legacy = ['watchlist.json', 'us_watchlist.json', ...Object.keys(exports.COMPACT_TABLE_PROFILES)];
+          await bounded(legacy, async filename => {
+            const p = read('api/' + filename);
+            const expected = filename === 'watchlist.json' ? exports.compactWatchlistPayload(p)
+              : filename === 'us_watchlist.json' ? exports.compactUsWatchlistPayload(p)
+              : exports.compactTablePayload(p, filename);
+            const limit = filename === 'kospi_watchlist.json' ? 30000 : 45000;
+            const r = await get(prefix + filename, limit);
+            assert.equal(r.http, 200, `LIVE_LEGACY_HTTP:${filename}`);
+            assert.deepEqual(r.payload, expected, `LIVE_LEGACY_SOURCE_MISMATCH:${filename}`);
+            report.legacy_tables.push({ file: filename, rows: r.payload.rows.length, bytes: r.bytes });
+            console.log(`LIVE_LEGACY_TABLE=${filename}|${r.payload.rows.length}|${r.bytes}`);
+          });
+          console.log('LIVE_LEGACY_12_TABLES_EXACT_SOURCE_MATCH=PASS');
+
+          await bounded(['kospi', 'decliners', 'decliners24'], async table => {
+            const entry = manifest.tables[table];
+            const rows = []; const sizes = [];
+            let next = `/tables/v1/${table}?mode=preview&page=1`;
+            for (let index = 0; index < entry.pages.length; index++) {
+              const name = entry.pages[index];
+              assert.match(name, new RegExp(`^${table}\\.compact\\.[1-9][0-9]*\\.json$`));
+              const raw = fs.readFileSync(path.join(repo, 'api/two_table_v1', name));
+              assert.equal(raw.length, manifest.files[name].bytes);
+              assert.equal(createHash('sha256').update(raw).digest('hex'), manifest.files[name].sha256);
+              const r = await get(next, 30000);
+              assert.equal(r.http, 200, `LIVE_PREVIEW_HTTP:${table}:${index + 1}:${r.payload.error}`);
+              const { transport, ...data } = r.payload;
+              assert.deepEqual(data, JSON.parse(raw), `LIVE_PREVIEW_SOURCE_MISMATCH:${name}`);
+              assert.equal(r.headers['cache-control'], 'no-store');
+              assert.equal(r.headers['x-two-table-build-id'], manifest.source_build_id);
+              assert.equal(r.headers['x-two-table-sha256-verified'], 'true');
+              for (const [key, value] of Object.entries({ worker_build: build, mode: 'preview',
+                current_official_freshness_checked: true, source_checksum_verified: true,
+                page_rows_preserved: true, values_recalculated: false, request_time_prices_applied: false,
+                all_pages_required_for_complete_table: true })) assert.equal(transport[key], value);
+              assert.equal(transport.expected_official_date_at_request, exports.expectedTwoTableDate(new Date(), calendar));
+              assert.equal(data.production_activation_allowed, false);
+              assert.equal(data.safe_to_analyze_as_latest, false);
+              rows.push(...data.rows); sizes.push(r.bytes);
+              const nextPage = index + 1 < entry.pages.length ? index + 2 : null;
+              const expectedNext = nextPage === null ? null : `/tables/v1/${table}?mode=preview&page=${nextPage}&build_id=${encodeURIComponent(manifest.source_build_id)}`;
+              assert.equal(transport.next_page, nextPage);
+              assert.equal(transport.next_page_url, expectedNext);
+              next = expectedNext;
+            }
+            assert.equal(rows.length, entry.row_count);
+            assert.equal(new Set(rows.map(r => r[1])).size, rows.length);
+            report.preview_tables.push({ table, rows: rows.length, pages: sizes.length, page_bytes: sizes });
+            console.log(`LIVE_PREVIEW_TABLE=${table}|${rows.length}|${sizes.join(',')}`);
+          });
+
+          await bounded(['kospi', 'decliners', 'decliners24'], async table => {
+            const r = await get(`/tables/v1/${table}`);
+            assert.equal(r.http, 409);
+            assert.equal(r.payload.error, 'TWO_TABLE_NOT_ACTIVATED');
+            assert.deepEqual(r.payload.rows, []);
+            assert.equal(r.payload.safe_to_analyze_as_latest, false);
+            assert.equal(r.headers['cache-control'], 'no-store');
+          });
+          for (const [url, code, http] of [
+            ['/tables/v1/decliners?mode=preview&page=2', 'TWO_TABLE_BUILD_ID_REQUIRED_FOR_NEXT_PAGE', 400],
+            ['/tables/v1/decliners?mode=preview&page=2&build_id=audit-obsolete-build', 'TWO_TABLE_BUILD_CHANGED_RESTART_PAGE_1', 409],
+          ]) {
+            const r = await get(url);
+            assert.equal(r.http, http); assert.equal(r.payload.error, code); assert.deepEqual(r.payload.rows, []);
+          }
+          const rawBypass = await get(prefix + 'two_table_v1/kospi.json');
+          assert.equal(rawBypass.http, 400); assert.equal(rawBypass.payload.error, 'INVALID_GITHUB_API_PATH');
+          console.log('LIVE_PREVIEW_ACTIVATION_AND_PAGE_GUARDS=PASS');
+          await health();
+          const finalPage = await get('/tables/v1/kospi?mode=preview&page=1');
+          assert.equal(finalPage.http, 200);
+          assert.equal(finalPage.payload.source_build_id, manifest.source_build_id);
+          report.status = 'PASS'; report.request_count = requestNumber;
+          report.legacy_tables.sort((a,b) => a.file.localeCompare(b.file));
+          report.preview_tables.sort((a,b) => a.table.localeCompare(b.table));
+          fs.writeFileSync(path.join(temp, 'report.json'), JSON.stringify(report, null, 2) + '\n');
+          console.log('V852_LIVE_REPORT=' + path.join(temp, 'report.json'));
+          console.log('LIVE_WORKER_V852_DEPLOYMENT=PASS');
+          JS
 
           if test -n "$(git status --porcelain)"; then
             echo "::error::Read-only audit changed the worktree."

@@ -15,7 +15,7 @@
 ## 수동 유지보수 워크플로
 
 - `maintenance-repair.yml`: 필요한 경우에만 실행하는 복구 도구
-- `safe-repository-cleanup.yml`: `--check-only` 실시간 API 검증, Worker V1.3.9 및 Custom GPT V6.8.3 단일 추천 아이콘 회귀검사를 포함하고 저장소를 변경하지 않는 읽기 전용 V8.4.1 감사 도구
+- `safe-repository-cleanup.yml`: `--check-only` API 검증, Worker 및 Custom GPT 단일 추천 아이콘 회귀검사를 수행하는 읽기 전용 감사 도구. 실행 중인 워크플로의 버전과 배포 상태를 함께 확인
 
 일회성 적용 워크플로는 작업 완료 후 `.github/workflows`에서 제거하고, 필요한 기록은 `docs/workflow_archive/`에 보관합니다.
 
@@ -27,7 +27,7 @@
 - `latest/deprecated/`: 현재 분석에 사용하지 않는 구형 상태파일
 - `docs/archive/`: 과거 문서·스키마 기록
 - `docs/workflow_archive/`: 완료된 과거 GitHub Actions 기록
-- `worker/`: 배포된 단일 Action Worker 원본과 회귀검증기
+- `worker/`: 배포 대상 단일 Action Worker 원본과 회귀검증기. 실제 배포 버전은 `/health`의 `build_version`으로 별도 확인
 
 ## 단일 운영 원본
 
@@ -38,6 +38,8 @@
 - 보유종목 비저장 계약: `docs/holdings_private_runtime_contract.md`
 - Worker 배포 원본: `worker/krx-live-price-worker.js`
 - Worker 회귀검증기: `worker/validate_worker.mjs`
+- 새 두 표 Worker 회귀검증기: `worker/validate_two_table_proxy_v852.mjs`
+- Worker V1.4.0 전환 설명: `docs/two_table_worker_v852.md` (새 GPT 경로 활성화는 후속 단계)
 - 두 표 준비자료 생성기: `build_two_table_shadow_v851.py` (`build_api_json.py` 마지막 단계에서 실행)
 - 두 표 계산 계약: `docs/two_table_preview_v850.md`, 정기 연결 설명: `docs/two_table_shadow_v851.md`
 

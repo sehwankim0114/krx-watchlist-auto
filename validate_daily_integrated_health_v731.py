@@ -34,9 +34,11 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 SCHEMA_VERSION = "1.0"
-CHECKER_VERSION = "2026-08-29-v8.4.0-worker-v138-health-alignment"
+CHECKER_VERSION = "2026-09-04-v8.5.2-shadow-aware-worker-health"
 DEFAULT_WORKER_BASE = "https://krx-live-price-ksh.diaconos.workers.dev"
-EXPECTED_WORKER_BUILD_PREFIX = "1.3.9-"
+EXPECTED_WORKER_BUILD_PREFIX = "1.4.0-"
+EXPECTED_WORKER_BUILD = "1.4.0-two-table-guarded-preview"
+LEGACY_SHADOW_ONLY_WORKER_BUILD = "1.3.9-kospi-action-compact-v2"
 DEFAULT_MAX_WATCHLIST_BYTES = 90000
 MAX_COMPACT_MANIFEST_BYTES = 65000
 KRX_SECTOR_SOURCE = "KRX_KIND_LISTED_COMPANY"
@@ -971,7 +973,36 @@ def validate_local_repository(
         "manifest": manifest,
         "validation": validation,
         "tables": table_payloads,
+        "two_table_rollout": read_json(api_dir / "two_table_v1" / "manifest.json"),
     }
+
+
+def worker_build_rollout_mode(health: Mapping[str, Any], rollout: Mapping[str, Any]) -> str:
+    """Do not treat an undeployed preview as a failure of existing live routes.
+
+    The old Worker is tolerated only while the entire dataset remains explicitly
+    inactive. It is never accepted after new-table production activation.
+    """
+    build = health.get("build_version")
+    if build == EXPECTED_WORKER_BUILD:
+        proxy = health.get("two_table_proxy") or {}
+        required = {
+            "version": "1", "page_limit_bytes": 30000, "page_limit_rows": 30,
+            "sha256_required": True, "later_pages_require_build_id": True,
+            "cache_mode": "NO_STORE_CONTROL_RECHECK", "values_recalculated": False,
+            "standalone_swing_table_enabled": False,
+            "paths": ["/tables/v1/kospi", "/tables/v1/decliners", "/tables/v1/decliners24"],
+        }
+        if all(proxy.get(k) == v and type(proxy.get(k)) is type(v) for k, v in required.items()):
+            return "CURRENT_GUARDED_WORKER"
+    if (build == LEGACY_SHADOW_ONLY_WORKER_BUILD
+            and rollout.get("version") == "2026-09-04-v8.5.1-scheduled-two-table-shadow"
+            and rollout.get("release_stage") == "SCHEDULED_SHADOW_ONLY"
+            and all(rollout.get(k) is False for k in (
+                "production_activation_allowed", "custom_gpt_route_enabled",
+                "safe_to_analyze_as_latest", "standalone_swing_table_enabled"))):
+        return "LEGACY_ALLOWED_SHADOW_ONLY"
+    return "UNSUPPORTED_OR_ACTIVATION_MISMATCH"
 
 
 def validate_worker(
@@ -993,6 +1024,7 @@ def validate_worker(
 
     health_ok = str(health.get("status") or "").upper() == "OK"
     build_version = str(health.get("build_version") or "")
+    rollout_mode = worker_build_rollout_mode(health, local.get("two_table_rollout") or {})
     manifest_mode = nested_get(
         health,
         ("github_proxy_policy", "manifest_response_mode"),
@@ -1003,7 +1035,7 @@ def validate_worker(
     )
     if (
         health_ok
-        and build_version.startswith(EXPECTED_WORKER_BUILD_PREFIX)
+        and rollout_mode != "UNSUPPORTED_OR_ACTIVATION_MISMATCH"
         and manifest_mode == "COMPACT_FOR_CUSTOM_GPT"
         and freshness_merge == "status.json"
     ):
@@ -1013,6 +1045,8 @@ def validate_worker(
             {
                 "build_version": build_version,
                 "bytes": health_bytes,
+                "rollout_mode": rollout_mode,
+                "two_table_full_output_test": "SEPARATE_CHECK_REQUIRED",
             },
         )
     else:
@@ -1022,6 +1056,7 @@ def validate_worker(
             {
                 "status": health.get("status"),
                 "build_version": build_version,
+                "rollout_mode": rollout_mode,
                 "manifest_response_mode": manifest_mode,
                 "manifest_freshness_merge": freshness_merge,
             },

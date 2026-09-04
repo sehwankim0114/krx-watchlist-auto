@@ -17,7 +17,7 @@
  */
 
 const SERVICE_VERSION = "1.2.0";
-const BUILD_VERSION = "1.3.9-kospi-action-compact-v2";
+const BUILD_VERSION = "1.4.0-two-table-guarded-preview";
 const MAX_ITEMS = 50;
 const FETCH_TIMEOUT_MS = 8000;
 const CONCURRENCY = 4;
@@ -75,6 +75,9 @@ export default {
           `${GITHUB_PROXY_PREFIX}stock_table_rules.json`,
           `${GITHUB_PROXY_PREFIX}manifest.json`,
           `${GITHUB_PROXY_PREFIX}us_watchlist.json`,
+          "/tables/v1/kospi?mode=preview&page=1",
+          "/tables/v1/decliners?mode=preview&page=1",
+          "/tables/v1/decliners24?mode=preview&page=1",
         ],
         providers: {
           KR: "NAVER_STOCK_MOBILE",
@@ -118,8 +121,27 @@ export default {
           after_hours_reflected: false,
           fallback_to_fake_price: false,
         },
+        two_table_proxy: {
+          version: "1",
+          paths: ["/tables/v1/kospi", "/tables/v1/decliners", "/tables/v1/decliners24"],
+          source_directory: "api/two_table_v1",
+          default_mode: "production_requires_explicit_dataset_activation",
+          preview_requires_mode_parameter: true,
+          page_limit_bytes: 30000,
+          page_limit_rows: 30,
+          cache_mode: "NO_STORE_CONTROL_RECHECK",
+          sha256_required: true,
+          later_pages_require_build_id: true,
+          calendar_rule: "REPOSITORY_KRX_CALENDAR_0830_KST",
+          standalone_swing_table_enabled: false,
+          values_recalculated: false,
+        },
         generated_at: new Date().toISOString(),
       });
+    }
+
+    if (url.pathname.startsWith("/tables/")) {
+      return handleTwoTableRequest(url);
     }
 
     if (url.pathname.startsWith(GITHUB_PROXY_PREFIX)) {
@@ -204,6 +226,276 @@ export default {
     });
   },
 };
+
+// TWO_TABLE_GUARDED_PROXY_V852_BEGIN
+// This is a transport contract. No price, score, indicator or recommendation
+// is recomputed here. Shadow data can be read only with explicit mode=preview.
+const TWO_TABLE_PATHS = new Map([
+  ["/tables/v1/kospi", "kospi"],
+  ["/tables/v1/decliners", "decliners"],
+  ["/tables/v1/decliners24", "decliners24"],
+]);
+const TWO_TABLE_COLUMNS = ["name", "ticker", "official_close", "run", "streak",
+  "range_3m", "swing", "ma", "returns", "rs_kospi_pp", "atr14", "activity",
+  "analysis", "sector_theme"];
+const TWO_TABLE_MAX_BYTES = 30000;
+const TWO_TABLE_MAX_CONTROL_BYTES = 64000;
+
+class TwoTableError extends Error {
+  constructor(code, status = 409) {
+    super(code);
+    this.status = status;
+  }
+}
+
+function twoTableRequire(condition, code, status = 409) {
+  if (!condition) throw new TwoTableError(code, status);
+}
+
+function parseTwoTableQuery(url) {
+  const table = TWO_TABLE_PATHS.get(url.pathname);
+  twoTableRequire(Boolean(table), "TWO_TABLE_NOT_FOUND", 404);
+  const allowed = new Set(["page", "mode", "build_id"]);
+  const seen = new Set();
+  for (const [key] of url.searchParams) {
+    twoTableRequire(allowed.has(key) && !seen.has(key), "TWO_TABLE_INVALID_QUERY", 400);
+    seen.add(key);
+  }
+  const rawPage = url.searchParams.get("page") ?? "1";
+  twoTableRequire(/^[1-9][0-9]{0,2}$/.test(rawPage), "TWO_TABLE_INVALID_PAGE", 400);
+  const page = Number(rawPage);
+  twoTableRequire(page <= 100, "TWO_TABLE_INVALID_PAGE", 400);
+  const mode = url.searchParams.get("mode") ?? "production";
+  twoTableRequire(["preview", "production"].includes(mode), "TWO_TABLE_INVALID_MODE", 400);
+  const buildId = url.searchParams.get("build_id");
+  twoTableRequire(buildId === null || /^[A-Za-z0-9:+_-]{1,128}$/.test(buildId), "TWO_TABLE_INVALID_BUILD_ID", 400);
+  twoTableRequire(page === 1 || buildId !== null, "TWO_TABLE_BUILD_ID_REQUIRED_FOR_NEXT_PAGE", 400);
+  return { table, page, mode, buildId };
+}
+
+async function readTwoTableSource(relativePath, maxBytes) {
+  // Callers construct paths from constants and validated numeric page indexes.
+  twoTableRequire(/^(?:api\/(?:status\.json|two_table_v1\/(?:manifest|(?:kospi|decliners|decliners24)\.compact\.[1-9][0-9]*)\.json)|config\/krx_market_holidays\.json)$/.test(relativePath),
+    "TWO_TABLE_INTERNAL_PATH_INVALID", 500);
+  const root = "sehwankim0114/krx-watchlist-auto";
+  const urls = [
+    `https://raw.githubusercontent.com/${root}/main/${relativePath}`,
+    `https://api.github.com/repos/${root}/contents/${relativePath}?ref=main`,
+  ];
+  for (let attempt = 0; attempt < urls.length; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const response = await fetch(urls[attempt], {
+        signal: controller.signal,
+        headers: {
+          Accept: attempt ? "application/vnd.github.raw+json" : "application/json",
+          "User-Agent": "krx-watchlist-two-table/1.4.0",
+          "Cache-Control": "no-cache, no-store",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+        cf: { cacheTtl: 0, cacheEverything: false },
+      });
+      if (!response.ok) {
+        await response.body?.cancel();
+        if (attempt === 0 && shouldUseGitHubApiFallback(response.status)) continue;
+        throw new TwoTableError("TWO_TABLE_SOURCE_UNAVAILABLE", 503);
+      }
+      const reader = response.body?.getReader();
+      twoTableRequire(Boolean(reader), "TWO_TABLE_EMPTY_SOURCE", 502);
+      let size = 0;
+      const chunks = [];
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > maxBytes) {
+          await reader.cancel();
+          throw new TwoTableError("TWO_TABLE_SOURCE_TOO_LARGE", 502);
+        }
+        chunks.push(value);
+      }
+      const raw = new Uint8Array(size);
+      let offset = 0;
+      for (const chunk of chunks) { raw.set(chunk, offset); offset += chunk.byteLength; }
+      let payload;
+      try { payload = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(raw)); }
+      catch { throw new TwoTableError("TWO_TABLE_SOURCE_INVALID_JSON", 502); }
+      twoTableRequire(payload !== null && typeof payload === "object" && !Array.isArray(payload),
+        "TWO_TABLE_SOURCE_INVALID_OBJECT", 502);
+      return { raw, payload };
+    } catch (error) {
+      if (error instanceof TwoTableError) throw error;
+      if (attempt === 1) throw new TwoTableError("TWO_TABLE_SOURCE_FETCH_FAILED", 503);
+    } finally {
+      clearTimeout(timeout);
+      controller.abort();
+    }
+  }
+  throw new TwoTableError("TWO_TABLE_SOURCE_UNAVAILABLE", 503);
+}
+
+function validTwoTableDate(value) {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    && Number.isFinite(Date.parse(`${value}T00:00:00Z`))
+    && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+}
+
+function expectedTwoTableDate(now, calendar) {
+  const kst = new Date(now.getTime() + 9 * 3600000);
+  twoTableRequire(calendar.calendar === "KRX" && calendar.year === kst.getUTCFullYear()
+    && Array.isArray(calendar.holidays), "TWO_TABLE_CALENDAR_COVERAGE_MISSING", 503);
+  const holidays = new Set(calendar.holidays.map(item => typeof item === "string" ? item : item?.date));
+  twoTableRequire([...holidays].every(validTwoTableDate), "TWO_TABLE_CALENDAR_INVALID", 503);
+  const cutoffReached = kst.getUTCHours() * 60 + kst.getUTCMinutes() >= 510;
+  const cursor = new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate()));
+  cursor.setUTCDate(cursor.getUTCDate() - (cutoffReached ? 1 : 2));
+  for (let tries = 0; tries < 30; tries += 1) {
+    // Do not guess holidays across an unprovided calendar year.
+    twoTableRequire(cursor.getUTCFullYear() === calendar.year, "TWO_TABLE_CALENDAR_COVERAGE_MISSING", 503);
+    const day = cursor.toISOString().slice(0, 10);
+    if (cursor.getUTCDay() !== 0 && cursor.getUTCDay() !== 6 && !holidays.has(day)) return day;
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+  throw new TwoTableError("TWO_TABLE_CALENDAR_INVALID", 503);
+}
+
+function verifyTwoTableControl(status, manifest, calendar, query, now = new Date()) {
+  twoTableRequire(status.api_sync_ok === true && (!status.critical_errors || status.critical_errors.length === 0),
+    "TWO_TABLE_SOURCE_NOT_SYNCHRONIZED");
+  const gate = status.runtime_freshness_gate;
+  twoTableRequire(status.official_fresh_now === true && status.safe_to_analyze_as_latest === true
+    && gate?.api_sync_ok === true && gate.official_fresh_now === true && gate.safe_to_analyze_as_latest === true,
+    "TWO_TABLE_OFFICIAL_DATA_NOT_FRESH");
+  const expected = expectedTwoTableDate(now, calendar);
+  const basis = status.confirmed_basis_date;
+  const kst = new Date(now.getTime() + 9 * 3600000);
+  twoTableRequire(validTwoTableDate(basis) && basis >= expected
+    && basis <= kst.toISOString().slice(0, 10)
+    && status.kospi_actual_date === basis && status.kosdaq_actual_date === basis,
+    "TWO_TABLE_OFFICIAL_DATE_INVALID_OR_STALE");
+  twoTableRequire(basis !== kst.toISOString().slice(0, 10)
+    || kst.getUTCHours() * 60 + kst.getUTCMinutes() >= 930, "TWO_TABLE_TODAY_BAR_NOT_CONFIRMED");
+  for (const [source, main] of [["source_build_id", "build_id"], ["source_rules_version", "rules_version"],
+    ["source_rules_sha256", "rules_sha256"], ["basis_date", "confirmed_basis_date"]]) {
+    twoTableRequire(typeof status[main] === "string" && status[main].length > 0
+      && manifest[source] === status[main], "TWO_TABLE_SOURCE_IDENTITY_MISMATCH");
+  }
+  twoTableRequire(query.buildId === null || query.buildId === manifest.source_build_id, "TWO_TABLE_BUILD_CHANGED_RESTART_PAGE_1");
+  twoTableRequire(manifest.standalone_swing_table_enabled === false, "TWO_TABLE_UNSUPPORTED_SWING_ACTIVATION");
+  if (query.mode === "production") {
+    twoTableRequire(manifest.production_activation_allowed === true && manifest.custom_gpt_route_enabled === true
+      && manifest.safe_to_analyze_as_latest === true && manifest.release_stage === "PRODUCTION"
+      && manifest.status === "READY", "TWO_TABLE_NOT_ACTIVATED");
+  } else {
+    twoTableRequire(manifest.production_activation_allowed === false && manifest.custom_gpt_route_enabled === false
+      && manifest.safe_to_analyze_as_latest === false && manifest.release_stage === "SCHEDULED_SHADOW_ONLY"
+      && ["SHADOW_READY", "SHADOW_STALE"].includes(manifest.status), "TWO_TABLE_PREVIEW_STAGE_MISMATCH");
+  }
+  twoTableRequire(typeof manifest.version === "string" && manifest.version.length > 0,
+    "TWO_TABLE_CONTRACT_VERSION_MISSING");
+  const entry = manifest.tables?.[query.table];
+  twoTableRequire(entry && Number.isInteger(entry.row_count) && entry.row_count >= 0 && entry.row_count <= 3000
+    && Array.isArray(entry.pages), "TWO_TABLE_MANIFEST_TABLE_INVALID");
+  const pageCount = Math.max(1, Math.ceil(entry.row_count / 30));
+  const names = Array.from({ length: pageCount }, (_, i) => `${query.table}.compact.${i + 1}.json`);
+  twoTableRequire(JSON.stringify(entry.pages) === JSON.stringify(names), "TWO_TABLE_PAGE_LIST_INVALID");
+  twoTableRequire(query.table !== "kospi" || entry.row_count === 30, "TWO_TABLE_KOSPI_NOT_30");
+  twoTableRequire(query.page <= pageCount, "TWO_TABLE_PAGE_OUT_OF_RANGE", 400);
+  const name = names[query.page - 1];
+  const info = manifest.files?.[name];
+  twoTableRequire(info && Number.isInteger(info.bytes) && info.bytes > 0 && info.bytes <= TWO_TABLE_MAX_BYTES
+    && typeof info.sha256 === "string" && /^[a-f0-9]{64}$/.test(info.sha256), "TWO_TABLE_PAGE_INTEGRITY_MISSING");
+  return { name, info, entry, pageCount, expected };
+}
+
+async function twoTableDigest(bytes) {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map(n => n.toString(16).padStart(2, "0")).join("");
+}
+
+async function verifyTwoTablePage(source, manifest, query, control) {
+  twoTableRequire(source.raw.byteLength === control.info.bytes
+    && await twoTableDigest(source.raw) === control.info.sha256, "TWO_TABLE_PAGE_CHECKSUM_MISMATCH");
+  const p = source.payload;
+  for (const key of ["source_build_id", "source_rules_version", "source_rules_sha256", "basis_date", "version",
+    "release_stage", "production_activation_allowed", "custom_gpt_route_enabled", "safe_to_analyze_as_latest",
+    "standalone_swing_table_enabled", "status"]) {
+    twoTableRequire(p[key] === manifest[key], "TWO_TABLE_PAGE_IDENTITY_MISMATCH");
+  }
+  twoTableRequire(p.contract?.release_stage === (query.mode === "preview" ? "PREVIEW_ONLY" : "PRODUCTION")
+    && p.contract.standalone_swing_table_enabled === false, "TWO_TABLE_CALCULATION_STAGE_MISMATCH");
+  const expectedRows = Math.min(30, Math.max(0, control.entry.row_count - (query.page - 1) * 30));
+  twoTableRequire(p.table_id === query.table && p.page === query.page && p.page_count === control.pageCount
+    && p.total_rows === control.entry.row_count && Array.isArray(p.rows)
+    && p.row_count === expectedRows && p.rows.length === expectedRows, "TWO_TABLE_PAGE_ROW_COUNT_MISMATCH");
+  twoTableRequire(JSON.stringify(p.columns) === JSON.stringify(TWO_TABLE_COLUMNS), "TWO_TABLE_COLUMNS_MISMATCH");
+  const tickers = new Set();
+  for (const row of p.rows) {
+    twoTableRequire(Array.isArray(row) && row.length === TWO_TABLE_COLUMNS.length
+      && typeof row[0] === "string" && typeof row[1] === "string" && /^[0-9]{6}$/.test(row[1])
+      && Number.isFinite(row[2]) && row[2] > 0, "TWO_TABLE_ROW_INVALID");
+    twoTableRequire(!tickers.has(row[1]), "TWO_TABLE_DUPLICATE_TICKER");
+    tickers.add(row[1]);
+  }
+  return p;
+}
+
+async function handleTwoTableRequest(url) {
+  try {
+    const query = parseTwoTableQuery(url);
+    const [status, manifest, calendar] = await Promise.all([
+      readTwoTableSource("api/status.json", TWO_TABLE_MAX_CONTROL_BYTES),
+      readTwoTableSource("api/two_table_v1/manifest.json", TWO_TABLE_MAX_CONTROL_BYTES),
+      readTwoTableSource("config/krx_market_holidays.json", TWO_TABLE_MAX_CONTROL_BYTES),
+    ]);
+    const control = verifyTwoTableControl(status.payload, manifest.payload, calendar.payload, query);
+    const source = await readTwoTableSource(`api/two_table_v1/${control.name}`, TWO_TABLE_MAX_BYTES);
+    const payload = await verifyTwoTablePage(source, manifest.payload, query, control);
+    const [finalStatus, finalManifest, finalCalendar] = await Promise.all([
+      readTwoTableSource("api/status.json", TWO_TABLE_MAX_CONTROL_BYTES),
+      readTwoTableSource("api/two_table_v1/manifest.json", TWO_TABLE_MAX_CONTROL_BYTES),
+      readTwoTableSource("config/krx_market_holidays.json", TWO_TABLE_MAX_CONTROL_BYTES),
+    ]);
+    twoTableRequire(await twoTableDigest(manifest.raw) === await twoTableDigest(finalManifest.raw),
+      "TWO_TABLE_MANIFEST_CHANGED_RETRY");
+    twoTableRequire(await twoTableDigest(calendar.raw) === await twoTableDigest(finalCalendar.raw),
+      "TWO_TABLE_CALENDAR_CHANGED_RETRY");
+    const finalControl = verifyTwoTableControl(finalStatus.payload, finalManifest.payload, finalCalendar.payload, query);
+    const nextPage = query.page < control.pageCount ? query.page + 1 : null;
+    const nextUrl = nextPage === null ? null : `${url.pathname}?mode=${query.mode}&page=${nextPage}`
+      + `&build_id=${encodeURIComponent(manifest.payload.source_build_id)}`;
+    const body = JSON.stringify({ ...payload, transport: {
+      worker_build: BUILD_VERSION,
+      mode: query.mode,
+      expected_official_date_at_request: finalControl.expected,
+      current_official_freshness_checked: true,
+      source_checksum_verified: true,
+      page_rows_preserved: true,
+      values_recalculated: false,
+      request_time_prices_applied: false,
+      all_pages_required_for_complete_table: true,
+      next_page: nextPage,
+      next_page_url: nextUrl,
+    } });
+    twoTableRequire(new TextEncoder().encode(body).byteLength <= TWO_TABLE_MAX_BYTES,
+      "TWO_TABLE_RESPONSE_TOO_LARGE", 502);
+    return new Response(body, { headers: { ...CORS_HEADERS,
+      "Content-Type": "application/json; charset=utf-8",
+      "X-Two-Table-Mode": query.mode,
+      "X-Two-Table-Build-Id": manifest.payload.source_build_id,
+      "X-Two-Table-SHA256-Verified": "true",
+    } });
+  } catch (error) {
+    // No upstream body, URL parameters, credentials or fabricated rows in errors.
+    return jsonResponse({ status: "ERROR",
+      error: error instanceof TwoTableError ? error.message : "TWO_TABLE_UNEXPECTED_ERROR",
+      rows: [], safe_to_analyze_as_latest: false,
+      production_activation_allowed: false,
+    }, error instanceof TwoTableError ? error.status : 503);
+  }
+}
+// TWO_TABLE_GUARDED_PROXY_V852_END
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload, null, 2), {

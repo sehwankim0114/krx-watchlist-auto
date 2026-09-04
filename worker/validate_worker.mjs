@@ -335,7 +335,7 @@ const healthResponse = await __worker_default__.fetch(
 );
 const health = await healthResponse.json();
 assert.equal(health.status, "OK");
-assert.equal(health.build_version, "1.3.9-kospi-action-compact-v2");
+assert.equal(health.build_version, "1.4.0-two-table-guarded-preview");
 assert.equal(
   health.github_proxy_policy.us_watchlist_response_mode,
   "COMPACT_FOR_CUSTOM_GPT",
@@ -541,4 +541,4 @@ console.log("KOSPI_WATCHLIST_NULL_FIELDS_OMITTED=PASS");
 console.log("KOSPI_WATCHLIST_DUPLICATE_FIELDS_REMOVED=PASS");
 console.log("KOSPI_STATIC_POSITION_OMITTED_FOR_REQUEST_TIME_RECALC=PASS");
 console.log("GITHUB_PRIMARY_FETCH_ERROR_FALLBACK=PASS");
-console.log("WORKER_V139_VALIDATION=PASS");
+console.log("WORKER_V140_LEGACY_REGRESSION=PASS");

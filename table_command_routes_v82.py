@@ -351,6 +351,9 @@ def attach_command_route_contract_v82(
     manifest: MutableMapping[str, Any],
 ) -> MutableMapping[str, Any]:
     contract = build_command_route_contract_v82(manifest)
+    # Preserve the 13-command core; explicit two-command extension is versioned.
+    from two_table_release_v853 import attach_routes
+    attach_routes(contract)
     manifest["command_route_contract"] = contract
     manifest["command_route_summary"] = {
         "contract_version": contract["contract_version"],

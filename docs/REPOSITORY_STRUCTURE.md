@@ -62,3 +62,10 @@
 - `api/manifest.json`: `build_id`, `rules_version`, `rules_sha256`, `command_route_contract`
 - `api/validation_report.json`: `status`, `errors`, `warnings`
 - `api/stock_reference_manifest.json`: `action_contract`, `privacy_policy`, `usage`
+# V8.5.3 새 두 표 기본 검색 연결
+
+- `two_table_release_v853.py` / `config/two_table_release.json`: 명시적 형식 공개, 최신성 하드 게이트, 미완성 4개 지표 고지. 기존 V850 계산·V851 비활성 게시기는 보존한다.
+- `validate_two_table_clients_v853.py` / `test_two_table_release_v853.py` / `worker/validate_two_table_release_v853.mjs`: 30 Action·유효15명령·새19열 및 실제 생성 운영 페이지 검사.
+- `docs/two_table_release_v853.md`: 적용·되돌리기 범위와 수동 GPT 전환/종단검사. 독립 스윙표는 보류.
+- `docs/custom_gpt_action_schema.yaml` 7.1.0 / `docs/custom_gpt_instructions.md` V6.9.0: getKospiWatchlist의 table 인수로 코피표·연속하락표·2.4연속하락표 연결.
+- Worker는 V1.4.0 그대로 사용한다. 안전감사는 V8.5.3으로 수동 교체하며 일회성 installer는 완료 후 삭제한다. 정기 운영 워크플로는 9개를 유지한다.

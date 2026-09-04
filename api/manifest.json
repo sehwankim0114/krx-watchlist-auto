@@ -1,17 +1,17 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260904T140536+0900-bca62cc385",
-  "generated_at_kst": "2026-09-04T14:05:36+09:00",
-  "source_commit_sha": "bca62cc385560565bf9a26bd587e787ebcba46a8",
+  "build_id": "20260904T183613+0900-0ac00cf9f8",
+  "generated_at_kst": "2026-09-04T18:36:13+09:00",
+  "source_commit_sha": "0ac00cf9f885d57286184dbe96eefd2e6f0adfea",
   "status": "READY",
   "api_sync_ok": true,
   "safe_to_analyze_as_latest": true,
   "rules_version": "2026-07-14-v8.0-request-time-position-alignment",
-  "rules_sha256": "44e773a99978dfc6bc807177f1e8efbbc4450cbaee744459fe7c11f83d574f5f",
+  "rules_sha256": "302d0af435df091589cbb0029d95dd2869132ff7a148e95b799d8c6ce55e40ed",
   "rules": {
     "source_file": "docs/stock_table_rules_latest.md",
     "version": "2026-07-14-v8.0-request-time-position-alignment",
-    "sha256": "44e773a99978dfc6bc807177f1e8efbbc4450cbaee744459fe7c11f83d574f5f"
+    "sha256": "302d0af435df091589cbb0029d95dd2869132ff7a148e95b799d8c6ce55e40ed"
   },
   "presentation_policy": {
     "format_contract": "improvement_plan_2_final",
@@ -3207,15 +3207,21 @@
         "status": "READY_DIRECT",
         "operation_id": "getKospiWatchlist",
         "operation_ids": [
-          "getKospiWatchlist",
-          "getKospiCandidates"
+          "getKospiWatchlist"
         ],
-        "api_file": "api/kospi_watchlist.json",
+        "api_file": "api/two_table_v1/kospi.json",
         "manifest_collection": "tables",
         "manifest_id": "kospi_watchlist",
         "actual_output_available": true,
         "manifest_item_present": false,
-        "data_status": "MANIFEST_ITEM_NOT_PRESENT"
+        "data_status": "MANIFEST_ITEM_NOT_PRESENT",
+        "path": "/tables/v1/{table}",
+        "parameters": {
+          "table": "kospi"
+        },
+        "format_version": "2026-09-04-v8.5.3-two-table-layout-release",
+        "all_pages_required": true,
+        "legacy_fallback_allowed": false
       },
       {
         "command": "코피표1개월",
@@ -3393,7 +3399,53 @@
         "data_status": "OK",
         "row_count": 30
       }
-    ]
+    ],
+    "two_table_release": {
+      "version": "2026-09-04-v8.5.3-two-table-layout-release",
+      "routes": [
+        {
+          "command": "코피표",
+          "operation_id": "getKospiWatchlist",
+          "path": "/tables/v1/{table}",
+          "parameters": {
+            "table": "kospi"
+          },
+          "api_file": "api/two_table_v1/kospi.json",
+          "format_version": "2026-09-04-v8.5.3-two-table-layout-release",
+          "all_pages_required": true,
+          "legacy_fallback_allowed": false
+        },
+        {
+          "command": "연속하락표",
+          "operation_id": "getKospiWatchlist",
+          "path": "/tables/v1/{table}",
+          "parameters": {
+            "table": "decliners"
+          },
+          "api_file": "api/two_table_v1/decliners.json",
+          "format_version": "2026-09-04-v8.5.3-two-table-layout-release",
+          "all_pages_required": true,
+          "legacy_fallback_allowed": false
+        },
+        {
+          "command": "2.4연속하락표",
+          "operation_id": "getKospiWatchlist",
+          "path": "/tables/v1/{table}",
+          "parameters": {
+            "table": "decliners24"
+          },
+          "api_file": "api/two_table_v1/decliners24.json",
+          "format_version": "2026-09-04-v8.5.3-two-table-layout-release",
+          "all_pages_required": true,
+          "legacy_fallback_allowed": false
+        }
+      ],
+      "core_command_count": 13,
+      "additional_command_count": 2,
+      "effective_command_count": 15,
+      "activation_requires_fresh_worker_response": true,
+      "standalone_swing_table_enabled": false
+    }
   },
   "command_route_summary": {
     "contract_version": "2026-07-15-v8.2-command-route-contract",
@@ -3465,7 +3517,7 @@
     "status": "OK",
     "source": "KRX_KIND_LISTED_COMPANY",
     "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download&searchType=13",
-    "generated_at_kst": "2026-09-04T14:05:36+09:00",
+    "generated_at_kst": "2026-09-04T18:36:13+09:00",
     "cache_mode": "LIVE_REFRESH",
     "regular_session_minutes": 390,
     "column_label": "평균거래량·분당거래금",
@@ -3578,7 +3630,7 @@
   },
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-09-04T14:05:36+09:00",
+    "evaluated_at_kst": "2026-09-04T18:36:13+09:00",
     "publication_cutoff_kst": "08:30",
     "expected_official_trading_date": "2026-09-03",
     "kospi_actual_date": "2026-09-03",

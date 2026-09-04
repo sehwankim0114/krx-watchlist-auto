@@ -13,6 +13,25 @@ for (const name of ["api/status.json", "config/krx_market_holidays.json", "api/t
   baseline.set(name, fs.readFileSync(path.join(repo, name)));
 }
 const status = JSON.parse(baseline.get("api/status.json"));
+// Preserve the original inactive-data regressions after V853 release. This
+// explicit in-memory fixture is NOT the production dataset; production bytes
+// are independently exercised by validate_two_table_release_v853.mjs.
+if (apiManifest.version === "2026-09-04-v8.5.3-two-table-layout-release") {
+  const inactive = p => Object.assign(p, { version: "2026-09-04-v8.5.1-scheduled-two-table-shadow",
+    release_stage: "SCHEDULED_SHADOW_ONLY", status: "SHADOW_READY",
+    production_activation_allowed: false, custom_gpt_route_enabled: false,
+    safe_to_analyze_as_latest: false });
+  inactive(apiManifest);
+  for (const name of Object.keys(apiManifest.files)) {
+    const full = "api/two_table_v1/" + name;
+    const p = JSON.parse(baseline.get(full)); inactive(p);
+    p.contract.release_stage = "PREVIEW_ONLY";
+    const raw = Buffer.from(JSON.stringify(p)); baseline.set(full, raw);
+    apiManifest.files[name] = { bytes: raw.length, sha256: createHash("sha256").update(raw).digest("hex") };
+  }
+  baseline.set("api/two_table_v1/manifest.json", Buffer.from(JSON.stringify(apiManifest)));
+  console.log("V852_INACTIVE_REGRESSION_FIXTURE=EXPLICIT_IN_MEMORY_ONLY");
+}
 const fixtureNow = status.runtime_freshness_gate.evaluated_at_kst;
 assert.equal(status.api_sync_ok, true);
 assert.equal(status.official_fresh_now, true, "Integration fixture must have freshly synchronized source data");

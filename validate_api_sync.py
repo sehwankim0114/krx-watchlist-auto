@@ -407,7 +407,7 @@ def main() -> int:
             encoding="utf-8"
         )
         required_tokens = (
-            "version: 7.0.1",
+            "version: 7.1.0",
             "https://krx-live-price-ksh.diaconos.workers.dev",
             "operationId: getRequestTimePriceHealth",
             "operationId: getRequestTimePrices",
@@ -474,7 +474,7 @@ def main() -> int:
             encoding="utf-8"
         )
         instruction_tokens = (
-            "2026-07-18-v6.8.3-single-recommendation-icon",
+            "2026-09-04-v6.9.0-two-table-layout",
             "### 5-1. V8.0 요청시점 최종 표시",
             "request_time_final_recommendation_mark",
             "가치매수구간 위 · 1차 익절구간 전",
@@ -494,11 +494,11 @@ def main() -> int:
     # REQUEST_TIME_PRICE_CONTRACT_V51_END
 
     # TWO_TABLE_SHADOW_V851_BEGIN
-    # Check the separate preparation bundle without activating a GPT route.
-    from build_two_table_shadow_v851 import DIRECTORY, validate_bundle
+    # Check the explicitly released layout and all preserved source guards.
+    from two_table_release_v853 import DIRECTORY, validate_bundle
     try:
         validate_bundle(api / DIRECTORY, api.parent)
-        print("V851_TWO_TABLE_SHADOW_CONTRACT=PASS")
+        print("V853_TWO_TABLE_RELEASE_CONTRACT=PASS")
     except (OSError, ValueError, KeyError, TypeError) as exc:
         errors.append("two-table shadow contract: " + str(exc))
     # TWO_TABLE_SHADOW_V851_END

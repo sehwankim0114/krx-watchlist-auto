@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: KRX Watchlist and Request-Time Price Unified API
-  version: 7.0.1
+  version: 7.1.0
   description: Single-domain unified Action for synchronized GitHub stock-table JSON, request-time KR/US auxiliary
     quotes, and health checks. Use this schema as the only Action set for krx-live-price-ksh.diaconos.workers.dev.
 servers:
@@ -102,19 +102,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnyObject'
-  /sehwankim0114/krx-watchlist-auto/main/api/kospi_watchlist.json:
+  /tables/v1/{table}:
     get:
       operationId: getKospiWatchlist
-      summary: Get compact KOSPI watchlist candidate rows
-      description: Preferred default endpoint for 코피표. Exactly 30 compact rows. Do not fall back to CSV or legacy
-        full candidates.
+      summary: Get new-format 코피표 or 연속하락표 with guarded pagination
+      description: '코피표: table=kospi (30 rows). 연속하락표: decliners. 2.4연속하락표: decliners24.
+        Production only. Fetch all pages, pin source_build_id after page 1. Never fall back to old tables or preview.'
+      parameters:
+      - name: table
+        in: path
+        required: true
+        description: Exact command mapping; standalone swing table is not supported.
+        schema:
+          type: string
+          enum: [kospi, decliners, decliners24]
+      - name: page
+        in: query
+        required: false
+        description: Page number starting at 1. Fetch through page_count; do not truncate results.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 1
+      - name: build_id
+        in: query
+        required: false
+        description: Use page 1 source_build_id on every subsequent page; required when page exceeds 1.
+        schema:
+          type: string
+          maxLength: 128
       responses:
         '200':
-          description: Get compact KOSPI watchlist candidate rows
+          description: One production page; decode each row using columns, render headers, and fetch all pages.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AnyObject'
+                $ref: '#/components/schemas/TwoTablePage'
+        '400':
+          description: Invalid table, page or missing build_id for later pages. No usable rows.
+        '409':
+          description: Not activated, stale, checksum or build mismatch. Restart once only for build changes; otherwise stop.
+        '502':
+          description: Oversized or invalid upstream data. Stop without fallback.
+        '503':
+          description: Data source or calendar unavailable. Stop without fallback.
   /sehwankim0114/krx-watchlist-auto/main/api/kosdaq_watchlist.json:
     get:
       operationId: getKosdaqWatchlist
@@ -395,6 +427,58 @@ paths:
                 $ref: '#/components/schemas/AnyObject'
 components:
   schemas:
+    TwoTablePage:
+      type: object
+      required: [status, source_build_id, source_rules_version, source_rules_sha256, basis_date, table_id, page, page_count, total_rows, row_count, columns, headers, rows, transport]
+      properties:
+        status:
+          type: string
+          enum: [READY]
+        source_build_id:
+          type: string
+        source_rules_version:
+          type: string
+        source_rules_sha256:
+          type: string
+        basis_date:
+          type: string
+        table_id:
+          type: string
+          enum: [kospi, decliners, decliners24]
+        page:
+          type: integer
+        page_count:
+          type: integer
+        total_rows:
+          type: integer
+        row_count:
+          type: integer
+        columns:
+          type: array
+          items:
+            type: string
+        headers:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          maxItems: 30
+          items:
+            type: array
+            minItems: 14
+            maxItems: 14
+            items: {}
+        transport:
+          type: object
+          properties:
+            mode:
+              type: string
+              enum: [production]
+            next_page_url:
+              type: [string, 'null']
+          additionalProperties: true
+      additionalProperties: true
     AnyObject:
       type: object
       description: Common response envelope used by the synchronized KRX JSON endpoints.

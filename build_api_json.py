@@ -1038,10 +1038,10 @@ def main() -> int:
     # PRICE_POSITION_V78_END
 
     # TWO_TABLE_SHADOW_V851_BEGIN
-    # Additive preparation only: existing API rows and Worker routes unchanged.
-    from build_two_table_shadow_v851 import publish as publish_two_table_shadow
+    # Explicit new-layout release; legacy API rows remain untouched.
+    from two_table_release_v853 import publish as publish_two_table_shadow
     two_table_shadow = publish_two_table_shadow(ROOT)
-    print("V851_REGULAR_BUILD_HOOK=PASS")
+    print("V853_REGULAR_BUILD_HOOK=PASS")
     print("TWO_TABLE_SHADOW_STATUS=" + two_table_shadow["status"])
     # TWO_TABLE_SHADOW_V851_END
 

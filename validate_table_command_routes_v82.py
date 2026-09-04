@@ -96,6 +96,13 @@ def main() -> int:
         "command order or names differ",
     )
     by_command = {route["command"]: route for route in routes}
+    from two_table_release_v853 import command_routes, VERSION
+    extension = contract.get("two_table_release", {})
+    require(extension.get("version") == VERSION, "two-table release version mismatch")
+    require(extension.get("routes") == command_routes(), "two-table route mapping mismatch")
+    require(extension.get("effective_command_count") == 15, "effective command count must be 15")
+    require(extension.get("standalone_swing_table_enabled") is False, "standalone swing is deferred")
+    require(by_command["코피표"].get("parameters") == {"table": "kospi"}, "default KOSPI must use new layout")
 
     for route in routes:
         require(
@@ -181,6 +188,9 @@ def main() -> int:
 
     print(f"CONTRACT_VERSION={CONTRACT_VERSION}")
     print("COMMAND_COUNT=13")
+    print("ADDITIONAL_TWO_TABLE_COMMANDS=2")
+    print("EFFECTIVE_COMMAND_COUNT=15")
+    print("V853_DEFAULT_KOSPI_ROUTE=PASS")
     print("READY_COUNT=13")
     print("ACTUAL_OUTPUT_AVAILABLE_COUNT=13")
     print("ANALYSIS_ROUTE=READY_ALIAS:getWatchlist")

@@ -23,6 +23,7 @@
 
 - `latest/`: 자동수집 원본·중간·보정 산출물
 - `api/`: Custom GPT가 Worker를 통해 읽는 공개 JSON
+- `api/two_table_v1/`: V8.5.1 코피표·연속하락표 정기 생성 준비자료. 별도 매니페스트·해시·페이지 검증 적용, Worker/Action 미연결, 운영 활성화 false
 - `latest/deprecated/`: 현재 분석에 사용하지 않는 구형 상태파일
 - `docs/archive/`: 과거 문서·스키마 기록
 - `docs/workflow_archive/`: 완료된 과거 GitHub Actions 기록
@@ -37,6 +38,8 @@
 - 보유종목 비저장 계약: `docs/holdings_private_runtime_contract.md`
 - Worker 배포 원본: `worker/krx-live-price-worker.js`
 - Worker 회귀검증기: `worker/validate_worker.mjs`
+- 두 표 준비자료 생성기: `build_two_table_shadow_v851.py` (`build_api_json.py` 마지막 단계에서 실행)
+- 두 표 계산 계약: `docs/two_table_preview_v850.md`, 정기 연결 설명: `docs/two_table_shadow_v851.md`
 
 ## 단일 Worker Action
 

@@ -493,6 +493,16 @@ def main() -> int:
 
     # REQUEST_TIME_PRICE_CONTRACT_V51_END
 
+    # TWO_TABLE_SHADOW_V851_BEGIN
+    # Check the separate preparation bundle without activating a GPT route.
+    from build_two_table_shadow_v851 import DIRECTORY, validate_bundle
+    try:
+        validate_bundle(api / DIRECTORY, api.parent)
+        print("V851_TWO_TABLE_SHADOW_CONTRACT=PASS")
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        errors.append("two-table shadow contract: " + str(exc))
+    # TWO_TABLE_SHADOW_V851_END
+
     report = {
         "script": SCRIPT_VERSION,
         "validated_at": datetime.now(timezone.utc).isoformat(

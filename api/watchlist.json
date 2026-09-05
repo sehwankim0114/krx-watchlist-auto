@@ -1,11 +1,11 @@
 {
   "schema_version": "4.2",
-  "build_id": "20260905T135722+0900-7f549d7a89",
+  "build_id": "20260905T151838+0900-f2bfa2c41a",
   "script": "build_api_json.py v5.2_recommendation_policy_isolation",
   "table_id": "watchlist",
   "display_name": "관종표",
-  "generated_at_kst": "2026-09-05T13:57:22+09:00",
-  "source_commit_sha": "7f549d7a8996bdf6f05529f312e7684d7ddc399d",
+  "generated_at_kst": "2026-09-05T15:18:38+09:00",
+  "source_commit_sha": "f2bfa2c41a8e2a714c317418e6b5ce21ba657ab7",
   "required": true,
   "default_output": true,
   "explicit_request_only": false,
@@ -149,7 +149,7 @@
   },
   "official_data": {
     "source_file": "official_data_status_latest.json",
-    "source_run_at_kst": "2026-09-05T10:40:59+09:00",
+    "source_run_at_kst": "2026-09-05T14:50:15+09:00",
     "source_expected_official_trading_date": "2026-09-04",
     "computed_expected_official_trading_date": "2026-09-04",
     "kospi_actual_date": "2026-09-04",
@@ -158,18 +158,18 @@
     "same_market_date": true,
     "official_fresh_at_source": true,
     "official_fresh_now": true,
-    "collector_return_code": 0,
+    "collector_return_code": null,
     "source_status": "FRESH",
     "source_display_label": "최신 공식자료 기준",
     "source_warning": "",
     "kospi_summary_rows": 923,
     "kosdaq_summary_rows": 1788,
-    "runtime_freshness_evaluated_at_kst": "2026-09-05T13:57:22+09:00",
+    "runtime_freshness_evaluated_at_kst": "2026-09-05T15:18:38+09:00",
     "runtime_freshness_gate_version": "2026-07-14-v7.7-runtime-freshness-gate",
     "data_lag_trading_days": 0
   },
   "current_price_basis": {
-    "current_price_asof_kst": "2026-09-05T13:56:34+09:00",
+    "current_price_asof_kst": "2026-09-05T15:14:33+09:00",
     "current_price_basis_status": "OK",
     "aux_price_count": 98,
     "current_basis_ok_files": 4,
@@ -285,7 +285,7 @@
     "supply_burden_report_count",
     "supply_burden_checked_at_kst"
   ],
-  "data_date_min": "2026-09-03",
+  "data_date_min": "2026-09-04",
   "data_date_max": "2026-09-04",
   "date_columns": [
     "last_date"
@@ -298,25 +298,25 @@
       "currency": "USD",
       "exchange": "NASDAQ",
       "status": "OK",
-      "last_date": "2026-09-03",
-      "current_close": "190.44",
-      "split_buy_low_ref": 162.42,
-      "split_buy_high_ref": 186.6,
-      "split_buy_ref": 186.6,
-      "target1_ref": 218.63,
-      "stop_ref": 155.99,
-      "avg_daily_move_abs": 12.81,
-      "avg_daily_move_pct": 6.24,
+      "last_date": "2026-09-04",
+      "current_close": "210.05",
+      "split_buy_low_ref": 177.74,
+      "split_buy_high_ref": 206.17,
+      "split_buy_ref": 206.17,
+      "target1_ref": 238.48,
+      "stop_ref": 171.28,
+      "avg_daily_move_abs": 12.92,
+      "avg_daily_move_pct": 6.31,
       "avg_wave_days": 2.0,
       "low_3m_intraday": 160.81,
       "high_3m_intraday": 265.63,
       "low_3m_close": 168.52,
       "high_3m_close": 262.06,
       "range_3m_pct": 65.18,
-      "position_in_3m_range_pct": 28.27,
-      "last_volume": 4959400.0,
-      "last_trading_value": 944468148.0,
-      "avg20_trading_value": 1721639664.0,
+      "position_in_3m_range_pct": 46.98,
+      "last_volume": 13742300.0,
+      "last_trading_value": 2886570157.0,
+      "avg20_trading_value": 1818844609.0,
       "low_liquidity": false,
       "foreign_net_5d_value": null,
       "foreign_net_20d_value": null,
@@ -324,7 +324,7 @@
       "institution_net_5d_value": null,
       "institution_net_20d_value": null,
       "institution_net_60d_value": null,
-      "data_rows": 63,
+      "data_rows": 64,
       "source_used": "yfinance_close",
       "error": null,
       "operating_profit": null,
@@ -475,7 +475,7 @@
       "supply_burden_latest_report_date": 20260803.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(약식)",
       "supply_burden_report_count": 11.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "HD현대일렉트릭",
@@ -568,7 +568,7 @@
       "supply_burden_latest_report_date": 20260810.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(약식)",
       "supply_burden_report_count": 3.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "HD현대중공업",
@@ -661,7 +661,7 @@
       "supply_burden_latest_report_date": null,
       "supply_burden_latest_report_name": null,
       "supply_burden_report_count": 0.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "Intel",
@@ -670,25 +670,25 @@
       "currency": "USD",
       "exchange": "NASDAQ",
       "status": "OK",
-      "last_date": "2026-09-03",
-      "current_close": "91.67",
-      "split_buy_low_ref": 82.61,
-      "split_buy_high_ref": 90.42,
-      "split_buy_ref": 90.42,
-      "target1_ref": 100.81,
-      "stop_ref": 79.34,
+      "last_date": "2026-09-04",
+      "current_close": "95.8",
+      "split_buy_low_ref": 85.41,
+      "split_buy_high_ref": 94.55,
+      "split_buy_ref": 94.55,
+      "target1_ref": 104.94,
+      "stop_ref": 83.33,
       "avg_daily_move_abs": 4.16,
-      "avg_daily_move_pct": 3.84,
+      "avg_daily_move_pct": 3.85,
       "avg_wave_days": 1.9,
       "low_3m_intraday": 81.79,
       "high_3m_intraday": 142.35,
       "low_3m_close": 81.88,
       "high_3m_close": 140.94,
       "range_3m_pct": 74.04,
-      "position_in_3m_range_pct": 16.31,
-      "last_volume": 79927800.0,
-      "last_trading_value": 7326981280.0,
-      "avg20_trading_value": 9199604916.0,
+      "position_in_3m_range_pct": 23.13,
+      "last_volume": 97428100.0,
+      "last_trading_value": 9333612277.0,
+      "avg20_trading_value": 9276149774.0,
       "low_liquidity": false,
       "foreign_net_5d_value": null,
       "foreign_net_20d_value": null,
@@ -696,7 +696,7 @@
       "institution_net_5d_value": null,
       "institution_net_20d_value": null,
       "institution_net_60d_value": null,
-      "data_rows": 63,
+      "data_rows": 64,
       "source_used": "yfinance_close",
       "error": null,
       "operating_profit": null,
@@ -847,7 +847,7 @@
       "supply_burden_latest_report_date": 20260728.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 4.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "LG이노텍",
@@ -940,7 +940,7 @@
       "supply_burden_latest_report_date": 20260730.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 9.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "LG전자",
@@ -1033,7 +1033,7 @@
       "supply_burden_latest_report_date": 20260611.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 1.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "LG전자우",
@@ -1126,7 +1126,7 @@
       "supply_burden_latest_report_date": null,
       "supply_burden_latest_report_name": null,
       "supply_burden_report_count": 0.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "LG화학",
@@ -1219,7 +1219,7 @@
       "supply_burden_latest_report_date": 20260807.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(일반)",
       "supply_burden_report_count": 5.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "LS",
@@ -1312,7 +1312,7 @@
       "supply_burden_latest_report_date": 20260825.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(일반)",
       "supply_burden_report_count": 3.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "LS ELECTRIC",
@@ -1405,7 +1405,7 @@
       "supply_burden_latest_report_date": 20260804.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 3.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "LS마린솔루션",
@@ -1498,7 +1498,7 @@
       "supply_burden_latest_report_date": 20260701.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 2.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "NVIDIA",
@@ -1507,25 +1507,25 @@
       "currency": "USD",
       "exchange": "NASDAQ",
       "status": "OK",
-      "last_date": "2026-09-03",
-      "current_close": "228.45",
-      "split_buy_low_ref": 217.74,
-      "split_buy_high_ref": 226.17,
-      "split_buy_ref": 226.17,
-      "target1_ref": 221.52,
-      "stop_ref": 215.6,
-      "avg_daily_move_abs": 4.28,
-      "avg_daily_move_pct": 2.06,
+      "last_date": "2026-09-04",
+      "current_close": "230.36",
+      "split_buy_low_ref": 219.74,
+      "split_buy_high_ref": 228.06,
+      "split_buy_ref": 228.06,
+      "target1_ref": 224.87,
+      "stop_ref": 217.62,
+      "avg_daily_move_abs": 4.25,
+      "avg_daily_move_pct": 2.04,
       "avg_wave_days": 2.0,
       "low_3m_intraday": 189.8,
-      "high_3m_intraday": 230.47,
+      "high_3m_intraday": 234.76,
       "low_3m_close": 190.01,
-      "high_3m_close": 228.45,
-      "range_3m_pct": 21.43,
-      "position_in_3m_range_pct": 95.03,
-      "last_volume": 134681600.0,
-      "last_trading_value": 30768011109.0,
-      "avg20_trading_value": 28031949979.0,
+      "high_3m_close": 230.36,
+      "range_3m_pct": 23.69,
+      "position_in_3m_range_pct": 90.21,
+      "last_volume": 134946800.0,
+      "last_trading_value": 31086344930.0,
+      "avg20_trading_value": 28402981249.0,
       "low_liquidity": false,
       "foreign_net_5d_value": null,
       "foreign_net_20d_value": null,
@@ -1533,7 +1533,7 @@
       "institution_net_5d_value": null,
       "institution_net_20d_value": null,
       "institution_net_60d_value": null,
-      "data_rows": 63,
+      "data_rows": 64,
       "source_used": "yfinance_close",
       "error": null,
       "operating_profit": null,
@@ -1684,7 +1684,7 @@
       "supply_burden_latest_report_date": 20260828.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 9.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "SK스퀘어",
@@ -1777,7 +1777,7 @@
       "supply_burden_latest_report_date": 20260812.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(약식)",
       "supply_burden_report_count": 7.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "SK이노베이션",
@@ -1870,7 +1870,7 @@
       "supply_burden_latest_report_date": null,
       "supply_burden_latest_report_name": null,
       "supply_burden_report_count": 0.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "SK하이닉스",
@@ -1963,7 +1963,7 @@
       "supply_burden_latest_report_date": 20260821.0,
       "supply_burden_latest_report_name": "[기재정정]임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 25.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "대한전선",
@@ -2056,7 +2056,7 @@
       "supply_burden_latest_report_date": null,
       "supply_burden_latest_report_name": null,
       "supply_burden_report_count": 0.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "덕산테코피아",
@@ -2149,7 +2149,7 @@
       "supply_burden_latest_report_date": 20260630.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 1.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "두산로보틱스",
@@ -2242,7 +2242,7 @@
       "supply_burden_latest_report_date": 20260904.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(일반)",
       "supply_burden_report_count": 2.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "두산에너빌리티",
@@ -2335,7 +2335,7 @@
       "supply_burden_latest_report_date": 20260731.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(약식)",
       "supply_burden_report_count": 3.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "미래에셋벤처투자",
@@ -2428,7 +2428,7 @@
       "supply_burden_latest_report_date": 20260826.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 5.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "미래에셋증권",
@@ -2521,7 +2521,7 @@
       "supply_burden_latest_report_date": 20260807.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(일반)",
       "supply_burden_report_count": 9.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "산일전기",
@@ -2614,7 +2614,7 @@
       "supply_burden_latest_report_date": 20260813.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(일반)",
       "supply_burden_report_count": 5.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "삼성SDI",
@@ -2707,7 +2707,7 @@
       "supply_burden_latest_report_date": 20260826.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 4.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "삼성생명",
@@ -2800,7 +2800,7 @@
       "supply_burden_latest_report_date": 20260724.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(일반)",
       "supply_burden_report_count": 1.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "삼성전기",
@@ -2893,7 +2893,7 @@
       "supply_burden_latest_report_date": 20260904.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 3.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "삼성전자",
@@ -2986,7 +2986,7 @@
       "supply_burden_latest_report_date": 20260831.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 826.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "삼성전자우",
@@ -3079,7 +3079,7 @@
       "supply_burden_latest_report_date": null,
       "supply_burden_latest_report_name": null,
       "supply_burden_report_count": 0.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "삼성중공업",
@@ -3172,7 +3172,7 @@
       "supply_burden_latest_report_date": 20260814.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 28.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "삼양식품",
@@ -3265,7 +3265,7 @@
       "supply_burden_latest_report_date": 20260901.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 6.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "삼화콘덴서",
@@ -3358,7 +3358,7 @@
       "supply_burden_latest_report_date": 20260804.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(약식)",
       "supply_burden_report_count": 3.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "셀트리온",
@@ -3451,7 +3451,7 @@
       "supply_burden_latest_report_date": 20260828.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(일반)",
       "supply_burden_report_count": 69.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "신세계",
@@ -3544,7 +3544,7 @@
       "supply_burden_latest_report_date": 20260831.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(일반)",
       "supply_burden_report_count": 2.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "주성엔지니어링",
@@ -3637,7 +3637,7 @@
       "supply_burden_latest_report_date": 20260803.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(약식)",
       "supply_burden_report_count": 3.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "차백신연구소",
@@ -3730,7 +3730,7 @@
       "supply_burden_latest_report_date": 20260807.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(일반)",
       "supply_burden_report_count": 6.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "코리아써키트",
@@ -3823,7 +3823,7 @@
       "supply_burden_latest_report_date": 20260707.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 6.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "코스모로보틱스",
@@ -3916,7 +3916,7 @@
       "supply_burden_latest_report_date": 20260813.0,
       "supply_burden_latest_report_name": "주식등의대량보유상황보고서(약식)",
       "supply_burden_report_count": 12.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "파마리서치",
@@ -4009,7 +4009,7 @@
       "supply_burden_latest_report_date": null,
       "supply_burden_latest_report_name": null,
       "supply_burden_report_count": 0.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "한미반도체",
@@ -4102,7 +4102,7 @@
       "supply_burden_latest_report_date": 20260730.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 3.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "한화오션",
@@ -4195,7 +4195,7 @@
       "supply_burden_latest_report_date": 20260716.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 2.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "현대모비스",
@@ -4288,7 +4288,7 @@
       "supply_burden_latest_report_date": 20260610.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 1.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "현대오토에버",
@@ -4381,7 +4381,7 @@
       "supply_burden_latest_report_date": null,
       "supply_burden_latest_report_name": null,
       "supply_burden_report_count": 0.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "현대차",
@@ -4474,7 +4474,7 @@
       "supply_burden_latest_report_date": 20260824.0,
       "supply_burden_latest_report_name": "임원ㆍ주요주주특정증권등소유상황보고서",
       "supply_burden_report_count": 10.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "현대차2우B",
@@ -4567,7 +4567,7 @@
       "supply_burden_latest_report_date": null,
       "supply_burden_latest_report_name": null,
       "supply_burden_report_count": 0.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     },
     {
       "name": "현대차우",
@@ -4660,12 +4660,12 @@
       "supply_burden_latest_report_date": null,
       "supply_burden_latest_report_name": null,
       "supply_burden_report_count": 0.0,
-      "supply_burden_checked_at_kst": "2026-09-05T10:41:50+09:00"
+      "supply_burden_checked_at_kst": "2026-09-05T14:53:55+09:00"
     }
   ],
   "runtime_freshness_gate": {
     "version": "2026-07-14-v7.7-runtime-freshness-gate",
-    "evaluated_at_kst": "2026-09-05T13:57:22+09:00",
+    "evaluated_at_kst": "2026-09-05T15:18:38+09:00",
     "publication_cutoff_kst": "08:30",
     "expected_official_trading_date": "2026-09-04",
     "kospi_actual_date": "2026-09-04",
@@ -4678,7 +4678,7 @@
     "display_label": "최신 공식자료 기준",
     "stale_reasons": [],
     "data_lag_trading_days": 0,
-    "current_price_asof_kst": "2026-09-05T13:56:34+09:00",
+    "current_price_asof_kst": "2026-09-05T15:14:33+09:00",
     "newer_current_price_over_older_analysis": false,
     "analysis_policy": "May describe as latest official only when safe_to_analyze_as_latest=true. When false, keep the table available only as the last confirmed reference, show the stale warning, and do not present score/buy/target ranges as current."
   },

@@ -98,7 +98,7 @@ jobs:
               "rs_sector",
               "confirmed_swing_low_stop",
           ]
-          EXPECTED_HEADERS = [
+          KOSPI_HEADERS = [
               "추천/종목",
               "요청시점 현재가",
               "평균등락일수",
@@ -119,6 +119,19 @@ jobs:
               "시장·티커",
               "섹터·업종강도",
           ]
+          DECLINER_HEADERS = list(KOSPI_HEADERS)
+          for old_header, new_header in (
+              ("연속등락", "연속하락"),
+              ("수급·위험", "수급·위험·하락성격"),
+              ("투자종합점수·진입판단", "투자종합점수·반등판단"),
+              ("섹터·업종강도", "섹터·업종흐름"),
+          ):
+              DECLINER_HEADERS[DECLINER_HEADERS.index(old_header)] = new_header
+          EXPECTED_HEADERS_BY_TABLE = {
+              "kospi": KOSPI_HEADERS,
+              "decliners": DECLINER_HEADERS,
+              "decliners24": DECLINER_HEADERS,
+          }
 
           def fail(message: str):
               raise SystemExit(message)
@@ -258,7 +271,8 @@ jobs:
                       fail("V853_PAGE_NOT_PRODUCTION=" + filename)
                   if page.get("source_build_id") != manifest.get("source_build_id"):
                       fail("V853_PAGE_BUILD_MISMATCH=" + filename)
-                  if page.get("headers") != EXPECTED_HEADERS:
+                  expected_headers = EXPECTED_HEADERS_BY_TABLE[table_name]
+                  if page.get("headers") != expected_headers:
                       fail("V853_19_COLUMN_HEADERS_MISMATCH=" + filename)
                   if page.get("explicit_missing") != MISSING:
                       fail("V853_PAGE_MISSING_FIELDS_MISMATCH=" + filename)

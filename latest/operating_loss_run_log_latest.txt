@@ -1,18 +1,18 @@
 script=operating_loss_enricher.py v1.1_syntax_fix_and_fresh_tables
-run_at_kst=2026-09-05T10:41:01+09:00
+run_at_kst=2026-09-05T14:50:16+09:00
 output_dir=latest
 workers=4
 max_api_calls=5000
 candidate_periods=2026_11012,2026_11013,2025_11011,2025_11014,2025_11012,2025_11013,2024_11011
 target_period_key=2026_11012
 target_tickers=2711
-cache_rows_for_target=2710
-corp_code_map_source=cache, rows=3946
+cache_rows_for_target=2711
+corp_code_map_source=cache, rows=3947
 cache_hit_ok=2617
 to_fetch=94
 cache_output_rows=2711
 operating_loss_count=908
-source_status_counts={'OK': 2617, 'NO_CORP_CODE': 91, 'API_STATUS_013:조회된 데이타가 없습니다.': 3}
+source_status_counts={'OK': 2617, 'NO_CORP_CODE': 90, 'API_STATUS_013:조회된 데이타가 없습니다.': 4}
 ENRICH_FILE watchlist_summary_latest.csv: status=ok, rows=47, matched=44
 ENRICH_FILE kospi_universe_summary_latest.csv: status=ok, rows=923, matched=923
 ENRICH_FILE kosdaq_universe_summary_latest.csv: status=ok, rows=1788, matched=1788

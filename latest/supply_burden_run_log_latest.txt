@@ -1,6 +1,6 @@
 SCRIPT_NAME=supply_burden_enricher.py v2.0.0-check-status-separated
 POLICY_VERSION=2026-07-01-v6.0-supply-status-separated
-RUN_AT_KST=2026-09-05T10:41:50+09:00
+RUN_AT_KST=2026-09-05T14:53:55+09:00
 OUTPUT_DIR=latest
 REQUESTED_LOOKBACK_DAYS=180
 EFFECTIVE_LOOKBACK_DAYS=90
@@ -62,9 +62,9 @@ CHECK_LIMITED_IN_BURDEN_FLAG=0
 OUTPUT_SUMMARY=latest/supply_burden_summary_latest.csv
 OUTPUT_HITS=latest/supply_burden_hits_latest.csv
 OUTPUT_JSON=latest/supply_burden_latest.json
-ENRICH_FILE=kosdaq_candidates_10_current_basis_latest.csv|status=OK|rows=10|matched_rows=10|burden_detected_rows=8|check_limited_rows=10|check_failed_rows=0|note=
+ENRICH_FILE=kosdaq_candidates_10_current_basis_latest.csv|status=OK|rows=10|matched_rows=10|burden_detected_rows=9|check_limited_rows=10|check_failed_rows=0|note=
 ENRICH_FILE=kosdaq_candidates_10_latest.csv|status=OK|rows=10|matched_rows=10|burden_detected_rows=9|check_limited_rows=10|check_failed_rows=0|note=
-ENRICH_FILE=kosdaq_candidates_10_supplemented_latest.csv|status=OK|rows=10|matched_rows=10|burden_detected_rows=8|check_limited_rows=10|check_failed_rows=0|note=
+ENRICH_FILE=kosdaq_candidates_10_supplemented_latest.csv|status=OK|rows=10|matched_rows=10|burden_detected_rows=9|check_limited_rows=10|check_failed_rows=0|note=
 ENRICH_FILE=kosdaq_recommend_5_current_basis_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty
 ENRICH_FILE=kosdaq_recommend_5_latest.csv|status=OK|rows=5|matched_rows=5|burden_detected_rows=5|check_limited_rows=5|check_failed_rows=0|note=
 ENRICH_FILE=kosdaq_recommend_5_supplemented_latest.csv|status=EMPTY_OR_MISSING|rows=0|matched_rows=0|burden_detected_rows=0|check_limited_rows=0|check_failed_rows=0|note=file missing or empty

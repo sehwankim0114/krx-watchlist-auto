@@ -1,7 +1,7 @@
 {
   "script": "supply_burden_enricher.py v2.0.0-check-status-separated",
   "policy_version": "2026-07-01-v6.0-supply-status-separated",
-  "run_at_kst": "2026-09-04T10:21:04+09:00",
+  "run_at_kst": "2026-09-05T10:41:50+09:00",
   "status": "LIMITED",
   "check_scope": "DART 최근 90일 공시 제목 기준",
   "check_limited_reason": "DART_WHOLE_MARKET_LOOKBACK_CAPPED_90D_FROM_180D",
@@ -9,48 +9,38 @@
   "requested_lookback_days": 180,
   "effective_lookback_days": 90,
   "dart_whole_market_max_days": 90,
-  "target_tickers": 2710,
-  "hit_reports": 11419,
-  "supply_burden_detected_tickers": 1809,
-  "danger_tickers": 617,
-  "warning_tickers": 651,
-  "caution_tickers": 541,
+  "target_tickers": 2711,
+  "hit_reports": 11586,
+  "supply_burden_detected_tickers": 1813,
+  "danger_tickers": 620,
+  "warning_tickers": 656,
+  "caution_tickers": 537,
   "dart_status": {
-    "bgn_de": "20260606",
-    "end_de": "20260904",
+    "bgn_de": "20260607",
+    "end_de": "20260905",
     "lookback_days": 90,
     "corp_cls": {
       "Y": {
-        "pages_requested": 154,
-        "total_page": 154,
-        "raw_reports": 15343,
-        "target_reports": 15343,
-        "matched_reports": 4219
+        "pages_requested": 156,
+        "total_page": 156,
+        "raw_reports": 15556,
+        "target_reports": 15556,
+        "matched_reports": 4278
       },
       "K": {
-        "pages_requested": 168,
-        "total_page": 168,
-        "raw_reports": 16733,
-        "target_reports": 16606,
-        "matched_reports": 7200
+        "pages_requested": 170,
+        "total_page": 170,
+        "raw_reports": 16960,
+        "target_reports": 16839,
+        "matched_reports": 7308
       }
     },
-    "api_calls": 322,
+    "api_calls": 326,
     "api_errors": []
   },
   "enrich_results": [
     {
       "file": "kosdaq_candidates_10_current_basis_latest.csv",
-      "status": "OK",
-      "rows": 10,
-      "matched_rows": 10,
-      "burden_detected_rows": 7,
-      "check_limited_rows": 10,
-      "check_failed_rows": 0,
-      "note": ""
-    },
-    {
-      "file": "kosdaq_candidates_10_latest.csv",
       "status": "OK",
       "rows": 10,
       "matched_rows": 10,
@@ -60,11 +50,21 @@
       "note": ""
     },
     {
+      "file": "kosdaq_candidates_10_latest.csv",
+      "status": "OK",
+      "rows": 10,
+      "matched_rows": 10,
+      "burden_detected_rows": 9,
+      "check_limited_rows": 10,
+      "check_failed_rows": 0,
+      "note": ""
+    },
+    {
       "file": "kosdaq_candidates_10_supplemented_latest.csv",
       "status": "OK",
       "rows": 10,
       "matched_rows": 10,
-      "burden_detected_rows": 7,
+      "burden_detected_rows": 8,
       "check_limited_rows": 10,
       "check_failed_rows": 0,
       "note": ""
@@ -84,7 +84,7 @@
       "status": "OK",
       "rows": 5,
       "matched_rows": 5,
-      "burden_detected_rows": 4,
+      "burden_detected_rows": 5,
       "check_limited_rows": 5,
       "check_failed_rows": 0,
       "note": ""
@@ -112,10 +112,10 @@
     {
       "file": "kosdaq_universe_summary_latest.csv",
       "status": "OK",
-      "rows": 1787,
-      "matched_rows": 1787,
-      "burden_detected_rows": 1221,
-      "check_limited_rows": 1787,
+      "rows": 1788,
+      "matched_rows": 1788,
+      "burden_detected_rows": 1224,
+      "check_limited_rows": 1788,
       "check_failed_rows": 0,
       "note": ""
     },
@@ -174,7 +174,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 27,
+      "burden_detected_rows": 26,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -204,7 +204,7 @@
       "status": "OK",
       "rows": 7,
       "matched_rows": 7,
-      "burden_detected_rows": 5,
+      "burden_detected_rows": 6,
       "check_limited_rows": 7,
       "check_failed_rows": 0,
       "note": ""
@@ -384,7 +384,7 @@
       "status": "OK",
       "rows": 923,
       "matched_rows": 923,
-      "burden_detected_rows": 588,
+      "burden_detected_rows": 589,
       "check_limited_rows": 923,
       "check_failed_rows": 0,
       "note": ""

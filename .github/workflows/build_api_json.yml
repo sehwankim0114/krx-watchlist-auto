@@ -102,6 +102,18 @@ jobs:
           python -m py_compile validate_api_sync.py
           python validate_api_sync.py --api-dir api
 
+      - name: Publish V8.5.3 two-table production bundle
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            stock_table_metrics_v850.py \
+            build_stock_table_preview_v850.py \
+            build_two_table_shadow_v851.py \
+            two_table_release_v853.py
+          python two_table_release_v853.py --repo .
+          python two_table_release_v853.py --repo . --check-only
+          echo "V853_DAILY_TWO_TABLE_PUBLISH=PASS"
+
       - name: Show generated status
         run: |
           set -euo pipefail

@@ -375,8 +375,8 @@ jobs:
               root / "docs" / "custom_gpt_instructions.md"
           ).read_text(encoding="utf-8")
           required_instruction_tokens = (
-              "- 버전: " + INSTRUCTIONS,
-              "## 13. V8.5.3 새 코피표·연속하락표 — 이 절 우선",
+              "버전: " + INSTRUCTIONS,
+              "13. V8.5.3 새 코피표·연속하락표 — 이 절 우선",
               "형식 버전: " + RELEASE,
               "getKospiWatchlist(table=kospi)",
               "연속하락표=decliners",

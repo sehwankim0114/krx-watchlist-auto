@@ -475,12 +475,12 @@ def main() -> int:
         )
         instruction_tokens = (
             "2026-09-04-v6.9.0-two-table-layout",
-            "### 5-1. V8.0 요청시점 최종 표시",
+            "5-1. V8.0 요청시점 최종 표시",
             "request_time_final_recommendation_mark",
             "가치매수구간 위 · 1차 익절구간 전",
             "추천 아이콘은 각 본표 행 전체에서 정확히 1개만 사용한다.",
-            "점수·추천·주의사유` 칸에는 추천 아이콘을 반복하지 않고",
-            "## 12. 보유종목표 개인정보 비저장 런타임",
+            "점수·추천·주의사유 칸에는 추천 아이콘을 반복하지 않고",
+            "12. 보유종목표 개인정보 비저장 런타임",
             "getStockReferenceShard를 prefix만으로 호출하지 않는다.",
         )
         for token in instruction_tokens:

@@ -1,6 +1,6 @@
 {
   "script": "apply_current_price_basis.py v1.1_current_close_support",
-  "run_at_kst": "2026-09-08T00:03:48+09:00",
+  "run_at_kst": "2026-09-08T10:52:50+09:00",
   "output_dir": "latest",
   "source_files": [
     "kospi_candidates_30_latest.csv",
@@ -8,7 +8,7 @@
     "kospi_gainers_1m_latest.csv",
     "watchlist_summary_latest.csv"
   ],
-  "aux_price_count": 98,
+  "aux_price_count": 95,
   "ok_files": 4,
   "results": [
     {
@@ -18,10 +18,10 @@
       "rows": 30,
       "matched": 30,
       "marked_blue": 12,
-      "marked_orange": 8,
-      "marked_red": 5,
+      "marked_orange": 7,
+      "marked_red": 1,
       "marked_fail": 0,
-      "changed_price_cells": 28,
+      "changed_price_cells": 29,
       "price_column": "close"
     },
     {
@@ -30,11 +30,11 @@
       "status": "OK",
       "rows": 10,
       "matched": 10,
-      "marked_blue": 3,
-      "marked_orange": 7,
-      "marked_red": 0,
+      "marked_blue": 5,
+      "marked_orange": 1,
+      "marked_red": 2,
       "marked_fail": 0,
-      "changed_price_cells": 10,
+      "changed_price_cells": 9,
       "price_column": "close"
     },
     {
@@ -43,9 +43,9 @@
       "status": "OK",
       "rows": 20,
       "matched": 20,
-      "marked_blue": 5,
+      "marked_blue": 4,
       "marked_orange": 5,
-      "marked_red": 9,
+      "marked_red": 10,
       "marked_fail": 0,
       "changed_price_cells": 20,
       "price_column": "close"
@@ -56,11 +56,11 @@
       "status": "OK",
       "rows": 47,
       "matched": 44,
-      "marked_blue": 10,
-      "marked_orange": 8,
-      "marked_red": 23,
+      "marked_blue": 22,
+      "marked_orange": 6,
+      "marked_red": 1,
       "marked_fail": 0,
-      "changed_price_cells": 43,
+      "changed_price_cells": 41,
       "price_column": "current_close"
     }
   ],
@@ -73,9 +73,9 @@
     "⚪": "보조 현재가 확인 실패"
   },
   "summary": {
-    "blue": 30,
-    "orange": 28,
-    "red": 37,
+    "blue": 43,
+    "orange": 19,
+    "red": 14,
     "fail": 0
   },
   "status": "OK"

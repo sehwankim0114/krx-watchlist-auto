@@ -87,7 +87,7 @@ PRESENTATION_POLICY: Dict[str, Any] = {
         "main_table_plus_minimal_required_notes_only"
     ),
     "automatic_weekly_guide": False,
-    "full_manual_trigger": "설명서",
+    "full_manual_trigger": "주식표설명서",
     "partial_help_trigger_phrases": [
         "사용법",
         "해석해줘",

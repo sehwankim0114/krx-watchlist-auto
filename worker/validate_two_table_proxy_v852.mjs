@@ -166,8 +166,16 @@ await test("critical upstream error blocks transport", async s => {
   rejected(await s.request(), "TWO_TABLE_SOURCE_NOT_SYNCHRONIZED");
 });
 await test("stale dates rejected even when stored booleans falsely say fresh", async s => {
-  s.now = "2026-09-08T10:00:00+09:00";
+  const stale = new Date(`${status.confirmed_basis_date}T00:00:00Z`);
+  stale.setUTCDate(stale.getUTCDate() - 14);
+  const staleDate = stale.toISOString().slice(0, 10);
+  s.update("api/status.json", p => {
+    p.confirmed_basis_date = staleDate;
+    p.kospi_actual_date = staleDate;
+    p.kosdaq_actual_date = staleDate;
+  });
   rejected(await s.request(), "TWO_TABLE_OFFICIAL_DATE_INVALID_OR_STALE");
+});
 });
 await test("unprovided future-year calendar fails closed", async s => {
   s.now = "2027-01-05T10:00:00+09:00";

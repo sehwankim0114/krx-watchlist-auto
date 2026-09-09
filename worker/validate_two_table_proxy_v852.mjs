@@ -176,7 +176,6 @@ await test("stale dates rejected even when stored booleans falsely say fresh", a
   });
   rejected(await s.request(), "TWO_TABLE_OFFICIAL_DATE_INVALID_OR_STALE");
 });
-});
 await test("unprovided future-year calendar fails closed", async s => {
   s.now = "2027-01-05T10:00:00+09:00";
   rejected(await s.request(), "TWO_TABLE_CALENDAR_COVERAGE_MISSING", 503);

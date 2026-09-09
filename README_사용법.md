@@ -35,8 +35,9 @@ https://krx-live-price-ksh.diaconos.workers.dev
 - 미관종표: S&P500 기반 미국 분석 후보 30개
 - 요청시점 현재가: 처음 10개씩, 실패만 5개씩, 남은 실패는 2개씩 재시도
 - 보유종목표: 개인 보유정보를 Action·GitHub·API에 저장하지 않고 응답 시점에만 계산
+- 주식표 전체 설명서 공식 호출어: `주식표설명서`
 
-## 13개 표 명령
+## 15개 표 명령
 
 - 관종표
 - 분석표
@@ -51,8 +52,27 @@ https://krx-live-price-ksh.diaconos.workers.dev
 - 시장상태표
 - 보유종목표
 - 미관종표
+- 연속하락표
+- 2.4연속하락표
 
-명령별 실제 operationId와 상태는 `api/manifest.json`의 `command_route_contract`를 확인합니다.
+명령별 실제 operationId와 상태는 `api/manifest.json`의 `command_route_contract`를 확인합니다. 기존 13개 명령에 V8.5.3의 연속하락표·2.4연속하락표 2개가 확장되어 유효 명령 수는 15개입니다.
+
+## 설명서
+
+`주식표설명서`는 전체 주식표 설명서를 뜻합니다. 설명서는 Action API 명령이 아니라 출력·도움말 트리거입니다.
+
+전체 설명서는 다음 8개 섹션 순서로 출력합니다.
+
+1. 30초 사용법
+2. 표시 읽는 법
+3. 어떤 표를 사용할지
+4. 항목 읽는 법
+5. 점수·추천·주의사유 해석
+6. 여러 표 연결 방법
+7. 꼭 기억할 원칙
+8. 주요 용어
+
+프로젝트나 일반 ChatGPT에서 동일한 설명서를 재현할 때는 `docs/stock_table_manual.md`를 기준본으로 사용합니다.
 
 ## 핵심 운영 파일
 
@@ -62,6 +82,7 @@ https://krx-live-price-ksh.diaconos.workers.dev
 - API 검증기: `validate_api_sync.py`
 - 최신 규칙: `docs/stock_table_rules_latest.md`
 - Custom GPT 지침: `docs/custom_gpt_instructions.md`
+- 주식표 설명서 기준본: `docs/stock_table_manual.md`
 - 통합 Action 스키마: `docs/custom_gpt_action_schema.yaml`
 - 개인정보처리방침: `docs/custom_gpt_privacy_policy.md`
 - 보유종목 비저장 계약: `docs/holdings_private_runtime_contract.md`
@@ -76,7 +97,7 @@ https://krx-live-price-ksh.diaconos.workers.dev
 - 통합 Action 스키마의 서버가 Worker 한 개
 - Action operationId 30개가 모두 고유
 - `raw.githubusercontent.com` Action 없음
-- 13개 명령 경로 준비·출력 가능
+- 15개 명령 경로 준비·출력 가능
 - 보유종목 공개 참고행은 `prefix+ticker`와 선택 `market`으로 정확히 1행 조회
 
 `official_fresh_now=false`는 공식자료 게시 지연일 수 있습니다. 이 경우 `api_sync_ok=true`라면 직전 확정자료로 제한 분석하며 최신자료라고 표현하지 않습니다.

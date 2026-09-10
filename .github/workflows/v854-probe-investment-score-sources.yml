@@ -4,14 +4,21 @@ on:
   workflow_dispatch:
     inputs:
       sample_count:
-        description: "OpenDART probe sample count"
+        description: "OpenDART index probe sample count"
         required: false
-        default: "8"
+        default: "5"
         type: choice
         options:
           - "5"
           - "8"
-          - "12"
+      account_probe_count:
+        description: "Full-account probe count (large responses)"
+        required: false
+        default: "3"
+        type: choice
+        options:
+          - "2"
+          - "3"
 
 permissions:
   contents: read
@@ -23,12 +30,13 @@ concurrency:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 18
 
     env:
       TZ: Asia/Seoul
       DART_API_KEY: ${{ secrets.DART_API_KEY }}
-      SAMPLE_COUNT: ${{ github.event.inputs.sample_count || '8' }}
+      SAMPLE_COUNT: ${{ github.event.inputs.sample_count || '5' }}
+      ACCOUNT_PROBE_COUNT: ${{ github.event.inputs.account_probe_count || '3' }}
 
     steps:
       - name: Checkout repository read-only
@@ -36,6 +44,11 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
 
       - name: Verify prerequisites
         shell: bash
@@ -51,6 +64,7 @@ jobs:
           }
           echo "PROBE_PREREQUISITES=PASS"
           echo "REPOSITORY_WRITE_ALLOWED=false"
+          echo "PROBE_REVISION=v8.5.4-r2-timeout-resilient"
 
       - name: Probe official OpenDART score sources
         shell: bash
@@ -63,20 +77,24 @@ jobs:
           import json
           import os
           import re
+          import socket
           import time
+          import urllib.error
           import urllib.parse
           import urllib.request
           from collections import defaultdict
           from pathlib import Path
 
           API_KEY = os.environ["DART_API_KEY"].strip()
-          SAMPLE_COUNT = int(os.environ.get("SAMPLE_COUNT", "8"))
+          SAMPLE_COUNT = int(os.environ.get("SAMPLE_COUNT", "5"))
+          ACCOUNT_PROBE_COUNT = int(os.environ.get("ACCOUNT_PROBE_COUNT", "3"))
           CACHE = Path("latest/financial_valuation_cache_latest.csv")
           OUT_JSON = Path("/tmp/investment_score_source_probe_v854.json")
           OUT_TXT = Path("/tmp/investment_score_source_probe_v854.txt")
 
-          INDEX_URL = "https://opendart.fss.or.kr/api/fnlttSinglIndx.json"
+          MULTI_INDEX_URL = "https://opendart.fss.or.kr/api/fnlttCmpnyIndx.json"
           ALL_ACCOUNT_URL = "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json"
+
           INDEX_CLASSES = {
               "profitability": "M210000",
               "stability": "M220000",
@@ -85,93 +103,107 @@ jobs:
           }
 
           PRIORITY_TICKERS = [
-              "005930",  # 삼성전자
-              "000660",  # SK하이닉스
-              "000270",  # 기아
-              "012330",  # 현대모비스
-              "105560",  # KB금융
-              "035420",  # NAVER
-              "207940",  # 삼성바이오로직스
-              "051910",  # LG화학
-              "042700",  # 한미반도체
-              "214150",  # 클래시스
+              "005930", "000660", "000270", "012330", "035420",
+              "207940", "051910", "042700", "214150", "105560",
           ]
 
           TARGET_INDEX_TERMS = (
-              "부채비율",
-              "유동비율",
-              "자기자본이익률",
-              "ROE",
-              "매출액증가율",
-              "매출증가율",
-              "영업이익증가율",
-              "순이익증가율",
+              "부채비율", "유동비율", "자기자본이익률", "ROE",
+              "매출액증가율", "매출증가율", "영업이익증가율", "순이익증가율",
           )
 
           TARGET_ACCOUNT_GROUPS = {
-              "current_assets": (
-                  "유동자산",
-              ),
-              "current_liabilities": (
-                  "유동부채",
-              ),
-              "retained_earnings_or_deficit": (
-                  "이익잉여금",
-                  "결손금",
-              ),
+              "current_assets": ("유동자산",),
+              "current_liabilities": ("유동부채",),
+              "retained_earnings_or_deficit": ("이익잉여금", "결손금"),
               "operating_cash_flow": (
-                  "영업활동현금흐름",
-                  "영업활동으로인한현금흐름",
+                  "영업활동현금흐름", "영업활동으로인한현금흐름",
                   "영업활동으로부터의현금흐름",
               ),
               "depreciation_amortization_candidates": (
-                  "감가상각비",
-                  "무형자산상각비",
-                  "감가상각",
-                  "상각비",
+                  "감가상각비", "무형자산상각비", "감가상각", "상각비",
               ),
-              "cash_candidates": (
-                  "현금및현금성자산",
-                  "현금및현금성자산의",
-              ),
+              "cash_candidates": ("현금및현금성자산", "현금및현금성자산의"),
               "interest_bearing_debt_candidates": (
-                  "단기차입금",
-                  "장기차입금",
-                  "사채",
-                  "유동성장기부채",
+                  "단기차입금", "장기차입금", "사채", "유동성장기부채",
               ),
           }
+
+          RETRY_TIMEOUTS = (20, 35, 50, 70)
+          RETRY_SLEEPS = (1.5, 3.0, 6.0)
 
           def norm_ticker(value: str) -> str:
               digits = re.sub(r"[^0-9]", "", str(value or ""))
               return digits.zfill(6) if digits else ""
 
           def norm_text(value) -> str:
-              if value is None:
-                  return ""
-              return str(value).strip()
+              return "" if value is None else str(value).strip()
 
           def compact(value: str) -> str:
               return re.sub(r"[\s·ㆍ()\[\]{}_-]+", "", norm_text(value)).upper()
 
-          def get_json(url: str, params: dict, timeout: int = 25) -> dict:
+          diagnostics = {
+              "attempted_http_calls": 0,
+              "successful_http_calls": 0,
+              "transport_failures": [],
+              "dart_status_failures": [],
+          }
+
+          def get_json_resilient(url: str, params: dict, label: str) -> dict:
               safe_params = dict(params)
               safe_params["crtfc_key"] = API_KEY
-              query = urllib.parse.urlencode(safe_params)
-              request = urllib.request.Request(
-                  f"{url}?{query}",
-                  headers={
-                      "User-Agent": "krx-watchlist-score-source-probe-v8.5.4",
-                      "Accept": "application/json",
-                      "Cache-Control": "no-cache",
-                  },
+              request_url = f"{url}?{urllib.parse.urlencode(safe_params)}"
+              last_error = ""
+
+              for attempt, timeout in enumerate(RETRY_TIMEOUTS, start=1):
+                  diagnostics["attempted_http_calls"] += 1
+                  request = urllib.request.Request(
+                      request_url,
+                      headers={
+                          "User-Agent": "krx-watchlist-score-source-probe-v8.5.4-r2",
+                          "Accept": "application/json",
+                          "Cache-Control": "no-cache",
+                          "Connection": "close",
+                      },
+                  )
+                  try:
+                      with urllib.request.urlopen(request, timeout=timeout) as response:
+                          raw = response.read(8_000_000)
+                      payload = json.loads(raw.decode("utf-8"))
+                      if not isinstance(payload, dict):
+                          raise ValueError("OPENDART_RESPONSE_NOT_OBJECT")
+
+                      diagnostics["successful_http_calls"] += 1
+                      status = norm_text(payload.get("status"))
+                      if status and status != "000":
+                          diagnostics["dart_status_failures"].append({
+                              "label": label,
+                              "status": status,
+                              "message": norm_text(payload.get("message")),
+                          })
+                      return payload
+                  except (
+                      TimeoutError, socket.timeout, urllib.error.URLError,
+                      urllib.error.HTTPError, json.JSONDecodeError, ValueError
+                  ) as exc:
+                      last_error = f"{type(exc).__name__}:{exc}"
+                      print(
+                          f"::warning::OpenDART retry label={label} "
+                          f"attempt={attempt}/{len(RETRY_TIMEOUTS)} "
+                          f"timeout={timeout}s error={last_error}"
+                      )
+                      if attempt < len(RETRY_TIMEOUTS):
+                          time.sleep(RETRY_SLEEPS[min(attempt - 1, len(RETRY_SLEEPS) - 1)])
+
+              diagnostics["transport_failures"].append(
+                  {"label": label, "error": last_error}
               )
-              with urllib.request.urlopen(request, timeout=timeout) as response:
-                  raw = response.read(4_000_000)
-              payload = json.loads(raw.decode("utf-8"))
-              if not isinstance(payload, dict):
-                  raise RuntimeError("OPENDART_RESPONSE_NOT_OBJECT")
-              return payload
+              return {
+                  "_transport_error": last_error,
+                  "status": "TRANSPORT_ERROR",
+                  "message": last_error,
+                  "list": [],
+              }
 
           with CACHE.open("r", encoding="utf-8-sig", newline="") as handle:
               rows = list(csv.DictReader(handle))
@@ -185,8 +217,7 @@ jobs:
               report_year = norm_text(row.get("financial_report_year"))
               report_code = norm_text(row.get("financial_report_code"))
               if (
-                  ticker
-                  and len(corp_code) == 8
+                  ticker and len(corp_code) == 8
                   and source_status == "OK"
                   and data_status in {"READY", "PARTIAL"}
                   and len(report_year) == 4
@@ -198,8 +229,7 @@ jobs:
                   usable.append(copy)
 
           by_ticker = {row["_ticker"]: row for row in usable}
-          selected = []
-          seen = set()
+          selected, seen = [], set()
 
           for ticker in PRIORITY_TICKERS:
               row = by_ticker.get(ticker)
@@ -223,57 +253,68 @@ jobs:
               raise RuntimeError("NO_USABLE_FINANCIAL_CACHE_ROWS")
 
           report = {
-              "probe_version": "2026-09-10-v8.5.4-score-source-readiness-probe",
+              "probe_version": "2026-09-10-v8.5.4-r2-timeout-resilient",
               "repository_write": False,
               "score_values_generated": False,
               "sample_count_requested": SAMPLE_COUNT,
               "sample_count_actual": len(selected),
+              "account_probe_count_requested": ACCOUNT_PROBE_COUNT,
               "companies": [],
               "unique_index_names": defaultdict(dict),
               "target_index_hits": [],
               "target_account_hit_counts": defaultdict(int),
+              "diagnostics": diagnostics,
               "notes": [
-                  "This probe does not define or calculate any 100-point score.",
-                  "It only identifies official OpenDART source fields needed for a later scoring policy.",
+                  "No 100-point score is defined or calculated here.",
+                  "Official OpenDART field availability only.",
+                  "Multi-company financial-index endpoint reduces request count.",
+                  "Individual transport failures are preserved instead of aborting the whole probe.",
                   "DART_API_KEY is never written to output.",
               ],
           }
 
+          company_map = {}
           for row in selected:
-              ticker = row["_ticker"]
-              corp_code = row["_corp_code"]
-              name = norm_text(row.get("name"))
-              year = norm_text(row.get("financial_report_year"))
-              report_code = norm_text(row.get("financial_report_code"))
-              preferred_fs = norm_text(row.get("financial_fs_div")) or "CFS"
-
               company = {
-                  "ticker": ticker,
-                  "name": name,
-                  "corp_code": corp_code,
+                  "ticker": row["_ticker"],
+                  "name": norm_text(row.get("name")),
+                  "corp_code": row["_corp_code"],
                   "financial_basis": norm_text(row.get("financial_basis")),
-                  "report_year": year,
-                  "report_code": report_code,
-                  "preferred_fs_div": preferred_fs,
+                  "report_year": norm_text(row.get("financial_report_year")),
+                  "report_code": norm_text(row.get("financial_report_code")),
+                  "preferred_fs_div": norm_text(row.get("financial_fs_div")) or "CFS",
                   "index_queries": {},
                   "account_queries": {},
               }
+              company_map[row["_corp_code"]] = company
+              report["companies"].append(company)
+
+          period_groups = defaultdict(list)
+          for company in report["companies"]:
+              period_groups[(company["report_year"], company["report_code"])].append(company)
+
+          for (year, report_code), companies in period_groups.items():
+              corp_codes = ",".join(company["corp_code"] for company in companies)
 
               for class_name, class_code in INDEX_CLASSES.items():
-                  payload = get_json(
-                      INDEX_URL,
+                  payload = get_json_resilient(
+                      MULTI_INDEX_URL,
                       {
-                          "corp_code": corp_code,
+                          "corp_code": corp_codes,
                           "bsns_year": year,
                           "reprt_code": report_code,
                           "idx_cl_code": class_code,
                       },
+                      f"multi-index:{year}:{report_code}:{class_code}",
                   )
+
                   status = norm_text(payload.get("status"))
                   message = norm_text(payload.get("message"))
                   items = payload.get("list") if isinstance(payload.get("list"), list) else []
-                  compact_items = []
+                  grouped_items = defaultdict(list)
+
                   for item in items:
+                      corp_code = re.sub(r"[^0-9]", "", norm_text(item.get("corp_code"))).zfill(8)
                       idx = {
                           "idx_cl_code": norm_text(item.get("idx_cl_code")),
                           "idx_cl_nm": norm_text(item.get("idx_cl_nm")),
@@ -282,52 +323,60 @@ jobs:
                           "idx_val": norm_text(item.get("idx_val")),
                           "stlm_dt": norm_text(item.get("stlm_dt")),
                       }
-                      compact_items.append(idx)
+                      grouped_items[corp_code].append(idx)
                       key = idx["idx_code"] or idx["idx_nm"]
                       report["unique_index_names"][class_code][key] = idx["idx_nm"]
+
                       c_name = compact(idx["idx_nm"])
                       if any(compact(term) in c_name for term in TARGET_INDEX_TERMS):
-                          report["target_index_hits"].append(
-                              {
-                                  "ticker": ticker,
-                                  "name": name,
-                                  **idx,
-                              }
-                          )
-                  company["index_queries"][class_code] = {
-                      "class_name": class_name,
-                      "status": status,
-                      "message": message,
-                      "row_count": len(compact_items),
-                      "items": compact_items,
-                  }
-                  if status == "020":
-                      raise RuntimeError("OPENDART_RATE_LIMIT_INDEX")
-                  time.sleep(0.08)
+                          company = company_map.get(corp_code, {})
+                          report["target_index_hits"].append({
+                              "ticker": company.get("ticker", norm_ticker(item.get("stock_code"))),
+                              "name": company.get("name", ""),
+                              **idx,
+                          })
 
+                  for company in companies:
+                      values = grouped_items.get(company["corp_code"], [])
+                      company["index_queries"][class_code] = {
+                          "class_name": class_name,
+                          "status": status,
+                          "message": message,
+                          "row_count": len(values),
+                          "items": values,
+                      }
+                  time.sleep(0.15)
+
+          account_probe_companies = report["companies"][:max(1, ACCOUNT_PROBE_COUNT)]
+
+          for company in account_probe_companies:
               fs_order = []
-              for fs in (preferred_fs, "CFS", "OFS"):
+              for fs in (company["preferred_fs_div"], "CFS", "OFS"):
                   if fs in {"CFS", "OFS"} and fs not in fs_order:
                       fs_order.append(fs)
 
               for fs_div in fs_order:
-                  payload = get_json(
+                  payload = get_json_resilient(
                       ALL_ACCOUNT_URL,
                       {
-                          "corp_code": corp_code,
-                          "bsns_year": year,
-                          "reprt_code": report_code,
+                          "corp_code": company["corp_code"],
+                          "bsns_year": company["report_year"],
+                          "reprt_code": company["report_code"],
                           "fs_div": fs_div,
                       },
+                      f"all-account:{company['ticker']}:{company['report_year']}:"
+                      f"{company['report_code']}:{fs_div}",
                   )
+
                   status = norm_text(payload.get("status"))
                   message = norm_text(payload.get("message"))
                   items = payload.get("list") if isinstance(payload.get("list"), list) else []
-
                   hits = defaultdict(list)
+
                   for item in items:
                       account_nm = norm_text(item.get("account_nm"))
                       c_account = compact(account_nm)
+
                       for group, terms in TARGET_ACCOUNT_GROUPS.items():
                           if any(compact(term) in c_account for term in terms):
                               candidate = {
@@ -349,19 +398,14 @@ jobs:
                       "total_account_rows": len(items),
                       "target_hits": dict(hits),
                   }
+
                   for group, values in hits.items():
                       if values:
                           report["target_account_hit_counts"][group] += 1
 
-                  if status == "020":
-                      raise RuntimeError("OPENDART_RATE_LIMIT_ACCOUNTS")
-                  time.sleep(0.08)
-
-                  # Preferred CFS succeeded with data; avoid unnecessary OFS call.
-                  if fs_div == preferred_fs and status == "000" and items:
+                  time.sleep(0.15)
+                  if status == "000" and items:
                       break
-
-              report["companies"].append(company)
 
           report["unique_index_names"] = {
               class_code: [
@@ -374,47 +418,90 @@ jobs:
               sorted(report["target_account_hit_counts"].items())
           )
 
+          index_successes = 0
+          account_successes = 0
+
+          for company in report["companies"]:
+              for query in company["index_queries"].values():
+                  if query.get("status") == "000" and query.get("row_count", 0) > 0:
+                      index_successes += 1
+              for query in company["account_queries"].values():
+                  if query.get("status") == "000" and query.get("total_account_rows", 0) > 0:
+                      account_successes += 1
+
+          if index_successes > 0 and account_successes > 0:
+              result = "PASS"
+          elif diagnostics["successful_http_calls"] > 0:
+              result = "PARTIAL"
+          else:
+              result = "NO_SUCCESSFUL_OPENDART_CALL"
+
+          report["result"] = result
+          report["index_success_count"] = index_successes
+          report["account_success_count"] = account_successes
+
           OUT_JSON.write_text(
               json.dumps(report, ensure_ascii=False, indent=2),
               encoding="utf-8",
           )
 
-          lines = []
-          lines.append("INVESTMENT_SCORE_SOURCE_PROBE_V854=PASS")
-          lines.append("REPOSITORY_WRITE=false")
-          lines.append("SCORE_VALUES_GENERATED=false")
-          lines.append(f"SAMPLE_COUNT={len(selected)}")
-          lines.append("")
-          lines.append("== SELECTED COMPANIES ==")
+          lines = [
+              f"INVESTMENT_SCORE_SOURCE_PROBE_V854={result}",
+              "PROBE_REVISION=v8.5.4-r2-timeout-resilient",
+              "REPOSITORY_WRITE=false",
+              "SCORE_VALUES_GENERATED=false",
+              f"SAMPLE_COUNT={len(selected)}",
+              f"ACCOUNT_PROBE_COUNT={len(account_probe_companies)}",
+              f"HTTP_ATTEMPTS={diagnostics['attempted_http_calls']}",
+              f"HTTP_SUCCESSES={diagnostics['successful_http_calls']}",
+              f"TRANSPORT_FAILURES={len(diagnostics['transport_failures'])}",
+              f"INDEX_SUCCESSES={index_successes}",
+              f"ACCOUNT_SUCCESSES={account_successes}",
+              "",
+              "== SELECTED COMPANIES ==",
+          ]
+
           for company in report["companies"]:
               lines.append(
                   f"{company['ticker']} {company['name']} "
-                  f"{company['financial_basis']} "
-                  f"fs={company['preferred_fs_div']}"
+                  f"{company['financial_basis']} fs={company['preferred_fs_div']}"
               )
-          lines.append("")
-          lines.append("== UNIQUE OPENDART INDEX NAMES ==")
+
+          lines += ["", "== UNIQUE OPENDART INDEX NAMES =="]
           for class_code, values in report["unique_index_names"].items():
               lines.append(f"[{class_code}]")
               for item in values:
                   lines.append(f"{item['idx_code']}\t{item['idx_nm']}")
-          lines.append("")
-          lines.append("== TARGET INDEX HITS ==")
+
+          lines += ["", "== TARGET INDEX HITS =="]
           for item in report["target_index_hits"]:
               lines.append(
                   f"{item['ticker']}\t{item['name']}\t"
                   f"{item['idx_cl_code']}\t{item['idx_code']}\t"
                   f"{item['idx_nm']}\t{item['idx_val']}"
               )
-          lines.append("")
-          lines.append("== TARGET ACCOUNT COVERAGE ==")
+
+          lines += ["", "== TARGET ACCOUNT COVERAGE =="]
           for key, count in report["target_account_hit_counts"].items():
-              lines.append(f"{key}={count}/{len(selected)}")
-          lines.append("")
-          lines.append(
+              lines.append(f"{key}={count}/{len(account_probe_companies)}")
+
+          if diagnostics["transport_failures"]:
+              lines += ["", "== TRANSPORT FAILURES AFTER ALL RETRIES =="]
+              for failure in diagnostics["transport_failures"]:
+                  lines.append(f"{failure['label']}\t{failure['error']}")
+
+          if diagnostics["dart_status_failures"]:
+              lines += ["", "== OPENDART NON-000 STATUSES =="]
+              for failure in diagnostics["dart_status_failures"]:
+                  lines.append(
+                      f"{failure['label']}\t{failure['status']}\t{failure['message']}"
+                  )
+
+          lines += [
+              "",
               "NEXT_DECISION=define extractor mappings only from observed official names; "
-              "do not assign 100-point thresholds in this probe"
-          )
+              "do not assign 100-point thresholds in this probe",
+          ]
 
           OUT_TXT.write_text("\n".join(lines) + "\n", encoding="utf-8")
           print(OUT_TXT.read_text(encoding="utf-8"))
@@ -435,9 +522,42 @@ jobs:
       - name: Upload diagnostic artifact
         uses: actions/upload-artifact@v4
         with:
-          name: investment-score-source-probe-v854
+          name: investment-score-source-probe-v854-r2
           path: |
             /tmp/investment_score_source_probe_v854.json
             /tmp/investment_score_source_probe_v854.txt
           if-no-files-found: error
           retention-days: 7
+
+      - name: Evaluate diagnostic completeness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path("/tmp/investment_score_source_probe_v854.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          result = report.get("result")
+          print(f"FINAL_PROBE_RESULT={result}")
+          print(f"SUCCESSFUL_HTTP_CALLS={report['diagnostics']['successful_http_calls']}")
+          print(f"INDEX_SUCCESS_COUNT={report.get('index_success_count', 0)}")
+          print(f"ACCOUNT_SUCCESS_COUNT={report.get('account_success_count', 0)}")
+
+          if result == "NO_SUCCESSFUL_OPENDART_CALL":
+              raise SystemExit(
+                  "OpenDART returned no successful response; artifact was uploaded for diagnosis."
+              )
+
+          if result == "PARTIAL":
+              print(
+                  "::warning::Probe is PARTIAL. Use the uploaded artifact; "
+                  "individual OpenDART failures no longer invalidate successful data."
+              )
+          else:
+              print("INVESTMENT_SCORE_SOURCE_PROBE_FINAL=PASS")
+          PY

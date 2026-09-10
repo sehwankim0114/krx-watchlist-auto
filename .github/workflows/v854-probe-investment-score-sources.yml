@@ -1,0 +1,443 @@
+name: Probe investment-score official sources v8.5.4
+
+on:
+  workflow_dispatch:
+    inputs:
+      sample_count:
+        description: "OpenDART probe sample count"
+        required: false
+        default: "8"
+        type: choice
+        options:
+          - "5"
+          - "8"
+          - "12"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: probe-investment-score-sources-v854
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+      SAMPLE_COUNT: ${{ github.event.inputs.sample_count || '8' }}
+
+    steps:
+      - name: Checkout repository read-only
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Verify prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${DART_API_KEY:-}" || {
+            echo "::error::DART_API_KEY secret is missing"
+            exit 1
+          }
+          test -f latest/financial_valuation_cache_latest.csv || {
+            echo "::error::latest/financial_valuation_cache_latest.csv is missing"
+            exit 1
+          }
+          echo "PROBE_PREREQUISITES=PASS"
+          echo "REPOSITORY_WRITE_ALLOWED=false"
+
+      - name: Probe official OpenDART score sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import csv
+          import json
+          import os
+          import re
+          import time
+          import urllib.parse
+          import urllib.request
+          from collections import defaultdict
+          from pathlib import Path
+
+          API_KEY = os.environ["DART_API_KEY"].strip()
+          SAMPLE_COUNT = int(os.environ.get("SAMPLE_COUNT", "8"))
+          CACHE = Path("latest/financial_valuation_cache_latest.csv")
+          OUT_JSON = Path("/tmp/investment_score_source_probe_v854.json")
+          OUT_TXT = Path("/tmp/investment_score_source_probe_v854.txt")
+
+          INDEX_URL = "https://opendart.fss.or.kr/api/fnlttSinglIndx.json"
+          ALL_ACCOUNT_URL = "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json"
+          INDEX_CLASSES = {
+              "profitability": "M210000",
+              "stability": "M220000",
+              "growth": "M230000",
+              "activity": "M240000",
+          }
+
+          PRIORITY_TICKERS = [
+              "005930",  # 삼성전자
+              "000660",  # SK하이닉스
+              "000270",  # 기아
+              "012330",  # 현대모비스
+              "105560",  # KB금융
+              "035420",  # NAVER
+              "207940",  # 삼성바이오로직스
+              "051910",  # LG화학
+              "042700",  # 한미반도체
+              "214150",  # 클래시스
+          ]
+
+          TARGET_INDEX_TERMS = (
+              "부채비율",
+              "유동비율",
+              "자기자본이익률",
+              "ROE",
+              "매출액증가율",
+              "매출증가율",
+              "영업이익증가율",
+              "순이익증가율",
+          )
+
+          TARGET_ACCOUNT_GROUPS = {
+              "current_assets": (
+                  "유동자산",
+              ),
+              "current_liabilities": (
+                  "유동부채",
+              ),
+              "retained_earnings_or_deficit": (
+                  "이익잉여금",
+                  "결손금",
+              ),
+              "operating_cash_flow": (
+                  "영업활동현금흐름",
+                  "영업활동으로인한현금흐름",
+                  "영업활동으로부터의현금흐름",
+              ),
+              "depreciation_amortization_candidates": (
+                  "감가상각비",
+                  "무형자산상각비",
+                  "감가상각",
+                  "상각비",
+              ),
+              "cash_candidates": (
+                  "현금및현금성자산",
+                  "현금및현금성자산의",
+              ),
+              "interest_bearing_debt_candidates": (
+                  "단기차입금",
+                  "장기차입금",
+                  "사채",
+                  "유동성장기부채",
+              ),
+          }
+
+          def norm_ticker(value: str) -> str:
+              digits = re.sub(r"[^0-9]", "", str(value or ""))
+              return digits.zfill(6) if digits else ""
+
+          def norm_text(value) -> str:
+              if value is None:
+                  return ""
+              return str(value).strip()
+
+          def compact(value: str) -> str:
+              return re.sub(r"[\s·ㆍ()\[\]{}_-]+", "", norm_text(value)).upper()
+
+          def get_json(url: str, params: dict, timeout: int = 25) -> dict:
+              safe_params = dict(params)
+              safe_params["crtfc_key"] = API_KEY
+              query = urllib.parse.urlencode(safe_params)
+              request = urllib.request.Request(
+                  f"{url}?{query}",
+                  headers={
+                      "User-Agent": "krx-watchlist-score-source-probe-v8.5.4",
+                      "Accept": "application/json",
+                      "Cache-Control": "no-cache",
+                  },
+              )
+              with urllib.request.urlopen(request, timeout=timeout) as response:
+                  raw = response.read(4_000_000)
+              payload = json.loads(raw.decode("utf-8"))
+              if not isinstance(payload, dict):
+                  raise RuntimeError("OPENDART_RESPONSE_NOT_OBJECT")
+              return payload
+
+          with CACHE.open("r", encoding="utf-8-sig", newline="") as handle:
+              rows = list(csv.DictReader(handle))
+
+          usable = []
+          for row in rows:
+              ticker = norm_ticker(row.get("ticker"))
+              corp_code = re.sub(r"[^0-9]", "", norm_text(row.get("corp_code"))).zfill(8)
+              source_status = norm_text(row.get("financial_source_status"))
+              data_status = norm_text(row.get("financial_data_status"))
+              report_year = norm_text(row.get("financial_report_year"))
+              report_code = norm_text(row.get("financial_report_code"))
+              if (
+                  ticker
+                  and len(corp_code) == 8
+                  and source_status == "OK"
+                  and data_status in {"READY", "PARTIAL"}
+                  and len(report_year) == 4
+                  and report_code in {"11011", "11012", "11013", "11014"}
+              ):
+                  copy = dict(row)
+                  copy["_ticker"] = ticker
+                  copy["_corp_code"] = corp_code
+                  usable.append(copy)
+
+          by_ticker = {row["_ticker"]: row for row in usable}
+          selected = []
+          seen = set()
+
+          for ticker in PRIORITY_TICKERS:
+              row = by_ticker.get(ticker)
+              if row is not None and ticker not in seen:
+                  selected.append(row)
+                  seen.add(ticker)
+                  if len(selected) >= SAMPLE_COUNT:
+                      break
+
+          if len(selected) < SAMPLE_COUNT:
+              for row in sorted(usable, key=lambda item: item["_ticker"]):
+                  ticker = row["_ticker"]
+                  if ticker in seen:
+                      continue
+                  selected.append(row)
+                  seen.add(ticker)
+                  if len(selected) >= SAMPLE_COUNT:
+                      break
+
+          if not selected:
+              raise RuntimeError("NO_USABLE_FINANCIAL_CACHE_ROWS")
+
+          report = {
+              "probe_version": "2026-09-10-v8.5.4-score-source-readiness-probe",
+              "repository_write": False,
+              "score_values_generated": False,
+              "sample_count_requested": SAMPLE_COUNT,
+              "sample_count_actual": len(selected),
+              "companies": [],
+              "unique_index_names": defaultdict(dict),
+              "target_index_hits": [],
+              "target_account_hit_counts": defaultdict(int),
+              "notes": [
+                  "This probe does not define or calculate any 100-point score.",
+                  "It only identifies official OpenDART source fields needed for a later scoring policy.",
+                  "DART_API_KEY is never written to output.",
+              ],
+          }
+
+          for row in selected:
+              ticker = row["_ticker"]
+              corp_code = row["_corp_code"]
+              name = norm_text(row.get("name"))
+              year = norm_text(row.get("financial_report_year"))
+              report_code = norm_text(row.get("financial_report_code"))
+              preferred_fs = norm_text(row.get("financial_fs_div")) or "CFS"
+
+              company = {
+                  "ticker": ticker,
+                  "name": name,
+                  "corp_code": corp_code,
+                  "financial_basis": norm_text(row.get("financial_basis")),
+                  "report_year": year,
+                  "report_code": report_code,
+                  "preferred_fs_div": preferred_fs,
+                  "index_queries": {},
+                  "account_queries": {},
+              }
+
+              for class_name, class_code in INDEX_CLASSES.items():
+                  payload = get_json(
+                      INDEX_URL,
+                      {
+                          "corp_code": corp_code,
+                          "bsns_year": year,
+                          "reprt_code": report_code,
+                          "idx_cl_code": class_code,
+                      },
+                  )
+                  status = norm_text(payload.get("status"))
+                  message = norm_text(payload.get("message"))
+                  items = payload.get("list") if isinstance(payload.get("list"), list) else []
+                  compact_items = []
+                  for item in items:
+                      idx = {
+                          "idx_cl_code": norm_text(item.get("idx_cl_code")),
+                          "idx_cl_nm": norm_text(item.get("idx_cl_nm")),
+                          "idx_code": norm_text(item.get("idx_code")),
+                          "idx_nm": norm_text(item.get("idx_nm")),
+                          "idx_val": norm_text(item.get("idx_val")),
+                          "stlm_dt": norm_text(item.get("stlm_dt")),
+                      }
+                      compact_items.append(idx)
+                      key = idx["idx_code"] or idx["idx_nm"]
+                      report["unique_index_names"][class_code][key] = idx["idx_nm"]
+                      c_name = compact(idx["idx_nm"])
+                      if any(compact(term) in c_name for term in TARGET_INDEX_TERMS):
+                          report["target_index_hits"].append(
+                              {
+                                  "ticker": ticker,
+                                  "name": name,
+                                  **idx,
+                              }
+                          )
+                  company["index_queries"][class_code] = {
+                      "class_name": class_name,
+                      "status": status,
+                      "message": message,
+                      "row_count": len(compact_items),
+                      "items": compact_items,
+                  }
+                  if status == "020":
+                      raise RuntimeError("OPENDART_RATE_LIMIT_INDEX")
+                  time.sleep(0.08)
+
+              fs_order = []
+              for fs in (preferred_fs, "CFS", "OFS"):
+                  if fs in {"CFS", "OFS"} and fs not in fs_order:
+                      fs_order.append(fs)
+
+              for fs_div in fs_order:
+                  payload = get_json(
+                      ALL_ACCOUNT_URL,
+                      {
+                          "corp_code": corp_code,
+                          "bsns_year": year,
+                          "reprt_code": report_code,
+                          "fs_div": fs_div,
+                      },
+                  )
+                  status = norm_text(payload.get("status"))
+                  message = norm_text(payload.get("message"))
+                  items = payload.get("list") if isinstance(payload.get("list"), list) else []
+
+                  hits = defaultdict(list)
+                  for item in items:
+                      account_nm = norm_text(item.get("account_nm"))
+                      c_account = compact(account_nm)
+                      for group, terms in TARGET_ACCOUNT_GROUPS.items():
+                          if any(compact(term) in c_account for term in terms):
+                              candidate = {
+                                  "sj_div": norm_text(item.get("sj_div")),
+                                  "account_id": norm_text(item.get("account_id")),
+                                  "account_nm": account_nm,
+                                  "thstrm_amount": norm_text(item.get("thstrm_amount")),
+                                  "thstrm_add_amount": norm_text(item.get("thstrm_add_amount")),
+                                  "frmtrm_amount": norm_text(item.get("frmtrm_amount")),
+                                  "frmtrm_add_amount": norm_text(item.get("frmtrm_add_amount")),
+                                  "currency": norm_text(item.get("currency")),
+                              }
+                              if len(hits[group]) < 20:
+                                  hits[group].append(candidate)
+
+                  company["account_queries"][fs_div] = {
+                      "status": status,
+                      "message": message,
+                      "total_account_rows": len(items),
+                      "target_hits": dict(hits),
+                  }
+                  for group, values in hits.items():
+                      if values:
+                          report["target_account_hit_counts"][group] += 1
+
+                  if status == "020":
+                      raise RuntimeError("OPENDART_RATE_LIMIT_ACCOUNTS")
+                  time.sleep(0.08)
+
+                  # Preferred CFS succeeded with data; avoid unnecessary OFS call.
+                  if fs_div == preferred_fs and status == "000" and items:
+                      break
+
+              report["companies"].append(company)
+
+          report["unique_index_names"] = {
+              class_code: [
+                  {"idx_code": code, "idx_nm": name}
+                  for code, name in sorted(values.items())
+              ]
+              for class_code, values in report["unique_index_names"].items()
+          }
+          report["target_account_hit_counts"] = dict(
+              sorted(report["target_account_hit_counts"].items())
+          )
+
+          OUT_JSON.write_text(
+              json.dumps(report, ensure_ascii=False, indent=2),
+              encoding="utf-8",
+          )
+
+          lines = []
+          lines.append("INVESTMENT_SCORE_SOURCE_PROBE_V854=PASS")
+          lines.append("REPOSITORY_WRITE=false")
+          lines.append("SCORE_VALUES_GENERATED=false")
+          lines.append(f"SAMPLE_COUNT={len(selected)}")
+          lines.append("")
+          lines.append("== SELECTED COMPANIES ==")
+          for company in report["companies"]:
+              lines.append(
+                  f"{company['ticker']} {company['name']} "
+                  f"{company['financial_basis']} "
+                  f"fs={company['preferred_fs_div']}"
+              )
+          lines.append("")
+          lines.append("== UNIQUE OPENDART INDEX NAMES ==")
+          for class_code, values in report["unique_index_names"].items():
+              lines.append(f"[{class_code}]")
+              for item in values:
+                  lines.append(f"{item['idx_code']}\t{item['idx_nm']}")
+          lines.append("")
+          lines.append("== TARGET INDEX HITS ==")
+          for item in report["target_index_hits"]:
+              lines.append(
+                  f"{item['ticker']}\t{item['name']}\t"
+                  f"{item['idx_cl_code']}\t{item['idx_code']}\t"
+                  f"{item['idx_nm']}\t{item['idx_val']}"
+              )
+          lines.append("")
+          lines.append("== TARGET ACCOUNT COVERAGE ==")
+          for key, count in report["target_account_hit_counts"].items():
+              lines.append(f"{key}={count}/{len(selected)}")
+          lines.append("")
+          lines.append(
+              "NEXT_DECISION=define extractor mappings only from observed official names; "
+              "do not assign 100-point thresholds in this probe"
+          )
+
+          OUT_TXT.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          print(OUT_TXT.read_text(encoding="utf-8"))
+          PY
+
+      - name: Verify repository remained unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::Repository working tree changed during read-only probe"
+            git status --short
+            exit 1
+          fi
+          echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
+          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
+
+      - name: Upload diagnostic artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: investment-score-source-probe-v854
+          path: |
+            /tmp/investment_score_source_probe_v854.json
+            /tmp/investment_score_source_probe_v854.txt
+          if-no-files-found: error
+          retention-days: 7

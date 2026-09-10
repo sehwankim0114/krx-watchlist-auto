@@ -1,0 +1,785 @@
+name: Probe investment-score remaining sources v8.5.4
+
+on:
+  workflow_dispatch:
+    inputs:
+      sample_count:
+        description: "History probe sample count"
+        required: false
+        default: "5"
+        type: choice
+        options:
+          - "3"
+          - "5"
+      deep_account_count:
+        description: "2025 annual full-account deep probe count"
+        required: false
+        default: "3"
+        type: choice
+        options:
+          - "2"
+          - "3"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: probe-investment-score-remaining-sources-v854
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+      SAMPLE_COUNT: ${{ github.event.inputs.sample_count || '5' }}
+      DEEP_ACCOUNT_COUNT: ${{ github.event.inputs.deep_account_count || '3' }}
+
+    steps:
+      - name: Checkout repository read-only
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Verify prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${DART_API_KEY:-}" || {
+            echo "::error::DART_API_KEY secret is missing"
+            exit 1
+          }
+          test -f latest/financial_valuation_cache_latest.csv || {
+            echo "::error::latest/financial_valuation_cache_latest.csv is missing"
+            exit 1
+          }
+          echo "REMAINING_SOURCE_PROBE_PREREQUISITES=PASS"
+          echo "REPOSITORY_WRITE_ALLOWED=false"
+          echo "PROBE_REVISION=v8.5.4-gap-r1"
+
+      - name: Probe remaining official OpenDART sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import csv
+          import json
+          import os
+          import re
+          import socket
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          from collections import defaultdict
+          from pathlib import Path
+
+          API_KEY = os.environ["DART_API_KEY"].strip()
+          SAMPLE_COUNT = int(os.environ.get("SAMPLE_COUNT", "5"))
+          DEEP_ACCOUNT_COUNT = int(os.environ.get("DEEP_ACCOUNT_COUNT", "3"))
+
+          CACHE = Path("latest/financial_valuation_cache_latest.csv")
+          OUT_JSON = Path("/tmp/investment_score_remaining_source_probe_v854.json")
+          OUT_TXT = Path("/tmp/investment_score_remaining_source_probe_v854.txt")
+
+          MULTI_ACCOUNT_URL = "https://opendart.fss.or.kr/api/fnlttMultiAcnt.json"
+          FULL_ACCOUNT_URL = "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json"
+
+          RETRY_TIMEOUTS = (20, 35, 50, 70)
+          RETRY_SLEEPS = (1.5, 3.0, 6.0)
+
+          PRIORITY_TICKERS = [
+              "005930",  # 삼성전자
+              "000660",  # SK하이닉스
+              "000270",  # 기아
+              "012330",  # 현대모비스
+              "035420",  # NAVER
+          ]
+
+          # Multi-account periods needed to test:
+          # - 2025 annual provides current/previous/before-previous amounts
+          # - 2026 H1/Q1 and 2025 H1/Q1 allow standalone Q2 comparison
+          PERIODS = [
+              ("2025", "11011", "annual_2025_with_3y_history"),
+              ("2026", "11012", "h1_2026"),
+              ("2026", "11013", "q1_2026"),
+              ("2025", "11012", "h1_2025"),
+              ("2025", "11013", "q1_2025"),
+          ]
+
+          TARGET_ACCOUNTS = {
+              "revenue": {
+                  "statement": "IS",
+                  "exact": (
+                      "매출액", "수익(매출액)", "영업수익",
+                      "영업수익(매출액)", "매출",
+                  ),
+                  "include": ("매출", "수익"),
+                  "exclude": (
+                      "원가", "비용", "금융수익", "기타수익",
+                      "이자수익", "법인세",
+                  ),
+              },
+              "operating_profit": {
+                  "statement": "IS",
+                  "exact": (
+                      "영업이익", "영업이익(손실)", "영업손익", "영업손실",
+                  ),
+                  "include": ("영업",),
+                  "exclude": ("중단", "수익", "비용"),
+              },
+              "net_income": {
+                  "statement": "IS",
+                  "exact": (
+                      "당기순이익", "당기순이익(손실)",
+                      "분기순이익", "분기순이익(손실)",
+                      "반기순이익", "반기순이익(손실)",
+                      "연결당기순이익", "연결당기순이익(손실)",
+                  ),
+                  "include": ("순이익",),
+                  "exclude": (
+                      "지배기업", "비지배지분", "주당",
+                      "계속영업", "중단영업",
+                  ),
+              },
+          }
+
+          DEBT_TERMS = (
+              "차입", "사채", "금융부채", "리스부채", "리스채무",
+              "borrow", "bond", "lease",
+          )
+          DA_TERMS = (
+              "감가", "상각", "depreciation", "amortization",
+          )
+          CASH_TERMS = (
+              "현금및현금성자산", "cashandcashequivalents",
+          )
+
+          diagnostics = {
+              "attempted_http_calls": 0,
+              "successful_http_calls": 0,
+              "transport_failures": [],
+              "dart_status_failures": [],
+          }
+
+          def norm_text(value) -> str:
+              return "" if value is None else str(value).strip()
+
+          def norm_ticker(value) -> str:
+              digits = re.sub(r"[^0-9]", "", norm_text(value))
+              return digits.zfill(6) if digits else ""
+
+          def compact(value) -> str:
+              return re.sub(
+                  r"[\s·ㆍ()\[\]{}_\-/,]+", "", norm_text(value)
+              ).upper()
+
+          def parse_number(value):
+              text = norm_text(value).replace(",", "")
+              if text in {"", "-", "null", "None", "nan"}:
+                  return None
+              negative_parentheses = text.startswith("(") and text.endswith(")")
+              if negative_parentheses:
+                  text = text[1:-1]
+              text = re.sub(r"[^0-9eE+\-.]", "", text)
+              if text in {"", "-", "+", ".", "-.", "+."}:
+                  return None
+              try:
+                  number = float(text)
+              except ValueError:
+                  return None
+              return -abs(number) if negative_parentheses else number
+
+          def get_json_resilient(url: str, params: dict, label: str) -> dict:
+              query_params = dict(params)
+              query_params["crtfc_key"] = API_KEY
+              request_url = f"{url}?{urllib.parse.urlencode(query_params)}"
+              last_error = ""
+
+              for attempt, timeout in enumerate(RETRY_TIMEOUTS, start=1):
+                  diagnostics["attempted_http_calls"] += 1
+                  request = urllib.request.Request(
+                      request_url,
+                      headers={
+                          "User-Agent": "krx-watchlist-score-gap-probe-v8.5.4",
+                          "Accept": "application/json",
+                          "Cache-Control": "no-cache",
+                          "Connection": "close",
+                      },
+                  )
+                  try:
+                      with urllib.request.urlopen(request, timeout=timeout) as response:
+                          raw = response.read(10_000_000)
+                      payload = json.loads(raw.decode("utf-8"))
+                      if not isinstance(payload, dict):
+                          raise ValueError("OPENDART_RESPONSE_NOT_OBJECT")
+
+                      diagnostics["successful_http_calls"] += 1
+                      status = norm_text(payload.get("status"))
+                      if status and status != "000":
+                          diagnostics["dart_status_failures"].append({
+                              "label": label,
+                              "status": status,
+                              "message": norm_text(payload.get("message")),
+                          })
+                      return payload
+                  except (
+                      TimeoutError,
+                      socket.timeout,
+                      urllib.error.URLError,
+                      urllib.error.HTTPError,
+                      json.JSONDecodeError,
+                      ValueError,
+                  ) as exc:
+                      last_error = f"{type(exc).__name__}:{exc}"
+                      print(
+                          f"::warning::OpenDART retry label={label} "
+                          f"attempt={attempt}/{len(RETRY_TIMEOUTS)} "
+                          f"timeout={timeout}s error={last_error}"
+                      )
+                      if attempt < len(RETRY_TIMEOUTS):
+                          time.sleep(
+                              RETRY_SLEEPS[
+                                  min(attempt - 1, len(RETRY_SLEEPS) - 1)
+                              ]
+                          )
+
+              diagnostics["transport_failures"].append({
+                  "label": label,
+                  "error": last_error,
+              })
+              return {
+                  "status": "TRANSPORT_ERROR",
+                  "message": last_error,
+                  "list": [],
+              }
+
+          def choose_account(rows, spec):
+              statement = spec["statement"]
+              candidates = [
+                  row for row in rows
+                  if norm_text(row.get("sj_div")) == statement
+              ]
+              if not candidates:
+                  return None
+
+              exact_map = {compact(name): idx for idx, name in enumerate(spec["exact"])}
+              exact_hits = []
+              for row in candidates:
+                  name = compact(row.get("account_nm"))
+                  if name in exact_map:
+                      exact_hits.append((exact_map[name], row))
+              if exact_hits:
+                  exact_hits.sort(key=lambda item: item[0])
+                  return exact_hits[0][1]
+
+              include = tuple(compact(term) for term in spec["include"])
+              exclude = tuple(compact(term) for term in spec["exclude"])
+              fuzzy = []
+              for row in candidates:
+                  name = compact(row.get("account_nm"))
+                  if not name:
+                      continue
+                  if include and not any(term in name for term in include):
+                      continue
+                  if any(term in name for term in exclude):
+                      continue
+                  fuzzy.append(row)
+
+              return fuzzy[0] if len(fuzzy) == 1 else None
+
+          with CACHE.open("r", encoding="utf-8-sig", newline="") as handle:
+              cache_rows = list(csv.DictReader(handle))
+
+          usable = {}
+          for row in cache_rows:
+              ticker = norm_ticker(row.get("ticker"))
+              corp_code = re.sub(
+                  r"[^0-9]", "", norm_text(row.get("corp_code"))
+              ).zfill(8)
+              if (
+                  ticker
+                  and len(corp_code) == 8
+                  and norm_text(row.get("financial_source_status")) == "OK"
+                  and norm_text(row.get("corp_identity_status")) in {
+                      "MATCH", "MATCH_NORMALIZED", "NAME_NOT_AVAILABLE",
+                  }
+              ):
+                  usable[ticker] = dict(row)
+
+          selected = []
+          for ticker in PRIORITY_TICKERS:
+              row = usable.get(ticker)
+              if row:
+                  selected.append(row)
+              if len(selected) >= SAMPLE_COUNT:
+                  break
+
+          if len(selected) < SAMPLE_COUNT:
+              existing = {norm_ticker(row.get("ticker")) for row in selected}
+              for ticker in sorted(usable):
+                  if ticker in existing:
+                      continue
+                  selected.append(usable[ticker])
+                  if len(selected) >= SAMPLE_COUNT:
+                      break
+
+          if not selected:
+              raise RuntimeError("NO_USABLE_SAMPLE_COMPANIES")
+
+          corp_codes = ",".join(
+              re.sub(r"[^0-9]", "", norm_text(row.get("corp_code"))).zfill(8)
+              for row in selected
+          )
+
+          companies = {}
+          for row in selected:
+              ticker = norm_ticker(row.get("ticker"))
+              corp_code = re.sub(
+                  r"[^0-9]", "", norm_text(row.get("corp_code"))
+              ).zfill(8)
+              companies[corp_code] = {
+                  "ticker": ticker,
+                  "name": norm_text(row.get("name")),
+                  "corp_code": corp_code,
+                  "cache_financial_basis": norm_text(row.get("financial_basis")),
+                  "preferred_fs_div": norm_text(row.get("financial_fs_div")) or "CFS",
+                  "periods": {},
+                  "deep_account_probe": {},
+              }
+
+          report = {
+              "probe_version": "2026-09-10-v8.5.4-gap-r1",
+              "repository_write": False,
+              "score_values_generated": False,
+              "sample_count": len(selected),
+              "deep_account_count": min(DEEP_ACCOUNT_COUNT, len(selected)),
+              "companies": list(companies.values()),
+              "diagnostics": diagnostics,
+              "coverage": {},
+              "derived_source_feasibility": {},
+              "notes": [
+                  "No score thresholds or score values are created.",
+                  "This probe tests only official-source feasibility for remaining v6 score inputs.",
+                  "2025 business report is used to inspect current/previous/before-previous annual values.",
+                  "2026 H1/Q1 and 2025 H1/Q1 are used only to test standalone-Q2 acceleration feasibility.",
+                  "Full-account probing records debt/depreciation/cash candidate names; it does not calculate EV/EBITDA or net cash.",
+              ],
+          }
+
+          # 1) Multi-company major-account history and quarter-acceleration source probe.
+          for year, report_code, label in PERIODS:
+              payload = get_json_resilient(
+                  MULTI_ACCOUNT_URL,
+                  {
+                      "corp_code": corp_codes,
+                      "bsns_year": year,
+                      "reprt_code": report_code,
+                  },
+                  f"multi-account:{year}:{report_code}",
+              )
+              status = norm_text(payload.get("status"))
+              message = norm_text(payload.get("message"))
+              items = payload.get("list") if isinstance(payload.get("list"), list) else []
+
+              by_corp_fs = defaultdict(lambda: defaultdict(list))
+              for item in items:
+                  corp_code = re.sub(
+                      r"[^0-9]", "", norm_text(item.get("corp_code"))
+                  ).zfill(8)
+                  if corp_code not in companies:
+                      continue
+                  fs_div = norm_text(item.get("fs_div"))
+                  by_corp_fs[corp_code][fs_div].append(item)
+
+              for corp_code, company in companies.items():
+                  fs_order = []
+                  for fs in (company["preferred_fs_div"], "CFS", "OFS"):
+                      if fs in {"CFS", "OFS"} and fs not in fs_order:
+                          fs_order.append(fs)
+
+                  chosen_fs = None
+                  chosen_rows = []
+                  for fs in fs_order:
+                      rows = by_corp_fs[corp_code].get(fs, [])
+                      if rows:
+                          chosen_fs = fs
+                          chosen_rows = rows
+                          break
+
+                  account_output = {}
+                  for key, spec in TARGET_ACCOUNTS.items():
+                      chosen = choose_account(chosen_rows, spec)
+                      if chosen is None:
+                          account_output[key] = {
+                              "found": False,
+                              "account_nm": None,
+                          }
+                          continue
+
+                      account_output[key] = {
+                          "found": True,
+                          "account_nm": norm_text(chosen.get("account_nm")),
+                          "sj_div": norm_text(chosen.get("sj_div")),
+                          "thstrm_amount": parse_number(chosen.get("thstrm_amount")),
+                          "thstrm_add_amount": parse_number(chosen.get("thstrm_add_amount")),
+                          "frmtrm_amount": parse_number(chosen.get("frmtrm_amount")),
+                          "frmtrm_add_amount": parse_number(chosen.get("frmtrm_add_amount")),
+                          "bfefrmtrm_amount": parse_number(chosen.get("bfefrmtrm_amount")),
+                      }
+
+                  company["periods"][label] = {
+                      "status": status,
+                      "message": message,
+                      "chosen_fs_div": chosen_fs,
+                      "source_row_count": len(chosen_rows),
+                      "accounts": account_output,
+                  }
+
+              time.sleep(0.15)
+
+          # 2) Full 2025 annual financial statements for debt/D&A/cash field-name discovery.
+          deep_companies = list(companies.values())[:max(1, DEEP_ACCOUNT_COUNT)]
+          for company in deep_companies:
+              fs_order = []
+              for fs in (company["preferred_fs_div"], "CFS", "OFS"):
+                  if fs in {"CFS", "OFS"} and fs not in fs_order:
+                      fs_order.append(fs)
+
+              for fs_div in fs_order:
+                  payload = get_json_resilient(
+                      FULL_ACCOUNT_URL,
+                      {
+                          "corp_code": company["corp_code"],
+                          "bsns_year": "2025",
+                          "reprt_code": "11011",
+                          "fs_div": fs_div,
+                      },
+                      f"full-annual-2025:{company['ticker']}:{fs_div}",
+                  )
+                  status = norm_text(payload.get("status"))
+                  message = norm_text(payload.get("message"))
+                  items = payload.get("list") if isinstance(payload.get("list"), list) else []
+
+                  debt = []
+                  da = []
+                  cash = []
+
+                  for item in items:
+                      sj_div = norm_text(item.get("sj_div"))
+                      account_nm = norm_text(item.get("account_nm"))
+                      account_id = norm_text(item.get("account_id"))
+                      haystack = compact(account_nm + " " + account_id)
+
+                      candidate = {
+                          "sj_div": sj_div,
+                          "account_id": account_id,
+                          "account_nm": account_nm,
+                          "thstrm_amount": parse_number(item.get("thstrm_amount")),
+                          "frmtrm_amount": parse_number(item.get("frmtrm_amount")),
+                          "bfefrmtrm_amount": parse_number(item.get("bfefrmtrm_amount")),
+                      }
+
+                      if sj_div == "BS" and any(compact(term) in haystack for term in DEBT_TERMS):
+                          if len(debt) < 60:
+                              debt.append(candidate)
+
+                      if sj_div in {"CF", "IS", "CIS"} and any(
+                          compact(term) in haystack for term in DA_TERMS
+                      ):
+                          if len(da) < 60:
+                              da.append(candidate)
+
+                      if sj_div == "BS" and any(
+                          compact(term) in haystack for term in CASH_TERMS
+                      ):
+                          if len(cash) < 20:
+                              cash.append(candidate)
+
+                  company["deep_account_probe"][fs_div] = {
+                      "status": status,
+                      "message": message,
+                      "row_count": len(items),
+                      "debt_candidates": debt,
+                      "depreciation_amortization_candidates": da,
+                      "cash_candidates": cash,
+                  }
+
+                  if status == "000" and items:
+                      break
+                  time.sleep(0.15)
+
+          # 3) Coverage / feasibility checks. These are source-presence checks only.
+          annual_3y_complete = 0
+          q2_acceleration_complete = 0
+
+          for company in companies.values():
+              annual = company["periods"].get("annual_2025_with_3y_history", {})
+              annual_ok = True
+              for key in ("revenue", "operating_profit", "net_income"):
+                  account = annual.get("accounts", {}).get(key, {})
+                  if (
+                      not account.get("found")
+                      or account.get("thstrm_amount") is None
+                      or account.get("frmtrm_amount") is None
+                      or account.get("bfefrmtrm_amount") is None
+                  ):
+                      annual_ok = False
+              if annual_ok:
+                  annual_3y_complete += 1
+
+              quarter_ok = True
+              for period_label in ("h1_2026", "q1_2026", "h1_2025", "q1_2025"):
+                  period = company["periods"].get(period_label, {})
+                  for key in ("revenue", "operating_profit", "net_income"):
+                      account = period.get("accounts", {}).get(key, {})
+                      if not account.get("found"):
+                          quarter_ok = False
+                          continue
+                      value = (
+                          account.get("thstrm_add_amount")
+                          if account.get("thstrm_add_amount") is not None
+                          else account.get("thstrm_amount")
+                      )
+                      if value is None:
+                          quarter_ok = False
+              if quarter_ok:
+                  q2_acceleration_complete += 1
+
+          debt_deep_coverage = 0
+          da_deep_coverage = 0
+          cash_deep_coverage = 0
+          for company in deep_companies:
+              successful = None
+              for fs_div, probe in company["deep_account_probe"].items():
+                  if probe.get("status") == "000" and probe.get("row_count", 0) > 0:
+                      successful = probe
+                      break
+              if not successful:
+                  continue
+              if successful.get("debt_candidates"):
+                  debt_deep_coverage += 1
+              if successful.get("depreciation_amortization_candidates"):
+                  da_deep_coverage += 1
+              if successful.get("cash_candidates"):
+                  cash_deep_coverage += 1
+
+          report["coverage"] = {
+              "annual_3y_revenue_operating_profit_net_income": {
+                  "complete": annual_3y_complete,
+                  "total": len(companies),
+              },
+              "standalone_q2_acceleration_inputs": {
+                  "complete": q2_acceleration_complete,
+                  "total": len(companies),
+              },
+              "annual_full_statement_debt_candidates": {
+                  "complete": debt_deep_coverage,
+                  "total": len(deep_companies),
+              },
+              "annual_full_statement_depreciation_amortization_candidates": {
+                  "complete": da_deep_coverage,
+                  "total": len(deep_companies),
+              },
+              "annual_full_statement_cash_candidates": {
+                  "complete": cash_deep_coverage,
+                  "total": len(deep_companies),
+              },
+          }
+
+          report["derived_source_feasibility"] = {
+              "three_year_growth_and_profit_persistence": (
+                  annual_3y_complete == len(companies)
+              ),
+              "latest_quarter_acceleration": (
+                  q2_acceleration_complete == len(companies)
+              ),
+              "net_cash_raw_source_candidate": (
+                  debt_deep_coverage == len(deep_companies)
+                  and cash_deep_coverage == len(deep_companies)
+              ),
+              "ev_ebitda_raw_source_candidate": (
+                  da_deep_coverage == len(deep_companies)
+              ),
+          }
+
+          if diagnostics["successful_http_calls"] == 0:
+              result = "NO_SUCCESSFUL_OPENDART_CALL"
+          elif (
+              annual_3y_complete > 0
+              or q2_acceleration_complete > 0
+              or debt_deep_coverage > 0
+              or da_deep_coverage > 0
+          ):
+              result = "PASS"
+          else:
+              result = "PARTIAL"
+
+          report["result"] = result
+
+          OUT_JSON.write_text(
+              json.dumps(report, ensure_ascii=False, indent=2),
+              encoding="utf-8",
+          )
+
+          lines = [
+              f"INVESTMENT_SCORE_REMAINING_SOURCE_PROBE_V854={result}",
+              "PROBE_REVISION=v8.5.4-gap-r1",
+              "REPOSITORY_WRITE=false",
+              "SCORE_VALUES_GENERATED=false",
+              f"SAMPLE_COUNT={len(companies)}",
+              f"DEEP_ACCOUNT_COUNT={len(deep_companies)}",
+              f"HTTP_ATTEMPTS={diagnostics['attempted_http_calls']}",
+              f"HTTP_SUCCESSES={diagnostics['successful_http_calls']}",
+              f"TRANSPORT_FAILURES={len(diagnostics['transport_failures'])}",
+              "",
+              "== COVERAGE ==",
+          ]
+
+          for key, value in report["coverage"].items():
+              lines.append(
+                  f"{key}={value['complete']}/{value['total']}"
+              )
+
+          lines += ["", "== FEASIBILITY =="]
+          for key, value in report["derived_source_feasibility"].items():
+              lines.append(f"{key}={str(value).lower()}")
+
+          lines += ["", "== SELECTED COMPANIES =="]
+          for company in companies.values():
+              lines.append(
+                  f"{company['ticker']}\t{company['name']}\t{company['corp_code']}"
+              )
+
+          lines += ["", "== 2025 ANNUAL 3Y ACCOUNT DISCOVERY =="]
+          for company in companies.values():
+              annual = company["periods"].get("annual_2025_with_3y_history", {})
+              lines.append(
+                  f"[{company['ticker']} {company['name']}] "
+                  f"status={annual.get('status')} fs={annual.get('chosen_fs_div')}"
+              )
+              for key, account in annual.get("accounts", {}).items():
+                  lines.append(
+                      f"{key}\tfound={account.get('found')}\t"
+                      f"name={account.get('account_nm')}\t"
+                      f"2025={account.get('thstrm_amount')}\t"
+                      f"2024={account.get('frmtrm_amount')}\t"
+                      f"2023={account.get('bfefrmtrm_amount')}"
+                  )
+
+          lines += ["", "== DEEP ACCOUNT CANDIDATES =="]
+          for company in deep_companies:
+              lines.append(f"[{company['ticker']} {company['name']}]")
+              for fs_div, probe in company["deep_account_probe"].items():
+                  lines.append(
+                      f"fs={fs_div} status={probe.get('status')} rows={probe.get('row_count')}"
+                  )
+                  for label, field in (
+                      ("DEBT", "debt_candidates"),
+                      ("DA", "depreciation_amortization_candidates"),
+                      ("CASH", "cash_candidates"),
+                  ):
+                      values = probe.get(field, [])
+                      lines.append(f"{label}_COUNT={len(values)}")
+                      for item in values[:20]:
+                          lines.append(
+                              f"{label}\t{item.get('sj_div')}\t"
+                              f"{item.get('account_id')}\t{item.get('account_nm')}\t"
+                              f"{item.get('thstrm_amount')}"
+                          )
+
+          if diagnostics["transport_failures"]:
+              lines += ["", "== TRANSPORT FAILURES AFTER RETRIES =="]
+              for item in diagnostics["transport_failures"]:
+                  lines.append(f"{item['label']}\t{item['error']}")
+
+          if diagnostics["dart_status_failures"]:
+              lines += ["", "== OPENDART NON-000 STATUSES =="]
+              for item in diagnostics["dart_status_failures"]:
+                  lines.append(
+                      f"{item['label']}\t{item['status']}\t{item['message']}"
+                  )
+
+          lines += [
+              "",
+              "NEXT_DECISION=classify each remaining v6 score input as "
+              "officially sourceable / source-limited; do not invent score thresholds",
+          ]
+
+          OUT_TXT.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          print(OUT_TXT.read_text(encoding="utf-8"))
+          PY
+
+      - name: Verify repository remained unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::Repository working tree changed during read-only probe"
+            git status --short
+            exit 1
+          fi
+          echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
+          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
+
+      - name: Upload diagnostic artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: investment-score-remaining-source-probe-v854
+          path: |
+            /tmp/investment_score_remaining_source_probe_v854.json
+            /tmp/investment_score_remaining_source_probe_v854.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Evaluate diagnostic completeness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path(
+                  "/tmp/investment_score_remaining_source_probe_v854.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          result = report.get("result")
+          print(f"FINAL_REMAINING_SOURCE_PROBE_RESULT={result}")
+          print(
+              "THREE_YEAR_SOURCE="
+              f"{report['derived_source_feasibility']['three_year_growth_and_profit_persistence']}"
+          )
+          print(
+              "QUARTER_ACCELERATION_SOURCE="
+              f"{report['derived_source_feasibility']['latest_quarter_acceleration']}"
+          )
+          print(
+              "NET_CASH_SOURCE_CANDIDATE="
+              f"{report['derived_source_feasibility']['net_cash_raw_source_candidate']}"
+          )
+          print(
+              "EV_EBITDA_SOURCE_CANDIDATE="
+              f"{report['derived_source_feasibility']['ev_ebitda_raw_source_candidate']}"
+          )
+
+          if result == "NO_SUCCESSFUL_OPENDART_CALL":
+              raise SystemExit(
+                  "No successful OpenDART response. Diagnostic artifact was uploaded."
+              )
+
+          print("REMAINING_SOURCE_PROBE_FINAL=PASS")
+          PY

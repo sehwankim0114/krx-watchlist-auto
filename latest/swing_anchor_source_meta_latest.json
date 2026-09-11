@@ -1,0 +1,44 @@
+{
+  "script_version": "swing_anchor_source_v859.py v1.0.0-source-evidence-only",
+  "contract_version": "2026-09-11-v8.5.9-swing-anchor-source-and-glossary",
+  "generated_at_kst": "2026-09-11T17:41:05+09:00",
+  "status": "READY",
+  "source_only": true,
+  "standalone_swing_table_enabled": false,
+  "metric_formula_changed": false,
+  "basis_date": "2026-09-10",
+  "source_metric_contract_version": "2026-09-04-v8.5.0-two-table-indicators-preview",
+  "source_cache": "latest/active_stock_long_history_260d_latest.csv",
+  "source_cache_sha256": "47ba7815076a03d132b4fc4ba325f27d61f0d065b335206d783b30a66aa3c9c4",
+  "source_cache_meta_contract_version": "2026-09-11-v8.5.7-compact-active-stock-260-session-history",
+  "source_target_ticker_sha256": "a70914c9ed9e274358e0eeda2828e2e3601b57f587c069f8cd1e3137f6b2836c",
+  "row_count": 255,
+  "phase_counts": {
+    "BOTTOM_REBOUND": 52,
+    "EARLY_REBOUND_UNCONFIRMED": 33,
+    "NEW_LOW": 47,
+    "SIDEWAYS_OR_UNCONFIRMED": 35,
+    "TOP_DECLINE": 35,
+    "UPTREND": 19,
+    "UPTREND_PULLBACK": 34
+  },
+  "published_kospi30_anchor_regression": {
+    "expected_rows": 30,
+    "exact_matches": 30,
+    "mismatches": 0,
+    "status": "PASS"
+  },
+  "glossary_file": "latest/stock_table_metric_glossary_latest.json",
+  "glossary_required_for_future_table_display": true,
+  "confirmed_swing_low_stop": {
+    "status": "NOT_CALCULATED",
+    "reason": "SIGNAL_PRICE_BASIS_DATE_CONTRACT_NOT_DEFINED"
+  },
+  "hard_guards": {
+    "confirmed_swing_low_stop_calculated": false,
+    "sector_rs_calculated": false,
+    "earnings_outlook_change_calculated": false,
+    "investment_score_100_calculated": false,
+    "request_time_price_substitution": false
+  }
+}

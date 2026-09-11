@@ -202,9 +202,9 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin main
-          if [ "$(git rev-parse origin/main)" != "${ env.BASE_SHA }" ]; then
+          if [ "$(git rev-parse origin/main)" != "$BASE_SHA" ]; then
             echo "::error::Remote main changed after checkout. Rerun this workflow."
-            echo "BASE_SHA=${ env.BASE_SHA }"
+            echo "BASE_SHA=$BASE_SHA"
             echo "ORIGIN_MAIN=$(git rev-parse origin/main)"
             exit 1
           fi

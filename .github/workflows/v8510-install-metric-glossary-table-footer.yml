@@ -1,0 +1,267 @@
+name: Install metric glossary table footer v8.5.10
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-api-json-main
+  cancel-in-progress: false
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Capture protected baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "BASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          sha256sum stock_table_metrics_v850.py > /tmp/v8510_metrics.sha
+          sha256sum worker/krx-live-price-worker.js > /tmp/v8510_worker.sha
+          sha256sum latest/stock_table_metric_glossary_latest.json > /tmp/v8510_glossary.sha
+          cp api/two_table_v1/kospi.compact.1.json /tmp/v8510_before_kospi_compact.json
+          echo "PROTECTED_BASELINE=PASS"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Apply V8.5.10 source contract
+        shell: bash
+        env:
+          PATCHER_B64: "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwojIC0qLSBjb2Rpbmc6IHV0Zi04IC0qLQpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKClJPT1QgPSBQYXRoKCcuJykKQ09OVFJBQ1RfVkVSU0lPTiA9ICcyMDI2LTA5LTExLXY4LjUuMTAtbWV0cmljLWdsb3NzYXJ5LW91dHB1dCcKSU5TVFJVQ1RJT05TX1ZFUlNJT04gPSAnMjAyNi0wOS0xMS12Ni45LjEtbWV0cmljLWdsb3NzYXJ5LWZvb3RlcicKU0NIRU1BX1ZFUlNJT04gPSAnNy4xLjEnCgoKZGVmIHJlcGxhY2Vfb25jZShwYXRoLCBvbGQsIG5ldyk6CiAgICBwID0gUk9PVCAvIHBhdGgKICAgIHRleHQgPSBwLnJlYWRfdGV4dChlbmNvZGluZz0ndXRmLTgnKQogICAgY291bnQgPSB0ZXh0LmNvdW50KG9sZCkKICAgIGlmIGNvdW50ICE9IDE6CiAgICAgICAgcmFpc2UgUnVudGltZUVycm9yKGYnUEFUQ0hfQU5DSE9SX0NPVU5UOntwYXRofTp7Y291bnR9JykKICAgIHAud3JpdGVfdGV4dCh0ZXh0LnJlcGxhY2Uob2xkLCBuZXcsIDEpLCBlbmNvZGluZz0ndXRmLTgnKQoKCiMgMSkgUHJldmlldy9zb3VyY2UgYnVpbGRlcjogZ2xvc3NhcnkgaXMgYSBoYXNoZWQgaW5wdXQgYW5kIGlzIGNvcGllZCB0byBhbGwgcGF5bG9hZHMuCnJlcGxhY2Vfb25jZSgKICAgICdidWlsZF9zdG9ja190YWJsZV9wcmV2aWV3X3Y4NTAucHknLAogICAgJycnQ09NUEFDVF9DT0xVTU5TID0gWyJuYW1lIiwgInRpY2tlciIsICJvZmZpY2lhbF9jbG9zZSIsICJydW4iLCAic3RyZWFrIiwgInJhbmdlXzNtIixcbiAgICAic3dpbmciLCAibWEiLCAicmV0dXJucyIsICJyc19rb3NwaV9wcCIsICJhdHIxNCIsICJhY3Rpdml0eSIsICJhbmFseXNpcyIsICJzZWN0b3JfdGhlbWUiXVxuJycnLAogICAgJycnQ09NUEFDVF9DT0xVTU5TID0gWyJuYW1lIiwgInRpY2tlciIsICJvZmZpY2lhbF9jbG9zZSIsICJydW4iLCAic3RyZWFrIiwgInJhbmdlXzNtIixcbiAgICAic3dpbmciLCAibWEiLCAicmV0dXJucyIsICJyc19rb3NwaV9wcCIsICJhdHIxNCIsICJhY3Rpdml0eSIsICJhbmFseXNpcyIsICJzZWN0b3JfdGhlbWUiXVxuR0xPU1NBUllfUEFUSCA9ICJsYXRlc3Qvc3RvY2tfdGFibGVfbWV0cmljX2dsb3NzYXJ5X2xhdGVzdC5qc29uIlxuJycnCikKCnJlcGxhY2Vfb25jZSgKICAgICdidWlsZF9zdG9ja190YWJsZV9wcmV2aWV3X3Y4NTAucHknLAogICAgJycnICAgIGlucHV0cyA9IFsiYXBpL3N0YXR1cy5qc29uIiwgImFwaS9rb3NwaV93YXRjaGxpc3QuanNvbiIsICJsYXRlc3QvdW5pdmVyc2VfcmF3X2hpc3RvcnlfbGF0ZXN0LmNzdiIsXG4gICAgICAgICJsYXRlc3Qva29zcGlfdW5pdmVyc2Vfc3VtbWFyeV9sYXRlc3QuY3N2IiwgImxhdGVzdC9vZmZpY2lhbF9pbmRleF9oaXN0b3J5X2xhdGVzdC5jc3YiXVxuICAgIGhhc2hlcyA9IHtwOiBkaWdlc3QocmVwby9wKSBmb3IgcCBpbiBpbnB1dHN9XG4gICAgc3RhdHVzID0ganNvbi5sb2FkcygocmVwby9pbnB1dHNbMF0pLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKSlcbiAgICBrb3NwaSA9IGpzb24ubG9hZHMoKHJlcG8vaW5wdXRzWzFdKS5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikpXG4nJycsCiAgICAnJycgICAgaW5wdXRzID0gWyJhcGkvc3RhdHVzLmpzb24iLCAiYXBpL2tvc3BpX3dhdGNobGlzdC5qc29uIiwgImxhdGVzdC91bml2ZXJzZV9yYXdfaGlzdG9yeV9sYXRlc3QuY3N2IixcbiAgICAgICAgImxhdGVzdC9rb3NwaV91bml2ZXJzZV9zdW1tYXJ5X2xhdGVzdC5jc3YiLCAibGF0ZXN0L29mZmljaWFsX2luZGV4X2hpc3RvcnlfbGF0ZXN0LmNzdiIsXG4gICAgICAgIEdMT1NTQVJZX1BBVEhdXG4gICAgaGFzaGVzID0ge3A6IGRpZ2VzdChyZXBvL3ApIGZvciBwIGluIGlucHV0c31cbiAgICBzdGF0dXMgPSBqc29uLmxvYWRzKChyZXBvL2lucHV0c1swXSkucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpKVxuICAgIGtvc3BpID0ganNvbi5sb2FkcygocmVwby9pbnB1dHNbMV0pLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKSlcbiAgICBnbG9zc2FyeSA9IGpzb24ubG9hZHMoKHJlcG8vR0xPU1NBUllfUEFUSCkucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpKVxuICAgIGdsb3NzYXJ5X3ZlcnNpb24gPSBnbG9zc2FyeS5nZXQoInZlcnNpb24iKVxuICAgIGdsb3NzYXJ5X2Zvb3RlciA9IGdsb3NzYXJ5LmdldCgiY29tcGFjdF9mb290ZXJfdGV4dCIpXG4gICAgZ2xvc3NhcnlfdGVybXMgPSBnbG9zc2FyeS5nZXQoInRlcm1zIilcbiAgICBnbG9zc2FyeV9wb2xpY3kgPSBnbG9zc2FyeS5nZXQoImRpc3BsYXlfcG9saWN5Iikgb3Ige31cbiAgICBpZiBub3QgaXNpbnN0YW5jZShnbG9zc2FyeV92ZXJzaW9uLCBzdHIpIG9yIG5vdCBnbG9zc2FyeV92ZXJzaW9uOlxuICAgICAgICByYWlzZSBWYWx1ZUVycm9yKCJNRVRSSUNfR0xPU1NBUllfVkVSU0lPTl9NSVNTSU5HIilcbiAgICBpZiBub3QgaXNpbnN0YW5jZShnbG9zc2FyeV9mb290ZXIsIHN0cikgb3Igbm90IGdsb3NzYXJ5X2Zvb3Rlci5zdHJpcCgpIG9yIGxlbihnbG9zc2FyeV9mb290ZXIpID4gNzAwOlxuICAgICAgICByYWlzZSBWYWx1ZUVycm9yKCJNRVRSSUNfR0xPU1NBUllfRk9PVEVSX0lOVkFMSUQiKVxuICAgIGlmIG5vdCBpc2luc3RhbmNlKGdsb3NzYXJ5X3Rlcm1zLCBkaWN0KSBvciBzZXQoZ2xvc3NhcnlfdGVybXMpICE9IHsic3dpbmciLCAibWEiLCAiYXRyMTQiLCAicnNfa29zcGkiLCAic3RyZWFrIn06XG4gICAgICAgIHJhaXNlIFZhbHVlRXJyb3IoIk1FVFJJQ19HTE9TU0FSWV9URVJNU19JTlZBTElEIilcbiAgICBpZiBnbG9zc2FyeV9wb2xpY3kuZ2V0KCJhdHRhY2hfdG9fc3RvY2tfdGFibGVzIikgaXMgbm90IFRydWU6XG4gICAgICAgIHJhaXNlIFZhbHVlRXJyb3IoIk1FVFJJQ19HTE9TU0FSWV9ESVNQTEFZX1BPTElDWV9JTlZBTElEIilcbicnJwopCgpyZXBsYWNlX29uY2UoCiAgICAnYnVpbGRfc3RvY2tfdGFibGVfcHJldmlld192ODUwLnB5JywKICAgICcnJyAgICAgICAgImNvbnRyYWN0IjogQ09OVFJBQ1QsICJoZWFkZXJzIjogSEVBREVSUyxcbiAgICAgICAgImV4cGxpY2l0X21pc3NpbmciOiBbImludmVzdG1lbnRfc2NvcmVfMTAwIiwgImVhcm5pbmdzX291dGxvb2tfY2hhbmdlIiwgInJzX3NlY3RvciIsICJjb25maXJtZWRfc3dpbmdfbG93X3N0b3AiXSxcbiAgICAgICAgImRpc2Nsb3N1cmUiOiAi7Jik7ZSE65287J24IOqwnOuwnCDqsoDspp3smqkuIOyalOyyreyLnOygkCDtmITsnqzqsIAg7JWE64uYLiDstZzsi6Ag7J6Q66OML+yZhOyEse2RnC/rp6Trp6Tsp4Dsi5zroZwg7IKs7JqpIOq4iOyngC4ifVxuJycnLAogICAgJycnICAgICAgICAiY29udHJhY3QiOiBDT05UUkFDVCwgImhlYWRlcnMiOiBIRUFERVJTLFxuICAgICAgICAibWV0cmljX2dsb3NzYXJ5X3ZlcnNpb24iOiBnbG9zc2FyeV92ZXJzaW9uLFxuICAgICAgICAibWV0cmljX2dsb3NzYXJ5X2Zvb3RlciI6IGdsb3NzYXJ5X2Zvb3Rlci5zdHJpcCgpLFxuICAgICAgICAiZXhwbGljaXRfbWlzc2luZyI6IFsiaW52ZXN0bWVudF9zY29yZV8xMDAiLCAiZWFybmluZ3Nfb3V0bG9va19jaGFuZ2UiLCAicnNfc2VjdG9yIiwgImNvbmZpcm1lZF9zd2luZ19sb3dfc3RvcCJdLFxuICAgICAgICAiZGlzY2xvc3VyZSI6ICLsmKTtlITrnbzsnbgg6rCc67CcIOqygOymneyaqS4g7JqU7LKt7Iuc7KCQIO2YhOyerOqwgCDslYTri5guIOy1nOyLoCDsnpDro4wv7JmE7ISx7ZGcL+unpOunpOyngOyLnOuhnCDsgqzsmqkg6riI7KeALiJ9XG4nJycKKQoKIyAyKSBQcm9kdWN0aW9uIHJlbGVhc2UgY29udHJhY3QgdmVyc2lvbnMgYW5kIGdsb3NzYXJ5IHByZXNlcnZhdGlvbiBjaGVja3MuCnJlcGxhY2Vfb25jZSgKICAgICd0d29fdGFibGVfcmVsZWFzZV92ODUzLnB5JywKICAgICcnJ0lOU1RSVUNUSU9OU19WRVJTSU9OID0gIjIwMjYtMDktMDQtdjYuOS4wLXR3by10YWJsZS1sYXlvdXQiXG5TQ0hFTUFfVkVSU0lPTiA9ICI3LjEuMCJcbicnJywKICAgIGYnJydJTlNUUlVDVElPTlNfVkVSU0lPTiA9ICJ7SU5TVFJVQ1RJT05TX1ZFUlNJT059IlxuU0NIRU1BX1ZFUlNJT04gPSAie1NDSEVNQV9WRVJTSU9OfSJcbicnJwopCgpyZXBsYWNlX29uY2UoCiAgICAndHdvX3RhYmxlX3JlbGVhc2Vfdjg1My5weScsCiAgICAnJydDT05GSUdfUEFUSCA9ICJjb25maWcvdHdvX3RhYmxlX3JlbGVhc2UuanNvbiJcbk1JU1NJTkcgPSBbImludmVzdG1lbnRfc2NvcmVfMTAwIiwgImVhcm5pbmdzX291dGxvb2tfY2hhbmdlIiwgInJzX3NlY3RvciIsICJjb25maXJtZWRfc3dpbmdfbG93X3N0b3AiXVxuJycnLAogICAgJycnQ09ORklHX1BBVEggPSAiY29uZmlnL3R3b190YWJsZV9yZWxlYXNlLmpzb24iXG5HTE9TU0FSWV9QQVRIID0gImxhdGVzdC9zdG9ja190YWJsZV9tZXRyaWNfZ2xvc3NhcnlfbGF0ZXN0Lmpzb24iXG5NSVNTSU5HID0gWyJpbnZlc3RtZW50X3Njb3JlXzEwMCIsICJlYXJuaW5nc19vdXRsb29rX2NoYW5nZSIsICJyc19zZWN0b3IiLCAiY29uZmlybWVkX3N3aW5nX2xvd19zdG9wIl1cbicnJwopCgpyZXBsYWNlX29uY2UoCiAgICAndHdvX3RhYmxlX3JlbGVhc2Vfdjg1My5weScsCiAgICAnJydkZWYgcmVsZWFzZV9jb25maWcocmVwbyk6XG4gICAgcGF0aCA9IFBhdGgocmVwbykgLyBDT05GSUdfUEFUSFxuICAgIHJlcXVpcmUocGF0aC5pc19maWxlKCkgYW5kIG5vdCBwYXRoLmlzX3N5bWxpbmsoKSwgIkVYUExJQ0lUX0NPTkZJR19SRVFVSVJFRCIpXG4gICAgdmFsdWUgPSBzaGFkb3cucmVhZChwYXRoKVxuICAgIHJlcXVpcmUoc2hhZG93LmVuY29kZSh2YWx1ZSkgPT0gc2hhZG93LmVuY29kZShSRUxFQVNFKSwgIkNPTkZJR19NSVNNQVRDSCIpXG4gICAgcmV0dXJuIHZhbHVlXG5cblxuZGVmIG1ldGFkYXRhKHN0YXR1cyk6XG4nJycsCiAgICAnJydkZWYgcmVsZWFzZV9jb25maWcocmVwbyk6XG4gICAgcGF0aCA9IFBhdGgocmVwbykgLyBDT05GSUdfUEFUSFxuICAgIHJlcXVpcmUocGF0aC5pc19maWxlKCkgYW5kIG5vdCBwYXRoLmlzX3N5bWxpbmsoKSwgIkVYUExJQ0lUX0NPTkZJR19SRVFVSVJFRCIpXG4gICAgdmFsdWUgPSBzaGFkb3cucmVhZChwYXRoKVxuICAgIHJlcXVpcmUoc2hhZG93LmVuY29kZSh2YWx1ZSkgPT0gc2hhZG93LmVuY29kZShSRUxFQVNFKSwgIkNPTkZJR19NSVNNQVRDSCIpXG4gICAgcmV0dXJuIHZhbHVlXG5cblxuZGVmIGdsb3NzYXJ5X2NvbnRyYWN0KHJlcG8pOlxuICAgIHBhdGggPSBQYXRoKHJlcG8pIC8gR0xPU1NBUllfUEFUSFxuICAgIHJlcXVpcmUocGF0aC5pc19maWxlKCkgYW5kIG5vdCBwYXRoLmlzX3N5bWxpbmsoKSwgIkdMT1NTQVJZX1NPVVJDRV9SRVFVSVJFRCIpXG4gICAgdmFsdWUgPSBzaGFkb3cucmVhZChwYXRoKVxuICAgIGZvb3RlciA9IHZhbHVlLmdldCgiY29tcGFjdF9mb290ZXJfdGV4dCIpXG4gICAgdGVybXMgPSB2YWx1ZS5nZXQoInRlcm1zIilcbiAgICBwb2xpY3kgPSB2YWx1ZS5nZXQoImRpc3BsYXlfcG9saWN5Iikgb3Ige31cbiAgICByZXF1aXJlKGlzaW5zdGFuY2UodmFsdWUuZ2V0KCJ2ZXJzaW9uIiksIHN0cikgYW5kIGJvb2wodmFsdWVbInZlcnNpb24iXSksICJHTE9TU0FSWV9WRVJTSU9OIilcbiAgICByZXF1aXJlKGlzaW5zdGFuY2UoZm9vdGVyLCBzdHIpIGFuZCAwIDwgbGVuKGZvb3Rlci5zdHJpcCgpKSA8PSA3MDAsICJHTE9TU0FSWV9GT09URVIiKVxuICAgIHJlcXVpcmUoaXNpbnN0YW5jZSh0ZXJtcywgZGljdCkgYW5kIHNldCh0ZXJtcykgPT0geyJzd2luZyIsICJtYSIsICJhdHIxNCIsICJyc19rb3NwaSIsICJzdHJlYWsifSxcbiAgICAgICAgICAgICJHTE9TU0FSWV9URVJNUyIpXG4gICAgcmVxdWlyZShwb2xpY3kuZ2V0KCJhdHRhY2hfdG9fc3RvY2tfdGFibGVzIikgaXMgVHJ1ZSwgIkdMT1NTQVJZX0RJU1BMQVlfUE9MSUNZIilcbiAgICByZXR1cm4geyJ2ZXJzaW9uIjogdmFsdWVbInZlcnNpb24iXSwgImZvb3RlciI6IGZvb3Rlci5zdHJpcCgpfVxuXG5cbmRlZiBtZXRhZGF0YShzdGF0dXMpOlxuJycnCikKCnJlcGxhY2Vfb25jZSgKICAgICd0d29fdGFibGVfcmVsZWFzZV92ODUzLnB5JywKICAgICcnJyAgICBleHBlY3RlZCA9IG1ldGFkYXRhKHN0YXR1cylcbiAgICBmaWxlcyA9IG1hbmlmZXN0LmdldCgiZmlsZXMiKVxuJycnLAogICAgJycnICAgIGV4cGVjdGVkID0gbWV0YWRhdGEoc3RhdHVzKVxuICAgIGdsb3NzYXJ5ID0gZ2xvc3NhcnlfY29udHJhY3QocmVwbylcbiAgICBmaWxlcyA9IG1hbmlmZXN0LmdldCgiZmlsZXMiKVxuJycnCikKCnJlcGxhY2Vfb25jZSgKICAgICd0d29fdGFibGVfcmVsZWFzZV92ODUzLnB5JywKICAgICcnJyAgICAgICAgICAgIGlmIG5hbWUgPT0gIm1hbmlmZXN0Lmpzb24iOlxuICAgICAgICAgICAgICAgIGNvbnRpbnVlXG4gICAgICAgICAgICByZXF1aXJlKHAuZ2V0KCJjb250cmFjdCIpID09IGNhbGN1bGF0aW9uX2NvbnRyYWN0KCksICJDQUxDVUxBVElPTl9DT05UUkFDVDoiICsgbmFtZSlcbicnJywKICAgICcnJyAgICAgICAgICAgIGlmIG5hbWUgPT0gIm1hbmlmZXN0Lmpzb24iOlxuICAgICAgICAgICAgICAgIGNvbnRpbnVlXG4gICAgICAgICAgICByZXF1aXJlKHAuZ2V0KCJtZXRyaWNfZ2xvc3NhcnlfdmVyc2lvbiIpID09IGdsb3NzYXJ5WyJ2ZXJzaW9uIl0sXG4gICAgICAgICAgICAgICAgICAgICJHTE9TU0FSWV9WRVJTSU9OOiIgKyBuYW1lKVxuICAgICAgICAgICAgcmVxdWlyZShwLmdldCgibWV0cmljX2dsb3NzYXJ5X2Zvb3RlciIpID09IGdsb3NzYXJ5WyJmb290ZXIiXSxcbiAgICAgICAgICAgICAgICAgICAgIkdMT1NTQVJZX0ZPT1RFUjoiICsgbmFtZSlcbiAgICAgICAgICAgIHJlcXVpcmUocC5nZXQoImNvbnRyYWN0IikgPT0gY2FsY3VsYXRpb25fY29udHJhY3QoKSwgIkNBTENVTEFUSU9OX0NPTlRSQUNUOiIgKyBuYW1lKVxuJycnCikKCiMgMykgQWN0aW9uIHNjaGVtYTogYWRkaXRpdmUgZmllbGRzIGJlY29tZSB0eXBlZCBhbmQgcmVxdWlyZWQ7IHJvd3MgcmVtYWluIDE0IGl0ZW1zLgpyZXBsYWNlX29uY2UoJ2RvY3MvY3VzdG9tX2dwdF9hY3Rpb25fc2NoZW1hLnlhbWwnLCAnICB2ZXJzaW9uOiA3LjEuMFxuJywgZicgIHZlcnNpb246IHtTQ0hFTUFfVkVSU0lPTn1cbicpCnJlcGxhY2Vfb25jZSgKICAgICdkb2NzL2N1c3RvbV9ncHRfYWN0aW9uX3NjaGVtYS55YW1sJywKICAgICcnJyAgICAgIHJlcXVpcmVkOiBbc3RhdHVzLCBzb3VyY2VfYnVpbGRfaWQsIHNvdXJjZV9ydWxlc192ZXJzaW9uLCBzb3VyY2VfcnVsZXNfc2hhMjU2LCBiYXNpc19kYXRlLCB0YWJsZV9pZCwgcGFnZSwgcGFnZV9jb3VudCwgdG90YWxfcm93cywgcm93X2NvdW50LCBjb2x1bW5zLCBoZWFkZXJzLCByb3dzLCB0cmFuc3BvcnRdXG4nJycsCiAgICAnJycgICAgICByZXF1aXJlZDogW3N0YXR1cywgc291cmNlX2J1aWxkX2lkLCBzb3VyY2VfcnVsZXNfdmVyc2lvbiwgc291cmNlX3J1bGVzX3NoYTI1NiwgYmFzaXNfZGF0ZSwgdGFibGVfaWQsIHBhZ2UsIHBhZ2VfY291bnQsIHRvdGFsX3Jvd3MsIHJvd19jb3VudCwgY29sdW1ucywgaGVhZGVycywgcm93cywgbWV0cmljX2dsb3NzYXJ5X3ZlcnNpb24sIG1ldHJpY19nbG9zc2FyeV9mb290ZXIsIHRyYW5zcG9ydF1cbicnJwopCnJlcGxhY2Vfb25jZSgKICAgICdkb2NzL2N1c3RvbV9ncHRfYWN0aW9uX3NjaGVtYS55YW1sJywKICAgICcnJyAgICAgICAgcm93czpcbiAgICAgICAgICB0eXBlOiBhcnJheVxuICAgICAgICAgIG1heEl0ZW1zOiAzMFxuICAgICAgICAgIGl0ZW1zOlxuICAgICAgICAgICAgdHlwZTogYXJyYXlcbiAgICAgICAgICAgIG1pbkl0ZW1zOiAxNFxuICAgICAgICAgICAgbWF4SXRlbXM6IDE0XG4gICAgICAgICAgICBpdGVtczoge31cbiAgICAgICAgdHJhbnNwb3J0OlxuJycnLAogICAgJycnICAgICAgICByb3dzOlxuICAgICAgICAgIHR5cGU6IGFycmF5XG4gICAgICAgICAgbWF4SXRlbXM6IDMwXG4gICAgICAgICAgaXRlbXM6XG4gICAgICAgICAgICB0eXBlOiBhcnJheVxuICAgICAgICAgICAgbWluSXRlbXM6IDE0XG4gICAgICAgICAgICBtYXhJdGVtczogMTRcbiAgICAgICAgICAgIGl0ZW1zOiB7fVxuICAgICAgICBtZXRyaWNfZ2xvc3NhcnlfdmVyc2lvbjpcbiAgICAgICAgICB0eXBlOiBzdHJpbmdcbiAgICAgICAgICBkZXNjcmlwdGlvbjogVmVyc2lvbiBvZiB0aGUgZml2ZS10ZXJtIHN0b2NrLXRhYmxlIHJlYWRpbmcgZ3VpZGUgYXR0YWNoZWQgdG8gdGhpcyBwYXlsb2FkLlxuICAgICAgICBtZXRyaWNfZ2xvc3NhcnlfZm9vdGVyOlxuICAgICAgICAgIHR5cGU6IHN0cmluZ1xuICAgICAgICAgIGRlc2NyaXB0aW9uOiBLb3JlYW4gb25lLWxpbmUgcmVhZGluZyBndWlkZS4gUHJpbnQgaXQgZXhhY3RseSBvbmNlIGltbWVkaWF0ZWx5IGJlbG93IHRoZSBjb21wbGV0ZWQgbWFpbiB0YWJsZS5cbiAgICAgICAgdHJhbnNwb3J0OlxuJycnCikKCiMgNCkgR1BUIGluc3RydWN0aW9uIHNvdXJjZTogcHJpbnQgdGhlIEFjdGlvbi1zdXBwbGllZCBmb290ZXIgZXhhY3RseSBvbmNlLgpyZXBsYWNlX29uY2UoCiAgICAnZG9jcy9jdXN0b21fZ3B0X2luc3RydWN0aW9ucy5tZCcsCiAgICAn67KE7KCEOiAyMDI2LTA5LTA0LXY2LjkuMC10d28tdGFibGUtbGF5b3V0XG4nLAogICAgZifrsoTsoIQ6IHtJTlNUUlVDVElPTlNfVkVSU0lPTn1cbicKKQpyZXBsYWNlX29uY2UoCiAgICAnZG9jcy9jdXN0b21fZ3B0X2luc3RydWN0aW9ucy5tZCcsCiAgICAnJyfrs7jtkZwg7LKrIOyXtOydgCDsooXrqqksIOuRmOynuCDsl7TsnYAg67aE7ISd7J2064ukLiDtmITsnqzqsIDCt+uTseudvcK366ek66ek7JyE7LmYwrfstpTshLjCt+yKpOycmcK36rGw656YwrfqsIDsuZjCt+ychO2XmMK37YyQ64uowrfsi5zsnqUg7KCV67O066W8IOuRmOynuCDshYAg7JWI7JeQIOudvOuyqCDsiJzshJzrjIDroZwg66qo65GQIOuEo+uKlOuLpC5cbuygkOyImOuKlCDsoJDsiJjCt+y2lOyynMK37KO87J2Y7IKs7JygIOy5uCDslZ7rtoDrtoTsnbTrqbAg67OE64+EIOyXtOydhCDrp4zrk6Tsp4Ag7JWK64qU64ukLiDqsIDsuZjrp6TsiJjCtzHssKgg7J217KCI7J2YIOqwgOqyqX7qsIDqsqkg7KCE7LK066W8IE1hcmtkb3duIOq1teqyjCDtkZzsi5ztlZzri6QuXG4nJycsCiAgICAnJyfrs7jtkZwg7LKrIOyXtOydgCDsooXrqqksIOuRmOynuCDsl7TsnYAg67aE7ISd7J2064ukLiDtmITsnqzqsIDCt+uTseudvcK366ek66ek7JyE7LmYwrfstpTshLjCt+yKpOycmcK36rGw656YwrfqsIDsuZjCt+ychO2XmMK37YyQ64uowrfsi5zsnqUg7KCV67O066W8IOuRmOynuCDshYAg7JWI7JeQIOudvOuyqCDsiJzshJzrjIDroZwg66qo65GQIOuEo+uKlOuLpC5cbuyDiCDrkZAg7ZGcIOydkeuLteyXkCBtZXRyaWNfZ2xvc3NhcnlfZm9vdGVy6rCAIOyeiOycvOuptCDrs7jtkZzsnZgg66qo65OgIO2OmOydtOyngOulvCDtlanss5Ag7Lac66Cl7ZWcIOuSpCDtkZwg67CU66GcIOyVhOuemCDstZzshowg6rCB7KO8IOyyqyDspITsl5Ag6re4IOybkOusuOydhCDsoJXtmZXtnoggMe2ajCDtkZzsi5ztlZzri6QuIOyKpOycmcK3TUHCt0FUUsK3UlPCt+yXsOyGjeuTseudvSDshKTrqoXsnYQg7J6E7J2Y66GcIOuwlOq+uOqxsOuCmCDspJHrs7Ug7Jqp7Ja07KeR7Jy866GcIOuKmOumrOyngCDslYrripTri6QuIO2VhOuTnOqwgCDsl4bsnLzrqbQg7J6E7J2YIOyDneyEse2VmOyngCDslYrripTri6QuXG7soJDsiJjripQg7KCQ7IiYwrfstpTsspzCt+yjvOydmOyCrOycoCDsubgg7JWe67aA67aE7J2066mwIOuzhOuPhCDsl7TsnYQg66eM65Ok7KeAIOyViuuKlOuLpC4g6rCA7LmY66ek7IiYwrcx7LCoIOydteygiOydmCDqsIDqsql+6rCA6rKpIOyghOyytOulvCBNYXJrZG93biDqtbXqsowg7ZGc7Iuc7ZWc64ukLlxuJycnCikKCiMgNSkgTG9uZy10ZXJtIGNsaWVudCB2YWxpZGF0b3IuCnJlcGxhY2Vfb25jZSgKICAgICd2YWxpZGF0ZV90d29fdGFibGVfY2xpZW50c192ODUzLnB5JywKICAgICcnJyAgICB0ZXh0ID0gKHJlcG8gLyAiZG9jcy9jdXN0b21fZ3B0X2luc3RydWN0aW9ucy5tZCIpLnJlYWRfdGV4dCgpXG4gICAgYXNzZXJ0IGxlbih0ZXh0KSA8PSA4MDAwLCBsZW4odGV4dClcbicnJywKICAgICcnJyAgICB0ZXh0ID0gKHJlcG8gLyAiZG9jcy9jdXN0b21fZ3B0X2luc3RydWN0aW9ucy5tZCIpLnJlYWRfdGV4dCgpXG4gICAgYXNzZXJ0IGxlbih0ZXh0KSA8PSA4MDAwLCBsZW4odGV4dClcbiAgICBnbG9zc2FyeSA9IGpzb24ubG9hZHMoKHJlcG8gLyAibGF0ZXN0L3N0b2NrX3RhYmxlX21ldHJpY19nbG9zc2FyeV9sYXRlc3QuanNvbiIpLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKSlcbiAgICBnbG9zc2FyeV9mb290ZXIgPSBnbG9zc2FyeVsiY29tcGFjdF9mb290ZXJfdGV4dCJdLnN0cmlwKClcbiAgICBnbG9zc2FyeV92ZXJzaW9uID0gZ2xvc3NhcnlbInZlcnNpb24iXVxuICAgIGFzc2VydCBnbG9zc2FyeS5nZXQoImRpc3BsYXlfcG9saWN5Iiwge30pLmdldCgiYXR0YWNoX3RvX3N0b2NrX3RhYmxlcyIpIGlzIFRydWVcbiAgICBhc3NlcnQgc2V0KGdsb3NzYXJ5LmdldCgidGVybXMiLCB7fSkpID09IHsic3dpbmciLCAibWEiLCAiYXRyMTQiLCAicnNfa29zcGkiLCAic3RyZWFrIn1cbicnJwopCnJlcGxhY2Vfb25jZSgKICAgICd2YWxpZGF0ZV90d29fdGFibGVfY2xpZW50c192ODUzLnB5JywKICAgICcnJyAgICAgICAgICAgICAgICAgICLstpTsspwg7JWE7J207L2Y7J2AIOqwgSDrs7jtkZwg7ZaJIOyghOyytOyXkOyEnCDsoJXtmZXtnoggMeqwnOunjCDsgqzsmqntlZzri6QuIixcbiAgICAgICAgICAgICAgICAgICJnZXRTdG9ja1JlZmVyZW5jZVNoYXJk66W8IHByZWZpeOunjOycvOuhnCDtmLjstpztlZjsp4Ag7JWK64qU64ukLiIpOlxuJycnLAogICAgJycnICAgICAgICAgICAgICAgICAgIuy2lOyynCDslYTsnbTsvZjsnYAg6rCBIOuzuO2RnCDtlokg7KCE7LK07JeQ7IScIOygle2Zle2eiCAx6rCc66eMIOyCrOyaqe2VnOuLpC4iLFxuICAgICAgICAgICAgICAgICAgImdldFN0b2NrUmVmZXJlbmNlU2hhcmTrpbwgcHJlZml466eM7Jy866GcIO2YuOy2nO2VmOyngCDslYrripTri6QuIixcbiAgICAgICAgICAgICAgICAgICJtZXRyaWNfZ2xvc3NhcnlfZm9vdGVyIiwgIu2RnCDrsJTroZwg7JWE656YIOy1nOyGjCDqsIHso7wg7LKrIOykhCIpOlxuJycnCikKcmVwbGFjZV9vbmNlKAogICAgJ3ZhbGlkYXRlX3R3b190YWJsZV9jbGllbnRzX3Y4NTMucHknLAogICAgJycnICAgIHJvd19zY2hlbWEgPSByZXNwb25zZV9zY2hlbWFbInByb3BlcnRpZXMiXVsicm93cyJdWyJpdGVtcyJdXG4gICAgYXNzZXJ0IHJvd19zY2hlbWEgPT0geyJ0eXBlIjogImFycmF5IiwgIm1pbkl0ZW1zIjogMTQsICJtYXhJdGVtcyI6IDE0LCAiaXRlbXMiOiB7fX1cbiAgICBhc3NlcnQgcmVzcG9uc2Vfc2NoZW1hWyJwcm9wZXJ0aWVzIl1bInRyYW5zcG9ydCJdWyJwcm9wZXJ0aWVzIl1bIm1vZGUiXVsiZW51bSJdID09IFsicHJvZHVjdGlvbiJdXG4nJycsCiAgICAnJycgICAgcm93X3NjaGVtYSA9IHJlc3BvbnNlX3NjaGVtYVsicHJvcGVydGllcyJdWyJyb3dzIl1bIml0ZW1zIl1cbiAgICBhc3NlcnQgcm93X3NjaGVtYSA9PSB7InR5cGUiOiAiYXJyYXkiLCAibWluSXRlbXMiOiAxNCwgIm1heEl0ZW1zIjogMTQsICJpdGVtcyI6IHt9fVxuICAgIGZvciBrZXkgaW4gKCJtZXRyaWNfZ2xvc3NhcnlfdmVyc2lvbiIsICJtZXRyaWNfZ2xvc3NhcnlfZm9vdGVyIik6XG4gICAgICAgIGFzc2VydCBrZXkgaW4gcmVzcG9uc2Vfc2NoZW1hWyJyZXF1aXJlZCJdXG4gICAgICAgIGFzc2VydCByZXNwb25zZV9zY2hlbWFbInByb3BlcnRpZXMiXVtrZXldWyJ0eXBlIl0gPT0gInN0cmluZyJcbiAgICBhc3NlcnQgcmVzcG9uc2Vfc2NoZW1hWyJwcm9wZXJ0aWVzIl1bInRyYW5zcG9ydCJdWyJwcm9wZXJ0aWVzIl1bIm1vZGUiXVsiZW51bSJdID09IFsicHJvZHVjdGlvbiJdXG4nJycKKQpyZXBsYWNlX29uY2UoCiAgICAndmFsaWRhdGVfdHdvX3RhYmxlX2NsaWVudHNfdjg1My5weScsCiAgICAnJycgICAgICAgIGFzc2VydCBwYXlsb2FkWyJkaXNwbGF5X2NvbnRyYWN0Il0gPT0gRElTUExBWVxuICAgICAgICAjIE9ubHkgcHJvZHVjdGlvbiBSRUFEWSByZXNwb25zZXMgYXJlIEFjdGlvbiBvdXRwdXQ7IHN0YWxlIGJ1bmRsZXMgYXJlXG4nJycsCiAgICAnJycgICAgICAgIGFzc2VydCBwYXlsb2FkWyJkaXNwbGF5X2NvbnRyYWN0Il0gPT0gRElTUExBWVxuICAgICAgICBhc3NlcnQgcGF5bG9hZFsibWV0cmljX2dsb3NzYXJ5X3ZlcnNpb24iXSA9PSBnbG9zc2FyeV92ZXJzaW9uXG4gICAgICAgIGFzc2VydCBwYXlsb2FkWyJtZXRyaWNfZ2xvc3NhcnlfZm9vdGVyIl0gPT0gZ2xvc3NhcnlfZm9vdGVyXG4gICAgICAgICMgT25seSBwcm9kdWN0aW9uIFJFQURZIHJlc3BvbnNlcyBhcmUgQWN0aW9uIG91dHB1dDsgc3RhbGUgYnVuZGxlcyBhcmVcbicnJwopCnJlcGxhY2Vfb25jZSgKICAgICd2YWxpZGF0ZV90d29fdGFibGVfY2xpZW50c192ODUzLnB5JywKICAgICcnJyAgICBwcmludCgiVjg1M19UWVBFRF9DT01QQUNUX1BBR0VTPSIgKyBzdHIoY2hlY2tlZCkpXG4nJycsCiAgICAnJycgICAgcHJpbnQoIlY4NTNfVFlQRURfQ09NUEFDVF9QQUdFUz0iICsgc3RyKGNoZWNrZWQpKVxuICAgIHByaW50KCJWODUxMF9NRVRSSUNfR0xPU1NBUllfQ0xJRU5UX0NPTlRSQUNUPVBBU1MiKVxuJycnCikKCiMgNikgSGVybWV0aWMgdGVzdHMgZ2FpbiB0aGUgZ2xvc3NhcnkgZml4dHVyZSBhbmQgYXNzZXJ0aW9ucy4KcmVwbGFjZV9vbmNlKAogICAgJ3Rlc3Rfc3RvY2tfdGFibGVfbWV0cmljc192ODUwLnB5JywKICAgICcnJyAgICAgICAgY2xzLnJlc3RvcmUoKVxuICAgICAgICBkZWYgY3N2ZmlsZShuYW1lLGZpZWxkcyxyb3dzKTpcbicnJywKICAgICcnJyAgICAgICAgY2xzLnJlc3RvcmUoKVxuICAgICAgICAoY2xzLnJlcG8vImxhdGVzdC9zdG9ja190YWJsZV9tZXRyaWNfZ2xvc3NhcnlfbGF0ZXN0Lmpzb24iKS53cml0ZV90ZXh0KFxuICAgICAgICAgICAganNvbi5kdW1wcyh7XG4gICAgICAgICAgICAgICAgInZlcnNpb24iOiJmaXh0dXJlLWdsb3NzYXJ5LXYxIixcbiAgICAgICAgICAgICAgICAiZGlzcGxheV9wb2xpY3kiOnsiYXR0YWNoX3RvX3N0b2NrX3RhYmxlcyI6VHJ1ZX0sXG4gICAgICAgICAgICAgICAgInRlcm1zIjp7InN3aW5nIjp7fSwibWEiOnt9LCJhdHIxNCI6e30sInJzX2tvc3BpIjp7fSwic3RyZWFrIjp7fX0sXG4gICAgICAgICAgICAgICAgImNvbXBhY3RfZm9vdGVyX3RleHQiOiLsnb3ripQg67KVOiDsiqTsnJk97JyE7LmYIMK3IE1BPeydtOuPme2Pieq3oCDCtyBBVFI967OA64+Z7ISxIMK3IFJTPUtPU1BJIOuMgOu5hCDCtyDsl7Dsho3rk7Hrnb097Jew7IaNIOuwqe2WpSJcbiAgICAgICAgICAgIH0sZW5zdXJlX2FzY2lpPUZhbHNlKSxcbiAgICAgICAgICAgIGVuY29kaW5nPSJ1dGYtOCJcbiAgICAgICAgKVxuICAgICAgICBkZWYgY3N2ZmlsZShuYW1lLGZpZWxkcyxyb3dzKTpcbicnJwopCnJlcGxhY2Vfb25jZSgKICAgICd0ZXN0X3N0b2NrX3RhYmxlX21ldHJpY3Nfdjg1MC5weScsCiAgICAnJycgICAgICAgIHA9anNvbi5sb2Fkcygoc2VsZi5vdXRwdXQoKS8ia29zcGkuanNvbiIpLnJlYWRfdGV4dCgpKVxuICAgICAgICBzZWxmLmFzc2VydFRydWUoYWxsKHJbInJlcXVlc3RfdGltZV9wcmljZSJdIGlzIE5vbmUgZm9yIHIgaW4gcFsicm93cyJdKSlcbicnJywKICAgICcnJyAgICAgICAgcD1qc29uLmxvYWRzKChzZWxmLm91dHB1dCgpLyJrb3NwaS5qc29uIikucmVhZF90ZXh0KCkpXG4gICAgICAgIHNlbGYuYXNzZXJ0VHJ1ZShhbGwoclsicmVxdWVzdF90aW1lX3ByaWNlIl0gaXMgTm9uZSBmb3IgciBpbiBwWyJyb3dzIl0pKVxuICAgICAgICBzZWxmLmFzc2VydEVxdWFsKHBbIm1ldHJpY19nbG9zc2FyeV92ZXJzaW9uIl0sImZpeHR1cmUtZ2xvc3NhcnktdjEiKVxuICAgICAgICBzZWxmLmFzc2VydEluKCLsnb3ripQg67KVOiIscFsibWV0cmljX2dsb3NzYXJ5X2Zvb3RlciJdKVxuJycnCikKcmVwbGFjZV9vbmNlKAogICAgJ3Rlc3RfdHdvX3RhYmxlX3JlbGVhc2Vfdjg1My5weScsCiAgICAnJycgICAgICAgIGZvciBuIGluIG1bImZpbGVzIl06XG4gICAgICAgICAgICBwID0gcmVhZChzZWxmLnRhcmdldCAvIG4pXG4gICAgICAgICAgICBzZWxmLmFzc2VydEVxdWFsKHBbImNvbnRyYWN0Il0sIHJlbGVhc2UuY2FsY3VsYXRpb25fY29udHJhY3QoKSlcbiAgICAgICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwocFsiZXhwbGljaXRfbWlzc2luZyJdLCByZWxlYXNlLk1JU1NJTkcpXG4nJycsCiAgICAnJycgICAgICAgIGdsb3NzYXJ5ID0gcmVsZWFzZS5nbG9zc2FyeV9jb250cmFjdChzZWxmLnJlcG8pXG4gICAgICAgIGZvciBuIGluIG1bImZpbGVzIl06XG4gICAgICAgICAgICBwID0gcmVhZChzZWxmLnRhcmdldCAvIG4pXG4gICAgICAgICAgICBzZWxmLmFzc2VydEVxdWFsKHBbImNvbnRyYWN0Il0sIHJlbGVhc2UuY2FsY3VsYXRpb25fY29udHJhY3QoKSlcbiAgICAgICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwocFsiZXhwbGljaXRfbWlzc2luZyJdLCByZWxlYXNlLk1JU1NJTkcpXG4gICAgICAgICAgICBzZWxmLmFzc2VydEVxdWFsKHBbIm1ldHJpY19nbG9zc2FyeV92ZXJzaW9uIl0sIGdsb3NzYXJ5WyJ2ZXJzaW9uIl0pXG4gICAgICAgICAgICBzZWxmLmFzc2VydEVxdWFsKHBbIm1ldHJpY19nbG9zc2FyeV9mb290ZXIiXSwgZ2xvc3NhcnlbImZvb3RlciJdKVxuJycnCikKCiMgNykgQ29udHJhY3QgZG9jdW1lbnQuCmNvbnRyYWN0ID0gZicnJyMgVjguNS4xMCDso7zsi53tkZwg7ZW17Ius7Jqp7Ja0IOyekOuPme2RnOyLnCDqs4Tslb1cblxu67KE7KCEOiB7Q09OVFJBQ1RfVkVSU0lPTn1cblxuIyMg66qp7KCBXG5cblY4LjUuOeyXkOyEnCDtmZXsoJXtlZwg7ZW17Ius7Jqp7Ja0IOyEpOuqheydhCDsg4gg7L2U7ZS87ZGcwrfsl7Dsho3tlZjrnb3tkZzCtzIuNOyXsOyGje2VmOudve2RnOydmCDsi6TsoJwgQWN0aW9uIOydkeuLteyXkCDsl7DqsrDtlZzri6QuXG5cbu2RnOydmCAxNOqwnCBjb21wYWN0IO2WiSDqtazsobAsIOyiheuqqSDsiJzshJwsIOyngO2RnCDqs4TsgrDqsJLsnYAg67OA6rK97ZWY7KeAIOyViuuKlOuLpC4g7ISk66qF7J2AIO2WieydhCDripjrpqzqsbDrgpgg7Je07J2EIOy2lOqwgO2VmOyngCDslYrqs6Ag7J2R64u1IOy1nOyDgeychCDrqZTtg4DrjbDsnbTthLDroZwg7KCE64us7ZWc64ukLlxuXG4jIyDsnZHri7Ug7ZWE65OcXG5cbi0gYG1ldHJpY19nbG9zc2FyeV92ZXJzaW9uYDogYGxhdGVzdC9zdG9ja190YWJsZV9tZXRyaWNfZ2xvc3NhcnlfbGF0ZXN0Lmpzb25g7J2YIOuyhOyghC5cbi0gYG1ldHJpY19nbG9zc2FyeV9mb290ZXJgOiDqsJnsnYAg7YyM7J287J2YIGBjb21wYWN0X2Zvb3Rlcl90ZXh0YCDsm5DrrLguXG5cbuuRkCDtlYTrk5zripQgY2Fub25pY2FsIEpTT07qs7wg66qo65OgIGNvbXBhY3Qg7Y6Y7J207KeA7JeQIOuPmeydvO2VmOqyjCDrk6TslrTqsIDslbwg7ZWc64ukLlxuXG4jIyDtkZzsi5wg6rec7LmZXG5cbuyDiCDrkZAg7ZGc66W8IOy2nOugpe2VoCDrlYwg66qo65OgIO2OmOydtOyngOulvCDtlansuZwg67O47ZGc66W8IOuovOyggCDsmYTshLHtlZzri6QuXG5cbmBtZXRyaWNfZ2xvc3NhcnlfZm9vdGVyYOqwgCDsnojsnLzrqbQg67O47ZGcIOuwlOuhnCDslYTrnpgg7LWc7IaMIOqwgeyjvCDssqsg7KSE7JeQIOybkOusuOydhCDsoJXtmZXtnoggMe2ajCDtkZzsi5ztlZzri6QuXG5cbu2OmOydtOyngOqwgCDsl6zrn6wg6rCc7Jes64+EIO2OmOydtOyngOuniOuLpCDrsJjrs7XtlZjsp4Ag7JWK64qU64ukLiDrs4Trj4Qg7J6l66y4IOyaqeyWtOynkeydhCDsnpDrj5kg7LaU6rCA7ZWY7KeAIOyViuuKlOuLpC4g7ZWE65Oc6rCAIOyXhuycvOuptCDrqqjrjbjsnbQg7J6Q7LK0IOyEpOuqheydhCDrp4zrk6TslrQg64yA7LK07ZWY7KeAIOyViuuKlOuLpC5cblxuIyMg7ISk66qFIOuMgOyDgVxuXG4xLiDsiqTsnJlcbjIuIE1BNS8yMC82MC8xMjBcbjMuIEFUUjE0XG40LiBSUyAxTS8zTVxuNS4g7Jew7IaN65Ox6529XG5cblJT64qUIEtPU1BJIOuMgOu5hCDsg4HrjIDsiJjsnbXrpaAg7LCo7J207J2066mwIOyXheyihSBSU+qwgCDslYTri4jri6QuIEFUUjE064qUIOyYiOyDgeyImOydteuloOydtCDslYTri4jri6QuIOyKpOycmeydgCDqs7zqsbAg7ZmV7KCVIOydvOu0iSDsg4Htg5zsnbTrqbAg66+4656YIOyYiOy4oeydtCDslYTri4jri6QuXG5cbiMjIOyViOyghOyepey5mFxuXG4tIGNvbXBhY3Qg7ZaJ7J2AIOqzhOyGjSAxNOy5uOydtOuLpC5cbi0g6riw7KG0IOyngO2RnCDqs4TsgrDsi53snYQg67OA6rK97ZWY7KeAIOyViuuKlOuLpC5cbi0gYGNvbmZpcm1lZF9zd2luZ19sb3dfc3RvcGDsnYQg7IOd7ISx7ZWY7KeAIOyViuuKlOuLpC5cbi0g7Yis7J6Q7KKF7ZWp7KCQ7IiYMTAwwrfsi6TsoIHsoITrp50g67OA7ZmUwrfsl4XsooUgUlPrpbwg7IOd7ISx7ZWY7KeAIOyViuuKlOuLpC5cbi0g7JqU7LKt7Iuc7KCQIO2YhOyerOqwgCDsi6TtjKgg7IucIOygleyggeqwgOqyqSDrjIDssrTrpbwg7ZeI7Jqp7ZWY7KeAIOyViuuKlOuLpC5cbi0gV29ya2VyIOy9lOuTnOulvCDsnbTrsogg64uo6rOE7JeQ7IScIOuzgOqyve2VmOyngCDslYrripTri6QuXG4tIGNvbXBhY3Qg7JuQ67O47J2AIDI4LDUwMOuwlOydtO2KuCDsnbTtlZgsIFdvcmtlciDstZzsooUg7J2R64u17J2AIDMwLDAwMOuwlOydtO2KuCDsnbTtlZjrpbwg7Jyg7KeA7ZWc64ukLlxuJycnCihST09UIC8gJ2RvY3MvbWV0cmljX2dsb3NzYXJ5X291dHB1dF9jb250cmFjdF92ODUxMC5tZCcpLndyaXRlX3RleHQoY29udHJhY3QsIGVuY29kaW5nPSd1dGYtOCcpCgpwcmludCgnVjg1MTBfUEFUQ0hfU09VUkNFPVBBU1MnKQpwcmludChmJ0lOU1RSVUNUSU9OU19WRVJTSU9OPXtJTlNUUlVDVElPTlNfVkVSU0lPTn0nKQpwcmludChmJ1NDSEVNQV9WRVJTSU9OPXtTQ0hFTUFfVkVSU0lPTn0nKQo="
+        run: |
+          set -euo pipefail
+          python - <<'PY2'
+          import base64, os
+          from pathlib import Path
+          Path("/tmp/v8510_patcher.py").write_bytes(base64.b64decode(os.environ["PATCHER_B64"]))
+          PY2
+          python -m py_compile /tmp/v8510_patcher.py
+          python /tmp/v8510_patcher.py | tee /tmp/v8510_patch.txt
+          grep -q '^V8510_PATCH_SOURCE=PASS$' /tmp/v8510_patch.txt
+
+      - name: Compile and run regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            build_stock_table_preview_v850.py \
+            build_two_table_shadow_v851.py \
+            two_table_release_v853.py \
+            validate_two_table_clients_v853.py \
+            test_stock_table_metrics_v850.py \
+            test_two_table_release_v853.py
+
+          python -m unittest \
+            test_stock_table_metrics_v850.py \
+            test_two_table_release_v853.py \
+            2>&1 | tee /tmp/v8510_tests.txt
+
+          grep -q '^OK$' /tmp/v8510_tests.txt
+          echo "V8510_REGRESSION_TESTS=PASS"
+
+      - name: Rebuild production bundle with glossary metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python two_table_release_v853.py --repo . | tee /tmp/v8510_release.txt
+          python two_table_release_v853.py --repo . --check-only | tee /tmp/v8510_release_check.txt
+
+          grep -q '^V853_TWO_TABLE_RELEASE_CONTRACT=PASS$' /tmp/v8510_release.txt
+          grep -q '^V853_TWO_TABLE_RELEASE_CONTRACT=PASS$' /tmp/v8510_release_check.txt
+          grep -q '^TWO_TABLE_RELEASE_STATUS=READY$' /tmp/v8510_release.txt
+          grep -q '^PRODUCTION_ACTIVATION_ALLOWED=true$' /tmp/v8510_release.txt
+          echo "V8510_TWO_TABLE_REBUILD=PASS"
+
+      - name: Validate Action client and payload sizes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python validate_two_table_clients_v853.py --repo . | tee /tmp/v8510_clients.txt
+          grep -q '^V8510_METRIC_GLOSSARY_CLIENT_CONTRACT=PASS$' /tmp/v8510_clients.txt
+
+          python - <<'PY2' | tee /tmp/v8510_payloads.txt
+          import json
+          from pathlib import Path
+
+          glossary = json.loads(Path("latest/stock_table_metric_glossary_latest.json").read_text(encoding="utf-8"))
+          expected_version = glossary["version"]
+          expected_footer = glossary["compact_footer_text"].strip()
+          pages = sorted(Path("api/two_table_v1").glob("*.compact.*.json"))
+          if not pages:
+              raise SystemExit("NO_COMPACT_PAGES")
+
+          max_source = (0, "")
+          max_worker = (0, "")
+          for path in pages:
+              raw = path.read_bytes()
+              payload = json.loads(raw)
+              if payload.get("metric_glossary_version") != expected_version:
+                  raise SystemExit(f"GLOSSARY_VERSION_MISMATCH:{path}")
+              if payload.get("metric_glossary_footer") != expected_footer:
+                  raise SystemExit(f"GLOSSARY_FOOTER_MISMATCH:{path}")
+              if any(not isinstance(row, list) or len(row) != 14 for row in payload.get("rows", [])):
+                  raise SystemExit(f"ROW_WIDTH_CHANGED:{path}")
+              source_size = len(raw)
+              sample = {**payload, "transport": {"mode":"production","next_page_url":None,"source":"github-production-bundle"}}
+              worker_size = len(json.dumps(sample, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+              if source_size > 28500:
+                  raise SystemExit(f"SOURCE_PAGE_TOO_LARGE:{path}:{source_size}")
+              if worker_size > 30000:
+                  raise SystemExit(f"WORKER_RESPONSE_TOO_LARGE:{path}:{worker_size}")
+              max_source = max(max_source, (source_size, path.name))
+              max_worker = max(max_worker, (worker_size, path.name))
+
+          before = json.loads(Path("/tmp/v8510_before_kospi_compact.json").read_text())
+          after = json.loads(Path("api/two_table_v1/kospi.compact.1.json").read_text())
+          allowed = {"metric_glossary_version", "metric_glossary_footer", "version", "release_stage", "display_contract", "disclosure", "transport"}
+          for key in allowed:
+              before.pop(key, None)
+              after.pop(key, None)
+          if before != after:
+              raise SystemExit("KOSPI_COMPACT_DATA_CHANGED_BEYOND_ALLOWED_METADATA")
+
+          print("V8510_COMPACT_PAGES_CHECKED=" + str(len(pages)))
+          print("V8510_MAX_SOURCE_PAGE_BYTES=" + str(max_source[0]) + ":" + max_source[1])
+          print("V8510_MAX_SIMULATED_WORKER_BYTES=" + str(max_worker[0]) + ":" + max_worker[1])
+          print("V8510_KOSPI_ROW_DATA_UNCHANGED=PASS")
+          print("V8510_GLOSSARY_PAYLOAD_CONTRACT=PASS")
+          PY2
+
+          grep -q '^V8510_KOSPI_ROW_DATA_UNCHANGED=PASS$' /tmp/v8510_payloads.txt
+          grep -q '^V8510_GLOSSARY_PAYLOAD_CONTRACT=PASS$' /tmp/v8510_payloads.txt
+
+      - name: Validate full API and protect calculation runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python validate_api_sync.py --api-dir api | tee /tmp/v8510_api_sync.txt
+          if [ -f worker/validate_worker.mjs ]; then
+            node worker/validate_worker.mjs | tee /tmp/v8510_worker_validate.txt
+          fi
+
+          sha256sum -c /tmp/v8510_metrics.sha
+          sha256sum -c /tmp/v8510_worker.sha
+          sha256sum -c /tmp/v8510_glossary.sha
+
+          python - <<'PY2'
+          from pathlib import Path
+          schema = Path("docs/custom_gpt_action_schema.yaml").read_text(encoding="utf-8")
+          instructions = Path("docs/custom_gpt_instructions.md").read_text(encoding="utf-8")
+          if "version: 7.1.1" not in schema or "metric_glossary_footer" not in schema:
+              raise SystemExit("SCHEMA_GLOSSARY_CONTRACT_MISSING")
+          if "2026-09-11-v6.9.1-metric-glossary-footer" not in instructions:
+              raise SystemExit("INSTRUCTIONS_VERSION_MISSING")
+          if "표 바로 아래 최소 각주 첫 줄" not in instructions:
+              raise SystemExit("INSTRUCTIONS_DISPLAY_RULE_MISSING")
+          if len(instructions) > 8000:
+              raise SystemExit(f"INSTRUCTIONS_TOO_LONG:{len(instructions)}")
+          print("V8510_SCHEMA_AND_INSTRUCTIONS=PASS")
+          print(f"V8510_INSTRUCTIONS_CHARS={len(instructions)}")
+          PY2
+
+          echo "V8510_METRIC_FORMULA_UNCHANGED=PASS"
+          echo "V8510_WORKER_SOURCE_UNCHANGED=PASS"
+          echo "V8510_GLOSSARY_SOURCE_UNCHANGED=PASS"
+
+      - name: Commit V8.5.10 source and production bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          if [ "$(git rev-parse origin/main)" != "${ env.BASE_SHA }" ]; then
+            echo "::error::Remote main changed after checkout. Rerun this workflow."
+            echo "BASE_SHA=${ env.BASE_SHA }"
+            echo "ORIGIN_MAIN=$(git rev-parse origin/main)"
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            build_stock_table_preview_v850.py \
+            two_table_release_v853.py \
+            validate_two_table_clients_v853.py \
+            test_stock_table_metrics_v850.py \
+            test_two_table_release_v853.py \
+            docs/custom_gpt_action_schema.yaml \
+            docs/custom_gpt_instructions.md \
+            docs/metric_glossary_output_contract_v8510.md \
+            api/two_table_v1
+
+          STAGED="$(git diff --cached --name-only || true)"
+          echo "V8510_STAGED_FILES_BEGIN"
+          printf '%s\n' "$STAGED"
+          echo "V8510_STAGED_FILES_END"
+
+          if printf '%s\n' "$STAGED" | grep -q '^\.github/workflows/'; then
+            echo "::error::Workflow file staged unexpectedly"
+            exit 1
+          fi
+
+          while IFS= read -r p; do
+            [ -z "$p" ] && continue
+            case "$p" in
+              build_stock_table_preview_v850.py|two_table_release_v853.py|validate_two_table_clients_v853.py|test_stock_table_metrics_v850.py|test_two_table_release_v853.py|docs/custom_gpt_action_schema.yaml|docs/custom_gpt_instructions.md|docs/metric_glossary_output_contract_v8510.md|api/two_table_v1/*)
+                ;;
+              *)
+                echo "::error::Unexpected staged path: $p"
+                exit 1
+                ;;
+            esac
+          done <<< "$STAGED"
+
+          echo "WORKFLOW_FILES_STAGED=false"
+          if git diff --cached --quiet; then
+            echo "::error::V8.5.10 produced no staged changes"
+            exit 1
+          fi
+
+          git commit -m "Add V8.5.10 metric glossary table footer"
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "V8510_METRIC_GLOSSARY_RELEASE=PASS"
+          echo "WORKFLOW_FILES_STAGED=false"
+          echo "METRIC_FORMULA_CHANGED=false"
+          echo "WORKER_SOURCE_CHANGED=false"
+          echo "CONFIRMED_SWING_LOW_STOP_CALCULATED=false"
+          echo "REQUEST_TIME_PRICE_SUBSTITUTION=false"
+
+      - name: Final report
+        if: always()
+        shell: bash
+        run: |
+          echo "----- V8.5.10 patch -----"
+          test -f /tmp/v8510_patch.txt && cat /tmp/v8510_patch.txt || true
+          echo "----- V8.5.10 release -----"
+          test -f /tmp/v8510_release.txt && cat /tmp/v8510_release.txt || true
+          echo "----- V8.5.10 client validation -----"
+          test -f /tmp/v8510_clients.txt && cat /tmp/v8510_clients.txt || true
+          echo "----- V8.5.10 payload sizes -----"
+          test -f /tmp/v8510_payloads.txt && cat /tmp/v8510_payloads.txt || true
+          git status --short || true

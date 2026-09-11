@@ -169,7 +169,8 @@ jobs:
           python validate_api_sync.py --api-dir api | tee /tmp/v8510_api_sync.txt
           grep -q '^API_VALIDATION_STATUS=PASS$' /tmp/v8510_api_sync.txt
           if [ -f worker/validate_worker.mjs ]; then
-            node worker/validate_worker.mjs | tee /tmp/v8510_worker_validate.txt
+            grep -q 'const repo = process.argv\[2\];' worker/validate_worker.mjs
+            node worker/validate_worker.mjs . | tee /tmp/v8510_worker_validate.txt
           fi
 
           sha256sum -c /tmp/v8510_metrics.sha

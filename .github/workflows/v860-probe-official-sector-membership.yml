@@ -1,0 +1,234 @@
+name: Probe official KRX sector memberships v8.6.0
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v860-official-sector-membership-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install probe dependency
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "pykrx==1.2.8"
+
+      - name: Probe KRX index memberships without changing repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import json
+          import time
+          from collections import defaultdict
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          OUT = Path("/tmp/v860_probe")
+          OUT.mkdir(parents=True, exist_ok=True)
+
+          result = {
+              "probe_version": "2026-09-11-v8.6.0-official-sector-membership-probe",
+              "run_at_kst": datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds"),
+              "repository_write": False,
+              "metric_values_generated": False,
+              "rs_sector_generated": False,
+              "investment_score_100_generated": False,
+              "earnings_outlook_change_generated": False,
+              "confirmed_swing_low_stop_generated": False,
+              "source": "KRX Data Marketplace via pykrx 1.2.8",
+              "status": "STARTED",
+              "errors": [],
+          }
+
+          try:
+              from pykrx import stock
+          except Exception as exc:
+              result["status"] = "PYKRX_IMPORT_FAILED"
+              result["errors"].append(repr(exc))
+              (OUT / "v860-official-sector-membership-readiness.json").write_text(
+                  json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
+              )
+              raise
+
+          table_path = Path("api/two_table_v1/kospi.json")
+          if not table_path.is_file():
+              result["status"] = "KOSPI_TABLE_MISSING"
+              result["errors"].append(str(table_path))
+              (OUT / "v860-official-sector-membership-readiness.json").write_text(
+                  json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
+              )
+              raise SystemExit(2)
+
+          payload = json.loads(table_path.read_text(encoding="utf-8-sig"))
+          rows = payload.get("rows") or []
+          basis_iso = str(payload.get("basis_date") or "")
+          basis = basis_iso.replace("-", "")
+          result["basis_date"] = basis_iso
+          result["watchlist_rows"] = len(rows)
+
+          watch = {}
+          for row in rows:
+              ticker = str(row.get("ticker") or "").zfill(6)
+              if not ticker:
+                  continue
+              watch[ticker] = {
+                  "ticker": ticker,
+                  "name": row.get("name"),
+                  "sector_theme": row.get("sector_theme"),
+                  "memberships": [],
+              }
+
+          try:
+              index_tickers = stock.get_index_ticker_list(basis, market="KOSPI") or []
+          except Exception as exc:
+              result["status"] = "INDEX_LIST_FETCH_FAILED"
+              result["errors"].append(repr(exc))
+              index_tickers = []
+
+          result["kospi_index_ticker_count"] = len(index_tickers)
+          index_catalog = []
+          fetch_success = 0
+          fetch_failure = 0
+
+          for idx in index_tickers:
+              try:
+                  name = stock.get_index_ticker_name(idx)
+              except Exception as exc:
+                  name = None
+                  result["errors"].append(f"NAME:{idx}:{exc!r}")
+
+              rec = {
+                  "index_ticker": str(idx),
+                  "index_name": name,
+                  "constituent_fetch_status": None,
+                  "constituent_count": None,
+              }
+
+              try:
+                  members = stock.get_index_portfolio_deposit_file(str(idx), date=basis)
+                  members = [str(x).zfill(6) for x in (members or [])]
+                  rec["constituent_fetch_status"] = "OK"
+                  rec["constituent_count"] = len(members)
+                  fetch_success += 1
+                  for ticker in set(members) & set(watch):
+                      watch[ticker]["memberships"].append({
+                          "index_ticker": str(idx),
+                          "index_name": name,
+                      })
+              except Exception as exc:
+                  rec["constituent_fetch_status"] = "FAILED"
+                  rec["error"] = repr(exc)
+                  fetch_failure += 1
+
+              index_catalog.append(rec)
+              time.sleep(0.15)
+
+          unique_membership_counts = {}
+          no_membership = []
+          for ticker, item in watch.items():
+              item["memberships"] = sorted(
+                  item["memberships"],
+                  key=lambda x: (str(x.get("index_name") or ""), str(x.get("index_ticker") or "")),
+              )
+              count = len(item["memberships"])
+              unique_membership_counts[str(count)] = unique_membership_counts.get(str(count), 0) + 1
+              if count == 0:
+                  no_membership.append(ticker)
+
+          result["index_constituent_fetch"] = {
+              "success": fetch_success,
+              "failure": fetch_failure,
+          }
+          result["membership_count_distribution"] = unique_membership_counts
+          result["watchlist_without_any_kospi_index_membership"] = no_membership
+          result["mapping_rows"] = list(watch.values())
+          result["index_catalog"] = index_catalog
+
+          if not index_tickers:
+              result["status"] = "LIMITED_INDEX_LIST_EMPTY"
+          elif fetch_success == 0:
+              result["status"] = "LIMITED_CONSTITUENT_FETCH_UNAVAILABLE"
+          elif no_membership:
+              result["status"] = "LIMITED_PARTIAL_MEMBERSHIP"
+          else:
+              result["status"] = "READY_SOURCE_EVIDENCE_ONLY"
+
+          json_path = OUT / "v860-official-sector-membership-readiness.json"
+          json_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+
+          md = []
+          md.append("# V8.6.0 KRX 공식 지수 구성종목 원천 점검")
+          md.append("")
+          md.append(f"- 기준일: {basis_iso}")
+          md.append(f"- 코피표 종목수: {len(watch)}")
+          md.append(f"- KOSPI 지수수: {len(index_tickers)}")
+          md.append(f"- 구성종목 조회 성공/실패: {fetch_success}/{fetch_failure}")
+          md.append(f"- 어떤 KOSPI 지수에도 매핑되지 않은 종목: {len(no_membership)}")
+          md.append(f"- 판정: {result['status']}")
+          md.append("")
+          md.append("## 중요")
+          md.append("- 이 워크플로는 업종 RS를 계산하지 않습니다.")
+          md.append("- 지수 구성종목 소속 근거만 수집합니다.")
+          md.append("- 여러 지수에 동시에 속하는 종목은 자동으로 업종지수를 선택하지 않습니다.")
+          md.append("- 텍스트 유사도·추정 매핑을 하지 않습니다.")
+          md.append("- repository commit/push/deploy를 하지 않습니다.")
+          md.append("")
+          md.append("## 코피표 30종목 지수 소속")
+          for item in result["mapping_rows"]:
+              names = [m.get("index_name") or m.get("index_ticker") for m in item["memberships"]]
+              md.append(f"- {item['ticker']} {item.get('name')}: " + (", ".join(names) if names else "매핑 없음"))
+
+          (OUT / "v860-official-sector-membership-readiness.md").write_text(
+              "\n".join(md) + "\n", encoding="utf-8"
+          )
+
+          print("V860_OFFICIAL_SECTOR_MEMBERSHIP_PROBE=" + result["status"])
+          print("REPOSITORY_WRITE=false")
+          print("METRIC_VALUES_GENERATED=false")
+          print("RS_SECTOR_GENERATED=false")
+          PY
+
+      - name: Safety check
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f /tmp/v860_probe/v860-official-sector-membership-readiness.json
+          test -f /tmp/v860_probe/v860-official-sector-membership-readiness.md
+          git diff --exit-code
+          git diff --cached --exit-code
+          echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
+          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
+
+      - name: Upload V8.6.0 probe artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: official-sector-membership-readiness-v860
+          path: |
+            /tmp/v860_probe/v860-official-sector-membership-readiness.json
+            /tmp/v860_probe/v860-official-sector-membership-readiness.md
+          if-no-files-found: error
+          retention-days: 14

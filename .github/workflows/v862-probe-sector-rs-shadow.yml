@@ -1,0 +1,401 @@
+name: Probe KRX sector RS shadow v8.6.2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v862-sector-rs-shadow
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      KRX_ID: ${{ secrets.KRX_ID }}
+      KRX_PW: ${{ secrets.KRX_PW }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install probe dependency
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "pykrx==1.2.8"
+
+      - name: Calculate sector RS shadow only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import contextlib
+          import io
+          import json
+          import os
+          import time
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          from pykrx import stock
+
+          OUT = Path("/tmp/v862_probe")
+          OUT.mkdir(parents=True, exist_ok=True)
+          JSON_PATH = OUT / "v862-sector-rs-shadow.json"
+          MD_PATH = OUT / "v862-sector-rs-shadow.md"
+
+          result = {
+              "probe_version": "2026-09-12-v8.6.2-sector-rs-shadow",
+              "run_at_kst": datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds"),
+              "repository_write": False,
+              "production_modified": False,
+              "rs_sector_production_generated": False,
+              "shadow_only": True,
+              "source": "KRX Data Marketplace authenticated session via pykrx 1.2.8",
+              "candidate_contract": {
+                  "status": "SHADOW_CANDIDATE_NOT_PRODUCTION_POLICY",
+                  "eligible_industry_index_tickers":
+                      [f"{x:04d}" for x in range(1005, 1027)] + ["1045", "1046", "1047"],
+                  "exclude_if_more_specific_exists": ["1027"],
+                  "known_parent_child_preference": {
+                      "1021": ["1024", "1025"]
+                  },
+                  "multiple_candidates_otherwise": "AMBIGUOUS_NO_AUTO_SELECTION",
+                  "rs_formula_candidate":
+                      "stock_period_return_pct - matched_KRX_industry_index_period_return_pct",
+                  "unit": "percentage_points",
+                  "period_basis":
+                      "reuse each production row's existing 1M/3M start_date and official basis_date",
+                  "missing_policy": "no guessed/fuzzy/manual fallback",
+              },
+              "status": "STARTED",
+              "errors": [],
+          }
+
+          def write_outputs():
+              JSON_PATH.write_text(
+                  json.dumps(result, ensure_ascii=False, indent=2),
+                  encoding="utf-8",
+              )
+
+              lines = [
+                  "# V8.6.2 KRX 업종RS Shadow 계산",
+                  "",
+                  f"- 기준일: {result.get('basis_date', '-')}",
+                  f"- 코피표 종목수: {result.get('watchlist_rows', 0)}",
+                  f"- KRX Secret 준비: {result.get('krx_secrets_present', False)}",
+                  f"- 업종지수 후보 확정 종목: {result.get('selected_count', 0)}",
+                  f"- 업종지수 후보 모호 종목: {result.get('ambiguous_count', 0)}",
+                  f"- 업종지수 후보 없음: {result.get('unmatched_count', 0)}",
+                  f"- 1M/3M 업종RS 값 준비: {result.get('rs_value_ready_count', 0)}/"
+                  f"{result.get('expected_rs_value_count', 0)}",
+                  f"- 판정: {result.get('status')}",
+                  "",
+                  "## 중요",
+                  "- 이 결과는 SHADOW 후보 계산이며 production 정책이 아닙니다.",
+                  "- 코피표/연속하락표 JSON을 수정하지 않습니다.",
+                  "- fuzzy mapping, sector_theme 문자열 추정, 수동 보정값을 사용하지 않습니다.",
+                  "- 기존 production의 종목 1M/3M 수익률과 start_date를 그대로 재사용합니다.",
+                  "- 업종RS = 종목수익률 - 공식 KRX 업종지수 수익률(pp) 후보입니다.",
+                  "",
+                  "## 종목별 Shadow 결과",
+              ]
+
+              for r in result.get("rows", []):
+                  bench = (
+                      f"{r.get('benchmark_ticker')} {r.get('benchmark_name')}"
+                      if r.get("benchmark_ticker") else r.get("selection_status")
+                  )
+                  one = r.get("periods", {}).get("1", {})
+                  three = r.get("periods", {}).get("3", {})
+                  lines.append(
+                      f"- {r.get('ticker')} {r.get('name')} → {bench} | "
+                      f"1M RS {one.get('rs_sector_pp')}pp | "
+                      f"3M RS {three.get('rs_sector_pp')}pp | "
+                      f"{r.get('selection_status')}"
+                  )
+
+              if result.get("errors"):
+                  lines += ["", "## 오류요약"]
+                  for err in result["errors"][:50]:
+                      lines.append(f"- {err}")
+
+              MD_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+          has_id = bool(os.getenv("KRX_ID"))
+          has_pw = bool(os.getenv("KRX_PW"))
+          result["krx_secrets_present"] = bool(has_id and has_pw)
+
+          if not result["krx_secrets_present"]:
+              result["status"] = "SECRET_MISSING"
+              result["errors"].append("KRX_ID and/or KRX_PW repository secret missing.")
+              write_outputs()
+              print("V862_SECTOR_RS_SHADOW=SECRET_MISSING")
+              raise SystemExit(0)
+
+          table_path = Path("api/two_table_v1/kospi.json")
+          if not table_path.is_file():
+              result["status"] = "KOSPI_TABLE_MISSING"
+              result["errors"].append(str(table_path))
+              write_outputs()
+              raise SystemExit(0)
+
+          payload = json.loads(table_path.read_text(encoding="utf-8-sig"))
+          rows = payload.get("rows") or []
+          basis_iso = str(payload.get("basis_date") or "")
+          basis = basis_iso.replace("-", "")
+          result["basis_date"] = basis_iso
+          result["source_build_id"] = payload.get("source_build_id")
+          result["watchlist_rows"] = len(rows)
+
+          # Authenticate and obtain official KOSPI index catalogue.
+          auth_buffer = io.StringIO()
+          try:
+              with contextlib.redirect_stdout(auth_buffer), contextlib.redirect_stderr(auth_buffer):
+                  index_tickers = stock.get_index_ticker_list(basis, market="KOSPI") or []
+          except Exception as exc:
+              index_tickers = []
+              result["errors"].append("INDEX_LIST:" + repr(exc))
+
+          auth_text = auth_buffer.getvalue()
+          result["auth_log_flags"] = {
+              "login_attempted": "KRX 로그인 시도" in auth_text,
+              "login_completed": "KRX 로그인 완료" in auth_text,
+              "login_failed": "KRX 로그인 실패" in auth_text,
+              "password_change_required": "비밀번호 변경이 필요" in auth_text,
+          }
+
+          if not index_tickers:
+              result["status"] = "LIMITED_INDEX_LIST_EMPTY"
+              write_outputs()
+              print("V862_SECTOR_RS_SHADOW=LIMITED_INDEX_LIST_EMPTY")
+              raise SystemExit(0)
+
+          names = {}
+          for idx in index_tickers:
+              try:
+                  with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                      names[str(idx)] = stock.get_index_ticker_name(str(idx))
+              except Exception as exc:
+                  result["errors"].append(f"INDEX_NAME:{idx}:{exc!r}")
+
+          eligible = set(result["candidate_contract"]["eligible_industry_index_tickers"])
+          eligible &= set(map(str, index_tickers))
+
+          # Fetch official constituents only for candidate industry indexes.
+          members_by_index = {}
+          for idx in sorted(eligible):
+              try:
+                  with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                      members = stock.get_index_portfolio_deposit_file(idx, date=basis) or []
+                  members_by_index[idx] = {str(x).zfill(6) for x in members}
+              except Exception as exc:
+                  members_by_index[idx] = set()
+                  result["errors"].append(f"CONSTITUENTS:{idx}:{exc!r}")
+              time.sleep(0.12)
+
+          def choose_candidate(ticker):
+              candidates = sorted(
+                  idx for idx, members in members_by_index.items() if ticker in members
+              )
+              if not candidates:
+                  return None, candidates, "UNMATCHED"
+
+              # Known official hierarchy candidate:
+              # Finance (1021) + Securities (1024) or Insurance (1025)
+              # => prefer the more specific child for shadow evaluation.
+              if "1021" in candidates:
+                  children = [x for x in ("1024", "1025") if x in candidates]
+                  if len(children) == 1:
+                      return children[0], candidates, "SELECTED_CHILD_OVER_FINANCE_PARENT"
+
+              if len(candidates) == 1:
+                  return candidates[0], candidates, "SELECTED_SINGLE_OFFICIAL_INDUSTRY"
+
+              return None, candidates, "AMBIGUOUS_NO_AUTO_SELECTION"
+
+          selected = {}
+          shadow_rows = []
+
+          for row in rows:
+              ticker = str(row.get("ticker") or "").zfill(6)
+              metrics = row.get("metrics") or {}
+              selected_idx, candidates, selection_status = choose_candidate(ticker)
+
+              rec = {
+                  "ticker": ticker,
+                  "name": row.get("name"),
+                  "sector_theme_reference_only": row.get("sector_theme"),
+                  "official_industry_candidates": [
+                      {"ticker": idx, "name": names.get(idx)} for idx in candidates
+                  ],
+                  "benchmark_ticker": selected_idx,
+                  "benchmark_name": names.get(selected_idx) if selected_idx else None,
+                  "selection_status": selection_status,
+                  "periods": {},
+              }
+
+              if selected_idx:
+                  selected[ticker] = selected_idx
+
+              for m in ("1", "3"):
+                  src = ((metrics.get("returns") or {}).get(m) or {})
+                  rec["periods"][m] = {
+                      "stock_return_pct": src.get("pct"),
+                      "start_date": src.get("start_date"),
+                      "production_return_status": src.get("status"),
+                      "sector_index_return_pct": None,
+                      "rs_sector_pp": None,
+                      "status": "PENDING" if selected_idx else selection_status,
+                  }
+
+              shadow_rows.append(rec)
+
+          result["selected_count"] = sum(1 for r in shadow_rows if r["benchmark_ticker"])
+          result["ambiguous_count"] = sum(
+              1 for r in shadow_rows if r["selection_status"] == "AMBIGUOUS_NO_AUTO_SELECTION"
+          )
+          result["unmatched_count"] = sum(
+              1 for r in shadow_rows if r["selection_status"] == "UNMATCHED"
+          )
+
+          # Fetch each selected official industry index history once.
+          selected_indexes = sorted(set(selected.values()))
+          index_close = {}
+
+          all_start_dates = []
+          for r in shadow_rows:
+              for m in ("1", "3"):
+                  d = r["periods"][m].get("start_date")
+                  if d:
+                      all_start_dates.append(d)
+          earliest_iso = min(all_start_dates) if all_start_dates else basis_iso
+          earliest = earliest_iso.replace("-", "")
+
+          for idx in selected_indexes:
+              try:
+                  with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                      df = stock.get_index_ohlcv_by_date(earliest, basis, idx)
+
+                  if df is None or df.empty:
+                      raise RuntimeError("EMPTY_INDEX_OHLCV")
+
+                  if "종가" not in df.columns:
+                      raise RuntimeError("CLOSE_COLUMN_NOT_FOUND:" + ",".join(map(str, df.columns)))
+
+                  closes = {}
+                  for dt, value in df["종가"].items():
+                      day = dt.strftime("%Y-%m-%d") if hasattr(dt, "strftime") else str(dt)[:10]
+                      closes[day] = float(value)
+                  index_close[idx] = closes
+              except Exception as exc:
+                  result["errors"].append(f"INDEX_OHLCV:{idx}:{exc!r}")
+                  index_close[idx] = {}
+              time.sleep(0.15)
+
+          def pct(end, start):
+              if end is None or start is None or start <= 0:
+                  return None
+              return 100.0 * (end / start - 1.0)
+
+          ready_values = 0
+          expected_values = len(shadow_rows) * 2
+
+          for rec in shadow_rows:
+              idx = rec["benchmark_ticker"]
+              if not idx:
+                  continue
+
+              closes = index_close.get(idx) or {}
+              basis_close = closes.get(basis_iso)
+
+              for m in ("1", "3"):
+                  p = rec["periods"][m]
+                  start_date = p.get("start_date")
+                  stock_return = p.get("stock_return_pct")
+
+                  if p.get("production_return_status") != "OK":
+                      p["status"] = "PRODUCTION_STOCK_RETURN_NOT_OK"
+                      continue
+                  if stock_return is None or not start_date:
+                      p["status"] = "PRODUCTION_STOCK_RETURN_MISSING"
+                      continue
+
+                  start_close = closes.get(start_date)
+                  if basis_close is None:
+                      p["status"] = "SECTOR_BASIS_CLOSE_MISSING"
+                      continue
+                  if start_close is None:
+                      p["status"] = "SECTOR_EXACT_START_CLOSE_MISSING"
+                      continue
+
+                  sector_return = pct(basis_close, start_close)
+                  p["sector_index_start_close"] = round(start_close, 4)
+                  p["sector_index_basis_close"] = round(basis_close, 4)
+                  p["sector_index_return_pct"] = round(sector_return, 4)
+                  p["rs_sector_pp"] = round(float(stock_return) - sector_return, 4)
+                  p["status"] = "SHADOW_READY"
+                  ready_values += 1
+
+          result["rows"] = shadow_rows
+          result["rs_value_ready_count"] = ready_values
+          result["expected_rs_value_count"] = expected_values
+
+          if result["auth_log_flags"].get("password_change_required"):
+              result["status"] = "KRX_PASSWORD_CHANGE_REQUIRED"
+          elif result["auth_log_flags"].get("login_failed"):
+              result["status"] = "KRX_LOGIN_FAILED"
+          elif result["ambiguous_count"] or result["unmatched_count"]:
+              result["status"] = "LIMITED_MAPPING_REVIEW_REQUIRED"
+          elif ready_values != expected_values:
+              result["status"] = "LIMITED_RS_VALUES_INCOMPLETE"
+          else:
+              result["status"] = "READY_SHADOW_ONLY"
+
+          write_outputs()
+
+          print("V862_SECTOR_RS_SHADOW=" + result["status"])
+          print(f"SELECTED={result['selected_count']}/{result['watchlist_rows']}")
+          print(f"AMBIGUOUS={result['ambiguous_count']}")
+          print(f"UNMATCHED={result['unmatched_count']}")
+          print(f"RS_VALUES_READY={ready_values}/{expected_values}")
+          print("PRODUCTION_MODIFIED=false")
+          print("REPOSITORY_WRITE=false")
+          PY
+
+      - name: Safety check
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f /tmp/v862_probe/v862-sector-rs-shadow.json
+          test -f /tmp/v862_probe/v862-sector-rs-shadow.md
+          git diff --exit-code
+          git diff --cached --exit-code
+          echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
+          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
+          echo "SHADOW_ONLY=PASS"
+
+      - name: Upload V8.6.2 shadow artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: sector-rs-shadow-v862
+          path: |
+            /tmp/v862_probe/v862-sector-rs-shadow.json
+            /tmp/v862_probe/v862-sector-rs-shadow.md
+          if-no-files-found: error
+          retention-days: 14

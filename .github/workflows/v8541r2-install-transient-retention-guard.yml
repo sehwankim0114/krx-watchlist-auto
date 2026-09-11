@@ -1,0 +1,279 @@
+name: Install V8.5.4.1 transient source retention guard r2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-krx-watchlist-latest
+  cancel-in-progress: false
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Patch source enricher with transient retention guard
+        shell: bash
+        env:
+          PATCH_B64: "ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpwYXRoID0gUGF0aCgiaW52ZXN0bWVudF9zY29yZV9zb3VyY2VfZW5yaWNoZXJfdjg1NC5weSIpCnRleHQgPSBwYXRoLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKQoKb2xkX3ZlcnNpb24gPSAoCiAgICAnU0NSSVBUX1ZFUlNJT04gPSAnCiAgICAnImludmVzdG1lbnRfc2NvcmVfc291cmNlX2VucmljaGVyX3Y4NTQucHkgJwogICAgJ3YxLjAuMC1zb3VyY2UtY2FjaGUtb25seSInCikKbmV3X3ZlcnNpb24gPSAoCiAgICAnU0NSSVBUX1ZFUlNJT04gPSAnCiAgICAnImludmVzdG1lbnRfc2NvcmVfc291cmNlX2VucmljaGVyX3Y4NTQucHkgJwogICAgJ3YxLjAuMS10cmFuc2llbnQtcmV0ZW50aW9uLWd1YXJkIicKKQoKaWYgbmV3X3ZlcnNpb24gbm90IGluIHRleHQ6CiAgICBpZiBvbGRfdmVyc2lvbiBub3QgaW4gdGV4dDoKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJTQ1JJUFRfVkVSU0lPTl9BTkNIT1JfTk9UX0ZPVU5EIikKICAgIHRleHQgPSB0ZXh0LnJlcGxhY2Uob2xkX3ZlcnNpb24sIG5ld192ZXJzaW9uLCAxKQoKaGVscGVyX21hcmtlciA9ICJkZWYgbG9hZF90cmFuc2llbnRfcmV0ZW50aW9uX3RhcmdldHMoIgppZiBoZWxwZXJfbWFya2VyIG5vdCBpbiB0ZXh0OgogICAgaGVscGVyX2FuY2hvciA9ICIgICAgcmV0dXJuIHJvd3NcblxuXG5kZWYgYnVpbGRfcm93cyhcbiIKICAgIGhlbHBlcl9yZXBsYWNlbWVudCA9ICcnJyAgICByZXR1cm4gcm93cwoKCmRlZiBsb2FkX3RyYW5zaWVudF9yZXRlbnRpb25fdGFyZ2V0cygKICAgIGZpbmFuY2lhbF9kZjogcGQuRGF0YUZyYW1lLAopIC0+IERpY3Rbc3RyLCBEaWN0W3N0ciwgc3RyXV06CiAgICAjIFJldGFpbiBhbiBleGlzdGluZyBzb3VyY2UtY2FjaGUgcm93IG9ubHkgd2hlbiB0aGUgc2FtZSBjdXJyZW50CiAgICAjIHRpY2tlci9jb3JwX2NvZGUgaXMgdGVtcG9yYXJpbHkgdW5hdmFpbGFibGUgYmVjYXVzZSB0aGUgdXBzdHJlYW0KICAgICMgZmluYW5jaWFsX3NvdXJjZV9zdGF0dXMgYmVnaW5zIHdpdGggRkVUQ0hfRVJST1JfLgogICAgIyBUaGUgcmV0YWluZWQgcm93IGtlZXBzIGl0cyBvbGQgZmV0Y2hlZF9hdF9rc3QgYW5kIG5ldmVyIGNyZWF0ZXMKICAgICMgaW52ZXN0bWVudF9zY29yZV8xMDAsIG5ldF9jYXNoX3ZhbHVlLCBvciBldl9lYml0ZGFfdmFsdWUuCiAgICByZXRhaW5lZDogRGljdFtzdHIsIERpY3Rbc3RyLCBzdHJdXSA9IHt9CgogICAgZm9yIF8sIHJvdyBpbiBmaW5hbmNpYWxfZGYuaXRlcnJvd3MoKToKICAgICAgICB0aWNrZXIgPSBjbGVhbl90aWNrZXIocm93LmdldCgidGlja2VyIikpCiAgICAgICAgY29ycF9jb2RlID0gY2xlYW5fY29ycF9jb2RlKHJvdy5nZXQoImNvcnBfY29kZSIpKQogICAgICAgIGlkZW50aXR5ID0gbm9ybV90ZXh0KHJvdy5nZXQoImNvcnBfaWRlbnRpdHlfc3RhdHVzIikpCiAgICAgICAgc291cmNlX3N0YXR1cyA9IG5vcm1fdGV4dChyb3cuZ2V0KCJmaW5hbmNpYWxfc291cmNlX3N0YXR1cyIpKQoKICAgICAgICBpZiBub3QgdGlja2VyIG9yIG5vdCBjb3JwX2NvZGU6CiAgICAgICAgICAgIGNvbnRpbnVlCiAgICAgICAgaWYgaWRlbnRpdHkgbm90IGluIFZBTElEX0lERU5USVRZOgogICAgICAgICAgICBjb250aW51ZQogICAgICAgIGlmIG5vdCBzb3VyY2Vfc3RhdHVzLnN0YXJ0c3dpdGgoIkZFVENIX0VSUk9SXyIpOgogICAgICAgICAgICBjb250aW51ZQoKICAgICAgICByZXRhaW5lZFt0aWNrZXJdID0gewogICAgICAgICAgICAidGlja2VyIjogdGlja2VyLAogICAgICAgICAgICAiY29ycF9jb2RlIjogY29ycF9jb2RlLAogICAgICAgICAgICAic291cmNlX3N0YXR1cyI6IHNvdXJjZV9zdGF0dXMsCiAgICAgICAgfQoKICAgIHJldHVybiByZXRhaW5lZAoKCmRlZiBidWlsZF9yb3dzKAonJycKICAgIGlmIGhlbHBlcl9hbmNob3Igbm90IGluIHRleHQ6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiSEVMUEVSX0lOU0VSVF9BTkNIT1JfTk9UX0ZPVU5EIikKICAgIHRleHQgPSB0ZXh0LnJlcGxhY2UoaGVscGVyX2FuY2hvciwgaGVscGVyX3JlcGxhY2VtZW50LCAxKQoKYnVpbGRfb2xkID0gJycnICAgIGZpbmFuY2lhbF9kZiA9IHJlYWRfY3N2KGZpbmFuY2lhbF9wYXRoKQogICAgdGFyZ2V0cyA9IGxvYWRfdGFyZ2V0cyhmaW5hbmNpYWxfZGYpCiAgICBpZiBub3QgdGFyZ2V0czoKICAgICAgICByYWlzZSBSdW50aW1lRXJyb3IoIk5PX1ZBTElEX1RBUkdFVFMiKQoKICAgIGRvbWluYW50X3llYXIsIGRvbWluYW50X2NvZGUgPSBkb21pbmFudF9wZXJpb2QodGFyZ2V0cykKICAgIGFubnVhbF95ZWFyID0gZG9taW5hbnRfeWVhciAtIDEKICAgIGV4aXN0aW5nID0gbG9hZF9leGlzdGluZ19jYWNoZShvdXRwdXRfZGlyIC8gU09VUkNFX0NBQ0hFKQogICAgY2xpZW50ID0gT3BlbkRhcnRDbGllbnQoYXBpX2tleSwgdGltZW91dD10aW1lb3V0KQonJycKYnVpbGRfbmV3ID0gJycnICAgIGZpbmFuY2lhbF9kZiA9IHJlYWRfY3N2KGZpbmFuY2lhbF9wYXRoKQogICAgZXhpc3RpbmcgPSBsb2FkX2V4aXN0aW5nX2NhY2hlKG91dHB1dF9kaXIgLyBTT1VSQ0VfQ0FDSEUpCiAgICB0cmFuc2llbnRfcmV0ZW50aW9uX3RhcmdldHMgPSBsb2FkX3RyYW5zaWVudF9yZXRlbnRpb25fdGFyZ2V0cygKICAgICAgICBmaW5hbmNpYWxfZGYKICAgICkKICAgIHRhcmdldHMgPSBsb2FkX3RhcmdldHMoZmluYW5jaWFsX2RmKQogICAgaWYgbm90IHRhcmdldHM6CiAgICAgICAgcmFpc2UgUnVudGltZUVycm9yKCJOT19WQUxJRF9UQVJHRVRTIikKCiAgICBkb21pbmFudF95ZWFyLCBkb21pbmFudF9jb2RlID0gZG9taW5hbnRfcGVyaW9kKHRhcmdldHMpCiAgICBhbm51YWxfeWVhciA9IGRvbWluYW50X3llYXIgLSAxCiAgICBjbGllbnQgPSBPcGVuRGFydENsaWVudChhcGlfa2V5LCB0aW1lb3V0PXRpbWVvdXQpCicnJwppZiBidWlsZF9uZXcgbm90IGluIHRleHQ6CiAgICBpZiBidWlsZF9vbGQgbm90IGluIHRleHQ6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiQlVJTERfUk9XU19TVEFSVF9BTkNIT1JfTk9UX0ZPVU5EIikKICAgIHRleHQgPSB0ZXh0LnJlcGxhY2UoYnVpbGRfb2xkLCBidWlsZF9uZXcsIDEpCgpsb2dfb2xkID0gJycnICAgICAgICBmIlRBUkdFVFM9e2xlbih0YXJnZXRzKX0iLAogICAgICAgIGYiRE9NSU5BTlRfRklOQU5DSUFMX1BFUklPRD17ZG9taW5hbnRfeWVhcn1fe2RvbWluYW50X2NvZGV9IiwKJycnCmxvZ19uZXcgPSAnJycgICAgICAgIGYiRklOQU5DSUFMX0NBQ0hFX1JPV1M9e2xlbihmaW5hbmNpYWxfZGYpfSIsCiAgICAgICAgZiJUQVJHRVRTPXtsZW4odGFyZ2V0cyl9IiwKICAgICAgICAoCiAgICAgICAgICAgICJUUkFOU0lFTlRfVVBTVFJFQU1fRkFJTFVSRVM9IgogICAgICAgICAgICBmIntsZW4odHJhbnNpZW50X3JldGVudGlvbl90YXJnZXRzKX0iCiAgICAgICAgKSwKICAgICAgICBmIkRPTUlOQU5UX0ZJTkFOQ0lBTF9QRVJJT0Q9e2RvbWluYW50X3llYXJ9X3tkb21pbmFudF9jb2RlfSIsCicnJwppZiBsb2dfbmV3IG5vdCBpbiB0ZXh0OgogICAgaWYgbG9nX29sZCBub3QgaW4gdGV4dDoKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJMT0dfSEVBREVSX0FOQ0hPUl9OT1RfRk9VTkQiKQogICAgdGV4dCA9IHRleHQucmVwbGFjZShsb2dfb2xkLCBsb2dfbmV3LCAxKQoKcmV0ZW50aW9uX21hcmtlciA9ICcic291cmNlX2NhY2hlX3N0YXR1cyJdID0gIlJFVEFJTkVEX1RSQU5TSUVOVF9TT1VSQ0UiJwppZiByZXRlbnRpb25fbWFya2VyIG5vdCBpbiB0ZXh0OgogICAgcmV0ZW50aW9uX2FuY2hvciA9ICcnJyAgICBkZiA9IHBkLkRhdGFGcmFtZShyb3dzKQogICAgZm9yIGNvbHVtbiBpbiBPVVRQVVRfQ09MVU1OUzoKJycnCiAgICByZXRlbnRpb25fYmxvY2sgPSAnJycgICAgY3VycmVudF90aWNrZXJzID0gewogICAgICAgIGNsZWFuX3RpY2tlcihyb3cuZ2V0KCJ0aWNrZXIiKSkKICAgICAgICBmb3Igcm93IGluIHJvd3MKICAgICAgICBpZiBjbGVhbl90aWNrZXIocm93LmdldCgidGlja2VyIikpCiAgICB9CiAgICByZXRhaW5lZF90cmFuc2llbnQgPSAwCiAgICB0cmFuc2llbnRfd2l0aG91dF9wcmlvcl9jYWNoZSA9IDAKCiAgICBmb3IgdGlja2VyLCB0cmFuc2llbnQgaW4gdHJhbnNpZW50X3JldGVudGlvbl90YXJnZXRzLml0ZW1zKCk6CiAgICAgICAgaWYgdGlja2VyIGluIGN1cnJlbnRfdGlja2VyczoKICAgICAgICAgICAgY29udGludWUKCiAgICAgICAgb2xkID0gZXhpc3RpbmcuZ2V0KHRpY2tlcikKICAgICAgICBpZiBub3Qgb2xkOgogICAgICAgICAgICB0cmFuc2llbnRfd2l0aG91dF9wcmlvcl9jYWNoZSArPSAxCiAgICAgICAgICAgIGNvbnRpbnVlCgogICAgICAgIGlmIGNsZWFuX2NvcnBfY29kZShvbGQuZ2V0KCJjb3JwX2NvZGUiKSkgIT0gdHJhbnNpZW50WyJjb3JwX2NvZGUiXToKICAgICAgICAgICAgdHJhbnNpZW50X3dpdGhvdXRfcHJpb3JfY2FjaGUgKz0gMQogICAgICAgICAgICBjb250aW51ZQoKICAgICAgICByZXRhaW5lZCA9IHsKICAgICAgICAgICAgY29sdW1uOiBvbGQuZ2V0KGNvbHVtbiwgIiIpCiAgICAgICAgICAgIGZvciBjb2x1bW4gaW4gT1VUUFVUX0NPTFVNTlMKICAgICAgICB9CgogICAgICAgIHByZXZpb3VzX3JlYXNvbiA9IG5vcm1fdGV4dCgKICAgICAgICAgICAgcmV0YWluZWQuZ2V0KCJzb3VyY2VfY2FjaGVfcmVhc29uIikKICAgICAgICApCiAgICAgICAgZ3VhcmRfcmVhc29uID0gKAogICAgICAgICAgICAiVVBTVFJFQU1fVFJBTlNJRU5UX1JFVEFJTkVEOiIKICAgICAgICAgICAgZiJ7dHJhbnNpZW50Wydzb3VyY2Vfc3RhdHVzJ119IgogICAgICAgICkKICAgICAgICByZXRhaW5lZFsic291cmNlX2NhY2hlX3N0YXR1cyJdID0gIlJFVEFJTkVEX1RSQU5TSUVOVF9TT1VSQ0UiCiAgICAgICAgcmV0YWluZWRbInNvdXJjZV9jYWNoZV9yZWFzb24iXSA9ICIsIi5qb2luKAogICAgICAgICAgICB2YWx1ZQogICAgICAgICAgICBmb3IgdmFsdWUgaW4gKHByZXZpb3VzX3JlYXNvbiwgZ3VhcmRfcmVhc29uKQogICAgICAgICAgICBpZiB2YWx1ZQogICAgICAgICkKCiAgICAgICAgcmV0YWluZWRbImludmVzdG1lbnRfc2NvcmVfMTAwIl0gPSAiIgogICAgICAgIHJldGFpbmVkWyJpbnZlc3RtZW50X3Njb3JlX3N0YXR1cyJdID0gKAogICAgICAgICAgICAiU09VUkNFX09OTFlfU0NPUkVfTk9UX0dFTkVSQVRFRCIKICAgICAgICApCiAgICAgICAgcmV0YWluZWRbInNjb3JlX3RocmVzaG9sZF9wb2xpY3lfc3RhdHVzIl0gPSAiTk9UX0RFRklORUQiCiAgICAgICAgcmV0YWluZWRbIm5ldF9jYXNoX3ZhbHVlIl0gPSAiIgogICAgICAgIHJldGFpbmVkWyJldl9lYml0ZGFfdmFsdWUiXSA9ICIiCgogICAgICAgIHJvd3MuYXBwZW5kKHJldGFpbmVkKQogICAgICAgIGN1cnJlbnRfdGlja2Vycy5hZGQodGlja2VyKQogICAgICAgIHJldGFpbmVkX3RyYW5zaWVudCArPSAxCgogICAgZGYgPSBwZC5EYXRhRnJhbWUocm93cykKICAgIGZvciBjb2x1bW4gaW4gT1VUUFVUX0NPTFVNTlM6CicnJwogICAgaWYgcmV0ZW50aW9uX2FuY2hvciBub3QgaW4gdGV4dDoKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJSRVRFTlRJT05fSU5TRVJUX0FOQ0hPUl9OT1RfRk9VTkQiKQogICAgdGV4dCA9IHRleHQucmVwbGFjZShyZXRlbnRpb25fYW5jaG9yLCByZXRlbnRpb25fYmxvY2ssIDEpCgpjb3VudF9vbGQgPSAnJycgICAgcmVhZHlfcmF3ID0gaW50KChkZlsic291cmNlX2NhY2hlX3N0YXR1cyJdID09ICJSRUFEWV9SQVdfU09VUkNFIikuc3VtKCkpCgogICAgbG9nLmV4dGVuZChbCiAgICAgICAgZiJPVVRQVVRfUk9XUz17bGVuKGRmKX0iLAonJycKY291bnRfbmV3ID0gJycnICAgIHJlYWR5X3JhdyA9IGludCgoZGZbInNvdXJjZV9jYWNoZV9zdGF0dXMiXSA9PSAiUkVBRFlfUkFXX1NPVVJDRSIpLnN1bSgpKQogICAgcmV0YWluZWRfcmF3ID0gaW50KAogICAgICAgICgKICAgICAgICAgICAgZGZbInNvdXJjZV9jYWNoZV9zdGF0dXMiXQogICAgICAgICAgICA9PSAiUkVUQUlORURfVFJBTlNJRU5UX1NPVVJDRSIKICAgICAgICApLnN1bSgpCiAgICApCgogICAgbG9nLmV4dGVuZChbCiAgICAgICAgZiJPVVRQVVRfUk9XUz17bGVuKGRmKX0iLAogICAgICAgIGYiVFJBTlNJRU5UX1JPV1NfUkVUQUlORUQ9e3JldGFpbmVkX3RyYW5zaWVudH0iLAogICAgICAgICgKICAgICAgICAgICAgIlRSQU5TSUVOVF9ST1dTX1dJVEhPVVRfUFJJT1JfQ0FDSEU9IgogICAgICAgICAgICBmInt0cmFuc2llbnRfd2l0aG91dF9wcmlvcl9jYWNoZX0iCiAgICAgICAgKSwKICAgICAgICBmIlJFVEFJTkVEX1RSQU5TSUVOVF9TT1VSQ0VfUk9XUz17cmV0YWluZWRfcmF3fSIsCiAgICAgICAgIlNPVVJDRV9SRVRFTlRJT05fR1VBUkQ9UEFTUyIsCicnJwppZiBjb3VudF9uZXcgbm90IGluIHRleHQ6CiAgICBpZiBjb3VudF9vbGQgbm90IGluIHRleHQ6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiUkVURU5USU9OX0xPR19BTkNIT1JfTk9UX0ZPVU5EIikKICAgIHRleHQgPSB0ZXh0LnJlcGxhY2UoY291bnRfb2xkLCBjb3VudF9uZXcsIDEpCgpzZWxmdGVzdF9tYXJrZXIgPSAnYXNzZXJ0ICIwMDU5MzAiIGluIHRyYW5zaWVudF90ZXN0JwppZiBzZWxmdGVzdF9tYXJrZXIgbm90IGluIHRleHQ6CiAgICBzZWxmdGVzdF9hbmNob3IgPSAnJycgICAgYXNzZXJ0IGRlZXBbIm90aGVyX2ZpbmFuY2lhbCJdID09IFtdCgogICAgIyBDcml0aWNhbCBzYWZldHkgY29udHJhY3QuCicnJwogICAgc2VsZnRlc3RfYmxvY2sgPSAnJycgICAgYXNzZXJ0IGRlZXBbIm90aGVyX2ZpbmFuY2lhbCJdID09IFtdCgogICAgdHJhbnNpZW50X3Rlc3QgPSBsb2FkX3RyYW5zaWVudF9yZXRlbnRpb25fdGFyZ2V0cygKICAgICAgICBwZC5EYXRhRnJhbWUoWwogICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAidGlja2VyIjogIjAwNTkzMCIsCiAgICAgICAgICAgICAgICAiY29ycF9jb2RlIjogIjAwMTI2MzgwIiwKICAgICAgICAgICAgICAgICJjb3JwX2lkZW50aXR5X3N0YXR1cyI6ICJNQVRDSCIsCiAgICAgICAgICAgICAgICAiZmluYW5jaWFsX3NvdXJjZV9zdGF0dXMiOiAiRkVUQ0hfRVJST1JfVVJMRXJyb3IiLAogICAgICAgICAgICB9LAogICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAidGlja2VyIjogIjAwMDY2MCIsCiAgICAgICAgICAgICAgICAiY29ycF9jb2RlIjogIjAwMTY0Nzc5IiwKICAgICAgICAgICAgICAgICJjb3JwX2lkZW50aXR5X3N0YXR1cyI6ICJNQVRDSCIsCiAgICAgICAgICAgICAgICAiZmluYW5jaWFsX3NvdXJjZV9zdGF0dXMiOiAiT0siLAogICAgICAgICAgICB9LAogICAgICAgIF0pCiAgICApCiAgICBhc3NlcnQgIjAwNTkzMCIgaW4gdHJhbnNpZW50X3Rlc3QKICAgIGFzc2VydCAiMDAwNjYwIiBub3QgaW4gdHJhbnNpZW50X3Rlc3QKCiAgICAjIENyaXRpY2FsIHNhZmV0eSBjb250cmFjdC4KJycnCiAgICBpZiBzZWxmdGVzdF9hbmNob3Igbm90IGluIHRleHQ6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiU0VMRlRFU1RfQU5DSE9SX05PVF9GT1VORCIpCiAgICB0ZXh0ID0gdGV4dC5yZXBsYWNlKHNlbGZ0ZXN0X2FuY2hvciwgc2VsZnRlc3RfYmxvY2ssIDEpCgpwYXRoLndyaXRlX3RleHQodGV4dCwgZW5jb2Rpbmc9InV0Zi04IikKcHJpbnQoIlY4NTQxX1NPVVJDRV9QQVRDSD1QQVNTIikK"
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import base64
+          import os
+
+          code = base64.b64decode(
+              os.environ["PATCH_B64"]
+          ).decode("utf-8")
+          exec(compile(code, "<v8541_patch>", "exec"))
+          PY
+
+      - name: Compile and self-test patched source
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m py_compile investment_score_source_enricher_v854.py
+          python investment_score_source_enricher_v854.py --self-test             | tee /tmp/v8541_selftest.txt
+
+          grep -q 'SELF_TEST=PASS' /tmp/v8541_selftest.txt
+          grep -q 'SCORE_VALUES_GENERATED=false' /tmp/v8541_selftest.txt
+          grep -q 'NET_CASH_CALCULATED=false' /tmp/v8541_selftest.txt
+          grep -q 'EV_EBITDA_CALCULATED=false' /tmp/v8541_selftest.txt
+          grep -q 'v1.0.1-transient-retention-guard'             investment_score_source_enricher_v854.py
+
+          echo "V8541_STATIC_VALIDATION=PASS"
+
+      - name: Restore pre-timeout source cache as retention baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASELINE_COMMIT="16600c9483870e311ec40814597bc150cf98b4c1"
+
+          git cat-file -e             "${BASELINE_COMMIT}:latest/investment_score_source_cache_latest.csv"
+
+          git show             "${BASELINE_COMMIT}:latest/investment_score_source_cache_latest.csv"             > latest/investment_score_source_cache_latest.csv
+
+          python - <<'PY'
+          import pandas as pd
+
+          path = "latest/investment_score_source_cache_latest.csv"
+          df = pd.read_csv(
+              path,
+              dtype=str,
+              encoding="utf-8-sig",
+          ).fillna("")
+
+          print(f"RETENTION_BASELINE_ROWS={len(df)}")
+          if len(df) < 140:
+              raise SystemExit(
+                  f"RETENTION_BASELINE_TOO_SMALL:{len(df)}"
+              )
+          print("RETENTION_BASELINE_RESTORED=PASS")
+          PY
+
+      - name: Run guarded official source refresh
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -n "${DART_API_KEY:-}" || {
+            echo "::error::DART_API_KEY secret is missing"
+            exit 1
+          }
+
+          python investment_score_source_enricher_v854.py             --output-dir latest             --workers 4             --timeout 30             --max-full-account-calls 5000             | tee /tmp/v8541_refresh.txt
+
+          grep -q 'INVESTMENT_SCORE_SOURCE_STATUS=OK'             /tmp/v8541_refresh.txt
+          grep -q 'INVESTMENT_SCORE_100_CALCULATED=false'             /tmp/v8541_refresh.txt
+          grep -q 'NET_CASH_CALCULATED=false'             /tmp/v8541_refresh.txt
+          grep -q 'EV_EBITDA_CALCULATED=false'             /tmp/v8541_refresh.txt
+          grep -q 'SOURCE_RETENTION_GUARD=PASS'             latest/investment_score_source_run_log_latest.txt
+
+          echo "----- V8.5.4.1 retention result -----"
+          cat latest/investment_score_source_run_log_latest.txt
+
+      - name: Validate retention safety and output
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import pandas as pd
+          from pathlib import Path
+
+          cache = Path(
+              "latest/investment_score_source_cache_latest.csv"
+          )
+          log_path = Path(
+              "latest/investment_score_source_run_log_latest.txt"
+          )
+
+          df = pd.read_csv(
+              cache,
+              dtype=str,
+              encoding="utf-8-sig",
+          ).fillna("")
+
+          log = {}
+          for line in log_path.read_text(
+              encoding="utf-8"
+          ).splitlines():
+              if "=" in line:
+                  key, value = line.split("=", 1)
+                  log[key] = value
+
+          targets = int(log.get("TARGETS", "0"))
+          transient = int(
+              log.get("TRANSIENT_UPSTREAM_FAILURES", "0")
+          )
+          retained = int(
+              log.get("TRANSIENT_ROWS_RETAINED", "0")
+          )
+
+          if len(df) < targets:
+              raise SystemExit(
+                  f"OUTPUT_BELOW_CURRENT_TARGETS:{len(df)}<{targets}"
+              )
+
+          without_prior = int(
+              log.get("TRANSIENT_ROWS_WITHOUT_PRIOR_CACHE", "0")
+          )
+
+          if retained + without_prior != transient:
+              raise SystemExit(
+                  "TRANSIENT_RETENTION_ACCOUNTING_MISMATCH:"
+                  f"{retained}+{without_prior}!={transient}"
+              )
+
+          if (
+              df["investment_score_100"]
+              .astype(str)
+              .str.strip()
+              .ne("")
+              .any()
+          ):
+              raise SystemExit(
+                  "INVESTMENT_SCORE_MUST_REMAIN_EMPTY"
+              )
+
+          if (
+              df["net_cash_value"]
+              .astype(str)
+              .str.strip()
+              .ne("")
+              .any()
+          ):
+              raise SystemExit("NET_CASH_MUST_REMAIN_EMPTY")
+
+          if (
+              df["ev_ebitda_value"]
+              .astype(str)
+              .str.strip()
+              .ne("")
+              .any()
+          ):
+              raise SystemExit("EV_EBITDA_MUST_REMAIN_EMPTY")
+
+          retained_rows = int(
+              (
+                  df["source_cache_status"]
+                  == "RETAINED_TRANSIENT_SOURCE"
+              ).sum()
+          )
+
+          print(f"OUTPUT_ROWS={len(df)}")
+          print(f"CURRENT_TARGETS={targets}")
+          print(f"TRANSIENT_UPSTREAM_FAILURES={transient}")
+          print(f"TRANSIENT_ROWS_RETAINED={retained}")
+          print(
+              "TRANSIENT_ROWS_WITHOUT_PRIOR_CACHE="
+              f"{without_prior}"
+          )
+          print(
+              f"RETAINED_TRANSIENT_SOURCE_ROWS={retained_rows}"
+          )
+          print("TRANSIENT_RETENTION_ACCOUNTING=PASS")
+          print("V8541_RETENTION_SAFETY=PASS")
+          PY
+
+      - name: Commit and push V8.5.4.1 non-workflow update
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add             investment_score_source_enricher_v854.py             latest/investment_score_source_cache_latest.csv             latest/investment_score_source_run_log_latest.txt
+
+          STAGED="$(git diff --cached --name-only)"
+
+          echo "STAGED_FILES_BEGIN"
+          printf '%s\n' "$STAGED"
+          echo "STAGED_FILES_END"
+
+          if printf '%s\n' "$STAGED"             | grep -q '^\.github/workflows/'; then
+            echo "::error::Workflow file unexpectedly staged"
+            exit 1
+          fi
+
+          echo "NO_WORKFLOW_FILE_STAGED=PASS"
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            echo "V8541_TRANSIENT_RETENTION_GUARD=PASS"
+            exit 0
+          fi
+
+          git commit -m             "Add V8.5.4.1 transient source retention guard"
+
+          git fetch origin main
+
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            echo "REMOTE_MAIN_CHANGED=true"
+            git rebase origin/main
+          else
+            echo "REMOTE_MAIN_CHANGED=false"
+          fi
+
+          if git diff-tree             --no-commit-id             --name-only             -r HEAD             | grep -q '^\.github/workflows/'; then
+            echo "::error::Final commit contains workflow changes"
+            exit 1
+          fi
+
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "V8541_TRANSIENT_RETENTION_GUARD=PASS"
+          echo "WORKFLOW_FILES_CHANGED=false"
+          echo "INVESTMENT_SCORE_100_CALCULATED=false"
+          echo "NEXT_PENDING=EARNINGS_OUTLOOK_CHANGE_SOURCE"

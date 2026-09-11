@@ -1,0 +1,305 @@
+name: Verify long-history swing regression v8.5.8
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v858-long-history-swing-regression
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Run V8.5.8 long-history swing regression
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY' | tee /tmp/v858_output.txt
+          from __future__ import annotations
+          import csv, json, math
+          from collections import Counter, defaultdict
+          from pathlib import Path
+          from stock_table_metrics_v850 import indicators
+
+          root = Path('.')
+          out = Path('/tmp/v858_probe')
+          out.mkdir(parents=True, exist_ok=True)
+
+          compact_path = root/'latest/active_stock_long_history_260d_latest.csv'
+          meta_path = root/'latest/active_stock_long_history_260d_meta_latest.json'
+          universe_path = root/'latest/universe_raw_history_latest.csv'
+          index_path = root/'latest/official_index_history_latest.csv'
+          api_path = root/'api/two_table_v1/kospi.json'
+
+          def read_csv(path):
+              with path.open(encoding='utf-8-sig', newline='') as f:
+                  return list(csv.DictReader(f))
+
+          def read_json(path):
+              return json.loads(path.read_text(encoding='utf-8-sig'))
+
+          def ticker(v):
+              s = str(v or '').strip().replace("'", '')
+              if not s.isdigit() or len(s) > 6:
+                  raise ValueError(f'INVALID_TICKER:{v}')
+              return s.zfill(6)
+
+          def num(v):
+              s = str(v or '').strip().replace(',', '').replace("'", '')
+              if s in {'', '-', 'None', 'nan', 'NaN', 'null'}:
+                  return None
+              return float(s)
+
+          def same_num(a, b):
+              aa, bb = num(a), num(b)
+              if aa is None or bb is None:
+                  return aa is None and bb is None
+              return math.isclose(aa, bb, rel_tol=0.0, abs_tol=1e-9)
+
+          def key(r):
+              return (str(r['date'])[:10], str(r['market']).upper(), ticker(r['ticker']))
+
+          def canon(v):
+              return json.dumps(v, ensure_ascii=False, sort_keys=True,
+                                separators=(',', ':'), allow_nan=False)
+
+          for p in [compact_path, meta_path, universe_path, index_path, api_path,
+                    root/'stock_table_metrics_v850.py']:
+              if not p.exists():
+                  raise SystemExit(f'REQUIRED_FILE_MISSING:{p}')
+
+          meta = read_json(meta_path)
+          api = read_json(api_path)
+          compact = read_csv(compact_path)
+          universe = read_csv(universe_path)
+          index_rows = read_csv(index_path)
+
+          if meta.get('status') != 'READY' or meta.get('source_only') is not True:
+              raise SystemExit('V857_META_NOT_READY_SOURCE_ONLY')
+          if meta.get('request_time_price_eligible') is not False:
+              raise SystemExit('REQUEST_PRICE_GUARD_BROKEN')
+          if int(meta.get('distinct_market_dates') or 0) != 260:
+              raise SystemExit('V857_DATE_COUNT_NOT_260')
+
+          basis = str(api.get('basis_date') or '')
+          if not basis or basis != meta.get('source_max_date'):
+              raise SystemExit('BASIS_OR_SOURCE_MAX_MISMATCH')
+          source_min = str(meta['source_min_date'])
+          targets = set(meta.get('target_tickers') or [])
+
+          # A) Recent overlap must be identical to the existing official universe source.
+          compact_overlap = {key(r): r for r in compact
+                             if source_min <= str(r['date'])[:10] <= basis}
+          universe_active = {key(r): r for r in universe
+                             if source_min <= str(r['date'])[:10] <= basis
+                             and ticker(r['ticker']) in targets}
+
+          missing = set(universe_active) - set(compact_overlap)
+          extra = set(compact_overlap) - set(universe_active)
+          mismatches = []
+          numeric = {'open','high','low','close','volume','trading_value','market_cap','listed_shares'}
+          fields = ['date','market','ticker','name','open','high','low','close','volume',
+                    'trading_value','market_cap','listed_shares']
+          for k in sorted(set(universe_active) & set(compact_overlap)):
+              a, b = universe_active[k], compact_overlap[k]
+              for field in fields:
+                  if field in numeric:
+                      ok = same_num(a.get(field), b.get(field))
+                  elif field == 'ticker':
+                      ok = ticker(a.get(field)) == ticker(b.get(field))
+                  elif field == 'market':
+                      ok = str(a.get(field) or '').upper() == str(b.get(field) or '').upper()
+                  elif field == 'date':
+                      ok = str(a.get(field) or '')[:10] == str(b.get(field) or '')[:10]
+                  else:
+                      ok = str(a.get(field) or '').strip() == str(b.get(field) or '').strip()
+                  if not ok:
+                      mismatches.append((k, field, a.get(field), b.get(field)))
+                      break
+
+          if missing or extra or mismatches:
+              raise SystemExit(
+                  f'RECENT_OVERLAP_REGRESSION_FAILED:'
+                  f'missing={len(missing)},extra={len(extra)},mismatch={len(mismatches)}'
+              )
+
+          # B) Recompute the EXISTING metric contract using compact cache recent bars.
+          bench = [{'date': r['date'], 'close': r['official_index_close']}
+                   for r in index_rows if r.get('market') == 'KOSPI' and r.get('date') <= basis]
+          sessions = sorted({r['date'] for r in bench})
+          if not sessions or sessions[-1] != basis:
+              raise SystemExit('BENCHMARK_BASIS_MISMATCH')
+
+          grouped = defaultdict(list)
+          for r in compact:
+              d = str(r.get('date') or '')[:10]
+              if r.get('market') == 'KOSPI' and source_min <= d <= basis:
+                  grouped[ticker(r['ticker'])].append(r)
+
+          api_rows = api.get('rows') or []
+          if len(api_rows) != 30:
+              raise SystemExit(f'KOSPI_API_ROW_COUNT_INVALID:{len(api_rows)}')
+
+          metric_diff = []
+          anchors = []
+          phases = Counter()
+          for row in api_rows:
+              code = ticker(row['ticker'])
+              calc = indicators(grouped[code], basis, sessions, bench)
+              published = row.get('metrics') or {}
+              if canon(calc) != canon(published):
+                  changed = [k for k in sorted(set(calc)|set(published))
+                             if canon(calc.get(k)) != canon(published.get(k))]
+                  metric_diff.append({'ticker':code,'name':row.get('name'),'keys':changed})
+
+              swing = published.get('swing') or {}
+              phases[swing.get('phase')] += 1
+              close_by_date = {str(r['date'])[:10]: num(r.get('close')) for r in grouped[code]}
+              tr = published.get('trailing_reference') or {}
+              anchors.append({
+                  'ticker': code,
+                  'name': row.get('name'),
+                  'basis_date': basis,
+                  'phase': swing.get('phase'),
+                  'bottom_rebound': swing.get('bottom_rebound'),
+                  'new_20d_low': swing.get('new_20d_low'),
+                  'trough_date': swing.get('trough_date'),
+                  'trough_close_lookup': close_by_date.get(swing.get('trough_date')),
+                  'peak_date': swing.get('peak_date'),
+                  'peak_close_lookup': close_by_date.get(swing.get('peak_date')),
+                  'from_trough_pct_existing': swing.get('from_trough_pct'),
+                  'from_peak_pct_existing': swing.get('from_peak_pct'),
+                  'momentum_5d_pct_existing': swing.get('momentum_5d_pct'),
+                  'ma20_reference_only': tr.get('ma20_close_level'),
+                  'confirmed_swing_low_stop': tr.get('confirmed_swing_low_stop'),
+                  'trailing_status': tr.get('status'),
+              })
+
+          if metric_diff:
+              raise SystemExit('KOSPI30_METRIC_REGRESSION_FAILED:' + canon(metric_diff[:10]))
+          if any(r['confirmed_swing_low_stop'] is not None for r in anchors):
+              raise SystemExit('CONFIRMED_SWING_LOW_STOP_UNEXPECTEDLY_POPULATED')
+
+          # C) Identify shorter histories; do not fabricate pre-listing bars.
+          counts, first, last, names = Counter(), {}, {}, {}
+          for r in compact:
+              code, d = ticker(r['ticker']), str(r['date'])[:10]
+              counts[code] += 1
+              first[code] = min(first.get(code, d), d)
+              last[code] = max(last.get(code, d), d)
+              names[code] = r.get('name')
+          short = [
+              {'ticker':c,'name':names.get(c),'rows':n,'first_date':first[c],'last_date':last[c]}
+              for c,n in sorted(counts.items()) if n < 240
+          ]
+
+          report = {
+              'probe_version':'2026-09-11-v8.5.8-long-history-swing-regression',
+              'basis_date':basis,
+              'repository_write':False,
+              'metric_formula_changed':False,
+              'trailing_stop_calculated':False,
+              'standalone_swing_table_enabled':False,
+              'v857':{
+                  'target_tickers':meta.get('target_ticker_count'),
+                  'distinct_market_dates':meta.get('distinct_market_dates'),
+                  'cache_min_date':meta.get('cache_min_date'),
+                  'cache_max_date':meta.get('cache_max_date'),
+                  'cache_rows':meta.get('cache_rows'),
+                  'cache_mib':meta.get('cache_mib'),
+              },
+              'recent_overlap_regression':{
+                  'keys':len(universe_active),'missing':0,'extra':0,'value_mismatches':0,'status':'PASS'
+              },
+              'kospi30_metric_regression':{
+                  'rows':30,'exact_metric_matches':30,'mismatches':0,'status':'PASS'
+              },
+              'swing_phase_counts':dict(phases),
+              'anchor_evidence':anchors,
+              'short_history_under_240_rows':short,
+              'hard_guards':{
+                  'confirmed_swing_low_stop_stays_null':True,
+                  'ma20_is_reference_only':True,
+                  'sector_rs_not_calculated':True,
+                  'earnings_outlook_not_calculated':True,
+                  'investment_score_100_not_calculated':True,
+                  'request_time_price_substitution':False,
+              },
+          }
+          (out/'v858-long-history-swing-regression.json').write_text(
+              json.dumps(report,ensure_ascii=False,indent=2,allow_nan=False)+'\n',encoding='utf-8')
+
+          with (out/'v858-swing-anchor-evidence.csv').open('w',encoding='utf-8-sig',newline='') as f:
+              w=csv.DictWriter(f,fieldnames=list(anchors[0].keys()))
+              w.writeheader(); w.writerows(anchors)
+          with (out/'v858-short-history-tickers.csv').open('w',encoding='utf-8-sig',newline='') as f:
+              fields=['ticker','name','rows','first_date','last_date']
+              w=csv.DictWriter(f,fieldnames=fields); w.writeheader(); w.writerows(short)
+
+          print('V858_LONG_HISTORY_SWING_REGRESSION=PASS')
+          print(f'BASIS_DATE={basis}')
+          print(f'RECENT_OVERLAP_KEYS={len(universe_active)}')
+          print('RECENT_OVERLAP_VALUE_MISMATCHES=0')
+          print('KOSPI30_METRIC_EXACT_MATCHES=30')
+          print('KOSPI30_METRIC_MISMATCHES=0')
+          print('SWING_PHASE_COUNTS='+json.dumps(dict(phases),ensure_ascii=False,sort_keys=True))
+          print(f'SHORT_HISTORY_UNDER_240={len(short)}')
+          for r in short:
+              print(f"SHORT_HISTORY={r['ticker']}|{r['name']}|rows={r['rows']}|{r['first_date']}~{r['last_date']}")
+          print('CONFIRMED_SWING_LOW_STOP_CALCULATED=false')
+          print('METRIC_FORMULA_CHANGED=false')
+          print('STANDALONE_SWING_TABLE_ENABLED=false')
+          print('REQUEST_TIME_PRICE_SUBSTITUTION=false')
+          print('REPOSITORY_WRITE=false')
+          PY
+
+          grep -q '^V858_LONG_HISTORY_SWING_REGRESSION=PASS$' /tmp/v858_output.txt
+          grep -q '^RECENT_OVERLAP_VALUE_MISMATCHES=0$' /tmp/v858_output.txt
+          grep -q '^KOSPI30_METRIC_EXACT_MATCHES=30$' /tmp/v858_output.txt
+          grep -q '^KOSPI30_METRIC_MISMATCHES=0$' /tmp/v858_output.txt
+          grep -q '^CONFIRMED_SWING_LOW_STOP_CALCULATED=false$' /tmp/v858_output.txt
+          grep -q '^METRIC_FORMULA_CHANGED=false$' /tmp/v858_output.txt
+          grep -q '^STANDALONE_SWING_TABLE_ENABLED=false$' /tmp/v858_output.txt
+          grep -q '^REQUEST_TIME_PRICE_SUBSTITUTION=false$' /tmp/v858_output.txt
+          grep -q '^REPOSITORY_WRITE=false$' /tmp/v858_output.txt
+
+      - name: Verify repository unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::Repository changed during V8.5.8 read-only verification"
+            git status --short
+            exit 1
+          fi
+          echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
+          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
+
+      - name: Upload V8.5.8 evidence
+        uses: actions/upload-artifact@v6
+        with:
+          name: long-history-swing-regression-v858
+          path: |
+            /tmp/v858_probe/v858-long-history-swing-regression.json
+            /tmp/v858_probe/v858-swing-anchor-evidence.csv
+            /tmp/v858_probe/v858-short-history-tickers.csv
+          if-no-files-found: error
+          retention-days: 14

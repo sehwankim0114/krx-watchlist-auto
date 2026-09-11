@@ -42,7 +42,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 
-SCRIPT_VERSION = "investment_score_source_enricher_v854.py v1.0.0-source-cache-only"
+SCRIPT_VERSION = "investment_score_source_enricher_v854.py v1.0.1-transient-retention-guard"
 SOURCE_CONTRACT_VERSION = "2026-09-10-v8.5.4-investment-score-source-contract"
 SCORE_POLICY_VERSION = "2026-07-01-v6.0-score-policy"
 KST = ZoneInfo("Asia/Seoul")
@@ -652,6 +652,38 @@ def load_existing_cache(path: Path) -> Dict[str, Dict[str, str]]:
     return rows
 
 
+def load_transient_retention_targets(
+    financial_df: pd.DataFrame,
+) -> Dict[str, Dict[str, str]]:
+    # Retain an existing source-cache row only when the same current
+    # ticker/corp_code is temporarily unavailable because the upstream
+    # financial_source_status begins with FETCH_ERROR_.
+    # The retained row keeps its old fetched_at_kst and never creates
+    # investment_score_100, net_cash_value, or ev_ebitda_value.
+    retained: Dict[str, Dict[str, str]] = {}
+
+    for _, row in financial_df.iterrows():
+        ticker = clean_ticker(row.get("ticker"))
+        corp_code = clean_corp_code(row.get("corp_code"))
+        identity = norm_text(row.get("corp_identity_status"))
+        source_status = norm_text(row.get("financial_source_status"))
+
+        if not ticker or not corp_code:
+            continue
+        if identity not in VALID_IDENTITY:
+            continue
+        if not source_status.startswith("FETCH_ERROR_"):
+            continue
+
+        retained[ticker] = {
+            "ticker": ticker,
+            "corp_code": corp_code,
+            "source_status": source_status,
+        }
+
+    return retained
+
+
 def build_rows(
     output_dir: Path,
     api_key: str,
@@ -664,13 +696,16 @@ def build_rows(
         raise RuntimeError(f"MISSING_FINANCIAL_CACHE:{financial_path}")
 
     financial_df = read_csv(financial_path)
+    existing = load_existing_cache(output_dir / SOURCE_CACHE)
+    transient_retention_targets = load_transient_retention_targets(
+        financial_df
+    )
     targets = load_targets(financial_df)
     if not targets:
         raise RuntimeError("NO_VALID_TARGETS")
 
     dominant_year, dominant_code = dominant_period(targets)
     annual_year = dominant_year - 1
-    existing = load_existing_cache(output_dir / SOURCE_CACHE)
     client = OpenDartClient(api_key, timeout=timeout)
 
     log = [
@@ -678,7 +713,12 @@ def build_rows(
         f"SOURCE_CONTRACT_VERSION={SOURCE_CONTRACT_VERSION}",
         f"SCORE_POLICY_VERSION={SCORE_POLICY_VERSION}",
         f"RUN_AT_KST={now_kst_text()}",
+        f"FINANCIAL_CACHE_ROWS={len(financial_df)}",
         f"TARGETS={len(targets)}",
+        (
+            "TRANSIENT_UPSTREAM_FAILURES="
+            f"{len(transient_retention_targets)}"
+        ),
         f"DOMINANT_FINANCIAL_PERIOD={dominant_year}_{dominant_code}",
         f"ANNUAL_SOURCE_YEAR={annual_year}",
         "SCORE_VALUES_GENERATED=false",
@@ -950,6 +990,58 @@ def build_rows(
             "fetched_at_kst": fetched_at,
         })
 
+    current_tickers = {
+        clean_ticker(row.get("ticker"))
+        for row in rows
+        if clean_ticker(row.get("ticker"))
+    }
+    retained_transient = 0
+    transient_without_prior_cache = 0
+
+    for ticker, transient in transient_retention_targets.items():
+        if ticker in current_tickers:
+            continue
+
+        old = existing.get(ticker)
+        if not old:
+            transient_without_prior_cache += 1
+            continue
+
+        if clean_corp_code(old.get("corp_code")) != transient["corp_code"]:
+            transient_without_prior_cache += 1
+            continue
+
+        retained = {
+            column: old.get(column, "")
+            for column in OUTPUT_COLUMNS
+        }
+
+        previous_reason = norm_text(
+            retained.get("source_cache_reason")
+        )
+        guard_reason = (
+            "UPSTREAM_TRANSIENT_RETAINED:"
+            f"{transient['source_status']}"
+        )
+        retained["source_cache_status"] = "RETAINED_TRANSIENT_SOURCE"
+        retained["source_cache_reason"] = ",".join(
+            value
+            for value in (previous_reason, guard_reason)
+            if value
+        )
+
+        retained["investment_score_100"] = ""
+        retained["investment_score_status"] = (
+            "SOURCE_ONLY_SCORE_NOT_GENERATED"
+        )
+        retained["score_threshold_policy_status"] = "NOT_DEFINED"
+        retained["net_cash_value"] = ""
+        retained["ev_ebitda_value"] = ""
+
+        rows.append(retained)
+        current_tickers.add(ticker)
+        retained_transient += 1
+
     df = pd.DataFrame(rows)
     for column in OUTPUT_COLUMNS:
         if column not in df.columns:
@@ -960,9 +1052,22 @@ def build_rows(
     ready_quarter = int((df["quarter_source_status"] == "READY_Q2_SOURCE").sum())
     ready_deep = int((df["deep_source_status"] == "OK").sum())
     ready_raw = int((df["source_cache_status"] == "READY_RAW_SOURCE").sum())
+    retained_raw = int(
+        (
+            df["source_cache_status"]
+            == "RETAINED_TRANSIENT_SOURCE"
+        ).sum()
+    )
 
     log.extend([
         f"OUTPUT_ROWS={len(df)}",
+        f"TRANSIENT_ROWS_RETAINED={retained_transient}",
+        (
+            "TRANSIENT_ROWS_WITHOUT_PRIOR_CACHE="
+            f"{transient_without_prior_cache}"
+        ),
+        f"RETAINED_TRANSIENT_SOURCE_ROWS={retained_raw}",
+        "SOURCE_RETENTION_GUARD=PASS",
         f"THREE_YEAR_READY={ready_3y}",
         f"QUARTER_SOURCE_READY={ready_quarter}",
         f"DEEP_SOURCE_READY={ready_deep}",
@@ -1028,6 +1133,25 @@ def self_test() -> None:
     assert len(deep["core"]) == 1
     assert len(deep["leases"]) == 1
     assert deep["other_financial"] == []
+
+    transient_test = load_transient_retention_targets(
+        pd.DataFrame([
+            {
+                "ticker": "005930",
+                "corp_code": "00126380",
+                "corp_identity_status": "MATCH",
+                "financial_source_status": "FETCH_ERROR_URLError",
+            },
+            {
+                "ticker": "000660",
+                "corp_code": "00164779",
+                "corp_identity_status": "MATCH",
+                "financial_source_status": "OK",
+            },
+        ])
+    )
+    assert "005930" in transient_test
+    assert "000660" not in transient_test
 
     # Critical safety contract.
     assert "investment_score_100" in OUTPUT_COLUMNS

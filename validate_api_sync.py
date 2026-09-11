@@ -407,7 +407,7 @@ def main() -> int:
             encoding="utf-8"
         )
         required_tokens = (
-            "version: 7.1.0",
+            "version: 7.1.1",
             "https://krx-live-price-ksh.diaconos.workers.dev",
             "operationId: getRequestTimePriceHealth",
             "operationId: getRequestTimePrices",
@@ -474,7 +474,7 @@ def main() -> int:
             encoding="utf-8"
         )
         instruction_tokens = (
-            "2026-09-04-v6.9.0-two-table-layout",
+            "2026-09-11-v6.9.1-metric-glossary-footer",
             "5-1. V8.0 요청시점 최종 표시",
             "request_time_final_recommendation_mark",
             "가치매수구간 위 · 1차 익절구간 전",

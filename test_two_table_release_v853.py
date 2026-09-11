@@ -66,10 +66,13 @@ class ReleaseTest(unittest.TestCase):
         m = self.publish()
         self.assertEqual(m["status"], "READY")
         self.assertTrue(m["production_activation_allowed"])
+        glossary = release.glossary_contract(self.repo)
         for n in m["files"]:
             p = read(self.target / n)
             self.assertEqual(p["contract"], release.calculation_contract())
             self.assertEqual(p["explicit_missing"], release.MISSING)
+            self.assertEqual(p["metric_glossary_version"], glossary["version"])
+            self.assertEqual(p["metric_glossary_footer"], glossary["footer"])
         self.check()
 
     def test_no_fabricated_score_with_rehashed_payload(self):

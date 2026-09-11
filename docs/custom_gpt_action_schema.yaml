@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: KRX Watchlist and Request-Time Price Unified API
-  version: 7.1.0
+  version: 7.1.1
   description: Single-domain unified Action for synchronized GitHub stock-table JSON, request-time KR/US auxiliary
     quotes, and health checks. Use this schema as the only Action set for krx-live-price-ksh.diaconos.workers.dev.
 servers:
@@ -429,7 +429,7 @@ components:
   schemas:
     TwoTablePage:
       type: object
-      required: [status, source_build_id, source_rules_version, source_rules_sha256, basis_date, table_id, page, page_count, total_rows, row_count, columns, headers, rows, transport]
+      required: [status, source_build_id, source_rules_version, source_rules_sha256, basis_date, table_id, page, page_count, total_rows, row_count, columns, headers, rows, metric_glossary_version, metric_glossary_footer, transport]
       properties:
         status:
           type: string
@@ -469,6 +469,12 @@ components:
             minItems: 14
             maxItems: 14
             items: {}
+        metric_glossary_version:
+          type: string
+          description: Version of the five-term stock-table reading guide attached to this payload.
+        metric_glossary_footer:
+          type: string
+          description: Korean one-line reading guide. Print it exactly once immediately below the completed main table.
         transport:
           type: object
           properties:

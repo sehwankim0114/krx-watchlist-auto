@@ -215,6 +215,15 @@ class BuilderIntegrationTest(unittest.TestCase):
         cls.kospi={"status":"OK","row_count":30,"build_id":"fixture-build","rules_version":"fixture-v1",
             "rules_sha256":"fixture-hash","rows":[{"code":f"{i:06}","analysis_date":cls.basis} for i in range(1,31)]}
         cls.restore()
+        (cls.repo/"latest/stock_table_metric_glossary_latest.json").write_text(
+            json.dumps({
+                "version":"fixture-glossary-v1",
+                "display_policy":{"attach_to_stock_tables":True},
+                "terms":{"swing":{},"ma":{},"atr14":{},"rs_kospi":{},"streak":{}},
+                "compact_footer_text":"읽는 법: 스윙=위치 · MA=이동평균 · ATR=변동성 · RS=KOSPI 대비 · 연속등락=연속 방향"
+            },ensure_ascii=False),
+            encoding="utf-8"
+        )
         def csvfile(name,fields,rows):
             with (cls.repo/"latest"/name).open("w",encoding="utf-8",newline="") as f:
                 w=csv.DictWriter(f,fieldnames=fields); w.writeheader(); w.writerows(rows)
@@ -253,6 +262,8 @@ class BuilderIntegrationTest(unittest.TestCase):
         self.assertEqual(report["decliners_rows"],0)
         p=json.loads((self.output()/"kospi.json").read_text())
         self.assertTrue(all(r["request_time_price"] is None for r in p["rows"]))
+        self.assertEqual(p["metric_glossary_version"],"fixture-glossary-v1")
+        self.assertIn("읽는 법:",p["metric_glossary_footer"])
         pages=list(self.output().glob("*.compact.*.json"))
         self.assertTrue(all(p.stat().st_size<=30000 for p in pages))
 

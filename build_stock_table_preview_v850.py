@@ -25,6 +25,7 @@ HEADERS = ["추천/종목", "요청시점 현재가", "평균등락일수", "연
     "추적손절 기준", "투자종합점수·진입판단", "시장·티커", "섹터·업종강도"]
 COMPACT_COLUMNS = ["name", "ticker", "official_close", "run", "streak", "range_3m",
     "swing", "ma", "returns", "rs_kospi_pp", "atr14", "activity", "analysis", "sector_theme"]
+GLOSSARY_PATH = "latest/stock_table_metric_glossary_latest.json"
 
 
 def read_csv(path):
@@ -78,10 +79,24 @@ def build(repo, output):
     if output.exists():
         raise ValueError("OUTPUT_MUST_BE_NEW_DIRECTORY")
     inputs = ["api/status.json", "api/kospi_watchlist.json", "latest/universe_raw_history_latest.csv",
-        "latest/kospi_universe_summary_latest.csv", "latest/official_index_history_latest.csv"]
+        "latest/kospi_universe_summary_latest.csv", "latest/official_index_history_latest.csv",
+        GLOSSARY_PATH]
     hashes = {p: digest(repo/p) for p in inputs}
     status = json.loads((repo/inputs[0]).read_text(encoding="utf-8"))
     kospi = json.loads((repo/inputs[1]).read_text(encoding="utf-8"))
+    glossary = json.loads((repo/GLOSSARY_PATH).read_text(encoding="utf-8"))
+    glossary_version = glossary.get("version")
+    glossary_footer = glossary.get("compact_footer_text")
+    glossary_terms = glossary.get("terms")
+    glossary_policy = glossary.get("display_policy") or {}
+    if not isinstance(glossary_version, str) or not glossary_version:
+        raise ValueError("METRIC_GLOSSARY_VERSION_MISSING")
+    if not isinstance(glossary_footer, str) or not glossary_footer.strip() or len(glossary_footer) > 700:
+        raise ValueError("METRIC_GLOSSARY_FOOTER_INVALID")
+    if not isinstance(glossary_terms, dict) or set(glossary_terms) != {"swing", "ma", "atr14", "rs_kospi", "streak"}:
+        raise ValueError("METRIC_GLOSSARY_TERMS_INVALID")
+    if glossary_policy.get("attach_to_stock_tables") is not True:
+        raise ValueError("METRIC_GLOSSARY_DISPLAY_POLICY_INVALID")
     if status.get("api_sync_ok") is not True or status.get("critical_errors"):
         raise ValueError("SOURCE_API_NOT_SYNCHRONIZED")
     if not status.get("build_id") or kospi.get("build_id") != status["build_id"]:
@@ -158,6 +173,8 @@ def build(repo, output):
         "source_safe_to_analyze_as_latest": status.get("safe_to_analyze_as_latest"),
         "production_activation_allowed": False, "status": "PREVIEW_ONLY_NOT_INVESTMENT_OUTPUT",
         "contract": CONTRACT, "headers": HEADERS,
+        "metric_glossary_version": glossary_version,
+        "metric_glossary_footer": glossary_footer.strip(),
         "explicit_missing": ["investment_score_100", "earnings_outlook_change", "rs_sector", "confirmed_swing_low_stop"],
         "disclosure": "오프라인 개발 검증용. 요청시점 현재가 아님. 최신 자료/완성표/매매지시로 사용 금지."}
     output.mkdir(parents=True)

@@ -42,10 +42,16 @@ def validate(repo):
     assert "/sehwankim0114/krx-watchlist-auto/main/api/kospi_watchlist.json" not in schema["paths"]
     text = (repo / "docs/custom_gpt_instructions.md").read_text()
     assert len(text) <= 8000, len(text)
+    glossary = json.loads((repo / "latest/stock_table_metric_glossary_latest.json").read_text(encoding="utf-8"))
+    glossary_footer = glossary["compact_footer_text"].strip()
+    glossary_version = glossary["version"]
+    assert glossary.get("display_policy", {}).get("attach_to_stock_tables") is True
+    assert set(glossary.get("terms", {})) == {"swing", "ma", "atr14", "rs_kospi", "streak"}
     for token in (INSTRUCTIONS_VERSION, VERSION, "table=kospi", "table=decliners", "table=decliners24",
                   "source_build_id", "page_count", "total_rows", "구형 점수를 환산", "독립 스윙분석표는 보류",
                   "추천 아이콘은 각 본표 행 전체에서 정확히 1개만 사용한다.",
-                  "getStockReferenceShard를 prefix만으로 호출하지 않는다."):
+                  "getStockReferenceShard를 prefix만으로 호출하지 않는다.",
+                  "metric_glossary_footer", "표 바로 아래 최소 각주 첫 줄"):
         assert token in text, token
     manifest = json.loads((repo / "api/manifest.json").read_text())
     extension = manifest["command_route_contract"]["two_table_release"]
@@ -59,6 +65,9 @@ def validate(repo):
     # Check our specific compact-array schema without an extra CI dependency.
     row_schema = response_schema["properties"]["rows"]["items"]
     assert row_schema == {"type": "array", "minItems": 14, "maxItems": 14, "items": {}}
+    for key in ("metric_glossary_version", "metric_glossary_footer"):
+        assert key in response_schema["required"]
+        assert response_schema["properties"][key]["type"] == "string"
     assert response_schema["properties"]["transport"]["properties"]["mode"]["enum"] == ["production"]
     checked = 0
     for name in bundle["files"]:
@@ -66,6 +75,8 @@ def validate(repo):
             continue
         payload = json.loads((repo / "api/two_table_v1" / name).read_text())
         assert payload["display_contract"] == DISPLAY
+        assert payload["metric_glossary_version"] == glossary_version
+        assert payload["metric_glossary_footer"] == glossary_footer
         # Only production READY responses are Action output; stale bundles are
         # structurally valid publications but the Worker must refuse them.
         if bundle["status"] == "READY":
@@ -82,6 +93,7 @@ def validate(repo):
     print("V853_EFFECTIVE_COMMAND_COUNT=15")
     print("V853_INSTRUCTIONS_CHARACTERS=" + str(len(text)))
     print("V853_TYPED_COMPACT_PAGES=" + str(checked))
+    print("V8510_METRIC_GLOSSARY_CLIENT_CONTRACT=PASS")
 
 
 if __name__ == "__main__":

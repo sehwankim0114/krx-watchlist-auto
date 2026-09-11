@@ -16,9 +16,10 @@ from stock_table_metrics_v850 import CONTRACT
 
 DIRECTORY = shadow.DIRECTORY
 VERSION = "2026-09-04-v8.5.3-two-table-layout-release"
-INSTRUCTIONS_VERSION = "2026-09-04-v6.9.0-two-table-layout"
-SCHEMA_VERSION = "7.1.0"
+INSTRUCTIONS_VERSION = "2026-09-11-v6.9.1-metric-glossary-footer"
+SCHEMA_VERSION = "7.1.1"
 CONFIG_PATH = "config/two_table_release.json"
+GLOSSARY_PATH = "latest/stock_table_metric_glossary_latest.json"
 MISSING = ["investment_score_100", "earnings_outlook_change", "rs_sector", "confirmed_swing_low_stop"]
 RELEASE = {
     "version": VERSION, "enabled": True, "standalone_swing_table_enabled": False,
@@ -48,6 +49,21 @@ def release_config(repo):
     value = shadow.read(path)
     require(shadow.encode(value) == shadow.encode(RELEASE), "CONFIG_MISMATCH")
     return value
+
+
+def glossary_contract(repo):
+    path = Path(repo) / GLOSSARY_PATH
+    require(path.is_file() and not path.is_symlink(), "GLOSSARY_SOURCE_REQUIRED")
+    value = shadow.read(path)
+    footer = value.get("compact_footer_text")
+    terms = value.get("terms")
+    policy = value.get("display_policy") or {}
+    require(isinstance(value.get("version"), str) and bool(value["version"]), "GLOSSARY_VERSION")
+    require(isinstance(footer, str) and 0 < len(footer.strip()) <= 700, "GLOSSARY_FOOTER")
+    require(isinstance(terms, dict) and set(terms) == {"swing", "ma", "atr14", "rs_kospi", "streak"},
+            "GLOSSARY_TERMS")
+    require(policy.get("attach_to_stock_tables") is True, "GLOSSARY_DISPLAY_POLICY")
+    return {"version": value["version"], "footer": footer.strip()}
 
 
 def metadata(status):
@@ -89,6 +105,7 @@ def validate_bundle(directory, repo, strict_source_hashes=False):
     manifest = shadow.read(directory / "manifest.json")
     status = shadow.read(repo / "api/status.json")
     expected = metadata(status)
+    glossary = glossary_contract(repo)
     files = manifest.get("files")
     require(isinstance(files, dict) and all(shadow.FILE_PATTERN.fullmatch(n) for n in files), "FILE_LIST_INVALID")
     require({p.name for p in directory.iterdir()} == set(files) | {"manifest.json"}, "FILE_SET_MISMATCH")
@@ -108,6 +125,10 @@ def validate_bundle(directory, repo, strict_source_hashes=False):
                 require(shadow.encode(p.get(key)) == shadow.encode(value), "METADATA_" + key + ":" + name)
             if name == "manifest.json":
                 continue
+            require(p.get("metric_glossary_version") == glossary["version"],
+                    "GLOSSARY_VERSION:" + name)
+            require(p.get("metric_glossary_footer") == glossary["footer"],
+                    "GLOSSARY_FOOTER:" + name)
             require(p.get("contract") == calculation_contract(), "CALCULATION_CONTRACT:" + name)
             require(p.get("explicit_missing") == MISSING, "MISSING_FIELDS:" + name)
             transformed = shadow.encode(to_shadow(p, status))

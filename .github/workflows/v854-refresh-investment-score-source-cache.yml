@@ -1,0 +1,364 @@
+name: Refresh investment-score source cache v8.5.4
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - collect-krx-watchlist
+    types:
+      - completed
+
+permissions:
+  contents: write
+
+# 기존 collect-krx-watchlist와 같은 concurrency group을 사용해
+# 공식 수집과 원천캐시 갱신이 동시에 저장소를 수정하지 않게 한다.
+concurrency:
+  group: collect-krx-watchlist-latest
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Decide whether source refresh is needed
+        id: gate
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY' | tee /tmp/investment_score_source_gate.txt
+          import os
+          from datetime import datetime
+          from pathlib import Path
+
+          FINANCIAL_LOG = Path("latest/financial_valuation_run_log_latest.txt")
+          SOURCE_LOG = Path("latest/investment_score_source_run_log_latest.txt")
+
+          def read_kv(path):
+              data = {}
+              if not path.exists():
+                  return data
+              for line in path.read_text(encoding="utf-8").splitlines():
+                  if "=" not in line:
+                      continue
+                  key, value = line.split("=", 1)
+                  data[key.strip()] = value.strip()
+              return data
+
+          def parse_dt(value):
+              if not value:
+                  return None
+              try:
+                  return datetime.fromisoformat(value.replace("Z", "+00:00"))
+              except Exception:
+                  return None
+
+          event_name = os.environ.get("GITHUB_EVENT_NAME", "")
+          financial = read_kv(FINANCIAL_LOG)
+          source = read_kv(SOURCE_LOG)
+
+          financial_run = parse_dt(financial.get("RUN_AT_KST"))
+          source_run = parse_dt(source.get("RUN_AT_KST"))
+
+          if event_name == "workflow_dispatch":
+              need_refresh = True
+              reason = "manual_dispatch_force_refresh"
+          elif not FINANCIAL_LOG.exists():
+              raise SystemExit("FINANCIAL_VALUATION_RUN_LOG_MISSING")
+          elif not SOURCE_LOG.exists():
+              need_refresh = True
+              reason = "source_log_missing"
+          elif financial_run is None:
+              raise SystemExit("FINANCIAL_RUN_AT_KST_INVALID")
+          elif source_run is None:
+              need_refresh = True
+              reason = "source_run_at_invalid"
+          elif financial_run > source_run:
+              need_refresh = True
+              reason = "financial_source_newer_than_investment_source"
+          else:
+              need_refresh = False
+              reason = "investment_source_already_current"
+
+          print(f"FINANCIAL_RUN_AT_KST={financial.get('RUN_AT_KST', '')}")
+          print(f"SOURCE_RUN_AT_KST={source.get('RUN_AT_KST', '')}")
+          print(f"NEED_REFRESH={str(need_refresh).lower()}")
+          print(f"REFRESH_REASON={reason}")
+          PY
+
+          cat /tmp/investment_score_source_gate.txt >> "$GITHUB_ENV"
+
+      - name: Show refresh decision
+        run: |
+          echo "NEED_REFRESH=$NEED_REFRESH"
+          echo "REFRESH_REASON=$REFRESH_REASON"
+          echo "FINANCIAL_RUN_AT_KST=$FINANCIAL_RUN_AT_KST"
+          echo "SOURCE_RUN_AT_KST=$SOURCE_RUN_AT_KST"
+
+      - name: Verify V8.5.4 source enricher exists
+        if: env.NEED_REFRESH == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f investment_score_source_enricher_v854.py || {
+            echo "::error::investment_score_source_enricher_v854.py is missing"
+            exit 1
+          }
+
+          test -n "${DART_API_KEY:-}" || {
+            echo "::error::DART_API_KEY secret is missing"
+            exit 1
+          }
+
+          python -m py_compile investment_score_source_enricher_v854.py
+          python investment_score_source_enricher_v854.py --self-test \
+            | tee /tmp/investment_score_source_selftest.txt
+
+          grep -q 'SELF_TEST=PASS' \
+            /tmp/investment_score_source_selftest.txt
+          grep -q 'SCORE_VALUES_GENERATED=false' \
+            /tmp/investment_score_source_selftest.txt
+          grep -q 'NET_CASH_CALCULATED=false' \
+            /tmp/investment_score_source_selftest.txt
+          grep -q 'EV_EBITDA_CALCULATED=false' \
+            /tmp/investment_score_source_selftest.txt
+
+          echo "V854_SOURCE_ENRICHER_PREREQUISITES=PASS"
+
+      - name: Refresh official investment-score source cache
+        if: env.NEED_REFRESH == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python investment_score_source_enricher_v854.py \
+            --output-dir latest \
+            --workers 4 \
+            --timeout 30 \
+            --max-full-account-calls 5000 \
+            | tee /tmp/investment_score_source_v854.txt
+
+          grep -q 'INVESTMENT_SCORE_SOURCE_STATUS=OK' \
+            /tmp/investment_score_source_v854.txt
+          grep -q 'INVESTMENT_SCORE_100_CALCULATED=false' \
+            /tmp/investment_score_source_v854.txt
+          grep -q 'NET_CASH_CALCULATED=false' \
+            /tmp/investment_score_source_v854.txt
+          grep -q 'EV_EBITDA_CALCULATED=false' \
+            /tmp/investment_score_source_v854.txt
+
+          echo "----- 투자종합점수 공식 원천자료 캐시 결과 -----"
+          cat latest/investment_score_source_run_log_latest.txt
+
+      - name: Validate refreshed cache safety
+        if: env.NEED_REFRESH == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          import pandas as pd
+
+          path = Path("latest/investment_score_source_cache_latest.csv")
+          if not path.exists():
+              raise SystemExit("SOURCE_CACHE_MISSING")
+
+          df = pd.read_csv(
+              path,
+              dtype=str,
+              encoding="utf-8-sig",
+          ).fillna("")
+
+          if len(df) == 0:
+              raise SystemExit("SOURCE_CACHE_EMPTY")
+
+          required = {
+              "three_year_source_status",
+              "quarter_source_status",
+              "deep_source_status",
+              "cash_and_cash_equivalents",
+              "core_debt_candidates_json",
+              "lease_liability_candidates_json",
+              "other_financial_liability_candidates_json",
+              "depreciation_amortization_candidates_json",
+              "net_cash_value",
+              "ev_ebitda_value",
+              "investment_score_100",
+              "score_threshold_policy_status",
+          }
+
+          missing = required - set(df.columns)
+          if missing:
+              raise SystemExit(
+                  f"SOURCE_CACHE_COLUMNS_MISSING:{sorted(missing)}"
+              )
+
+          if (
+              df["investment_score_100"]
+              .astype(str)
+              .str.strip()
+              .ne("")
+              .any()
+          ):
+              raise SystemExit("INVESTMENT_SCORE_MUST_REMAIN_EMPTY")
+
+          if (
+              df["net_cash_value"]
+              .astype(str)
+              .str.strip()
+              .ne("")
+              .any()
+          ):
+              raise SystemExit("NET_CASH_MUST_REMAIN_EMPTY")
+
+          if (
+              df["ev_ebitda_value"]
+              .astype(str)
+              .str.strip()
+              .ne("")
+              .any()
+          ):
+              raise SystemExit("EV_EBITDA_MUST_REMAIN_EMPTY")
+
+          if not (
+              df["score_threshold_policy_status"]
+              .astype(str)
+              .eq("NOT_DEFINED")
+              .all()
+          ):
+              raise SystemExit(
+                  "SCORE_THRESHOLD_POLICY_STATUS_INVALID"
+              )
+
+          for column in (
+              "core_debt_candidates_json",
+              "lease_liability_candidates_json",
+              "other_financial_liability_candidates_json",
+              "depreciation_amortization_candidates_json",
+          ):
+              for value in df[column]:
+                  json.loads(value or "[]")
+
+          print(f"SOURCE_CACHE_ROWS={len(df)}")
+          print(
+              "THREE_YEAR_READY="
+              f"{int((df['three_year_source_status'] == 'READY').sum())}"
+          )
+          print(
+              "QUARTER_READY="
+              f"{int((df['quarter_source_status'] == 'READY_Q2_SOURCE').sum())}"
+          )
+          print(
+              "DEEP_READY="
+              f"{int((df['deep_source_status'] == 'OK').sum())}"
+          )
+          print(
+              "RAW_SOURCE_READY="
+              f"{int((df['source_cache_status'] == 'READY_RAW_SOURCE').sum())}"
+          )
+
+          print("NO_SCORE_GENERATION_GUARD=PASS")
+          print("NO_NET_CASH_CALCULATION_GUARD=PASS")
+          print("NO_EV_EBITDA_CALCULATION_GUARD=PASS")
+          PY
+
+      - name: Commit and push refreshed source cache
+        if: env.NEED_REFRESH == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          # workflow 파일은 절대로 stage하지 않는다.
+          git add \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt
+
+          STAGED="$(git diff --cached --name-only)"
+
+          echo "STAGED_FILES_BEGIN"
+          printf '%s\n' "$STAGED"
+          echo "STAGED_FILES_END"
+
+          if printf '%s\n' "$STAGED" \
+            | grep -q '^\.github/workflows/'; then
+            echo "::error::Workflow file unexpectedly staged"
+            exit 1
+          fi
+
+          echo "NO_WORKFLOW_FILE_STAGED=PASS"
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            echo "V854_SOURCE_REFRESH=PASS"
+            exit 0
+          fi
+
+          git commit -m "Refresh V8.5.4 investment score source cache"
+
+          git fetch origin main
+
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            echo "REMOTE_MAIN_CHANGED=true"
+            git rebase origin/main
+          else
+            echo "REMOTE_MAIN_CHANGED=false"
+          fi
+
+          if git diff-tree \
+            --no-commit-id \
+            --name-only \
+            -r HEAD \
+            | grep -q '^\.github/workflows/'; then
+            echo "::error::Final commit unexpectedly contains workflow changes"
+            exit 1
+          fi
+
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "V854_SOURCE_REFRESH=PASS"
+          echo "WORKFLOW_FILES_CHANGED=false"
+          echo "INVESTMENT_SCORE_100_CALCULATED=false"
+
+      - name: Report no refresh required
+        if: env.NEED_REFRESH != 'true'
+        run: |
+          echo "SOURCE_REFRESH_SKIPPED=true"
+          echo "REFRESH_REASON=$REFRESH_REASON"
+          echo "V854_SOURCE_REFRESH=PASS"

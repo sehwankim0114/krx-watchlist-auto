@@ -1,0 +1,285 @@
+name: Probe official KRX sector memberships v8.6.1 auth
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v861-official-sector-membership-auth-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      KRX_ID: ${{ secrets.KRX_ID }}
+      KRX_PW: ${{ secrets.KRX_PW }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install probe dependency
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "pykrx==1.2.8"
+
+      - name: Probe authenticated KRX index memberships
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import contextlib
+          import io
+          import json
+          import os
+          import time
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          OUT = Path("/tmp/v861_probe")
+          OUT.mkdir(parents=True, exist_ok=True)
+          JSON_PATH = OUT / "v861-official-sector-membership-readiness.json"
+          MD_PATH = OUT / "v861-official-sector-membership-readiness.md"
+
+          result = {
+              "probe_version": "2026-09-11-v8.6.1-official-sector-membership-auth-probe",
+              "run_at_kst": datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds"),
+              "repository_write": False,
+              "metric_values_generated": False,
+              "rs_sector_generated": False,
+              "investment_score_100_generated": False,
+              "earnings_outlook_change_generated": False,
+              "confirmed_swing_low_stop_generated": False,
+              "source": "KRX Data Marketplace authenticated session via pykrx 1.2.8",
+              "status": "STARTED",
+              "errors": [],
+          }
+
+          def write_outputs():
+              JSON_PATH.write_text(
+                  json.dumps(result, ensure_ascii=False, indent=2),
+                  encoding="utf-8",
+              )
+              md = [
+                  "# V8.6.1 KRX 공식 지수 구성종목 인증 점검",
+                  "",
+                  f"- 기준일: {result.get('basis_date', '-')}",
+                  f"- 코피표 종목수: {result.get('watchlist_rows', 0)}",
+                  f"- KRX Secret 준비: {result.get('krx_secrets_present', False)}",
+                  f"- KOSPI 지수수: {result.get('kospi_index_ticker_count', 0)}",
+                  f"- 구성종목 조회 성공/실패: "
+                  f"{result.get('index_constituent_fetch', {}).get('success', 0)}/"
+                  f"{result.get('index_constituent_fetch', {}).get('failure', 0)}",
+                  f"- 어떤 KOSPI 지수에도 매핑되지 않은 종목: "
+                  f"{len(result.get('watchlist_without_any_kospi_index_membership', []))}",
+                  f"- 판정: {result.get('status')}",
+                  "",
+                  "## 안전규칙",
+                  "- 로그인 ID/비밀번호 값은 artifact에 저장하지 않습니다.",
+                  "- 업종 RS는 계산하지 않습니다.",
+                  "- 지수 구성종목 소속 근거만 수집합니다.",
+                  "- 여러 지수 소속 중 업종지수를 자동 선택하지 않습니다.",
+                  "- repository commit/push/deploy를 하지 않습니다.",
+                  "",
+                  "## 코피표 종목 지수 소속",
+              ]
+              for item in result.get("mapping_rows", []):
+                  names = [
+                      m.get("index_name") or m.get("index_ticker")
+                      for m in item.get("memberships", [])
+                  ]
+                  md.append(
+                      f"- {item.get('ticker')} {item.get('name')}: "
+                      + (", ".join(names) if names else "매핑 없음")
+                  )
+              if result.get("errors"):
+                  md += ["", "## 오류요약"]
+                  for err in result["errors"][:30]:
+                      md.append(f"- {err}")
+              MD_PATH.write_text("\n".join(md) + "\n", encoding="utf-8")
+
+          has_id = bool(os.getenv("KRX_ID"))
+          has_pw = bool(os.getenv("KRX_PW"))
+          result["krx_secrets_present"] = bool(has_id and has_pw)
+          result["krx_id_present"] = has_id
+          result["krx_pw_present"] = has_pw
+
+          if not result["krx_secrets_present"]:
+              result["status"] = "SECRET_MISSING"
+              result["errors"].append(
+                  "GitHub Actions secrets KRX_ID and/or KRX_PW are not configured."
+              )
+              write_outputs()
+              print("V861_KRX_AUTH_PROBE=SECRET_MISSING")
+              raise SystemExit(0)
+
+          from pykrx import stock
+
+          table_path = Path("api/two_table_v1/kospi.json")
+          if not table_path.is_file():
+              result["status"] = "KOSPI_TABLE_MISSING"
+              result["errors"].append(str(table_path))
+              write_outputs()
+              raise SystemExit(0)
+
+          payload = json.loads(table_path.read_text(encoding="utf-8-sig"))
+          rows = payload.get("rows") or []
+          basis_iso = str(payload.get("basis_date") or "")
+          basis = basis_iso.replace("-", "")
+          result["basis_date"] = basis_iso
+          result["watchlist_rows"] = len(rows)
+
+          watch = {}
+          for row in rows:
+              ticker = str(row.get("ticker") or "").zfill(6)
+              if not ticker:
+                  continue
+              watch[ticker] = {
+                  "ticker": ticker,
+                  "name": row.get("name"),
+                  "sector_theme": row.get("sector_theme"),
+                  "memberships": [],
+              }
+
+          auth_buffer = io.StringIO()
+          try:
+              with contextlib.redirect_stdout(auth_buffer), contextlib.redirect_stderr(auth_buffer):
+                  index_tickers = stock.get_index_ticker_list(
+                      basis, market="KOSPI"
+                  ) or []
+          except Exception as exc:
+              index_tickers = []
+              result["errors"].append("INDEX_LIST:" + repr(exc))
+
+          auth_text = auth_buffer.getvalue()
+          result["auth_log_flags"] = {
+              "login_attempted": "KRX 로그인 시도" in auth_text,
+              "login_completed": "KRX 로그인 완료" in auth_text,
+              "login_failed": "KRX 로그인 실패" in auth_text,
+              "password_change_required": "비밀번호 변경이 필요" in auth_text,
+          }
+          result["kospi_index_ticker_count"] = len(index_tickers)
+
+          index_catalog = []
+          fetch_success = 0
+          fetch_failure = 0
+
+          for idx in index_tickers:
+              rec = {
+                  "index_ticker": str(idx),
+                  "index_name": None,
+                  "constituent_fetch_status": None,
+                  "constituent_count": None,
+              }
+
+              try:
+                  with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                      rec["index_name"] = stock.get_index_ticker_name(str(idx))
+              except Exception as exc:
+                  result["errors"].append(f"NAME:{idx}:{exc!r}")
+
+              try:
+                  with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                      members = stock.get_index_portfolio_deposit_file(
+                          str(idx), date=basis
+                      )
+                  members = [str(x).zfill(6) for x in (members or [])]
+                  rec["constituent_fetch_status"] = "OK"
+                  rec["constituent_count"] = len(members)
+                  fetch_success += 1
+
+                  for ticker in set(members) & set(watch):
+                      watch[ticker]["memberships"].append({
+                          "index_ticker": str(idx),
+                          "index_name": rec["index_name"],
+                      })
+              except Exception as exc:
+                  rec["constituent_fetch_status"] = "FAILED"
+                  rec["error"] = repr(exc)
+                  fetch_failure += 1
+
+              index_catalog.append(rec)
+              time.sleep(0.15)
+
+          no_membership = []
+          distribution = {}
+
+          for ticker, item in watch.items():
+              item["memberships"] = sorted(
+                  item["memberships"],
+                  key=lambda x: (
+                      str(x.get("index_name") or ""),
+                      str(x.get("index_ticker") or ""),
+                  ),
+              )
+              count = len(item["memberships"])
+              distribution[str(count)] = distribution.get(str(count), 0) + 1
+              if count == 0:
+                  no_membership.append(ticker)
+
+          result["index_constituent_fetch"] = {
+              "success": fetch_success,
+              "failure": fetch_failure,
+          }
+          result["membership_count_distribution"] = distribution
+          result["watchlist_without_any_kospi_index_membership"] = no_membership
+          result["mapping_rows"] = list(watch.values())
+          result["index_catalog"] = index_catalog
+
+          if result["auth_log_flags"].get("password_change_required"):
+              result["status"] = "KRX_PASSWORD_CHANGE_REQUIRED"
+          elif result["auth_log_flags"].get("login_failed") and not index_tickers:
+              result["status"] = "KRX_LOGIN_FAILED"
+          elif not index_tickers:
+              result["status"] = "LIMITED_INDEX_LIST_EMPTY"
+          elif fetch_success == 0:
+              result["status"] = "LIMITED_CONSTITUENT_FETCH_UNAVAILABLE"
+          elif no_membership:
+              result["status"] = "LIMITED_PARTIAL_MEMBERSHIP"
+          else:
+              result["status"] = "READY_SOURCE_EVIDENCE_ONLY"
+
+          write_outputs()
+
+          print("V861_KRX_AUTH_PROBE=" + result["status"])
+          print("KRX_SECRETS_PRESENT=true")
+          print("REPOSITORY_WRITE=false")
+          print("RS_SECTOR_GENERATED=false")
+          PY
+
+      - name: Safety check
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f /tmp/v861_probe/v861-official-sector-membership-readiness.json
+          test -f /tmp/v861_probe/v861-official-sector-membership-readiness.md
+          git diff --exit-code
+          git diff --cached --exit-code
+          echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
+          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
+
+      - name: Upload V8.6.1 probe artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: official-sector-membership-readiness-v861
+          path: |
+            /tmp/v861_probe/v861-official-sector-membership-readiness.json
+            /tmp/v861_probe/v861-official-sector-membership-readiness.md
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,151 @@
+name: Align API validator with Action schema v7.1.2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v869a-align-api-validator-action-schema
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Align validate_api_sync.py with Action schema 7.1.2
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("validate_api_sync.py")
+          text = path.read_text(encoding="utf-8")
+
+          old = '"version: 7.1.1",'
+          new = '"version: 7.1.2",'
+
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif new not in text:
+              raise SystemExit("ACTION_SCHEMA_VERSION_TOKEN_NOT_FOUND")
+
+          anchor = '''            "name: market",
+        )'''
+          replacement = '''            "name: market",
+            "minItems: 14",
+            "maxItems: 15",
+        )'''
+
+          if '"minItems: 14",' not in text or '"maxItems: 15",' not in text:
+              if anchor not in text:
+                  raise SystemExit("ACTION_SCHEMA_REQUIRED_TOKENS_ANCHOR_NOT_FOUND")
+              text = text.replace(anchor, replacement, 1)
+
+          old_script = 'SCRIPT_VERSION = "validate_api_sync.py v1.9_single_recommendation_icon_v833"'
+          new_script = 'SCRIPT_VERSION = "validate_api_sync.py v1.10_action_schema_712_dual_width"'
+          if old_script in text:
+              text = text.replace(old_script, new_script, 1)
+          elif new_script not in text:
+              raise SystemExit("VALIDATOR_SCRIPT_VERSION_ANCHOR_NOT_FOUND")
+
+          path.write_text(text, encoding="utf-8")
+          print("VALIDATOR_ACTION_SCHEMA_VERSION=7.1.2")
+          print("VALIDATOR_DUAL_WIDTH_CONTRACT=14_TO_15")
+          print("VALIDATOR_PATCH=PASS")
+          PY
+
+      - name: Validate patched API validator
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m py_compile validate_api_sync.py
+
+          grep -F '"version: 7.1.2",' validate_api_sync.py
+          grep -F '"minItems: 14",' validate_api_sync.py
+          grep -F '"maxItems: 15",' validate_api_sync.py
+
+          python validate_api_sync.py --api-dir api --check-only
+
+          echo "API_VALIDATOR_CHECK_ONLY=PASS"
+          echo "ACTION_SCHEMA_712_CONTRACT=PASS"
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "CHANGED_FILES_BEGIN"
+          git status --short
+          echo "CHANGED_FILES_END"
+
+          python - <<'PY'
+          import subprocess
+
+          allowed = {"validate_api_sync.py"}
+          out = subprocess.check_output(["git", "status", "--porcelain"], text=True)
+
+          changed = set()
+          for line in out.splitlines():
+              if not line.strip():
+                  continue
+              p = line[3:]
+              if " -> " in p:
+                  p = p.split(" -> ", 1)[1]
+              changed.add(p)
+
+          unexpected = changed - allowed
+          if unexpected:
+              raise SystemExit("UNEXPECTED_CHANGED_FILES=" + repr(sorted(unexpected)))
+
+          if changed:
+              print("CHANGE_SCOPE=PASS")
+          else:
+              print("NO_CHANGES_ALREADY_ALIGNED=true")
+          PY
+
+      - name: Commit and push validator alignment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add validate_api_sync.py
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            exit 0
+          fi
+
+          git commit -m "Align API validator with Action schema 7.1.2"
+
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          fi
+
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "PRODUCTION_DATA_CHANGED=false"

@@ -73,11 +73,17 @@ jobs:
               raise SystemExit("SCHEMA_WORKER_DOMAIN_MISMATCH")
           if f"operationId: {OPERATION_ID}" not in schema_text:
               raise SystemExit("REQUEST_PRICE_OPERATION_ID_MISSING")
-          if "처음 10개씩, 실패만 5개씩, 남은 실패는 2개씩 재시도" not in readme_text:
+
+          # YAML folded/block descriptions can contain physical line breaks.
+          # Normalize all whitespace before checking the semantic contract.
+          readme_norm = " ".join(readme_text.split())
+          schema_norm = " ".join(schema_text.split())
+
+          if "처음 10개씩, 실패만 5개씩, 남은 실패는 2개씩 재시도" not in readme_norm:
               raise SystemExit("README_RETRY_POLICY_MISSING")
-          if "at most 10 items per initial batch" not in schema_text:
+          if "at most 10 items per initial batch" not in schema_norm:
               raise SystemExit("SCHEMA_INITIAL_BATCH_POLICY_MISSING")
-          if "at most 5 and 2" not in schema_text:
+          if "retry only failures in batches of at most 5 and 2" not in schema_norm:
               raise SystemExit("SCHEMA_RETRY_BATCH_POLICY_MISSING")
 
           rows = source.get("rows") or []

@@ -90,7 +90,7 @@ function rejected(result, code, http = 409) {
 
 await test("health advertises guarded routes without activating them", async s => {
   const r = await s.request("/health");
-  assert.equal(r.payload.build_version, "1.4.0-two-table-guarded-preview");
+  assert.equal(r.payload.build_version, "1.4.1-two-table-dual-schema");
   assert.equal(r.payload.two_table_proxy.paths.length, 3);
   assert.equal(r.payload.two_table_proxy.standalone_swing_table_enabled, false);
   assert.equal(s.calls.length, 0);

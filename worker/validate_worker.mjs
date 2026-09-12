@@ -335,7 +335,7 @@ const healthResponse = await __worker_default__.fetch(
 );
 const health = await healthResponse.json();
 assert.equal(health.status, "OK");
-assert.equal(health.build_version, "1.4.0-two-table-guarded-preview");
+assert.equal(health.build_version, "1.4.1-two-table-dual-schema");
 assert.equal(
   health.github_proxy_policy.us_watchlist_response_mode,
   "COMPACT_FOR_CUSTOM_GPT",

@@ -17,7 +17,7 @@
  */
 
 const SERVICE_VERSION = "1.2.0";
-const BUILD_VERSION = "1.4.0-two-table-guarded-preview";
+const BUILD_VERSION = "1.4.1-two-table-dual-schema";
 const MAX_ITEMS = 50;
 const FETCH_TIMEOUT_MS = 8000;
 const CONCURRENCY = 4;
@@ -235,9 +235,19 @@ const TWO_TABLE_PATHS = new Map([
   ["/tables/v1/decliners", "decliners"],
   ["/tables/v1/decliners24", "decliners24"],
 ]);
-const TWO_TABLE_COLUMNS = ["name", "ticker", "official_close", "run", "streak",
+const TWO_TABLE_COLUMNS_V1 = ["name", "ticker", "official_close", "run", "streak",
   "range_3m", "swing", "ma", "returns", "rs_kospi_pp", "atr14", "activity",
   "analysis", "sector_theme"];
+const TWO_TABLE_COLUMNS_V2 = ["name", "ticker", "official_close", "run", "streak",
+  "range_3m", "swing", "ma", "returns", "rs_kospi_pp", "atr14", "activity",
+  "analysis", "rs_sector_pp", "sector_theme"];
+
+function acceptedTwoTableColumns(columns) {
+  const encoded = JSON.stringify(columns);
+  if (encoded === JSON.stringify(TWO_TABLE_COLUMNS_V1)) return TWO_TABLE_COLUMNS_V1;
+  if (encoded === JSON.stringify(TWO_TABLE_COLUMNS_V2)) return TWO_TABLE_COLUMNS_V2;
+  return null;
+}
 const TWO_TABLE_MAX_BYTES = 30000;
 const TWO_TABLE_MAX_CONTROL_BYTES = 64000;
 
@@ -429,10 +439,11 @@ async function verifyTwoTablePage(source, manifest, query, control) {
   twoTableRequire(p.table_id === query.table && p.page === query.page && p.page_count === control.pageCount
     && p.total_rows === control.entry.row_count && Array.isArray(p.rows)
     && p.row_count === expectedRows && p.rows.length === expectedRows, "TWO_TABLE_PAGE_ROW_COUNT_MISMATCH");
-  twoTableRequire(JSON.stringify(p.columns) === JSON.stringify(TWO_TABLE_COLUMNS), "TWO_TABLE_COLUMNS_MISMATCH");
+  const acceptedColumns = acceptedTwoTableColumns(p.columns);
+  twoTableRequire(Boolean(acceptedColumns), "TWO_TABLE_COLUMNS_MISMATCH");
   const tickers = new Set();
   for (const row of p.rows) {
-    twoTableRequire(Array.isArray(row) && row.length === TWO_TABLE_COLUMNS.length
+    twoTableRequire(Array.isArray(row) && row.length === acceptedColumns.length
       && typeof row[0] === "string" && typeof row[1] === "string" && /^[0-9]{6}$/.test(row[1])
       && Number.isFinite(row[2]) && row[2] > 0, "TWO_TABLE_ROW_INVALID");
     twoTableRequire(!tickers.has(row[1]), "TWO_TABLE_DUPLICATE_TICKER");

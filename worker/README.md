@@ -3,7 +3,7 @@
 이 폴더는 Custom GPT 단일 Action 도메인의 배포 원본과 회귀검증기를 보관합니다.
 
 - 배포 도메인: `https://krx-live-price-ksh.diaconos.workers.dev`
-- 이번 배포 대상: `1.4.0-two-table-guarded-preview` (실제 배포 여부는 `/health`로 확인)
+- 이번 배포 대상: `1.4.1-two-table-dual-schema` (실제 배포 여부는 `/health`로 확인)
 - 운영 원본: `krx-live-price-worker.js`
 - 회귀검증기: `validate_worker.mjs`
 - 새 두 표 전달 검사: `validate_two_table_proxy_v852.mjs`
@@ -55,3 +55,10 @@ node worker/validate_two_table_proxy_v852.mjs .
 ## 배포 원칙
 
 Cloudflare Worker 편집기에는 `krx-live-price-worker.js` 전체를 배포합니다. 배포 후 `/health`의 `build_version`이 배포 대상 버전과 일치하는지 확인합니다. Worker 배포 자체는 GitHub Actions가 자동으로 수행하지 않습니다. GPT 지침·Action은 대응하는 운영 데이터 계약이 준비된 뒤 별도 교체합니다.
+
+## V1.4.1 이중 스키마 호환
+
+- 기존 14열 compact 표와 `rs_sector_pp`가 추가된 15열 compact 표를 모두 허용합니다.
+- 허용된 두 스키마 외의 열 구성·순서 변경은 계속 차단합니다.
+- Worker는 업종RS 값을 계산하지 않고, 검증된 API 값을 그대로 전달합니다.
+- 업종RS production 승격 전에는 기존 14열 데이터가 그대로 동작합니다.

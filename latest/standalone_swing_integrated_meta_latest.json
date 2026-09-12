@@ -1,0 +1,59 @@
+{
+  "contract_version": "2026-09-12-v8.7.6-standalone-swing-integrated-source",
+  "script_version": "standalone_swing_integrated_v876.py v1.0.0-source-only",
+  "status": "READY_SOURCE_ONLY",
+  "source_only": true,
+  "standalone_swing_table_enabled": false,
+  "action_route_enabled": false,
+  "request_time_price_eligible": false,
+  "basis_date": "2026-09-11",
+  "row_count": 235,
+  "market_counts": {
+    "KOSPI": 210,
+    "KOSDAQ": 25
+  },
+  "return_6m_ready_count": 234,
+  "return_6m_missing_count": 1,
+  "kospi_sector_rs_ready_count": 210,
+  "kosdaq_sector_rs_null_count": 25,
+  "pending_metrics": [
+    "return_1w",
+    "return_ytd",
+    "return_52w",
+    "rsi",
+    "macd",
+    "investment_score_100",
+    "earnings_outlook_change",
+    "confirmed_swing_low_stop"
+  ],
+  "metric_glossary_version": "2026-09-12-v8.7.0-sector-rs-production",
+  "metric_glossary_footer_key": "compact_footer_text",
+  "source_lineage": {
+    "swing_contract_version": "2026-09-11-v8.6.1-standalone-swing-source-cache",
+    "extended_returns_contract_version": "2026-09-12-v8.7.2-standalone-swing-6m-return-source",
+    "sector_rs_contract_version": "2026-09-12-v8.7.5-standalone-swing-sector-rs-source"
+  },
+  "source_sha256": {
+    "latest/standalone_swing_source_latest.json": "0b9b2ffa64de9944a66ab3a9e88c51501d60948226e9ed236729c442e3a4ea28",
+    "latest/standalone_swing_extended_returns_latest.json": "7f76c3e40f9eb528c513a3c88ccb428b4e4715e682a4a8b7008cac94b97da6e8",
+    "latest/standalone_swing_sector_rs_latest.json": "6d58fb44722ed750fa365471d70fd426aecaede7bc7e32e5e7079d0eff780d5b",
+    "latest/stock_table_metric_glossary_latest.json": "28330039c7ee83dd483780235a1a19532238cd5b4fd202bff608c40936556d85"
+  },
+  "safety": {
+    "standalone_swing_table_enabled": false,
+    "action_route_enabled": false,
+    "production_table_changed": false,
+    "worker_changed": false,
+    "metric_formula_changed": false,
+    "request_time_price_substitution": false,
+    "return_1w_calculated": false,
+    "return_ytd_calculated": false,
+    "return_52w_calculated": false,
+    "rsi_calculated": false,
+    "macd_calculated": false,
+    "investment_score_100_calculated": false,
+    "earnings_outlook_change_calculated": false,
+    "confirmed_swing_low_stop_calculated": false,
+    "kosdaq_sector_mapping_invented": false
+  }
+}

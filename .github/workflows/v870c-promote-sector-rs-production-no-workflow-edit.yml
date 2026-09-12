@@ -1,0 +1,274 @@
+name: Promote official sector RS to production v8.7.0c
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v870c-promote-sector-rs-production
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      TZ: Asia/Seoul
+      KRX_ID: ${{ secrets.KRX_ID }}
+      KRX_PW: ${{ secrets.KRX_PW }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install replay parser
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install "PyYAML>=6.0,<7"
+
+      - name: Verify original V8.7.0 workflow source
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=".github/workflows/v870-promote-sector-rs-production.yml"
+          test -f "$SOURCE"
+          ACTUAL_SHA="$(git hash-object "$SOURCE")"
+          EXPECTED_SHA="ef67d785d51ca532d335f6b1dfc06e52e868c5d4"
+          echo "V870_SOURCE_BLOB_SHA=$ACTUAL_SHA"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA" || {
+            echo "::error::Original V8.7.0 workflow changed; refusing replay."
+            exit 1
+          }
+          echo "V870_SOURCE_IDENTITY=PASS"
+
+      - name: Prepare and validate production without editing workflow files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+          import yaml
+
+          source = Path(".github/workflows/v870-promote-sector-rs-production.yml")
+          data = yaml.safe_load(source.read_text(encoding="utf-8"))
+          steps = data["jobs"]["promote"]["steps"]
+
+          skip_names = {
+              "Wire V8.7.0 into daily Build API JSON",
+              "Commit and push V8.7.0 production promotion",
+          }
+          run_steps = [
+              step for step in steps
+              if isinstance(step, dict)
+              and step.get("run")
+              and str(step.get("name") or "") not in skip_names
+          ]
+
+          fixed_count_pattern = re.compile(
+              r'(?m)^(?P<indent>[ \t]*)assert audit\["unique_ticker_count"\]\s*==\s*136\s*\n'
+              r'(?P=indent)assert audit\["rs_values_ready"\]\s*==\s*audit\["rs_values_expected"\]\s*==\s*272\s*$'
+          )
+
+          print(f"V870C_PREP_RUN_STEP_COUNT={len(run_steps)}")
+
+          for idx, step in enumerate(run_steps, start=1):
+              name = str(step.get("name") or f"run-step-{idx}")
+              script = str(step["run"])
+
+              if name == "Generate and validate V8.7.0 production bundle":
+                  match = fixed_count_pattern.search(script)
+                  if not match:
+                      raise SystemExit("V870_FIXED_COUNT_ASSERTIONS_NOT_FOUND")
+                  indent = match.group("indent")
+                  replacement = "\n".join([
+                      indent + 'expected_unique = len({',
+                      indent + '    row["ticker"]',
+                      indent + '    for table in ("kospi", "decliners", "decliners24")',
+                      indent + '    for row in json.loads((base / f"{table}.json").read_text(encoding="utf-8"))["rows"]',
+                      indent + '})',
+                      indent + 'assert audit["unique_ticker_count"] == expected_unique',
+                      indent + 'assert audit["rs_values_ready"] == audit["rs_values_expected"] == expected_unique * 2',
+                  ])
+                  script = fixed_count_pattern.sub(replacement, script, count=1)
+                  print("V870C_DYNAMIC_UNIQUE_TICKER_VALIDATION=PATCHED")
+
+              print(f"::group::V870C {idx}/{len(run_steps)} - {name}")
+              result = subprocess.run(
+                  ["bash", "-lc", script],
+                  cwd=".",
+                  env=os.environ.copy(),
+                  text=True,
+              )
+              print("::endgroup::")
+              if result.returncode != 0:
+                  raise SystemExit(
+                      f"V870C_PREP_STEP_FAILED name={name!r} returncode={result.returncode}"
+                  )
+
+          print("V870C_PRECOMMIT_PREPARATION=PASS")
+          PY
+
+      - name: Verify no workflow file was changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git status --porcelain -- .github/workflows | grep -q .; then
+            echo "::error::A workflow file was modified; refusing push."
+            git status --short -- .github/workflows
+            exit 1
+          fi
+          echo "V870C_NO_WORKFLOW_FILE_CHANGE=PASS"
+
+      - name: Verify production bundle before push
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          status = json.loads(Path("api/status.json").read_text(encoding="utf-8"))
+          assert status["api_sync_ok"] is True
+          assert status["official_fresh_now"] is True
+          assert status["safe_to_analyze_as_latest"] is True
+          assert status["confirmed_basis_date"] == "2026-09-11"
+
+          base = Path("api/two_table_v1")
+          manifest = json.loads((base / "manifest.json").read_text(encoding="utf-8"))
+
+          assert manifest["version"] == "2026-09-12-v8.7.0-sector-rs-production-release"
+          assert manifest["release_stage"] == "PRODUCTION"
+          assert manifest["production_activation_allowed"] is True
+          assert manifest["custom_gpt_route_enabled"] is True
+          assert manifest["safe_to_analyze_as_latest"] is True
+          assert manifest["basis_date"] == "2026-09-11"
+          assert "rs_sector" not in manifest.get("pending", [])
+          assert manifest["explicit_missing"] == [
+              "investment_score_100",
+              "earnings_outlook_change",
+              "confirmed_swing_low_stop",
+          ]
+
+          unique = set()
+          total_rows = 0
+          max_bytes = 0
+          for table in ("kospi", "decliners", "decliners24"):
+              canonical = json.loads((base / f"{table}.json").read_text(encoding="utf-8"))
+              total_rows += canonical["row_count"]
+              for row in canonical["rows"]:
+                  unique.add(row["ticker"])
+                  rs = row["metrics"]["rs_sector_pp"]
+                  assert isinstance(rs["1"], (int, float)) and not isinstance(rs["1"], bool)
+                  assert isinstance(rs["3"], (int, float)) and not isinstance(rs["3"], bool)
+                  assert "rs_sector" not in (row["metrics"].get("missing") or {})
+              for page_name in manifest["tables"][table]["pages"]:
+                  raw = (base / page_name).read_bytes()
+                  max_bytes = max(max_bytes, len(raw))
+                  page = json.loads(raw)
+                  assert len(page["columns"]) == 15
+                  assert page["columns"][13] == "rs_sector_pp"
+                  assert all(len(row) == 15 for row in page["rows"])
+                  assert len(raw) <= 28500
+
+          audit = json.loads(Path("latest/sector_rs_source_latest.json").read_text(encoding="utf-8"))
+          assert audit["unique_ticker_count"] == len(unique)
+          assert audit["rs_values_ready"] == audit["rs_values_expected"] == len(unique) * 2
+
+          print(f"V870C_BASIS_DATE={manifest['basis_date']}")
+          print(f"V870C_TABLE_ROWS={total_rows}")
+          print(f"V870C_UNIQUE_TICKERS={len(unique)}")
+          print(f"V870C_RS_VALUES={audit['rs_values_ready']}/{audit['rs_values_expected']}")
+          print(f"V870C_MAX_COMPACT_BYTES={max_bytes}")
+          print("V870C_PREPUSH_PRODUCTION_VERIFICATION=PASS")
+          PY
+
+      - name: Commit and push production files only
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            build_stock_table_preview_v850.py \
+            config/two_table_release.json \
+            docs/sector_rs_contract_v870.md \
+            latest/stock_table_metric_glossary_latest.json \
+            latest/sector_rs_source_latest.json \
+            sector_rs_source_v870.py \
+            two_table_release_v870.py \
+            api/two_table_v1
+
+          echo "STAGED_FILES_BEGIN"
+          git diff --cached --name-status
+          echo "STAGED_FILES_END"
+
+          if git diff --cached --quiet; then
+            echo "::error::No production changes staged."
+            exit 1
+          fi
+
+          if git diff --cached --name-only | grep -q '^\.github/workflows/'; then
+            echo "::error::Workflow file accidentally staged."
+            exit 1
+          fi
+
+          git commit -m "Promote official KRX sector RS to production"
+
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          fi
+
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "RS_SECTOR_PRODUCTION=true"
+          echo "DAILY_BUILD_WIRING_PENDING=true"
+
+      - name: Final post-push verification
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git status --short
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(
+              Path("api/two_table_v1/manifest.json").read_text(encoding="utf-8")
+          )
+          audit = json.loads(
+              Path("latest/sector_rs_source_latest.json").read_text(encoding="utf-8")
+          )
+
+          assert manifest["version"] == "2026-09-12-v8.7.0-sector-rs-production-release"
+          assert "rs_sector" not in manifest.get("pending", [])
+          assert audit["rs_values_ready"] == audit["rs_values_expected"]
+
+          print("V870C_FINAL_POST_PUSH_VERIFICATION=PASS")
+          print("RS_SECTOR_PRODUCTION=true")
+          print("DAILY_BUILD_WIRING_PENDING=true")
+          print("REMAINING_MISSING_FIELDS=investment_score_100,earnings_outlook_change,confirmed_swing_low_stop")
+          PY

@@ -1,0 +1,301 @@
+name: Dry-run dual-schema Worker compatibility v8.6.7
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v867-dual-schema-worker-dryrun
+  cancel-in-progress: false
+
+jobs:
+  dryrun:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build temp dual-schema Worker candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v867
+          mkdir -p /tmp/v867
+          cp -a . /tmp/v867/repo-current
+          cp -a . /tmp/v867/repo-v2fixture
+
+          python - <<'PY'
+          from pathlib import Path
+
+          for root in (Path("/tmp/v867/repo-current"), Path("/tmp/v867/repo-v2fixture")):
+              worker = root / "worker/krx-live-price-worker.js"
+              text = worker.read_text(encoding="utf-8")
+
+              old_cols = '''const TWO_TABLE_COLUMNS = ["name", "ticker", "official_close", "run", "streak",
+                "range_3m", "swing", "ma", "returns", "rs_kospi_pp", "atr14", "activity",
+                "analysis", "sector_theme"];'''
+
+              new_cols = '''const TWO_TABLE_COLUMNS_V1 = ["name", "ticker", "official_close", "run", "streak",
+                "range_3m", "swing", "ma", "returns", "rs_kospi_pp", "atr14", "activity",
+                "analysis", "sector_theme"];
+              const TWO_TABLE_COLUMNS_V2 = ["name", "ticker", "official_close", "run", "streak",
+                "range_3m", "swing", "ma", "returns", "rs_kospi_pp", "atr14", "activity",
+                "analysis", "rs_sector_pp", "sector_theme"];
+
+              function acceptedTwoTableColumns(columns) {
+                const encoded = JSON.stringify(columns);
+                if (encoded === JSON.stringify(TWO_TABLE_COLUMNS_V1)) return TWO_TABLE_COLUMNS_V1;
+                if (encoded === JSON.stringify(TWO_TABLE_COLUMNS_V2)) return TWO_TABLE_COLUMNS_V2;
+                return null;
+              }'''
+
+              if old_cols not in text:
+                  raise SystemExit("TWO_TABLE_COLUMNS literal not found")
+              text = text.replace(old_cols, new_cols, 1)
+
+              old_check = '''twoTableRequire(JSON.stringify(p.columns) === JSON.stringify(TWO_TABLE_COLUMNS), "TWO_TABLE_COLUMNS_MISMATCH");
+                const tickers = new Set();
+                for (const row of p.rows) {
+                  twoTableRequire(Array.isArray(row) && row.length === TWO_TABLE_COLUMNS.length
+                    && typeof row[0] === "string" && typeof row[1] === "string" && /^[0-9]{6}$/.test(row[1])
+                    && Number.isFinite(row[2]) && row[2] > 0, "TWO_TABLE_ROW_INVALID");'''
+
+              new_check = '''const acceptedColumns = acceptedTwoTableColumns(p.columns);
+                twoTableRequire(Boolean(acceptedColumns), "TWO_TABLE_COLUMNS_MISMATCH");
+                const tickers = new Set();
+                for (const row of p.rows) {
+                  twoTableRequire(Array.isArray(row) && row.length === acceptedColumns.length
+                    && typeof row[0] === "string" && typeof row[1] === "string" && /^[0-9]{6}$/.test(row[1])
+                    && Number.isFinite(row[2]) && row[2] > 0, "TWO_TABLE_ROW_INVALID");'''
+
+              if old_check not in text:
+                  raise SystemExit("TWO_TABLE_COLUMNS validation block not found")
+              text = text.replace(old_check, new_check, 1)
+
+              text = text.replace(
+                  'const BUILD_VERSION = "1.4.0-two-table-guarded-preview";',
+                  'const BUILD_VERSION = "1.4.1-two-table-dual-schema";',
+                  1,
+              )
+
+              marker = '''          standalone_swing_table_enabled: false,
+                values_recalculated: false,
+              },'''
+              replacement = '''          standalone_swing_table_enabled: false,
+                values_recalculated: false,
+                compact_schema_versions: ["V1_14_COLUMNS", "V2_15_COLUMNS_RS_SECTOR"],
+              },'''
+              if marker not in text:
+                  raise SystemExit("health two_table_proxy marker not found")
+              text = text.replace(marker, replacement, 1)
+
+              worker.write_text(text, encoding="utf-8")
+
+              for rel in ("worker/validate_worker.mjs", "worker/validate_two_table_proxy_v852.mjs"):
+                  p = root / rel
+                  v = p.read_text(encoding="utf-8")
+                  v = v.replace(
+                      '"1.4.0-two-table-guarded-preview"',
+                      '"1.4.1-two-table-dual-schema"',
+                  )
+                  p.write_text(v, encoding="utf-8")
+
+          print("TEMP_WORKER_PATCHED=true")
+          PY
+
+      - name: Syntax check dual-schema candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check /tmp/v867/repo-current/worker/krx-live-price-worker.js
+          grep -F 'V2_15_COLUMNS_RS_SECTOR' /tmp/v867/repo-current/worker/krx-live-price-worker.js
+          echo "DUAL_SCHEMA_WORKER_SYNTAX=PASS"
+
+      - name: Run full current 14-column regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/v867/repo-current
+          node worker/validate_worker.mjs .
+          node worker/validate_two_table_proxy_v852.mjs .
+          echo "CURRENT_14_COLUMN_REGRESSION=PASS"
+
+      - name: Convert second temp repo to synthetic 15-column transport fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path("/tmp/v867/repo-v2fixture")
+          base = root / "api/two_table_v1"
+          manifest_path = base / "manifest.json"
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+          old_cols = [
+              "name", "ticker", "official_close", "run", "streak",
+              "range_3m", "swing", "ma", "returns", "rs_kospi_pp",
+              "atr14", "activity", "analysis", "sector_theme",
+          ]
+          new_cols = [
+              "name", "ticker", "official_close", "run", "streak",
+              "range_3m", "swing", "ma", "returns", "rs_kospi_pp",
+              "atr14", "activity", "analysis", "rs_sector_pp", "sector_theme",
+          ]
+
+          transformed = 0
+          max_bytes = 0
+
+          for table in ("kospi", "decliners", "decliners24"):
+              entry = manifest["tables"][table]
+              for filename in entry["pages"]:
+                  path = base / filename
+                  payload = json.loads(path.read_text(encoding="utf-8"))
+                  if payload.get("columns") != old_cols:
+                      raise SystemExit(f"unexpected source columns: {filename}")
+
+                  payload["columns"] = new_cols
+                  payload["rows"] = [
+                      row[:-1] + [[0.0, 0.0], row[-1]]
+                      for row in payload["rows"]
+                  ]
+
+                  if any(len(row) != 15 for row in payload["rows"]):
+                      raise SystemExit(f"bad synthetic row width: {filename}")
+
+                  raw = json.dumps(
+                      payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")
+                  ).encode("utf-8")
+                  path.write_bytes(raw)
+                  manifest["files"][filename] = {
+                      "sha256": hashlib.sha256(raw).hexdigest(),
+                      "bytes": len(raw),
+                  }
+                  transformed += len(payload["rows"])
+                  max_bytes = max(max_bytes, len(raw))
+                  if len(raw) > 30000:
+                      raise SystemExit(f"synthetic page exceeds 30KB: {filename}:{len(raw)}")
+
+          manifest_path.write_text(
+              json.dumps(manifest, ensure_ascii=False, allow_nan=False, separators=(",", ":")),
+              encoding="utf-8",
+          )
+
+          print(f"SYNTHETIC_15_COLUMN_ROWS={transformed}")
+          print(f"SYNTHETIC_15_COLUMN_MAX_BYTES={max_bytes}")
+          PY
+
+      - name: Run guarded-route regression against 15-column fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/v867/repo-v2fixture
+          node worker/validate_two_table_proxy_v852.mjs .
+          echo "FUTURE_15_COLUMN_REGRESSION=PASS"
+
+      - name: Write V8.6.7 report
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          out = Path("/tmp/v867")
+          report = {
+              "probe_version": "2026-09-12-v8.6.7-dual-schema-worker-compatibility-dryrun",
+              "run_at_kst": datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds"),
+              "status": "READY_DUAL_SCHEMA_WORKER_FOR_STAGED_DEPLOYMENT",
+              "repository_write": False,
+              "worker_deployed": False,
+              "production_modified": False,
+              "candidate_build_version": "1.4.1-two-table-dual-schema",
+              "supported_compact_schemas": {
+                  "current": {
+                      "name": "V1_14_COLUMNS",
+                      "column_count": 14,
+                      "rs_sector_pp": False,
+                      "regression": "PASS",
+                  },
+                  "future": {
+                      "name": "V2_15_COLUMNS_RS_SECTOR",
+                      "column_count": 15,
+                      "rs_sector_pp": True,
+                      "regression": "PASS",
+                  },
+              },
+              "safety": {
+                  "existing_routes_preserved": True,
+                  "values_recalculated_by_worker": False,
+                  "current_14_column_production_remains_accepted": True,
+                  "future_15_column_pages_accepted": True,
+                  "unknown_or_reordered_columns_still_rejected": True,
+              },
+          }
+          (out / "v867-dual-schema-worker-readiness.json").write_text(
+              json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+          )
+          lines = [
+              "# V8.6.7 Worker 이중 스키마 호환 Dry-run",
+              "",
+              "- 판정: READY_DUAL_SCHEMA_WORKER_FOR_STAGED_DEPLOYMENT",
+              "- 후보 Worker: 1.4.1-two-table-dual-schema",
+              "- 현재 14열 production 회귀검증: PASS",
+              "- 향후 15열(rs_sector_pp 포함) transport 회귀검증: PASS",
+              "- 알 수 없는/열순서 변경 스키마: 계속 차단",
+              "- Worker 값 재계산: 없음",
+              "- 저장소 변경: 없음",
+              "- Worker 실제 배포: 없음",
+              "- production 데이터 변경: 없음",
+              "",
+              "다음 단계는 이 하위호환 Worker 소스를 저장소에 설치한 뒤 Cloudflare에 먼저 배포하고,",
+              "`/health`에서 `build_version=1.4.1-two-table-dual-schema`를 확인하는 것입니다.",
+              "그 확인 뒤에만 15열 업종RS production 데이터를 승격해야 합니다.",
+          ]
+          (out / "v867-dual-schema-worker-readiness.md").write_text(
+              "\n".join(lines) + "\n", encoding="utf-8"
+          )
+          (out / "krx-live-price-worker-v141-dual-schema.js").write_text(
+              (out / "repo-current/worker/krx-live-price-worker.js").read_text(encoding="utf-8"),
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Safety check
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -f /tmp/v867/v867-dual-schema-worker-readiness.json
+          test -f /tmp/v867/v867-dual-schema-worker-readiness.md
+          test -f /tmp/v867/krx-live-price-worker-v141-dual-schema.js
+          echo "ORIGINAL_REPOSITORY_UNCHANGED=PASS"
+          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
+
+      - name: Upload V8.6.7 artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: dual-schema-worker-readiness-v867
+          path: |
+            /tmp/v867/v867-dual-schema-worker-readiness.json
+            /tmp/v867/v867-dual-schema-worker-readiness.md
+            /tmp/v867/krx-live-price-worker-v141-dual-schema.js
+          if-no-files-found: error
+          retention-days: 14

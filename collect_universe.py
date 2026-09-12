@@ -42,7 +42,7 @@ except Exception:  # GitHub Actions에 dotenv가 없어도 실행되게 처리
         return False
 
 
-SCRIPT_VERSION = "collect_universe.py v4.6.1_kosdaq_candidates_gainer_filter_actual_date_log_one_month_metrics_v6"
+SCRIPT_VERSION = "collect_universe.py v4.6.2_market_metric_20_session_elasticity_v6"
 
 OPENAPI_STOCK_URLS = {
     "KOSPI": "http://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
@@ -509,8 +509,11 @@ def build_market_summary(hist: pd.DataFrame, market: str, low_liq_krw: float, lo
             else np.nan
         )
         # ONE_MONTH_METRICS_V6_END
-        avg_abs = g["close"].diff().abs().dropna().mean()
-        avg_pct = (g["close"].pct_change().abs() * 100).dropna().mean()
+        # MARKET_METRIC_20_SESSION_ELASTICITY_V6_BEGIN
+        move_window = g["close"].dropna().tail(21)
+        avg_abs = move_window.diff().abs().dropna().mean()
+        avg_pct = move_window.pct_change().abs().mul(100).dropna().tail(20).mean()
+        # MARKET_METRIC_20_SESSION_ELASTICITY_V6_END
         wave = calc_wave_period(g["close"])
 
         range_pct = ((high - low) / low * 100) if low > 0 else np.nan

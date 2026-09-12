@@ -1,0 +1,19 @@
+{
+  "version": "2026-09-12-v8.7.5-price-elasticity-20-session-source",
+  "generated_at_kst": "2026-09-12T18:35:13+09:00",
+  "status": "READY_SOURCE_ONLY",
+  "basis_date": "2026-09-11",
+  "production_unique_tickers": 112,
+  "ready_tickers": 112,
+  "limited_tickers": 0,
+  "formula": "mean(abs(close_t/close_t_minus_1-1)*100) for latest 20 trading-session returns",
+  "close_observations_required": 21,
+  "daily_return_observations_required": 20,
+  "source": "official KRX compact 260-session history cache",
+  "hard_guards": {
+    "investment_score_100_calculated": false,
+    "score_thresholds_defined": false,
+    "avg_daily_range_20_pct_substituted": false,
+    "production_api_changed": false
+  }
+}

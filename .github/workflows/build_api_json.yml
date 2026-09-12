@@ -32,6 +32,8 @@ jobs:
     env:
       TZ: Asia/Seoul
       DART_API_KEY: ${{ secrets.DART_API_KEY }}
+      KRX_ID: ${{ secrets.KRX_ID }}
+      KRX_PW: ${{ secrets.KRX_PW }}
 
     steps:
       - name: Checkout repository
@@ -49,6 +51,7 @@ jobs:
           set -euo pipefail
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          python -m pip install "pykrx==1.2.8"
 
       - name: Synchronize canonical official status
         run: |
@@ -102,17 +105,18 @@ jobs:
           python -m py_compile validate_api_sync.py
           python validate_api_sync.py --api-dir api
 
-      - name: Publish V8.5.3 two-table production bundle
+      - name: Publish V8.7.0 two-table production bundle with sector RS
         run: |
           set -euo pipefail
           python -m py_compile \
             stock_table_metrics_v850.py \
             build_stock_table_preview_v850.py \
             build_two_table_shadow_v851.py \
-            two_table_release_v853.py
-          python two_table_release_v853.py --repo .
-          python two_table_release_v853.py --repo . --check-only
-          echo "V853_DAILY_TWO_TABLE_PUBLISH=PASS"
+            sector_rs_source_v870.py \
+            two_table_release_v870.py
+          python two_table_release_v870.py --repo .
+          python two_table_release_v870.py --repo . --check-only
+          echo "V870_DAILY_TWO_TABLE_PUBLISH=PASS"
 
       - name: Show generated status
         run: |

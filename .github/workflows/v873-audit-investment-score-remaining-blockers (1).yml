@@ -1,0 +1,574 @@
+name: Audit investment-score remaining blockers v8.7.3
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v873-investment-score-blocker-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          echo "V873_DEPENDENCIES=PASS"
+
+      - name: Audit remaining blockers without calculating score
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -n "${DART_API_KEY:-}" || {
+            echo "::error::DART_API_KEY secret is missing"
+            exit 1
+          }
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import csv
+          import json
+          import os
+          import re
+          import time
+          import urllib.parse
+          import urllib.request
+          from collections import Counter
+          from concurrent.futures import ThreadPoolExecutor, as_completed
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          KST = ZoneInfo("Asia/Seoul")
+          API_KEY = os.environ["DART_API_KEY"].strip()
+          FULL_ACCOUNT_URL = "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json"
+
+          OUT_JSON = Path("latest/investment_score_remaining_blockers_latest.json")
+          OUT_CSV = Path("latest/investment_score_ocf_probe_latest.csv")
+          OUT_LOG = Path("latest/investment_score_v873_run_log_latest.txt")
+          OUT_DOC = Path("docs/investment_score_remaining_blockers_v873.md")
+
+          def clean_ticker(value):
+              text = re.sub(r"[^0-9]", "", str(value or "").strip())
+              return text.zfill(6) if text else ""
+
+          def norm(value):
+              return str(value or "").strip()
+
+          def compact(value):
+              return re.sub(r"[\s·ㆍ()\[\]{}_\-/,]+", "", norm(value)).upper()
+
+          def parse_number(value):
+              text = norm(value).replace(",", "")
+              if text in {"", "-"}:
+                  return None
+              neg = text.startswith("(") and text.endswith(")")
+              if neg:
+                  text = text[1:-1]
+              text = re.sub(r"[^0-9eE+\-.]", "", text)
+              if text in {"", "-", "+", ".", "-.", "+."}:
+                  return None
+              try:
+                  number = float(text)
+              except ValueError:
+                  return None
+              return -abs(number) if neg else number
+
+          def load_csv(path):
+              with Path(path).open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
+
+          prod = {}
+          for table in ("kospi", "decliners", "decliners24"):
+              payload = json.loads(
+                  Path(f"api/two_table_v1/{table}.json").read_text(encoding="utf-8")
+              )
+              for row in payload.get("rows") or []:
+                  ticker = clean_ticker(row.get("ticker"))
+                  if ticker:
+                      prod[ticker] = {
+                          "ticker": ticker,
+                          "name": norm(row.get("name")),
+                      }
+
+          financial_rows = load_csv("latest/financial_valuation_cache_latest.csv")
+          source_rows = load_csv("latest/investment_score_source_cache_latest.csv")
+
+          financial = {
+              clean_ticker(row.get("ticker")): row
+              for row in financial_rows
+              if clean_ticker(row.get("ticker"))
+          }
+          source = {
+              clean_ticker(row.get("ticker")): row
+              for row in source_rows
+              if clean_ticker(row.get("ticker"))
+          }
+
+          missing_raw = []
+          for ticker, meta in sorted(prod.items()):
+              if ticker in source:
+                  continue
+              fin = financial.get(ticker, {})
+              missing_raw.append({
+                  "ticker": ticker,
+                  "name": meta["name"],
+                  "financial_source_status": norm(fin.get("financial_source_status")),
+                  "financial_data_status": norm(fin.get("financial_data_status")),
+                  "corp_identity_status": norm(fin.get("corp_identity_status")),
+                  "corp_identity_reason": norm(fin.get("corp_identity_reason")),
+                  "corp_code": norm(fin.get("corp_code")),
+              })
+
+          probe_targets = []
+          for ticker, meta in sorted(prod.items()):
+              fin = financial.get(ticker, {})
+              raw_corp = re.sub(r"[^0-9]", "", norm(fin.get("corp_code")))
+              corp_code = raw_corp.zfill(8) if raw_corp else ""
+              if not corp_code or corp_code == "00000000":
+                  continue
+              if norm(fin.get("financial_source_status")) != "OK":
+                  continue
+              if norm(fin.get("financial_data_status")) not in {"READY", "PARTIAL"}:
+                  continue
+              if norm(fin.get("corp_identity_status")) not in {
+                  "MATCH",
+                  "MATCH_NORMALIZED",
+                  "NAME_NOT_AVAILABLE",
+                  "NAME_NOT_AVAILABLE_SINGLE",
+              }:
+                  continue
+              probe_targets.append({
+                  "ticker": ticker,
+                  "name": meta["name"],
+                  "corp_code": corp_code,
+                  "preferred_fs_div": norm(fin.get("financial_fs_div")) or "CFS",
+              })
+
+          def fetch_full(target):
+              fs_order = []
+              for fs in (target["preferred_fs_div"], "CFS", "OFS"):
+                  if fs in {"CFS", "OFS"} and fs not in fs_order:
+                      fs_order.append(fs)
+
+              last_status = ""
+              last_message = ""
+
+              for fs_div in fs_order:
+                  query = urllib.parse.urlencode({
+                      "crtfc_key": API_KEY,
+                      "corp_code": target["corp_code"],
+                      "bsns_year": "2025",
+                      "reprt_code": "11011",
+                      "fs_div": fs_div,
+                  })
+                  request = urllib.request.Request(
+                      f"{FULL_ACCOUNT_URL}?{query}",
+                      headers={
+                          "User-Agent": "krx-watchlist-v873-ocf-audit",
+                          "Accept": "application/json",
+                          "Cache-Control": "no-cache",
+                      },
+                  )
+                  try:
+                      with urllib.request.urlopen(request, timeout=45) as response:
+                          payload = json.loads(
+                              response.read(12_000_000).decode("utf-8")
+                          )
+                  except Exception as exc:
+                      last_status = type(exc).__name__
+                      last_message = str(exc)
+                      continue
+
+                  last_status = norm(payload.get("status"))
+                  last_message = norm(payload.get("message"))
+                  items = payload.get("list")
+                  if not isinstance(items, list):
+                      items = []
+
+                  if last_status == "000" and items:
+                      candidates = []
+                      for item in items:
+                          if norm(item.get("sj_div")) != "CF":
+                              continue
+
+                          account_id = norm(item.get("account_id"))
+                          account_nm = norm(item.get("account_nm"))
+                          haystack = compact(f"{account_id} {account_nm}")
+
+                          exact_ifrs = (
+                              account_id
+                              == "ifrs-full_CashFlowsFromUsedInOperatingActivities"
+                          )
+                          korean_candidate = (
+                              "영업활동" in haystack
+                              and ("현금흐름" in haystack or "현금" in haystack)
+                          )
+
+                          if not (exact_ifrs or korean_candidate):
+                              continue
+
+                          candidates.append({
+                              "account_id": account_id,
+                              "account_nm": account_nm,
+                              "amount": parse_number(item.get("thstrm_amount")),
+                              "exact_ifrs_operating_cashflow_id": exact_ifrs,
+                          })
+
+                      return {
+                          "ticker": target["ticker"],
+                          "name": target["name"],
+                          "corp_code": target["corp_code"],
+                          "status": "OK",
+                          "fs_div": fs_div,
+                          "candidates": candidates,
+                          "message": "",
+                      }
+
+                  time.sleep(0.05)
+
+              return {
+                  "ticker": target["ticker"],
+                  "name": target["name"],
+                  "corp_code": target["corp_code"],
+                  "status": "LIMITED",
+                  "fs_div": "",
+                  "candidates": [],
+                  "message": f"{last_status}:{last_message}",
+              }
+
+          probe_results = []
+          with ThreadPoolExecutor(max_workers=4) as pool:
+              futures = [pool.submit(fetch_full, target) for target in probe_targets]
+              for future in as_completed(futures):
+                  probe_results.append(future.result())
+
+          probe_results.sort(key=lambda row: row["ticker"])
+
+          candidate_id_counts = Counter()
+          candidate_name_counts = Counter()
+          tickers_with_candidate = 0
+          tickers_with_exact_ifrs = 0
+          csv_rows = []
+
+          for row in probe_results:
+              candidates = row["candidates"]
+              if candidates:
+                  tickers_with_candidate += 1
+              if any(c["exact_ifrs_operating_cashflow_id"] for c in candidates):
+                  tickers_with_exact_ifrs += 1
+
+              if not candidates:
+                  csv_rows.append({
+                      "ticker": row["ticker"],
+                      "name": row["name"],
+                      "corp_code": row["corp_code"],
+                      "full_account_status": row["status"],
+                      "fs_div": row["fs_div"],
+                      "account_id": "",
+                      "account_nm": "",
+                      "amount": "",
+                      "exact_ifrs_operating_cashflow_id": False,
+                      "message": row["message"],
+                  })
+                  continue
+
+              for candidate in candidates:
+                  candidate_id_counts[candidate["account_id"]] += 1
+                  candidate_name_counts[candidate["account_nm"]] += 1
+                  csv_rows.append({
+                      "ticker": row["ticker"],
+                      "name": row["name"],
+                      "corp_code": row["corp_code"],
+                      "full_account_status": row["status"],
+                      "fs_div": row["fs_div"],
+                      "account_id": candidate["account_id"],
+                      "account_nm": candidate["account_nm"],
+                      "amount": (
+                          ""
+                          if candidate["amount"] is None
+                          else candidate["amount"]
+                      ),
+                      "exact_ifrs_operating_cashflow_id": candidate[
+                          "exact_ifrs_operating_cashflow_id"
+                      ],
+                      "message": row["message"],
+                  })
+
+          OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+          with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+              fields = [
+                  "ticker",
+                  "name",
+                  "corp_code",
+                  "full_account_status",
+                  "fs_div",
+                  "account_id",
+                  "account_nm",
+                  "amount",
+                  "exact_ifrs_operating_cashflow_id",
+                  "message",
+              ]
+              writer = csv.DictWriter(f, fieldnames=fields)
+              writer.writeheader()
+              writer.writerows(csv_rows)
+
+          phrase_hits = []
+          for path in Path(".").rglob("*"):
+              if not path.is_file():
+                  continue
+              if ".git" in path.parts:
+                  continue
+              if path.parts and path.parts[0] in {"api", "latest"}:
+                  continue
+              if path.suffix.lower() not in {
+                  ".md", ".py", ".yml", ".yaml", ".json", ".txt"
+              }:
+                  continue
+
+              try:
+                  text = path.read_text(encoding="utf-8", errors="ignore")
+              except Exception:
+                  continue
+
+              for line_no, line in enumerate(text.splitlines(), start=1):
+                  if "하루평균 절대등락률" in line:
+                      phrase_hits.append({
+                          "path": path.as_posix(),
+                          "line": line_no,
+                          "text": line.strip(),
+                      })
+
+          explicit_lookback_hits = [
+              hit
+              for hit in phrase_hits
+              if re.search(r"\d+\s*일", hit["text"])
+          ]
+
+          summary = {
+              "version": "2026-09-12-v8.7.3-investment-score-blocker-audit",
+              "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+              "status": "AUDIT_ONLY",
+              "production_unique_tickers": len(prod),
+              "financial_cache_matches": len(set(prod) & set(financial)),
+              "investment_raw_cache_matches": len(set(prod) & set(source)),
+              "investment_raw_cache_missing": len(missing_raw),
+              "missing_raw_tickers": missing_raw,
+              "operating_cash_flow_probe": {
+                  "basis": "OpenDART 2025 사업보고서 전체 재무제표 CF statement",
+                  "targets": len(probe_targets),
+                  "full_account_ok": sum(
+                      1 for row in probe_results if row["status"] == "OK"
+                  ),
+                  "tickers_with_candidate": tickers_with_candidate,
+                  "tickers_with_exact_ifrs_account_id": tickers_with_exact_ifrs,
+                  "top_account_ids": candidate_id_counts.most_common(20),
+                  "top_account_names": candidate_name_counts.most_common(20),
+                  "activation_status": "NOT_ACTIVATED_AUDIT_ONLY",
+              },
+              "average_absolute_daily_return": {
+                  "project_phrase_hit_count": len(phrase_hits),
+                  "explicit_lookback_hit_count": len(explicit_lookback_hits),
+                  "lookback_contract_status": (
+                      "DEFINED_IN_PROJECT"
+                      if explicit_lookback_hits
+                      else "NOT_DEFINED"
+                  ),
+                  "phrase_hits": phrase_hits[:50],
+                  "explicit_lookback_hits": explicit_lookback_hits[:50],
+                  "avg_daily_range_20_pct_substitution_allowed": False,
+              },
+              "policy_blockers": {
+                  "raw_value_to_points_thresholds": "NOT_DEFINED",
+                  "net_cash_debt_scope": "NOT_DEFINED",
+                  "ev_ebitda_da_policy": "NOT_DEFINED",
+                  "quarter_acceleration_thresholds": "NOT_DEFINED",
+                  "supply_subscore_rule": "NOT_DEFINED",
+              },
+              "hard_guards": {
+                  "investment_score_100_calculated": False,
+                  "production_api_changed": False,
+                  "ocf_rule_activated": False,
+                  "absolute_return_lookback_invented": False,
+                  "thresholds_invented": False,
+              },
+          }
+
+          OUT_JSON.write_text(
+              json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+
+          doc_lines = [
+              "# V8.7.3 투자종합점수 잔여 blocker 감사",
+              "",
+              "버전: `2026-09-12-v8.7.3-investment-score-blocker-audit`",
+              "",
+              "## 목적",
+              "",
+              "V6 투자종합점수 100점을 계산하지 않고, 남아 있는 원천자료와 정책 미정 항목을 분리한다.",
+              "",
+              "## 현재 커버리지",
+              "",
+              f"- production 고유 종목: {len(prod)}",
+              f"- 재무캐시 매칭: {len(set(prod) & set(financial))}",
+              f"- 투자점수 원천캐시 매칭: {len(set(prod) & set(source))}",
+              f"- 투자점수 원천캐시 미매칭: {len(missing_raw)}",
+              "",
+              "## 영업현금흐름 원천 감사",
+              "",
+              "- OpenDART 2025 사업보고서 전체 재무제표 CF 문장을 읽는다.",
+              "- 계정 후보만 보존한다.",
+              "- 점수나 영업현금흐름 공식값은 이 단계에서 만들지 않는다.",
+              f"- 후보 보유 종목: {tickers_with_candidate}/{len(probe_targets)}",
+              f"- 공식 IFRS account_id 직접 일치 종목: {tickers_with_exact_ifrs}/{len(probe_targets)}",
+              "",
+              "## 하루평균 절대등락률",
+              "",
+              "프로젝트 안에서 문구는 찾되, 기간 숫자가 명시되지 않았다면 임의의 기간을 선택하지 않는다.",
+              f"- 문구 발견: {len(phrase_hits)}",
+              f"- 기간까지 명시된 발견: {len(explicit_lookback_hits)}",
+              (
+                  "- 기간 계약 상태: DEFINED_IN_PROJECT"
+                  if explicit_lookback_hits
+                  else "- 기간 계약 상태: NOT_DEFINED"
+              ),
+              "",
+              "`avg_daily_range_20_pct`는 고가-저가 폭이므로 대체하지 않는다.",
+              "",
+              "## 아직 필요한 정책",
+              "",
+              "1. 원자료 → 세부점수 구간",
+              "2. 순현금 부채 포함범위",
+              "3. EV/EBITDA 감가상각·상각 원천 규칙",
+              "4. 최근 분기 가속·둔화 판정구간",
+              "5. 수급 0~10점 범위 안의 세부 감점 규칙",
+              "",
+              "## 안전규칙",
+              "",
+              "- investment_score_100 생성 금지",
+              "- legacy_market_score 환산 금지",
+              "- production API 변경 금지",
+              "- 영업현금흐름 후보를 자동 확정값으로 사용 금지",
+              "- 하루평균 절대등락률 기간 임의 생성 금지",
+          ]
+          OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+          OUT_DOC.write_text("\n".join(doc_lines) + "\n", encoding="utf-8")
+
+          log_lines = [
+              "VERSION=2026-09-12-v8.7.3-investment-score-blocker-audit",
+              f"PRODUCTION_UNIQUE_TICKERS={len(prod)}",
+              f"FINANCIAL_CACHE_MATCHES={len(set(prod) & set(financial))}",
+              f"INVESTMENT_RAW_CACHE_MATCHES={len(set(prod) & set(source))}",
+              f"INVESTMENT_RAW_CACHE_MISSING={len(missing_raw)}",
+              f"OCF_PROBE_TARGETS={len(probe_targets)}",
+              (
+                  "OCF_FULL_ACCOUNT_OK="
+                  + str(sum(1 for row in probe_results if row["status"] == "OK"))
+              ),
+              f"OCF_TICKERS_WITH_CANDIDATE={tickers_with_candidate}",
+              f"OCF_TICKERS_WITH_EXACT_IFRS_ID={tickers_with_exact_ifrs}",
+              f"ABS_RETURN_PHRASE_HITS={len(phrase_hits)}",
+              f"ABS_RETURN_EXPLICIT_LOOKBACK_HITS={len(explicit_lookback_hits)}",
+              "INVESTMENT_SCORE_100_CALCULATED=false",
+              "PRODUCTION_API_CHANGED=false",
+              "THRESHOLDS_INVENTED=false",
+              "STATUS=OK",
+          ]
+          OUT_LOG.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
+
+          print("\n".join(log_lines))
+          PY
+
+          grep -q '^STATUS=OK$' latest/investment_score_v873_run_log_latest.txt
+          grep -q '^INVESTMENT_SCORE_100_CALCULATED=false$' \
+            latest/investment_score_v873_run_log_latest.txt
+          grep -q '^PRODUCTION_API_CHANGED=false$' \
+            latest/investment_score_v873_run_log_latest.txt
+
+          echo "V873_BLOCKER_AUDIT=PASS"
+
+
+      - name: Verify production unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git status --porcelain -- api/two_table_v1 config/two_table_release.json | grep -q .; then
+            echo "::error::Production files changed"
+            git status --short -- api/two_table_v1 config/two_table_release.json
+            exit 1
+          fi
+
+          echo "V873_PRODUCTION_UNCHANGED=PASS"
+
+
+      - name: Commit and push audit outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            docs/investment_score_remaining_blockers_v873.md \
+            latest/investment_score_remaining_blockers_latest.json \
+            latest/investment_score_ocf_probe_latest.csv \
+            latest/investment_score_v873_run_log_latest.txt
+
+          echo "STAGED_FILES_BEGIN"
+          git diff --cached --name-only
+          echo "STAGED_FILES_END"
+
+          if git diff --cached --quiet; then
+            echo "::error::No audit outputs changed"
+            exit 1
+          fi
+
+          if git diff --cached --name-only | grep -q '^api/two_table_v1/'; then
+            echo "::error::Production API unexpectedly staged"
+            exit 1
+          fi
+
+          git commit -m "Audit remaining investment score blockers"
+
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          fi
+
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "PRODUCTION_DATA_CHANGED=false"
+          echo "INVESTMENT_SCORE_100_CALCULATED=false"
+          echo "NEXT_STEP=REVIEW_OCF_COVERAGE_AND_DEFINE_MISSING_SCORE_POLICIES"
+

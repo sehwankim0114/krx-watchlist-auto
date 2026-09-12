@@ -1,0 +1,568 @@
+name: Validate complete sector RS mapping v8.6.5
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v865-complete-sector-rs-shadow
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      KRX_ID: ${{ secrets.KRX_ID }}
+      KRX_PW: ${{ secrets.KRX_PW }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependency
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "pykrx==1.2.8"
+
+      - name: Validate complete official sector mapping and RS
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import contextlib
+          import io
+          import json
+          import os
+          import re
+          import time
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          from pykrx import stock
+          from pykrx.website.krx.market.core import 전종목기본정보
+
+          OUT = Path("/tmp/v865_probe")
+          OUT.mkdir(parents=True, exist_ok=True)
+          JSON_PATH = OUT / "v865-complete-sector-rs-shadow.json"
+          MD_PATH = OUT / "v865-complete-sector-rs-shadow.md"
+
+          TABLES = ("kospi", "decliners", "decliners24")
+          NARROW_INDUSTRY = {f"{x:04d}" for x in range(1005, 1027)} | {"1045", "1046", "1047"}
+          MANUFACTURING_FALLBACK = "1027"
+
+          result = {
+              "probe_version": "2026-09-12-v8.6.5-complete-sector-rs-shadow",
+              "run_at_kst": datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds"),
+              "repository_write": False,
+              "production_modified": False,
+              "release_guard_modified": False,
+              "shadow_only": True,
+              "candidate_contract": {
+                  "status": "SHADOW_CANDIDATE_NOT_YET_PRODUCTION_POLICY",
+                  "direct_rule": "official KRX narrow industry membership only",
+                  "finance_parent_child_rule":
+                      "if 1021 Finance and exactly one of 1024 Securities/1025 Insurance coexist, use child",
+                  "manufacturing_fallback":
+                      "use official KRX 1027 Manufacturing only when no narrower official industry membership exists",
+                  "preferred_rule":
+                      "preferred share may inherit benchmark only from a unique common share with exact normalized official KRX ISU_NM issuer stem",
+                  "preferred_normalization":
+                      "remove only terminal official issue-type suffixes: common/preferred/new-preferred forms",
+                  "fuzzy_mapping": False,
+                  "ticker_prefix_guess": False,
+                  "sector_theme_fallback": False,
+                  "formula":
+                      "stock production period return pct - selected official KRX industry index period return pct",
+                  "period_alignment":
+                      "exact existing production 1M/3M start_date through common official basis_date",
+                  "unit": "percentage_points",
+              },
+              "status": "STARTED",
+              "errors": [],
+          }
+
+          def write_outputs():
+              JSON_PATH.write_text(
+                  json.dumps(result, ensure_ascii=False, indent=2),
+                  encoding="utf-8",
+              )
+              lines = [
+                  "# V8.6.5 전체 업종RS Shadow 완성도 검증",
+                  "",
+                  f"- 기준일: {result.get('basis_date', '-')}",
+                  f"- source_build_id: {result.get('source_build_id', '-')}",
+                  f"- 고유 종목: {result.get('unique_ticker_count', 0)}",
+                  f"- 직접 좁은 업종 매핑: {result.get('direct_narrow_count', 0)}",
+                  f"- 제조(1027) fallback: {result.get('manufacturing_fallback_count', 0)}",
+                  f"- 우선주 보통주 승계: {result.get('preferred_inherited_count', 0)}",
+                  f"- 미매핑: {result.get('unmatched_count', 0)}",
+                  f"- 모호: {result.get('ambiguous_count', 0)}",
+                  f"- 업종RS 준비값: {result.get('rs_values_ready', 0)}/{result.get('rs_values_expected', 0)}",
+                  f"- 중복종목 일관성 오류: {result.get('duplicate_consistency_error_count', 0)}",
+                  f"- 판정: {result.get('status')}",
+                  "",
+                  "## 안전규칙",
+                  "- production JSON을 수정하지 않습니다.",
+                  "- release guard를 수정하지 않습니다.",
+                  "- 공식 KRX 구성종목/기본정보만 사용합니다.",
+                  "- fuzzy name, ticker prefix, sector_theme fallback을 사용하지 않습니다.",
+                  "- 이번 결과는 정식 production 정책 전 Shadow 검증입니다.",
+                  "",
+                  "## 표별 결과",
+              ]
+              for table, s in (result.get("table_summary") or {}).items():
+                  lines.append(
+                      f"- {table}: {s.get('ready_values')}/{s.get('expected_values')} "
+                      f"(rows={s.get('rows')}, unmatched={s.get('unmatched_rows')}, ambiguous={s.get('ambiguous_rows')})"
+                  )
+
+              special = result.get("special_resolution_rows") or []
+              if special:
+                  lines += ["", "## 이번 단계에서 해결한 특수 케이스"]
+                  for r in special:
+                      lines.append(
+                          f"- {r.get('ticker')} {r.get('name')} → "
+                          f"{r.get('benchmark_ticker')} {r.get('benchmark_name')} | "
+                          f"{r.get('selection_status')} | "
+                          f"common={r.get('common_ticker')}"
+                      )
+
+              problems = result.get("problem_rows") or []
+              if problems:
+                  lines += ["", "## 남은 문제"]
+                  for r in problems[:100]:
+                      lines.append(
+                          f"- {r.get('ticker')} {r.get('name')} | "
+                          f"{r.get('selection_status')} | {r.get('candidates')}"
+                      )
+
+              if result.get("errors"):
+                  lines += ["", "## 오류요약"]
+                  for e in result["errors"][:100]:
+                      lines.append("- " + e)
+
+              MD_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+          if not (os.getenv("KRX_ID") and os.getenv("KRX_PW")):
+              result["status"] = "SECRET_MISSING"
+              result["errors"].append("KRX_ID and/or KRX_PW repository secret missing.")
+              write_outputs()
+              print("V865_COMPLETE_SECTOR_RS=SECRET_MISSING")
+              raise SystemExit(0)
+
+          payloads = {}
+          for table in TABLES:
+              path = Path(f"api/two_table_v1/{table}.json")
+              if not path.is_file():
+                  result["status"] = "PRODUCTION_TABLE_MISSING"
+                  result["errors"].append(str(path))
+                  write_outputs()
+                  raise SystemExit(0)
+              payloads[table] = json.loads(path.read_text(encoding="utf-8-sig"))
+
+          bases = {str(p.get("basis_date") or "") for p in payloads.values()}
+          builds = {str(p.get("source_build_id") or "") for p in payloads.values()}
+          if len(bases) != 1 or "" in bases:
+              result["status"] = "TABLE_BASIS_MISMATCH"
+              result["errors"].append("basis=" + repr(sorted(bases)))
+              write_outputs()
+              raise SystemExit(0)
+          if len(builds) != 1 or "" in builds:
+              result["status"] = "TABLE_BUILD_ID_MISMATCH"
+              result["errors"].append("build=" + repr(sorted(builds)))
+              write_outputs()
+              raise SystemExit(0)
+
+          basis_iso = next(iter(bases))
+          basis = basis_iso.replace("-", "")
+          result["basis_date"] = basis_iso
+          result["source_build_id"] = next(iter(builds))
+
+          # Consolidate production evidence and verify duplicates are identical.
+          tickers = {}
+          dup_errors = []
+          for table, payload in payloads.items():
+              for row in payload.get("rows") or []:
+                  t = str(row.get("ticker") or "").zfill(6)
+                  metrics = row.get("metrics") or {}
+                  sig = {
+                      m: {
+                          "pct": ((metrics.get("returns") or {}).get(m) or {}).get("pct"),
+                          "start_date": ((metrics.get("returns") or {}).get(m) or {}).get("start_date"),
+                          "status": ((metrics.get("returns") or {}).get(m) or {}).get("status"),
+                      }
+                      for m in ("1", "3")
+                  }
+                  if t in tickers and tickers[t]["signature"] != sig:
+                      dup_errors.append({"ticker": t, "table": table})
+                  else:
+                      tickers.setdefault(t, {
+                          "ticker": t,
+                          "name": row.get("name"),
+                          "signature": sig,
+                          "tables": [],
+                      })
+                  tickers[t]["tables"].append(table)
+
+          result["unique_ticker_count"] = len(tickers)
+          result["duplicate_consistency_error_count"] = len(dup_errors)
+
+          # Authenticate and load official index catalogue.
+          try:
+              with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                  index_tickers = list(map(str, stock.get_index_ticker_list(basis, market="KOSPI") or []))
+          except Exception as exc:
+              index_tickers = []
+              result["errors"].append("INDEX_LIST:" + repr(exc))
+
+          if not index_tickers:
+              result["status"] = "LIMITED_INDEX_LIST_EMPTY"
+              write_outputs()
+              print("V865_COMPLETE_SECTOR_RS=LIMITED_INDEX_LIST_EMPTY")
+              raise SystemExit(0)
+
+          names = {}
+          members_by_index = {}
+          for idx in index_tickers:
+              try:
+                  with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                      names[idx] = stock.get_index_ticker_name(idx)
+              except Exception as exc:
+                  names[idx] = None
+                  result["errors"].append(f"NAME:{idx}:{exc!r}")
+              try:
+                  with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                      members = stock.get_index_portfolio_deposit_file(idx, date=basis) or []
+                  members_by_index[idx] = {str(x).zfill(6) for x in members}
+              except Exception as exc:
+                  members_by_index[idx] = set()
+                  result["errors"].append(f"CONSTITUENTS:{idx}:{exc!r}")
+              time.sleep(0.10)
+
+          def industry_memberships(ticker, include_manufacturing=False):
+              allowed = set(NARROW_INDUSTRY)
+              if include_manufacturing:
+                  allowed.add(MANUFACTURING_FALLBACK)
+              out = []
+              for idx in sorted(allowed):
+                  if ticker in members_by_index.get(idx, set()):
+                      out.append({"ticker": idx, "name": names.get(idx)})
+              return out
+
+          def choose_direct(ticker):
+              narrow = industry_memberships(ticker, include_manufacturing=False)
+              ids = [x["ticker"] for x in narrow]
+
+              if "1021" in ids:
+                  children = [x for x in ("1024", "1025") if x in ids]
+                  if len(children) == 1:
+                      return children[0], narrow, "SELECTED_CHILD_OVER_FINANCE_PARENT"
+
+              if len(ids) == 1:
+                  return ids[0], narrow, "SELECTED_SINGLE_OFFICIAL_INDUSTRY"
+
+              if len(ids) > 1:
+                  return None, narrow, "AMBIGUOUS_MULTIPLE_NARROW_INDUSTRIES"
+
+              # Broad official manufacturing fallback is allowed only if there is
+              # no narrower official KRX industry membership.
+              if ticker in members_by_index.get(MANUFACTURING_FALLBACK, set()):
+                  m = [{"ticker": MANUFACTURING_FALLBACK,
+                        "name": names.get(MANUFACTURING_FALLBACK)}]
+                  return MANUFACTURING_FALLBACK, m, "SELECTED_MANUFACTURING_FALLBACK_NO_NARROWER"
+
+              return None, [], "UNMATCHED_DIRECT"
+
+          # KRX official basic info for exact issue type / issuer stem evidence.
+          try:
+              with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                  basic_df = 전종목기본정보().fetch(mktId="STK")
+          except Exception as exc:
+              result["status"] = "BASIC_INFO_FETCH_FAILED"
+              result["errors"].append("BASIC_INFO:" + repr(exc))
+              write_outputs()
+              raise SystemExit(0)
+
+          basic = {}
+          for _, r in basic_df.iterrows():
+              t = str(r.get("ISU_SRT_CD") or "").zfill(6)
+              if re.fullmatch(r"\d{6}", t):
+                  basic[t] = {
+                      "isu_nm": str(r.get("ISU_NM") or "").strip(),
+                      "abbr": str(r.get("ISU_ABBRV") or "").strip(),
+                      "security_type": str(r.get("KIND_STKCERT_TP_NM") or "").strip(),
+                  }
+
+          # Exact deterministic removal of terminal KRX issue-class suffixes only.
+          # Handles legacy preferred and new preferred forms such as
+          # 현대자동차2우선주(신형), 하이트진로2우선주(신형).
+          def issuer_stem(isu_nm):
+              v = (isu_nm or "").strip()
+              patterns = (
+                  r"\s*보통주$",
+                  r"\s*\d+우선주\(신형\)$",
+                  r"\s*\d+우선주$",
+                  r"\s*우선주\(신형\)$",
+                  r"\s*우선주$",
+              )
+              for p in patterns:
+                  n = re.sub(p, "", v)
+                  if n != v:
+                      return n.strip()
+              return v
+
+          common_by_stem = {}
+          for t, info in basic.items():
+              if info["security_type"] == "보통주":
+                  common_by_stem.setdefault(issuer_stem(info["isu_nm"]), []).append(t)
+
+          direct_narrow_count = 0
+          manufacturing_count = 0
+          preferred_inherited_count = 0
+          ambiguous_count = 0
+          unmatched_count = 0
+          special_rows = []
+
+          # Select benchmark for every unique production ticker.
+          for t, rec in tickers.items():
+              chosen, candidates, status = choose_direct(t)
+              common_ticker = None
+
+              if chosen:
+                  if status == "SELECTED_MANUFACTURING_FALLBACK_NO_NARROWER":
+                      manufacturing_count += 1
+                      special_rows.append({
+                          "ticker": t, "name": rec["name"],
+                          "benchmark_ticker": chosen,
+                          "benchmark_name": names.get(chosen),
+                          "selection_status": status,
+                          "common_ticker": None,
+                      })
+                  else:
+                      direct_narrow_count += 1
+              else:
+                  bi = basic.get(t)
+                  is_preferred = bool(bi and "우선주" in bi["security_type"])
+                  if is_preferred:
+                      stem = issuer_stem(bi["isu_nm"])
+                      common_candidates = sorted(common_by_stem.get(stem, []))
+                      if len(common_candidates) == 1:
+                          common_ticker = common_candidates[0]
+                          inherited, inherited_candidates, inherited_status = choose_direct(common_ticker)
+                          if inherited:
+                              chosen = inherited
+                              candidates = inherited_candidates
+                              status = "SELECTED_PREFERRED_INHERIT_UNIQUE_COMMON_" + inherited_status
+                              preferred_inherited_count += 1
+                              special_rows.append({
+                                  "ticker": t, "name": rec["name"],
+                                  "benchmark_ticker": chosen,
+                                  "benchmark_name": names.get(chosen),
+                                  "selection_status": status,
+                                  "common_ticker": common_ticker,
+                              })
+                          else:
+                              status = "PREFERRED_COMMON_HAS_NO_USABLE_INDUSTRY"
+                      elif len(common_candidates) == 0:
+                          status = "PREFERRED_COMMON_NOT_FOUND_EXACT_STEM"
+                      else:
+                          status = "PREFERRED_COMMON_AMBIGUOUS_EXACT_STEM"
+
+              if chosen is None:
+                  if status.startswith("AMBIGUOUS") or "AMBIGUOUS" in status:
+                      ambiguous_count += 1
+                  else:
+                      unmatched_count += 1
+
+              rec["benchmark_ticker"] = chosen
+              rec["benchmark_name"] = names.get(chosen) if chosen else None
+              rec["selection_status"] = status
+              rec["candidates"] = candidates
+              rec["common_ticker"] = common_ticker
+
+          result["direct_narrow_count"] = direct_narrow_count
+          result["manufacturing_fallback_count"] = manufacturing_count
+          result["preferred_inherited_count"] = preferred_inherited_count
+          result["ambiguous_count"] = ambiguous_count
+          result["unmatched_count"] = unmatched_count
+          result["special_resolution_rows"] = special_rows
+
+          # Fetch selected benchmark history once.
+          starts = [
+              rec["signature"][m]["start_date"]
+              for rec in tickers.values()
+              for m in ("1", "3")
+              if rec["signature"][m].get("start_date")
+          ]
+          earliest_iso = min(starts) if starts else basis_iso
+          earliest = earliest_iso.replace("-", "")
+
+          selected_indexes = sorted({
+              rec["benchmark_ticker"] for rec in tickers.values()
+              if rec["benchmark_ticker"]
+          })
+          index_close = {}
+
+          for idx in selected_indexes:
+              try:
+                  with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                      df = stock.get_index_ohlcv_by_date(earliest, basis, idx)
+                  if df is None or df.empty:
+                      raise RuntimeError("EMPTY_INDEX_OHLCV")
+                  if "종가" not in df.columns:
+                      raise RuntimeError("CLOSE_COLUMN_NOT_FOUND")
+                  closes = {}
+                  for dt, value in df["종가"].items():
+                      day = dt.strftime("%Y-%m-%d") if hasattr(dt, "strftime") else str(dt)[:10]
+                      closes[day] = float(value)
+                  index_close[idx] = closes
+              except Exception as exc:
+                  index_close[idx] = {}
+                  result["errors"].append(f"INDEX_OHLCV:{idx}:{exc!r}")
+              time.sleep(0.15)
+
+          def pct(end, start):
+              if end is None or start is None or start <= 0:
+                  return None
+              return 100.0 * (end / start - 1.0)
+
+          for rec in tickers.values():
+              rec["periods"] = {}
+              idx = rec["benchmark_ticker"]
+              for m in ("1", "3"):
+                  src = rec["signature"][m]
+                  out = {
+                      "stock_return_pct": src.get("pct"),
+                      "start_date": src.get("start_date"),
+                      "sector_index_return_pct": None,
+                      "rs_sector_pp": None,
+                      "status": rec["selection_status"] if not idx else "PENDING",
+                  }
+                  if idx and src.get("status") == "OK" and src.get("pct") is not None and src.get("start_date"):
+                      closes = index_close.get(idx) or {}
+                      start_close = closes.get(src["start_date"])
+                      end_close = closes.get(basis_iso)
+                      if start_close is None:
+                          out["status"] = "SECTOR_EXACT_START_CLOSE_MISSING"
+                      elif end_close is None:
+                          out["status"] = "SECTOR_BASIS_CLOSE_MISSING"
+                      else:
+                          sr = pct(end_close, start_close)
+                          out["sector_index_return_pct"] = round(sr, 4)
+                          out["rs_sector_pp"] = round(float(src["pct"]) - sr, 4)
+                          out["status"] = "SHADOW_READY"
+                  elif idx:
+                      out["status"] = "PRODUCTION_STOCK_RETURN_NOT_READY"
+                  rec["periods"][m] = out
+
+          # Validate every row in every production table.
+          table_summary = {}
+          total_ready = 0
+          total_expected = 0
+          problem_rows = []
+
+          for table, payload in payloads.items():
+              ready = 0
+              expected = 0
+              un = 0
+              amb = 0
+              for row in payload.get("rows") or []:
+                  t = str(row.get("ticker") or "").zfill(6)
+                  rec = tickers[t]
+                  expected += 2
+
+                  if rec["benchmark_ticker"] is None:
+                      if "AMBIGUOUS" in rec["selection_status"]:
+                          amb += 1
+                      else:
+                          un += 1
+                      problem_rows.append({
+                          "table": table,
+                          "ticker": t,
+                          "name": row.get("name"),
+                          "selection_status": rec["selection_status"],
+                          "candidates": rec["candidates"],
+                      })
+
+                  for m in ("1", "3"):
+                      if rec["periods"][m]["status"] == "SHADOW_READY":
+                          ready += 1
+
+              table_summary[table] = {
+                  "rows": len(payload.get("rows") or []),
+                  "ready_values": ready,
+                  "expected_values": expected,
+                  "unmatched_rows": un,
+                  "ambiguous_rows": amb,
+              }
+              total_ready += ready
+              total_expected += expected
+
+          result["table_summary"] = table_summary
+          result["rs_values_ready"] = total_ready
+          result["rs_values_expected"] = total_expected
+          result["problem_rows"] = problem_rows
+          result["ticker_results"] = sorted(tickers.values(), key=lambda x: x["ticker"])
+
+          if dup_errors:
+              result["status"] = "BLOCKED_DUPLICATE_TICKER_METRIC_MISMATCH"
+          elif ambiguous_count or unmatched_count:
+              result["status"] = "LIMITED_MAPPING_REVIEW_REQUIRED"
+          elif total_ready != total_expected:
+              result["status"] = "LIMITED_RS_VALUES_INCOMPLETE"
+          else:
+              result["status"] = "READY_COMPLETE_SHADOW_FOR_POLICY_REVIEW"
+
+          write_outputs()
+
+          print("V865_COMPLETE_SECTOR_RS=" + result["status"])
+          print(f"UNIQUE_TICKERS={len(tickers)}")
+          print(f"DIRECT_NARROW={direct_narrow_count}")
+          print(f"MANUFACTURING_FALLBACK={manufacturing_count}")
+          print(f"PREFERRED_INHERITED={preferred_inherited_count}")
+          print(f"AMBIGUOUS={ambiguous_count}")
+          print(f"UNMATCHED={unmatched_count}")
+          print(f"RS_VALUES_READY={total_ready}/{total_expected}")
+          print(f"DUPLICATE_CONSISTENCY_ERRORS={len(dup_errors)}")
+          print("PRODUCTION_MODIFIED=false")
+          print("RELEASE_GUARD_MODIFIED=false")
+          print("REPOSITORY_WRITE=false")
+          PY
+
+      - name: Safety check
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f /tmp/v865_probe/v865-complete-sector-rs-shadow.json
+          test -f /tmp/v865_probe/v865-complete-sector-rs-shadow.md
+          git diff --exit-code
+          git diff --cached --exit-code
+          echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
+          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
+          echo "PRODUCTION_UNCHANGED=PASS"
+          echo "RELEASE_GUARD_UNCHANGED=PASS"
+
+      - name: Upload V8.6.5 shadow artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: complete-sector-rs-shadow-v865
+          path: |
+            /tmp/v865_probe/v865-complete-sector-rs-shadow.json
+            /tmp/v865_probe/v865-complete-sector-rs-shadow.md
+          if-no-files-found: error
+          retention-days: 14

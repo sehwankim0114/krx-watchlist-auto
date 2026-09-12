@@ -1,0 +1,177 @@
+name: Install dual-schema Action schema v8.6.9
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v869-install-dual-schema-action-schema
+  cancel-in-progress: false
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install YAML parser
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install "PyYAML>=6.0,<7"
+
+      - name: Patch Action schema for 14 and 15 column rows
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("docs/custom_gpt_action_schema.yaml")
+          text = path.read_text(encoding="utf-8")
+
+          old_version = "  version: 7.1.1"
+          new_version = "  version: 7.1.2"
+          if old_version in text:
+              text = text.replace(old_version, new_version, 1)
+          elif new_version not in text:
+              raise SystemExit("ACTION_SCHEMA_INFO_VERSION_NOT_EXPECTED")
+
+          old_bounds = "            minItems: 14\n            maxItems: 14"
+          new_bounds = "            minItems: 14\n            maxItems: 15"
+          if old_bounds in text:
+              text = text.replace(old_bounds, new_bounds, 1)
+          elif new_bounds not in text:
+              raise SystemExit("TWO_TABLE_ROW_BOUNDS_NOT_EXPECTED")
+
+          old_guide = (
+              "description: Version of the five-term stock-table reading guide attached to this payload."
+          )
+          new_guide = (
+              "description: Version of the stock-table reading guide attached to this payload; "
+              "the production guide may include KOSPI RS and KRX industry RS."
+          )
+          if old_guide in text:
+              text = text.replace(old_guide, new_guide, 1)
+
+          old_summary = "summary: Get new-format 코피표 or 연속하락표 with guarded pagination"
+          new_summary = "summary: Get guarded 코피표 or 연속하락표 with 14/15-column compatible rows"
+          if old_summary in text:
+              text = text.replace(old_summary, new_summary, 1)
+
+          path.write_text(text, encoding="utf-8")
+          print("ACTION_SCHEMA_DUAL_ROW_WIDTH_PATCHED=PASS")
+          PY
+
+      - name: Validate Action schema
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import yaml
+          from pathlib import Path
+
+          path = Path("docs/custom_gpt_action_schema.yaml")
+          data = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+          assert data["openapi"] == "3.1.0"
+          assert data["info"]["version"] == "7.1.2"
+
+          page = data["components"]["schemas"]["TwoTablePage"]
+          rows = page["properties"]["rows"]["items"]
+
+          assert rows["type"] == "array"
+          assert rows["minItems"] == 14
+          assert rows["maxItems"] == 15
+
+          route = data["paths"]["/tables/v1/{table}"]["get"]
+          assert route["operationId"] == "getKospiWatchlist"
+
+          assert rows["minItems"] <= 14 <= rows["maxItems"]
+          assert rows["minItems"] <= 15 <= rows["maxItems"]
+
+          print("ACTION_SCHEMA_VERSION=7.1.2")
+          print("CURRENT_14_COLUMN_ACTION_COMPATIBLE=PASS")
+          print("FUTURE_15_COLUMN_ACTION_COMPATIBLE=PASS")
+          print("ACTION_SCHEMA_VALIDATION=PASS")
+          PY
+
+      - name: Review exact changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "CHANGED_FILES_BEGIN"
+          git status --short
+          echo "CHANGED_FILES_END"
+
+          python - <<'PY'
+          import subprocess
+
+          allowed = {"docs/custom_gpt_action_schema.yaml"}
+          out = subprocess.check_output(["git", "status", "--porcelain"], text=True)
+
+          changed = set()
+          for line in out.splitlines():
+              if not line.strip():
+                  continue
+              path = line[3:]
+              if " -> " in path:
+                  path = path.split(" -> ", 1)[1]
+              changed.add(path)
+
+          unexpected = changed - allowed
+          if unexpected:
+              raise SystemExit("UNEXPECTED_CHANGED_FILES=" + repr(sorted(unexpected)))
+
+          if changed:
+              print("ACTION_SCHEMA_CHANGE_SCOPE=PASS")
+          else:
+              print("NO_SCHEMA_CHANGE_ALREADY_INSTALLED=true")
+          PY
+
+      - name: Commit and push Action schema
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add docs/custom_gpt_action_schema.yaml
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            exit 0
+          fi
+
+          git commit -m "Allow dual-width stock table Action rows"
+
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          fi
+
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "ACTION_SCHEMA_VERSION=7.1.2"
+          echo "PRODUCTION_DATA_CHANGED=false"
+          echo "WORKER_CHANGED=false"

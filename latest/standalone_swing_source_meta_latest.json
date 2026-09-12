@@ -1,0 +1,59 @@
+{
+  "contract_version": "2026-09-11-v8.6.1-standalone-swing-source-cache",
+  "script_version": "standalone_swing_source_v861.py v1.0.0-source-only",
+  "status": "READY_SOURCE_ONLY",
+  "source_only": true,
+  "standalone_swing_table_enabled": false,
+  "request_time_price_eligible": false,
+  "basis_date": "2026-09-11",
+  "history_contract_version": "2026-09-11-v8.5.7-compact-active-stock-260-session-history",
+  "history_generated_at_kst": "2026-09-12T13:28:14+09:00",
+  "history_target_ticker_count": 235,
+  "history_distinct_market_dates": 260,
+  "history_cache_min_date": "2025-08-20",
+  "history_cache_max_date": "2026-09-11",
+  "metric_calendar_start": "2026-02-11",
+  "metric_contract_version": "2026-09-04-v8.5.0-two-table-indicators-preview",
+  "output_rows": 235,
+  "metric_ok_rows": 235,
+  "phase_counts": {
+    "EARLY_REBOUND_UNCONFIRMED": 25,
+    "UPTREND": 20,
+    "BOTTOM_REBOUND": 51,
+    "UPTREND_PULLBACK": 26,
+    "TOP_DECLINE": 31,
+    "SIDEWAYS_OR_UNCONFIRMED": 36,
+    "NEW_LOW": 46
+  },
+  "kospi30_exact_matches": 30,
+  "kospi30_mismatches": 0,
+  "pending_metrics": [
+    "rsi",
+    "macd",
+    "return_1w",
+    "return_6m",
+    "return_ytd",
+    "return_52w",
+    "rs_sector",
+    "confirmed_swing_low_stop",
+    "investment_score_100",
+    "earnings_outlook_change"
+  ],
+  "source_sha256": {
+    "latest/active_stock_long_history_260d_latest.csv": "4d984cad2a0a4ed9e42506da660c6a8f40610f1248d6f6ce00e0766c223daad1",
+    "latest/active_stock_long_history_260d_meta_latest.json": "268aaf6dc9f460023e23c652944add6c94a770d9ed4cdd61787e9bd6f43ccd32",
+    "latest/official_index_history_latest.csv": "631eb6c61e4d28130407815b4e69dbc8bfda77dc98a62dcaae574e939f8cb0b0",
+    "api/two_table_v1/kospi.json": "074e216aa8254ab6cf31f35305f69bb3f58dbb3724f7770afdb857eb8336e13b",
+    "stock_table_metrics_v850.py": "957063e69ddb68c815245fcedf3f090b41a4d992396b1dc579f42952c6829fc9"
+  },
+  "safety": {
+    "metric_formula_changed": false,
+    "sector_rs_calculated": false,
+    "confirmed_swing_low_stop_calculated": false,
+    "investment_score_100_calculated": false,
+    "earnings_outlook_change_calculated": false,
+    "rsi_calculated": false,
+    "macd_calculated": false,
+    "request_time_price_substitution": false
+  }
+}

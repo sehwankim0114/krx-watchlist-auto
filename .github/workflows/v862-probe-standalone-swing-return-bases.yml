@@ -1,4 +1,4 @@
-name: Preview integrated standalone swing table v8.7.7
+name: Diagnose standalone swing data gaps v8.7.8
 
 on:
   workflow_dispatch:
@@ -7,11 +7,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: v877-integrated-standalone-swing-preview
+  group: v878-standalone-swing-gap-diagnostic
   cancel-in-progress: false
 
 jobs:
-  preview:
+  diagnose:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Build final-preproduction preview
+      - name: Diagnose MA and ATR gaps
         shell: bash
         run: |
           set -euo pipefail
@@ -35,468 +35,363 @@ jobs:
           python - <<'PY'
           from __future__ import annotations
 
+          import csv
           import json
+          from collections import defaultdict, Counter
           from pathlib import Path
 
-          SOURCE = Path("latest/standalone_swing_integrated_latest.json")
-          META = Path("latest/standalone_swing_integrated_meta_latest.json")
-          OUT = Path("/tmp/v877_integrated_swing_preview")
+          from stock_table_metrics_v850 import normalize_bars
+
+          INTEGRATED = Path("latest/standalone_swing_integrated_latest.json")
+          SWING = Path("latest/standalone_swing_source_latest.json")
+          HISTORY = Path("latest/active_stock_long_history_260d_latest.csv")
+          HISTORY_META = Path("latest/active_stock_long_history_260d_meta_latest.json")
+          OUT = Path("/tmp/v878_standalone_swing_gap_diagnostic")
           OUT.mkdir(parents=True, exist_ok=True)
 
-          if not SOURCE.is_file() or not META.is_file():
-              raise SystemExit("V876_INTEGRATED_SOURCE_MISSING")
+          for p in (INTEGRATED, SWING, HISTORY, HISTORY_META):
+              if not p.is_file():
+                  raise SystemExit("MISSING_REQUIRED_SOURCE:" + str(p))
 
-          source = json.loads(SOURCE.read_text(encoding="utf-8-sig"))
-          meta = json.loads(META.read_text(encoding="utf-8-sig"))
+          integrated = json.loads(INTEGRATED.read_text(encoding="utf-8-sig"))
+          swing = json.loads(SWING.read_text(encoding="utf-8-sig"))
+          history_meta = json.loads(HISTORY_META.read_text(encoding="utf-8-sig"))
 
-          if source.get("status") != "READY_SOURCE_ONLY":
-              raise SystemExit("V876_SOURCE_NOT_READY")
-          if meta.get("status") != "READY_SOURCE_ONLY":
-              raise SystemExit("V876_META_NOT_READY")
-          if source.get("source_only") is not True:
-              raise SystemExit("V876_NOT_SOURCE_ONLY")
-          if source.get("standalone_swing_table_enabled") is not False:
-              raise SystemExit("TABLE_ALREADY_ENABLED_UNEXPECTEDLY")
-          if source.get("action_route_enabled") is not False:
-              raise SystemExit("ACTION_ALREADY_ENABLED_UNEXPECTEDLY")
+          if integrated.get("status") != "READY_SOURCE_ONLY":
+              raise SystemExit("INTEGRATED_SOURCE_NOT_READY")
+          if swing.get("status") != "READY_SOURCE_ONLY":
+              raise SystemExit("SWING_SOURCE_NOT_READY")
+          if history_meta.get("status") != "READY":
+              raise SystemExit("LONG_HISTORY_NOT_READY")
 
-          rows = source.get("rows") or []
-          if len(rows) != int(source.get("row_count") or 0):
-              raise SystemExit("SOURCE_ROW_COUNT_MISMATCH")
+          basis = integrated.get("basis_date")
+          if not basis:
+              raise SystemExit("BASIS_MISSING")
+          if swing.get("basis_date") != basis:
+              raise SystemExit("SWING_BASIS_MISMATCH")
+          if history_meta.get("cache_max_date") != basis:
+              raise SystemExit("HISTORY_BASIS_MISMATCH")
 
-          basis = source.get("basis_date")
-          if not basis or meta.get("basis_date") != basis:
-              raise SystemExit("BASIS_MISMATCH")
-
-          pending_expected = {
-              "return_1w", "return_ytd", "return_52w",
-              "rsi", "macd", "investment_score_100",
-              "earnings_outlook_change", "confirmed_swing_low_stop",
+          integrated_rows = {
+              str(r["ticker"]).zfill(6): r
+              for r in integrated.get("rows") or []
           }
-          if set(source.get("pending_metrics") or []) != pending_expected:
-              raise SystemExit("PENDING_CONTRACT_MISMATCH")
-
-          counts = {
-              "total": len(rows),
-              "KOSPI": 0,
-              "KOSDAQ": 0,
-              "return_1m_ready": 0,
-              "return_3m_ready": 0,
-              "return_6m_ready": 0,
-              "return_6m_missing": 0,
-              "swing_ready": 0,
-              "ma_5_20_60_120_ready": 0,
-              "atr14_ready": 0,
-              "mean_run_ready": 0,
-              "streak_ready": 0,
-              "rs_kospi_ready": 0,
-              "rs_sector_ready": 0,
-              "rs_sector_missing": 0,
-              "ma20_reference_ready": 0,
-              "confirmed_stop_ready": 0,
-              "pending_contract_violations": 0,
+          swing_rows = {
+              str(r["ticker"]).zfill(6): r
+              for r in swing.get("rows") or []
           }
 
-          # The eventual standalone analysis is a per-stock response, not a 235-row
-          # transport. Simulate one safe detail payload per ticker and record size.
-          max_single_payload_bytes = 0
-          max_single_payload_ticker = None
+          if set(integrated_rows) != set(swing_rows):
+              raise SystemExit("INTEGRATED_SWING_TICKER_SET_MISMATCH")
 
-          preview_rows = []
-          for row in rows:
-              market = row.get("market")
-              if market not in ("KOSPI", "KOSDAQ"):
-                  raise SystemExit("UNKNOWN_MARKET:" + str(market))
-              counts[market] += 1
+          with HISTORY.open(encoding="utf-8-sig", newline="") as f:
+              history_rows = list(csv.DictReader(f))
 
-              perf = row.get("price_performance") or {}
-              if (perf.get("1m") or {}).get("status") == "OK":
-                  counts["return_1m_ready"] += 1
-              if (perf.get("3m") or {}).get("status") == "OK":
-                  counts["return_3m_ready"] += 1
-              if (perf.get("6m") or {}).get("status") == "OK":
-                  counts["return_6m_ready"] += 1
+          by_ticker = defaultdict(list)
+          for row in history_rows:
+              ticker = str(row.get("ticker") or "").zfill(6)
+              if ticker in integrated_rows:
+                  by_ticker[ticker].append(row)
+
+          if set(by_ticker) != set(integrated_rows):
+              missing = sorted(set(integrated_rows) - set(by_ticker))
+              raise SystemExit("LONG_HISTORY_TICKER_MISSING:" + ",".join(missing[:20]))
+
+          ma_gap_rows = []
+          atr_gap_rows = []
+          atr_ready_rows = []
+          classifications = Counter()
+
+          for ticker in sorted(integrated_rows):
+              irow = integrated_rows[ticker]
+              srow = swing_rows[ticker]
+              raw_rows = sorted(by_ticker[ticker], key=lambda x: str(x["date"]))
+              bars = normalize_bars(raw_rows, basis)
+
+              if not bars or bars[-1]["date"] != basis:
+                  raise SystemExit("LATEST_BAR_MISSING:" + ticker)
+
+              ma = irow.get("ma") or {}
+              missing_ma_periods = [
+                  p for p in (5, 20, 60, 120)
+                  if (ma.get(str(p)) or {}).get("value") is None
+                  or (ma.get(str(p)) or {}).get("direction") is None
+              ]
+
+              if missing_ma_periods:
+                  ma_gap_rows.append({
+                      "ticker": ticker,
+                      "name": irow.get("name"),
+                      "market": irow.get("market"),
+                      "observation_count": len(bars),
+                      "history_min_date": bars[0]["date"],
+                      "history_max_date": bars[-1]["date"],
+                      "missing_ma_periods": missing_ma_periods,
+                      "required_for_direction": {
+                          "5": 10,
+                          "20": 25,
+                          "60": 65,
+                          "120": 125,
+                      },
+                      "source_missing": (srow.get("missing") or {}),
+                  })
+
+              atr = irow.get("atr14") or {}
+              atr_ready = atr.get("pct") is not None
+              last126 = bars[-126:]
+
+              missing_hl_dates = [
+                  b["date"]
+                  for b in last126
+                  if b.get("high") is None or b.get("low") is None
+              ]
+              missing_hl_last20 = [
+                  b["date"]
+                  for b in bars[-20:]
+                  if b.get("high") is None or b.get("low") is None
+              ]
+
+              raw_map = {str(r["date"]): r for r in raw_rows}
+              raw_missing_count = 0
+              raw_invalid_count = 0
+              raw_examples = []
+
+              for day in missing_hl_dates:
+                  raw = raw_map.get(day) or {}
+                  high_raw = raw.get("high")
+                  low_raw = raw.get("low")
+                  close_raw = raw.get("close")
+
+                  def num(v):
+                      try:
+                          return float(str(v).replace(",", ""))
+                      except Exception:
+                          return None
+
+                  h = num(high_raw)
+                  l = num(low_raw)
+                  c = num(close_raw)
+
+                  if h is None or l is None:
+                      raw_missing_count += 1
+                      kind = "RAW_HIGH_OR_LOW_MISSING"
+                  else:
+                      raw_invalid_count += 1
+                      kind = "RAW_OHLC_INVALID_RELATION"
+
+                  if len(raw_examples) < 8:
+                      raw_examples.append({
+                          "date": day,
+                          "kind": kind,
+                          "raw_high": high_raw,
+                          "raw_low": low_raw,
+                          "raw_close": close_raw,
+                      })
+
+              if atr_ready:
+                  atr_ready_rows.append(ticker)
+                  continue
+
+              if len(bars) < 15:
+                  reason = "HISTORY_SHORT_LT_15"
+              elif missing_hl_dates:
+                  if raw_missing_count and raw_invalid_count:
+                      reason = "MIXED_RAW_MISSING_AND_INVALID_OHLC"
+                  elif raw_missing_count:
+                      reason = "RAW_HIGH_OR_LOW_MISSING_IN_LAST126"
+                  else:
+                      reason = "RAW_OHLC_INVALID_RELATION_IN_LAST126"
               else:
-                  counts["return_6m_missing"] += 1
+                  reason = "UNEXPECTED_ATR_NULL_WITH_COMPLETE_LAST126"
 
-              swing = row.get("swing") or {}
-              if swing.get("phase") and swing.get("phase_ko"):
-                  counts["swing_ready"] += 1
+              classifications[reason] += 1
+              atr_gap_rows.append({
+                  "ticker": ticker,
+                  "name": irow.get("name"),
+                  "market": irow.get("market"),
+                  "observation_count": len(bars),
+                  "history_min_date": bars[0]["date"],
+                  "history_max_date": bars[-1]["date"],
+                  "atr_source_status": (srow.get("missing") or {}).get("atr14"),
+                  "diagnostic_reason": reason,
+                  "last126_bar_count": len(last126),
+                  "missing_high_low_last126_count": len(missing_hl_dates),
+                  "missing_high_low_last20_count": len(missing_hl_last20),
+                  "first_missing_high_low_date": missing_hl_dates[0] if missing_hl_dates else None,
+                  "last_missing_high_low_date": missing_hl_dates[-1] if missing_hl_dates else None,
+                  "raw_high_low_missing_count": raw_missing_count,
+                  "raw_ohlc_invalid_relation_count": raw_invalid_count,
+                  "raw_examples": raw_examples,
+              })
 
-              ma = row.get("ma") or {}
-              if all(
-                  (ma.get(str(p)) or {}).get("value") is not None
-                  and (ma.get(str(p)) or {}).get("direction") is not None
-                  for p in (5, 20, 60, 120)
-              ):
-                  counts["ma_5_20_60_120_ready"] += 1
-
-              atr = row.get("atr14") or {}
-              if atr.get("pct") is not None:
-                  counts["atr14_ready"] += 1
-
-              run = row.get("run") or {}
-              if run.get("average") is not None:
-                  counts["mean_run_ready"] += 1
-
-              streak = row.get("streak") or {}
-              if streak.get("direction") is not None and streak.get("days") is not None:
-                  counts["streak_ready"] += 1
-
-              rsk = row.get("rs_kospi_pp") or {}
-              if rsk.get("1") is not None and rsk.get("3") is not None:
-                  counts["rs_kospi_ready"] += 1
-
-              rss = row.get("rs_sector_pp") or {}
-              if rss.get("1") is not None and rss.get("3") is not None:
-                  counts["rs_sector_ready"] += 1
-              else:
-                  counts["rs_sector_missing"] += 1
-
-              trailing = row.get("trailing_reference") or {}
-              if trailing.get("ma20_close_level") is not None:
-                  counts["ma20_reference_ready"] += 1
-              if trailing.get("confirmed_swing_low_stop") is not None:
-                  counts["confirmed_stop_ready"] += 1
-
-              pending = row.get("pending_metrics") or {}
-              if set(pending) != pending_expected or any(v is not None for v in pending.values()):
-                  counts["pending_contract_violations"] += 1
-
-              if perf.get("1w") is not None or perf.get("ytd") is not None or perf.get("52w") is not None:
-                  counts["pending_contract_violations"] += 1
-
-              detail = {
-                  "status": "READY_PREVIEW_ONLY",
-                  "basis_date": basis,
-                  "name": row.get("name"),
-                  "ticker": row.get("ticker"),
-                  "market": market,
-                  "request_time_price": None,
-                  "request_time_price_status": "ACTION_NOT_ENABLED",
-                  "official_close": row.get("official_close"),
-                  "price_performance": {
-                      "1w": None,
-                      "1m": perf.get("1m"),
-                      "3m": perf.get("3m"),
-                      "6m": perf.get("6m"),
-                      "ytd": None,
-                      "52w": None,
-                  },
-                  "swing": swing,
-                  "ma": ma,
-                  "run": run,
-                  "streak": streak,
-                  "rs_kospi_pp": rsk,
-                  "sector_benchmark": row.get("sector_benchmark"),
-                  "rs_sector_pp": rss,
-                  "atr14": atr,
-                  "avg_daily_range_20_pct": row.get("avg_daily_range_20_pct"),
-                  "range_3m": row.get("range_3m"),
-                  "trailing_reference": {
-                      "ma20_close_level": trailing.get("ma20_close_level"),
-                      "below_ma20_at_official_close": trailing.get("below_ma20_at_official_close"),
-                      "confirmed_swing_low_stop": None,
-                      "status": trailing.get("status"),
-                  },
-                  "pending_metrics": {k: None for k in sorted(pending_expected)},
-                  "metric_glossary_footer": source.get("metric_glossary_footer"),
-              }
-
-              size = len(
-                  json.dumps(detail, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+          expected_ma_gap_count = (
+              len(integrated_rows)
+              - sum(
+                  1
+                  for row in integrated_rows.values()
+                  if all(
+                      (row.get("ma") or {}).get(str(p), {}).get("value") is not None
+                      and (row.get("ma") or {}).get(str(p), {}).get("direction") is not None
+                      for p in (5, 20, 60, 120)
+                  )
               )
-              if size > max_single_payload_bytes:
-                  max_single_payload_bytes = size
-                  max_single_payload_ticker = row.get("ticker")
+          )
 
-              preview_rows.append(detail)
-
-          if counts["pending_contract_violations"] != 0:
-              raise SystemExit(
-                  "PENDING_CONTRACT_VIOLATION_COUNT="
-                  + str(counts["pending_contract_violations"])
+          expected_atr_gap_count = (
+              len(integrated_rows)
+              - sum(
+                  1 for row in integrated_rows.values()
+                  if (row.get("atr14") or {}).get("pct") is not None
               )
-          if counts["confirmed_stop_ready"] != 0:
-              raise SystemExit("CONFIRMED_STOP_SHOULD_BE_ZERO")
-          if counts["KOSPI"] != int((source.get("market_counts") or {}).get("KOSPI") or 0):
-              raise SystemExit("KOSPI_COUNT_MISMATCH")
-          if counts["KOSDAQ"] != int((source.get("market_counts") or {}).get("KOSDAQ") or 0):
-              raise SystemExit("KOSDAQ_COUNT_MISMATCH")
-          if counts["return_6m_ready"] != int(source.get("return_6m_ready_count") or 0):
-              raise SystemExit("RETURN_6M_READY_MISMATCH")
-          if counts["rs_sector_ready"] != int(source.get("kospi_sector_rs_ready_count") or 0):
-              raise SystemExit("SECTOR_RS_READY_MISMATCH")
-          if counts["rs_sector_missing"] != int(source.get("kosdaq_sector_rs_null_count") or 0):
-              raise SystemExit("SECTOR_RS_MISSING_MISMATCH")
+          )
 
-          coverage = {
-              key: round(100.0 * value / counts["total"], 2)
-              for key, value in counts.items()
-              if key not in ("total", "KOSPI", "KOSDAQ", "pending_contract_violations")
-          }
+          if len(ma_gap_rows) != expected_ma_gap_count:
+              raise SystemExit("MA_GAP_COUNT_INTERNAL_MISMATCH")
+          if len(atr_gap_rows) != expected_atr_gap_count:
+              raise SystemExit("ATR_GAP_COUNT_INTERNAL_MISMATCH")
 
-          readiness = {
-              "version": "2026-09-12-v8.7.7-integrated-standalone-swing-preview",
-              "status": "READY_PREVIEW_ONLY",
+          unexpected_atr = [
+              r for r in atr_gap_rows
+              if r["diagnostic_reason"] == "UNEXPECTED_ATR_NULL_WITH_COMPLETE_LAST126"
+          ]
+
+          result = {
+              "version": "2026-09-12-v8.7.8-standalone-swing-gap-diagnostic",
+              "status": "READY_EVIDENCE_ONLY",
               "repository_write": False,
               "production_change": False,
               "worker_change": False,
-              "action_route_enabled": False,
-              "standalone_swing_table_enabled": False,
-              "command_name_defined": False,
-              "final_header_selected": False,
-              "request_time_price_live_tested": False,
+              "metric_formula_change": False,
               "basis_date": basis,
-              "row_count": counts["total"],
-              "market_counts": {
-                  "KOSPI": counts["KOSPI"],
-                  "KOSDAQ": counts["KOSDAQ"],
-              },
-              "ready_counts": counts,
-              "coverage_pct": coverage,
-              "max_single_stock_preview_payload_bytes": max_single_payload_bytes,
-              "max_single_stock_preview_payload_ticker": max_single_payload_ticker,
-              "production_candidate_fields": [
-                  "basic_identity",
-                  "official_close",
-                  "return_1m",
-                  "return_3m",
-                  "return_6m_with_short_history_missing",
-                  "swing_phase_and_anchors",
-                  "ma_5_20_60_120",
-                  "mean_run_days",
-                  "current_streak",
-                  "rs_kospi_1m_3m",
-                  "rs_sector_1m_3m_kospi_only",
-                  "atr14",
-                  "avg_daily_range_20_pct",
-                  "range_3m",
-                  "ma20_reference_only",
-                  "metric_glossary_footer",
-              ],
-              "not_ready_for_production_fields": [
-                  "return_1w",
-                  "return_ytd",
-                  "return_52w",
-                  "rsi",
-                  "macd",
-                  "investment_score_100",
-                  "earnings_outlook_change",
-                  "confirmed_swing_low_stop",
-                  "kosdaq_sector_rs",
-              ],
-              "activation_blockers": [
-                  "NO_FINAL_STANDALONE_TABLE_HEADER_CONTRACT",
-                  "NO_STANDALONE_ACTION_COMMAND_OR_ROUTE_CONTRACT",
-                  "REQUEST_TIME_PRICE_PATH_NOT_YET_WIRED_TO_STANDALONE_TABLE",
-                  "1W_YTD_52W_FORMULAS_NOT_APPROVED",
-                  "RSI_MACD_FORMULAS_NOT_APPROVED",
-                  "CONFIRMED_SWING_LOW_STOP_POLICY_NOT_DEFINED",
-                  "INVESTMENT_SCORE_THRESHOLDS_NOT_DEFINED",
-                  "EARNINGS_OUTLOOK_SOURCE_NOT_CONNECTED",
-                  "KOSDAQ_OFFICIAL_SECTOR_RS_CONTRACT_NOT_DEFINED",
-              ],
-              "metric_glossary_footer": source.get("metric_glossary_footer"),
-              "source_contract_version": source.get("contract_version"),
-              "source_lineage": source.get("source_lineage"),
-              "safety": {
-                  "pending_metrics_null": True,
-                  "confirmed_stop_null": True,
-                  "future_swing_prediction_generated": False,
-                  "request_time_price_substitution": False,
-                  "repository_write": False,
-                  "production_change": False,
-                  "worker_change": False,
+              "row_count": len(integrated_rows),
+              "ma_full_ready_count": len(integrated_rows) - len(ma_gap_rows),
+              "ma_gap_count": len(ma_gap_rows),
+              "atr14_ready_count": len(atr_ready_rows),
+              "atr14_gap_count": len(atr_gap_rows),
+              "atr14_gap_classification_counts": dict(sorted(classifications.items())),
+              "unexpected_atr_null_count": len(unexpected_atr),
+              "ma_gap_rows": ma_gap_rows,
+              "atr_gap_rows": atr_gap_rows,
+              "decision": {
+                  "ma_formula_change_required": False,
+                  "atr_formula_change_required": False,
+                  "auto_fill_missing_values": False,
+                  "static_price_substitution": False,
+                  "note": (
+                      "This diagnostic classifies source/history gaps only. "
+                      "It does not relax or change the validated MA/ATR formulas."
+                  ),
               },
           }
 
-          (OUT / "standalone-swing-readiness-v877.json").write_text(
-              json.dumps(readiness, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+          (OUT / "standalone-swing-gap-diagnostic-v878.json").write_text(
+              json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
               encoding="utf-8",
           )
-
-          # Save a compact sample: 10 KOSPI + all available first 5 KOSDAQ names.
-          kospi_sample = [r for r in preview_rows if r["market"] == "KOSPI"][:10]
-          kosdaq_sample = [r for r in preview_rows if r["market"] == "KOSDAQ"][:5]
-          sample = kospi_sample + kosdaq_sample
-          (OUT / "standalone-swing-sample-v877.json").write_text(
-              json.dumps(
-                  {
-                      "status": "READY_PREVIEW_ONLY",
-                      "basis_date": basis,
-                      "sample_count": len(sample),
-                      "rows": sample,
-                  },
-                  ensure_ascii=False,
-                  indent=2,
-                  allow_nan=False,
-              ) + "\n",
-              encoding="utf-8",
-          )
-
-          def pct(v):
-              return "자료 미제공" if v is None else f"{v:.2f}%"
-
-          def pp(v):
-              return "자료 미제공" if v is None else f"{v:+.2f}%p"
 
           md = [
-              "# V8.7.7 독립 종목 스윙추세분석 최종 직전 Preview",
+              "# V8.7.8 독립 스윙 데이터 결측 진단",
               "",
               f"- 기준일: {basis}",
-              f"- source 종목: {counts['total']} (KOSPI {counts['KOSPI']} / KOSDAQ {counts['KOSDAQ']})",
-              f"- 1M 수익률 준비: {counts['return_1m_ready']}/{counts['total']}",
-              f"- 3M 수익률 준비: {counts['return_3m_ready']}/{counts['total']}",
-              f"- 6M 수익률 준비: {counts['return_6m_ready']}/{counts['total']}",
-              f"- 스윙 상태 준비: {counts['swing_ready']}/{counts['total']}",
-              f"- MA5/20/60/120 준비: {counts['ma_5_20_60_120_ready']}/{counts['total']}",
-              f"- ATR14 준비: {counts['atr14_ready']}/{counts['total']}",
-              f"- KOSPI 대비 RS 준비: {counts['rs_kospi_ready']}/{counts['total']}",
-              f"- 업종RS 준비: {counts['rs_sector_ready']}/{counts['total']} (KOSPI 전체)",
-              f"- 업종RS 미지원: {counts['rs_sector_missing']}/{counts['total']} (KOSDAQ)",
-              f"- 확정 스윙저점 손절: {counts['confirmed_stop_ready']}/{counts['total']} — 미제공 유지",
-              f"- 최대 단일종목 Preview payload: {max_single_payload_bytes} bytes ({max_single_payload_ticker})",
+              f"- 전체 종목: {len(integrated_rows)}",
+              f"- MA5/20/60/120 전체 준비: {len(integrated_rows)-len(ma_gap_rows)}/{len(integrated_rows)}",
+              f"- MA 결측: {len(ma_gap_rows)}",
+              f"- ATR14 준비: {len(atr_ready_rows)}/{len(integrated_rows)}",
+              f"- ATR14 결측: {len(atr_gap_rows)}",
+              f"- 예상 밖 ATR null: {len(unexpected_atr)}",
               "",
-              "## 운영 후보로 바로 쓸 수 있는 항목",
-              "",
-              "- 기본정보: 종목명·종목코드·시장·기준일·공식종가",
-              "- 가격성과: 1M·3M·6M(상장이력 부족 시 자료 미제공)",
-              "- 스윙: 상태·저점/고점 근거일·저점/고점 대비 현재 위치·5거래일 모멘텀",
-              "- 추세: MA5/20/60/120 값·방향",
-              "- 연속등락: 평균등락일수·현재 연속방향·일수·누적등락률",
-              "- 상대강도: KOSPI 대비 1M/3M, KOSPI 종목 공식 업종RS 1M/3M",
-              "- 변동성: ATR14·20일 평균 일중고저폭",
-              "- 참고선: MA20 참고선(주문가격 아님)",
-              "",
-              "## 아직 운영 승격하면 안 되는 항목",
-              "",
-              "- 1W·YTD·52W 수익률",
-              "- RSI·MACD",
-              "- 투자종합점수100",
-              "- 실적전망 변화",
-              "- 확정 스윙저점 기반 추적손절",
-              "- KOSDAQ 공식 업종RS",
-              "",
-              "## 실제 표시형 샘플",
-              "",
-              "|종목|시장|1M|3M|6M|스윙|MA20|KOSPI RS 1M|업종RS 1M|ATR14|연속등락|",
-              "|---|---|---:|---:|---:|---|---|---:|---:|---:|---|",
+              "## MA 결측 종목",
           ]
 
-          for r in sample:
-              perf = r["price_performance"]
-              swing = r["swing"] or {}
-              ma20 = (r["ma"].get("20") or {})
-              rsk = r["rs_kospi_pp"] or {}
-              rss = r["rs_sector_pp"] or {}
-              atr = r["atr14"] or {}
-              streak = r["streak"] or {}
+          if ma_gap_rows:
+              for r in ma_gap_rows:
+                  md.append(
+                      f"- {r['name']}({r['ticker']}, {r['market']}): "
+                      f"관측 {r['observation_count']}일, 결측 MA={r['missing_ma_periods']}, "
+                      f"history {r['history_min_date']}~{r['history_max_date']}"
+                  )
+          else:
+              md.append("- 없음")
 
-              six = perf.get("6m") or {}
-              six_pct = six.get("pct") if six.get("status") == "OK" else None
+          md += ["", "## ATR14 결측 분류"]
+          for reason, count in sorted(classifications.items()):
+              md.append(f"- {reason}: {count}종목")
 
-              streak_text = (
-                  f"{'상승' if streak.get('direction') == 1 else '하락' if streak.get('direction') == -1 else '보합'} "
-                  f"{streak.get('days')}일 / {pct(streak.get('change_pct'))}"
-              )
-
+          md += ["", "## ATR14 결측 종목"]
+          for r in atr_gap_rows:
               md.append(
-                  f"|{r['name']}({r['ticker']})|{r['market']}|"
-                  f"{pct((perf.get('1m') or {}).get('pct'))}|"
-                  f"{pct((perf.get('3m') or {}).get('pct'))}|"
-                  f"{pct(six_pct)}|"
-                  f"{swing.get('phase_ko') or '자료 미제공'}|"
-                  f"{ma20.get('direction')}|"
-                  f"{pp(rsk.get('1'))}|"
-                  f"{pp(rss.get('1'))}|"
-                  f"{pct(atr.get('pct'))}|"
-                  f"{streak_text}|"
+                  f"- {r['name']}({r['ticker']}, {r['market']}): "
+                  f"{r['diagnostic_reason']}, 관측 {r['observation_count']}일, "
+                  f"최근126 고가/저가 결측 {r['missing_high_low_last126_count']}일, "
+                  f"최근20 결측 {r['missing_high_low_last20_count']}일"
               )
 
           md += [
               "",
-              source.get("metric_glossary_footer") or "",
-              "",
-              "※ 스윙은 확정 일봉의 과거 상태 분류이며 미래 포물선 예측이 아닙니다.",
-              "※ MA20은 확정 스윙저점 손절이 없을 때 참고선일 뿐 주문가격·보장 손절가격이 아닙니다.",
-              "※ 이 Preview는 최종 헤더·명령어·Action 경로를 확정하지 않습니다.",
+              "## 안전 판정",
+              "- 이 진단은 MA/ATR 계산식을 변경하지 않습니다.",
+              "- 결측치를 임의 보간하지 않습니다.",
+              "- 요청시점 현재가 또는 정적 종가로 결측을 대체하지 않습니다.",
+              "- repository·production·Worker를 변경하지 않습니다.",
           ]
 
-          (OUT / "standalone-swing-preview-v877.md").write_text(
+          (OUT / "standalone-swing-gap-diagnostic-v878.md").write_text(
               "\n".join(md) + "\n",
               encoding="utf-8",
           )
 
-          print("V877_STANDALONE_SWING_PREVIEW=READY_PREVIEW_ONLY")
-          print("BASIS_DATE=" + str(basis))
-          print("PREVIEW_ROWS=" + str(counts["total"]))
-          print("KOSPI_ROWS=" + str(counts["KOSPI"]))
-          print("KOSDAQ_ROWS=" + str(counts["KOSDAQ"]))
-          print("RETURN_1M_READY=" + str(counts["return_1m_ready"]))
-          print("RETURN_3M_READY=" + str(counts["return_3m_ready"]))
-          print("RETURN_6M_READY=" + str(counts["return_6m_ready"]))
-          print("SWING_READY=" + str(counts["swing_ready"]))
-          print("MA_FULL_READY=" + str(counts["ma_5_20_60_120_ready"]))
-          print("ATR14_READY=" + str(counts["atr14_ready"]))
-          print("RS_KOSPI_READY=" + str(counts["rs_kospi_ready"]))
-          print("RS_SECTOR_READY=" + str(counts["rs_sector_ready"]))
-          print("RS_SECTOR_MISSING=" + str(counts["rs_sector_missing"]))
-          print("CONFIRMED_STOP_READY=" + str(counts["confirmed_stop_ready"]))
-          print("PENDING_CONTRACT_VIOLATIONS=" + str(counts["pending_contract_violations"]))
-          print("MAX_SINGLE_STOCK_PREVIEW_PAYLOAD_BYTES=" + str(max_single_payload_bytes))
-          print("COMMAND_NAME_DEFINED=false")
-          print("FINAL_HEADER_SELECTED=false")
-          print("REQUEST_TIME_PRICE_LIVE_TESTED=false")
-          print("ACTION_ROUTE_ENABLED=false")
-          print("PRODUCTION_ACTIVATION=false")
+          print("V878_GAP_DIAGNOSTIC=READY_EVIDENCE_ONLY")
+          print("BASIS_DATE=" + basis)
+          print("TOTAL_ROWS=" + str(len(integrated_rows)))
+          print("MA_FULL_READY=" + str(len(integrated_rows)-len(ma_gap_rows)))
+          print("MA_GAP_COUNT=" + str(len(ma_gap_rows)))
+          print("ATR14_READY=" + str(len(atr_ready_rows)))
+          print("ATR14_GAP_COUNT=" + str(len(atr_gap_rows)))
+          print("UNEXPECTED_ATR_NULL_COUNT=" + str(len(unexpected_atr)))
+          for reason, count in sorted(classifications.items()):
+              print("ATR_CLASS_" + reason + "=" + str(count))
+          print("MA_FORMULA_CHANGE_REQUIRED=false")
+          print("ATR_FORMULA_CHANGE_REQUIRED=false")
+          print("AUTO_FILL_MISSING_VALUES=false")
           print("REPOSITORY_WRITE=false")
           print("PRODUCTION_CHANGE=false")
           print("WORKER_CHANGE=false")
           print("REQUEST_TIME_PRICE_SUBSTITUTION=false")
           PY
 
-      - name: Validate preview safety
+      - name: Validate diagnostic safety
         shell: bash
         run: |
           set -euo pipefail
 
-          test -f /tmp/v877_integrated_swing_preview/standalone-swing-readiness-v877.json
-          test -f /tmp/v877_integrated_swing_preview/standalone-swing-sample-v877.json
-          test -f /tmp/v877_integrated_swing_preview/standalone-swing-preview-v877.md
+          test -f /tmp/v878_standalone_swing_gap_diagnostic/standalone-swing-gap-diagnostic-v878.json
+          test -f /tmp/v878_standalone_swing_gap_diagnostic/standalone-swing-gap-diagnostic-v878.md
 
           python - <<'PY'
           import json
           from pathlib import Path
 
           p = json.loads(
-              Path("/tmp/v877_integrated_swing_preview/standalone-swing-readiness-v877.json")
+              Path("/tmp/v878_standalone_swing_gap_diagnostic/standalone-swing-gap-diagnostic-v878.json")
               .read_text(encoding="utf-8")
           )
 
-          assert p["status"] == "READY_PREVIEW_ONLY"
+          assert p["status"] == "READY_EVIDENCE_ONLY"
           assert p["repository_write"] is False
           assert p["production_change"] is False
           assert p["worker_change"] is False
-          assert p["action_route_enabled"] is False
-          assert p["standalone_swing_table_enabled"] is False
-          assert p["command_name_defined"] is False
-          assert p["final_header_selected"] is False
-          assert p["request_time_price_live_tested"] is False
-          assert p["ready_counts"]["pending_contract_violations"] == 0
-          assert p["ready_counts"]["confirmed_stop_ready"] == 0
-          assert p["ready_counts"]["return_1m_ready"] == p["row_count"]
-          assert p["ready_counts"]["return_3m_ready"] == p["row_count"]
-          assert p["ready_counts"]["swing_ready"] == p["row_count"]
-          assert p["ready_counts"]["rs_sector_ready"] == p["market_counts"]["KOSPI"]
-          assert p["ready_counts"]["rs_sector_missing"] == p["market_counts"]["KOSDAQ"]
-          assert p["metric_glossary_footer"].startswith("읽는 법:")
-          assert p["max_single_stock_preview_payload_bytes"] < 30000
+          assert p["metric_formula_change"] is False
+          assert p["ma_full_ready_count"] + p["ma_gap_count"] == p["row_count"]
+          assert p["atr14_ready_count"] + p["atr14_gap_count"] == p["row_count"]
+          assert p["decision"]["ma_formula_change_required"] is False
+          assert p["decision"]["atr_formula_change_required"] is False
+          assert p["decision"]["auto_fill_missing_values"] is False
+          assert p["decision"]["static_price_substitution"] is False
 
-          print("V877_SOURCE_READINESS=PASS")
-          print("V877_PENDING_NULL_GUARD=PASS")
-          print("V877_SINGLE_STOCK_PAYLOAD_LT_30K=PASS")
-          print("V877_PREPRODUCTION_SAFETY=PASS")
+          print("V878_COUNT_RECONCILIATION=PASS")
+          print("V878_NO_FORMULA_CHANGE=PASS")
+          print("V878_NO_AUTOFILL=PASS")
+          print("V878_READ_ONLY_SAFETY=PASS")
           PY
 
           git diff --exit-code
@@ -505,13 +400,12 @@ jobs:
           echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
           echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
 
-      - name: Upload V8.7.7 preview artifact
+      - name: Upload V8.7.8 diagnostic artifact
         uses: actions/upload-artifact@v6
         with:
-          name: integrated-standalone-swing-preview-v877
+          name: standalone-swing-gap-diagnostic-v878
           path: |
-            /tmp/v877_integrated_swing_preview/standalone-swing-readiness-v877.json
-            /tmp/v877_integrated_swing_preview/standalone-swing-sample-v877.json
-            /tmp/v877_integrated_swing_preview/standalone-swing-preview-v877.md
+            /tmp/v878_standalone_swing_gap_diagnostic/standalone-swing-gap-diagnostic-v878.json
+            /tmp/v878_standalone_swing_gap_diagnostic/standalone-swing-gap-diagnostic-v878.md
           if-no-files-found: error
           retention-days: 14

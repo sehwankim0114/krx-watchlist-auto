@@ -1,373 +1,214 @@
-name: Probe standalone swing return bases v8.6.2
+name: Build standalone swing 6M return source v8.7.2
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: v862-return-basis-probe
+  group: collect-krx-watchlist-latest
   cancel-in-progress: false
 
 jobs:
-  probe:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout latest main
         uses: actions/checkout@v6
         with:
           ref: main
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
-      - name: Probe candidate return-basis conventions
+      - name: Capture base and protected hashes
         shell: bash
         run: |
           set -euo pipefail
+          echo "BASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          sha256sum stock_table_metrics_v850.py > /tmp/metric.sha
+          sha256sum worker/krx-live-price-worker.js > /tmp/worker.sha
+          find api/two_table_v1 -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/two_table.sha
+          echo "V872_BASE_SHA=$(git rev-parse HEAD)"
 
+      - name: Restore V8.7.2 source builder
+        shell: bash
+        env:
+          BUILDER_B64: "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwojIC0qLSBjb2Rpbmc6IHV0Zi04IC0qLQpmcm9tIF9fZnV0dXJlX18gaW1wb3J0IGFubm90YXRpb25zCgppbXBvcnQgY3N2CmltcG9ydCBoYXNobGliCmltcG9ydCBqc29uCmZyb20gY29sbGVjdGlvbnMgaW1wb3J0IGRlZmF1bHRkaWN0CmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aAoKZnJvbSBzdG9ja190YWJsZV9tZXRyaWNzX3Y4NTAgaW1wb3J0ICgKICAgIFZFUlNJT04gYXMgTUVUUklDX1ZFUlNJT04sCiAgICBub3JtYWxpemVfYmFycywKICAgIHBlcmlvZF9yZXR1cm4sCikKClNDUklQVF9WRVJTSU9OID0gInN0YW5kYWxvbmVfc3dpbmdfZXh0ZW5kZWRfcmV0dXJuc192ODcyLnB5IHYxLjAuMC1zb3VyY2Utb25seSIKQ09OVFJBQ1RfVkVSU0lPTiA9ICIyMDI2LTA5LTEyLXY4LjcuMi1zdGFuZGFsb25lLXN3aW5nLTZtLXJldHVybi1zb3VyY2UiCgpISVNUT1JZX0NTViA9IFBhdGgoImxhdGVzdC9hY3RpdmVfc3RvY2tfbG9uZ19oaXN0b3J5XzI2MGRfbGF0ZXN0LmNzdiIpCkhJU1RPUllfTUVUQSA9IFBhdGgoImxhdGVzdC9hY3RpdmVfc3RvY2tfbG9uZ19oaXN0b3J5XzI2MGRfbWV0YV9sYXRlc3QuanNvbiIpCklOREVYX0NTViA9IFBhdGgoImxhdGVzdC9vZmZpY2lhbF9pbmRleF9oaXN0b3J5X2xhdGVzdC5jc3YiKQpLT1NQSV9QUk9EID0gUGF0aCgiYXBpL3R3b190YWJsZV92MS9rb3NwaS5qc29uIikKU1dJTkdfTUVUQSA9IFBhdGgoImxhdGVzdC9zdGFuZGFsb25lX3N3aW5nX3NvdXJjZV9tZXRhX2xhdGVzdC5qc29uIikKCk9VVF9KU09OID0gUGF0aCgibGF0ZXN0L3N0YW5kYWxvbmVfc3dpbmdfZXh0ZW5kZWRfcmV0dXJuc19sYXRlc3QuanNvbiIpCk9VVF9DU1YgPSBQYXRoKCJsYXRlc3Qvc3RhbmRhbG9uZV9zd2luZ19leHRlbmRlZF9yZXR1cm5zX2xhdGVzdC5jc3YiKQpPVVRfTUVUQSA9IFBhdGgoImxhdGVzdC9zdGFuZGFsb25lX3N3aW5nX2V4dGVuZGVkX3JldHVybnNfbWV0YV9sYXRlc3QuanNvbiIpCk9VVF9MT0cgPSBQYXRoKCJsYXRlc3Qvc3RhbmRhbG9uZV9zd2luZ19leHRlbmRlZF9yZXR1cm5zX3J1bl9sb2dfbGF0ZXN0LnR4dCIpCgpkZWYgcmVhZF9qc29uKHBhdGg6IFBhdGgpOgogICAgcmV0dXJuIGpzb24ubG9hZHMocGF0aC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04LXNpZyIpKQoKZGVmIHJlYWRfY3N2KHBhdGg6IFBhdGgpOgogICAgd2l0aCBwYXRoLm9wZW4oZW5jb2Rpbmc9InV0Zi04LXNpZyIsIG5ld2xpbmU9IiIpIGFzIGY6CiAgICAgICAgcmV0dXJuIGxpc3QoY3N2LkRpY3RSZWFkZXIoZikpCgpkZWYgc2hhMjU2KHBhdGg6IFBhdGgpOgogICAgaCA9IGhhc2hsaWIuc2hhMjU2KCkKICAgIHdpdGggcGF0aC5vcGVuKCJyYiIpIGFzIGY6CiAgICAgICAgZm9yIGNodW5rIGluIGl0ZXIobGFtYmRhOiBmLnJlYWQoMTAyNCAqIDEwMjQpLCBiIiIpOgogICAgICAgICAgICBoLnVwZGF0ZShjaHVuaykKICAgIHJldHVybiBoLmhleGRpZ2VzdCgpCgpkZWYgd3JpdGVfanNvbihwYXRoOiBQYXRoLCBvYmopOgogICAgcGF0aC53cml0ZV90ZXh0KGpzb24uZHVtcHMob2JqLCBlbnN1cmVfYXNjaWk9RmFsc2UsIGluZGVudD0yLCBhbGxvd19uYW49RmFsc2UpICsgIlxuIiwgZW5jb2Rpbmc9InV0Zi04IikKCmRlZiBtYWluKCk6CiAgICByZXF1aXJlZCA9IFsKICAgICAgICBISVNUT1JZX0NTViwgSElTVE9SWV9NRVRBLCBJTkRFWF9DU1YsIEtPU1BJX1BST0QsIFNXSU5HX01FVEEsCiAgICAgICAgUGF0aCgic3RvY2tfdGFibGVfbWV0cmljc192ODUwLnB5IiksCiAgICBdCiAgICBmb3IgcCBpbiByZXF1aXJlZDoKICAgICAgICBpZiBub3QgcC5pc19maWxlKCk6CiAgICAgICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIk1JU1NJTkdfUkVRVUlSRURfU09VUkNFOiIgKyBzdHIocCkpCgogICAgaGlzdF9tZXRhID0gcmVhZF9qc29uKEhJU1RPUllfTUVUQSkKICAgIHN3aW5nX21ldGEgPSByZWFkX2pzb24oU1dJTkdfTUVUQSkKICAgIHByb2QgPSByZWFkX2pzb24oS09TUElfUFJPRCkKCiAgICBpZiBoaXN0X21ldGEuZ2V0KCJzdGF0dXMiKSAhPSAiUkVBRFkiOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIkxPTkdfSElTVE9SWV9OT1RfUkVBRFkiKQogICAgaWYgaGlzdF9tZXRhLmdldCgic291cmNlX29ubHkiKSBpcyBub3QgVHJ1ZToKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJMT05HX0hJU1RPUllfTk9UX1NPVVJDRV9PTkxZIikKICAgIGlmIGhpc3RfbWV0YS5nZXQoInJlcXVlc3RfdGltZV9wcmljZV9lbGlnaWJsZSIpIGlzIG5vdCBGYWxzZToKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJMT05HX0hJU1RPUllfUkVRVUVTVF9USU1FX0dVQVJEX0ZBSUxFRCIpCiAgICBpZiBzd2luZ19tZXRhLmdldCgic3RhdHVzIikgIT0gIlJFQURZX1NPVVJDRV9PTkxZIjoKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJTV0lOR19TT1VSQ0VfTk9UX1JFQURZIikKICAgIGlmIHN3aW5nX21ldGEuZ2V0KCJzdGFuZGFsb25lX3N3aW5nX3RhYmxlX2VuYWJsZWQiKSBpcyBub3QgRmFsc2U6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiU1dJTkdfVEFCTEVfQUxSRUFEWV9FTkFCTEVEX1VORVhQRUNURURMWSIpCgogICAgYmFzaXMgPSBzdHIoaGlzdF9tZXRhLmdldCgiY2FjaGVfbWF4X2RhdGUiKSBvciAiIikKICAgIGlmIHN3aW5nX21ldGEuZ2V0KCJiYXNpc19kYXRlIikgIT0gYmFzaXM6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiU1dJTkdfU09VUkNFX0JBU0lTX01JU01BVENIIikKICAgIGlmIHByb2QuZ2V0KCJiYXNpc19kYXRlIikgIT0gYmFzaXM6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiUFJPRFVDVElPTl9CQVNJU19NSVNNQVRDSCIpCiAgICBpZiBwcm9kLmdldCgic3RhdHVzIikgIT0gIlJFQURZIjoKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJQUk9EVUNUSU9OX05PVF9SRUFEWSIpCgogICAgdGFyZ2V0ID0gW3N0cih4KS56ZmlsbCg2KSBmb3IgeCBpbiBoaXN0X21ldGEuZ2V0KCJ0YXJnZXRfdGlja2VycyIsIFtdKV0KICAgIGlmIGxlbih0YXJnZXQpICE9IGludChoaXN0X21ldGEuZ2V0KCJ0YXJnZXRfdGlja2VyX2NvdW50Iikgb3IgMCk6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiVEFSR0VUX01FVEFfQ09VTlRfTUlTTUFUQ0giKQoKICAgIGhpc3RvcnkgPSByZWFkX2NzdihISVNUT1JZX0NTVikKICAgIHRhcmdldF9zZXQgPSBzZXQodGFyZ2V0KQogICAgYnlfdGlja2VyID0gZGVmYXVsdGRpY3QobGlzdCkKICAgIGlkZW50aXR5ID0ge30KICAgIGZvciByb3cgaW4gaGlzdG9yeToKICAgICAgICB0aWNrZXIgPSBzdHIocm93LmdldCgidGlja2VyIikgb3IgIiIpLnpmaWxsKDYpCiAgICAgICAgaWYgdGlja2VyIGluIHRhcmdldF9zZXQ6CiAgICAgICAgICAgIGJ5X3RpY2tlclt0aWNrZXJdLmFwcGVuZChyb3cpCiAgICAgICAgICAgIGlkZW50aXR5W3RpY2tlcl0gPSB7CiAgICAgICAgICAgICAgICAibmFtZSI6IHN0cihyb3cuZ2V0KCJuYW1lIikgb3IgIiIpLAogICAgICAgICAgICAgICAgIm1hcmtldCI6IHN0cihyb3cuZ2V0KCJtYXJrZXQiKSBvciAiIiksCiAgICAgICAgICAgIH0KCiAgICBpZiBzZXQoYnlfdGlja2VyKSAhPSB0YXJnZXRfc2V0OgogICAgICAgIG1pc3NpbmcgPSBzb3J0ZWQodGFyZ2V0X3NldCAtIHNldChieV90aWNrZXIpKQogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIlRBUkdFVF9ISVNUT1JZX01JU1NJTkc6IiArICIsIi5qb2luKG1pc3NpbmdbOjIwXSkpCgogICAgaW5kZXhfcm93cyA9IHJlYWRfY3N2KElOREVYX0NTVikKICAgIHNlc3Npb25zID0gc29ydGVkKHsKICAgICAgICBzdHIoclsiZGF0ZSJdKQogICAgICAgIGZvciByIGluIGluZGV4X3Jvd3MKICAgICAgICBpZiBzdHIoci5nZXQoIm1hcmtldCIpKSA9PSAiS09TUEkiIGFuZCBzdHIoci5nZXQoImRhdGUiKSkgPD0gYmFzaXMKICAgIH0pCiAgICBpZiBub3Qgc2Vzc2lvbnMgb3Igc2Vzc2lvbnNbLTFdICE9IGJhc2lzOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIktPU1BJX1NFU1NJT05fQ0FMRU5EQVJfTk9UX0NVUlJFTlQiKQoKICAgICMgUmVncmVzc2lvbiBnYXRlOiBnZW5lcmljIHBlcmlvZF9yZXR1cm4obW9udGhzPU4pIG11c3QgcmVwcm9kdWNlIHRoZQogICAgIyBjdXJyZW50IHByb2R1Y3Rpb24gMU0vM00gdmFsdWVzIGJlZm9yZSBpdCBpcyByZXVzZWQgZm9yIDZNLgogICAgcHJvZF9yb3dzID0gcHJvZC5nZXQoInJvd3MiKSBvciBbXQogICAgaWYgbGVuKHByb2Rfcm93cykgIT0gMzA6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiUFJPRFVDVElPTl9LT1NQSV9OT1RfMzAiKQoKICAgIHJlZ3Jlc3Npb25fbWF0Y2hlcyA9IDAKICAgIHJlZ3Jlc3Npb25fbWlzbWF0Y2hlcyA9IFtdCiAgICBmb3Igcm93IGluIHByb2Rfcm93czoKICAgICAgICB0aWNrZXIgPSBzdHIocm93LmdldCgidGlja2VyIikgb3IgIiIpLnpmaWxsKDYpCiAgICAgICAgYmFycyA9IG5vcm1hbGl6ZV9iYXJzKGJ5X3RpY2tlclt0aWNrZXJdLCBiYXNpcykKICAgICAgICBleHBlY3RlZCA9IChyb3cuZ2V0KCJtZXRyaWNzIikgb3Ige30pLmdldCgicmV0dXJucyIpIG9yIHt9CiAgICAgICAgYWN0dWFsID0gewogICAgICAgICAgICAiMSI6IHBlcmlvZF9yZXR1cm4oYmFycywgYmFzaXMsIDEsIHNlc3Npb25zKSwKICAgICAgICAgICAgIjMiOiBwZXJpb2RfcmV0dXJuKGJhcnMsIGJhc2lzLCAzLCBzZXNzaW9ucyksCiAgICAgICAgfQogICAgICAgIGlmIGFjdHVhbCA9PSB7IjEiOiBleHBlY3RlZC5nZXQoIjEiKSwgIjMiOiBleHBlY3RlZC5nZXQoIjMiKX06CiAgICAgICAgICAgIHJlZ3Jlc3Npb25fbWF0Y2hlcyArPSAxCiAgICAgICAgZWxzZToKICAgICAgICAgICAgcmVncmVzc2lvbl9taXNtYXRjaGVzLmFwcGVuZCh7CiAgICAgICAgICAgICAgICAidGlja2VyIjogdGlja2VyLAogICAgICAgICAgICAgICAgIm5hbWUiOiByb3cuZ2V0KCJuYW1lIiksCiAgICAgICAgICAgICAgICAiZXhwZWN0ZWQiOiB7IjEiOiBleHBlY3RlZC5nZXQoIjEiKSwgIjMiOiBleHBlY3RlZC5nZXQoIjMiKX0sCiAgICAgICAgICAgICAgICAiYWN0dWFsIjogYWN0dWFsLAogICAgICAgICAgICB9KQoKICAgIGlmIHJlZ3Jlc3Npb25fbWF0Y2hlcyAhPSAzMCBvciByZWdyZXNzaW9uX21pc21hdGNoZXM6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgKICAgICAgICAgICAgIlBFUklPRF9SRVRVUk5fUkVHUkVTU0lPTl9GQUlMRUQ6IgogICAgICAgICAgICArIGpzb24uZHVtcHMocmVncmVzc2lvbl9taXNtYXRjaGVzLCBlbnN1cmVfYXNjaWk9RmFsc2UpWzo2MDAwXQogICAgICAgICkKCiAgICByb3dzID0gW10KICAgIHJlYWR5XzZtID0gMAogICAgc2hvcnRfNm0gPSBbXQogICAgZm9yIHRpY2tlciBpbiBzb3J0ZWQodGFyZ2V0KToKICAgICAgICBiYXJzID0gbm9ybWFsaXplX2JhcnMoYnlfdGlja2VyW3RpY2tlcl0sIGJhc2lzKQogICAgICAgIHJldDYgPSBwZXJpb2RfcmV0dXJuKGJhcnMsIGJhc2lzLCA2LCBzZXNzaW9ucykKICAgICAgICBpZiByZXQ2LmdldCgic3RhdHVzIikgPT0gIk9LIjoKICAgICAgICAgICAgcmVhZHlfNm0gKz0gMQogICAgICAgIGVsc2U6CiAgICAgICAgICAgIHNob3J0XzZtLmFwcGVuZCh7CiAgICAgICAgICAgICAgICAidGlja2VyIjogdGlja2VyLAogICAgICAgICAgICAgICAgIm5hbWUiOiBpZGVudGl0eVt0aWNrZXJdWyJuYW1lIl0sCiAgICAgICAgICAgICAgICAiaGlzdG9yeV9yb3dzIjogbGVuKGJhcnMpLAogICAgICAgICAgICAgICAgImhpc3RvcnlfbWluX2RhdGUiOiBiYXJzWzBdWyJkYXRlIl0gaWYgYmFycyBlbHNlIE5vbmUsCiAgICAgICAgICAgICAgICAic3RhdHVzIjogcmV0Ni5nZXQoInN0YXR1cyIpLAogICAgICAgICAgICB9KQogICAgICAgIHJvd3MuYXBwZW5kKHsKICAgICAgICAgICAgInRpY2tlciI6IHRpY2tlciwKICAgICAgICAgICAgIm5hbWUiOiBpZGVudGl0eVt0aWNrZXJdWyJuYW1lIl0sCiAgICAgICAgICAgICJtYXJrZXQiOiBpZGVudGl0eVt0aWNrZXJdWyJtYXJrZXQiXSwKICAgICAgICAgICAgImJhc2lzX2RhdGUiOiBiYXNpcywKICAgICAgICAgICAgInJldHVybl82bSI6IHJldDYsCiAgICAgICAgICAgICJyZXR1cm5fMXciOiBOb25lLAogICAgICAgICAgICAicmV0dXJuX3l0ZCI6IE5vbmUsCiAgICAgICAgICAgICJyZXR1cm5fNTJ3IjogTm9uZSwKICAgICAgICAgICAgInBlbmRpbmdfcmVhc29uIjogewogICAgICAgICAgICAgICAgInJldHVybl8xdyI6ICJGSU5BTF9CQVNJU19DT05UUkFDVF9OT1RfREVGSU5FRCIsCiAgICAgICAgICAgICAgICAicmV0dXJuX3l0ZCI6ICJGSU5BTF9CQVNJU19DT05UUkFDVF9OT1RfREVGSU5FRCIsCiAgICAgICAgICAgICAgICAicmV0dXJuXzUydyI6ICJGSU5BTF9CQVNJU19DT05UUkFDVF9OT1RfREVGSU5FRF81MldfQ0FMRU5EQVJfVlNfMjUyX1NFU1NJT05TX0RJRkZFUlMiLAogICAgICAgICAgICB9LAogICAgICAgIH0pCgogICAgaWYgcmVhZHlfNm0gIT0gbGVuKHRhcmdldCkgLSAxOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoZiJVTkVYUEVDVEVEXzZNX1JFQURZX0NPVU5UOntyZWFkeV82bX0ve2xlbih0YXJnZXQpfSIpCiAgICBpZiBsZW4oc2hvcnRfNm0pICE9IDEgb3Igc2hvcnRfNm1bMF1bInRpY2tlciJdICE9ICI0Mzk5NjAiOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIlVORVhQRUNURURfNk1fU0hPUlRfU0VUOiIgKyBqc29uLmR1bXBzKHNob3J0XzZtLCBlbnN1cmVfYXNjaWk9RmFsc2UpKQoKICAgIHBheWxvYWQgPSB7CiAgICAgICAgImNvbnRyYWN0X3ZlcnNpb24iOiBDT05UUkFDVF9WRVJTSU9OLAogICAgICAgICJzY3JpcHRfdmVyc2lvbiI6IFNDUklQVF9WRVJTSU9OLAogICAgICAgICJzdGF0dXMiOiAiUkVBRFlfU09VUkNFX09OTFkiLAogICAgICAgICJzb3VyY2Vfb25seSI6IFRydWUsCiAgICAgICAgInN0YW5kYWxvbmVfc3dpbmdfdGFibGVfZW5hYmxlZCI6IEZhbHNlLAogICAgICAgICJyZXF1ZXN0X3RpbWVfcHJpY2VfZWxpZ2libGUiOiBGYWxzZSwKICAgICAgICAiYmFzaXNfZGF0ZSI6IGJhc2lzLAogICAgICAgICJtZXRyaWNfY29udHJhY3RfdmVyc2lvbiI6IE1FVFJJQ19WRVJTSU9OLAogICAgICAgICJyZXR1cm5fYmFzaXMiOiB7CiAgICAgICAgICAgICI2bSI6ICJDQUxFTkRBUl9NT05USFNfRklSU1RfTUFSS0VUX1NFU1NJT05fT05fT1JfQUZURVIiLAogICAgICAgICAgICAiMXciOiBOb25lLAogICAgICAgICAgICAieXRkIjogTm9uZSwKICAgICAgICAgICAgIjUydyI6IE5vbmUsCiAgICAgICAgfSwKICAgICAgICAicm93X2NvdW50IjogbGVuKHJvd3MpLAogICAgICAgICJyZXR1cm5fNm1fcmVhZHlfY291bnQiOiByZWFkeV82bSwKICAgICAgICAicmV0dXJuXzZtX3Nob3J0X2NvdW50IjogbGVuKHNob3J0XzZtKSwKICAgICAgICAicmV0dXJuXzZtX3Nob3J0Ijogc2hvcnRfNm0sCiAgICAgICAgInByb2R1Y3Rpb25fMW1fM21fcmVncmVzc2lvbl9leGFjdF9tYXRjaGVzIjogcmVncmVzc2lvbl9tYXRjaGVzLAogICAgICAgICJyb3dzIjogcm93cywKICAgICAgICAic2FmZXR5IjogewogICAgICAgICAgICAicmV0dXJuXzZtX2NhbGN1bGF0ZWQiOiBUcnVlLAogICAgICAgICAgICAicmV0dXJuXzF3X2NhbGN1bGF0ZWQiOiBGYWxzZSwKICAgICAgICAgICAgInJldHVybl95dGRfY2FsY3VsYXRlZCI6IEZhbHNlLAogICAgICAgICAgICAicmV0dXJuXzUyd19jYWxjdWxhdGVkIjogRmFsc2UsCiAgICAgICAgICAgICJyc2lfY2FsY3VsYXRlZCI6IEZhbHNlLAogICAgICAgICAgICAibWFjZF9jYWxjdWxhdGVkIjogRmFsc2UsCiAgICAgICAgICAgICJpbnZlc3RtZW50X3Njb3JlXzEwMF9jYWxjdWxhdGVkIjogRmFsc2UsCiAgICAgICAgICAgICJlYXJuaW5nc19vdXRsb29rX2NoYW5nZV9jYWxjdWxhdGVkIjogRmFsc2UsCiAgICAgICAgICAgICJjb25maXJtZWRfc3dpbmdfbG93X3N0b3BfY2FsY3VsYXRlZCI6IEZhbHNlLAogICAgICAgICAgICAibWV0cmljX2Zvcm11bGFfY2hhbmdlZCI6IEZhbHNlLAogICAgICAgICAgICAicHJvZHVjdGlvbl90YWJsZV9jaGFuZ2VkIjogRmFsc2UsCiAgICAgICAgICAgICJyZXF1ZXN0X3RpbWVfcHJpY2Vfc3Vic3RpdHV0aW9uIjogRmFsc2UsCiAgICAgICAgfSwKICAgICAgICAic291cmNlX3NoYTI1NiI6IHtzdHIocCk6IHNoYTI1NihwKSBmb3IgcCBpbiByZXF1aXJlZH0sCiAgICB9CiAgICB3cml0ZV9qc29uKE9VVF9KU09OLCBwYXlsb2FkKQoKICAgIGZsYXRfZmllbGRzID0gWwogICAgICAgICJiYXNpc19kYXRlIiwgIm1hcmtldCIsICJ0aWNrZXIiLCAibmFtZSIsCiAgICAgICAgInJldHVybl82bV9wY3QiLCAicmV0dXJuXzZtX3N0YXJ0X2RhdGUiLCAicmV0dXJuXzZtX3N0YXR1cyIsCiAgICAgICAgInJldHVybl8xdyIsICJyZXR1cm5feXRkIiwgInJldHVybl81MnciLAogICAgXQogICAgd2l0aCBPVVRfQ1NWLm9wZW4oInciLCBlbmNvZGluZz0idXRmLTgtc2lnIiwgbmV3bGluZT0iIikgYXMgZjoKICAgICAgICB3ID0gY3N2LkRpY3RXcml0ZXIoZiwgZmllbGRuYW1lcz1mbGF0X2ZpZWxkcykKICAgICAgICB3LndyaXRlaGVhZGVyKCkKICAgICAgICBmb3IgciBpbiByb3dzOgogICAgICAgICAgICB3LndyaXRlcm93KHsKICAgICAgICAgICAgICAgICJiYXNpc19kYXRlIjogYmFzaXMsCiAgICAgICAgICAgICAgICAibWFya2V0IjogclsibWFya2V0Il0sCiAgICAgICAgICAgICAgICAidGlja2VyIjogclsidGlja2VyIl0sCiAgICAgICAgICAgICAgICAibmFtZSI6IHJbIm5hbWUiXSwKICAgICAgICAgICAgICAgICJyZXR1cm5fNm1fcGN0IjogclsicmV0dXJuXzZtIl0uZ2V0KCJwY3QiKSwKICAgICAgICAgICAgICAgICJyZXR1cm5fNm1fc3RhcnRfZGF0ZSI6IHJbInJldHVybl82bSJdLmdldCgic3RhcnRfZGF0ZSIpLAogICAgICAgICAgICAgICAgInJldHVybl82bV9zdGF0dXMiOiByWyJyZXR1cm5fNm0iXS5nZXQoInN0YXR1cyIpLAogICAgICAgICAgICAgICAgInJldHVybl8xdyI6IE5vbmUsCiAgICAgICAgICAgICAgICAicmV0dXJuX3l0ZCI6IE5vbmUsCiAgICAgICAgICAgICAgICAicmV0dXJuXzUydyI6IE5vbmUsCiAgICAgICAgICAgIH0pCgogICAgb3V0X21ldGEgPSB7CiAgICAgICAgImNvbnRyYWN0X3ZlcnNpb24iOiBDT05UUkFDVF9WRVJTSU9OLAogICAgICAgICJzY3JpcHRfdmVyc2lvbiI6IFNDUklQVF9WRVJTSU9OLAogICAgICAgICJzdGF0dXMiOiAiUkVBRFlfU09VUkNFX09OTFkiLAogICAgICAgICJzb3VyY2Vfb25seSI6IFRydWUsCiAgICAgICAgInN0YW5kYWxvbmVfc3dpbmdfdGFibGVfZW5hYmxlZCI6IEZhbHNlLAogICAgICAgICJyZXF1ZXN0X3RpbWVfcHJpY2VfZWxpZ2libGUiOiBGYWxzZSwKICAgICAgICAiYmFzaXNfZGF0ZSI6IGJhc2lzLAogICAgICAgICJ0YXJnZXRfdGlja2VyX2NvdW50IjogbGVuKHRhcmdldCksCiAgICAgICAgInJldHVybl82bV9yZWFkeV9jb3VudCI6IHJlYWR5XzZtLAogICAgICAgICJyZXR1cm5fNm1fc2hvcnRfY291bnQiOiBsZW4oc2hvcnRfNm0pLAogICAgICAgICJyZXR1cm5fNm1fc2hvcnQiOiBzaG9ydF82bSwKICAgICAgICAicHJvZHVjdGlvbl8xbV8zbV9yZWdyZXNzaW9uX2V4YWN0X21hdGNoZXMiOiByZWdyZXNzaW9uX21hdGNoZXMsCiAgICAgICAgInBlbmRpbmdfcmV0dXJucyI6IFsiMXciLCAieXRkIiwgIjUydyJdLAogICAgICAgICJzYWZldHkiOiBwYXlsb2FkWyJzYWZldHkiXSwKICAgICAgICAic291cmNlX3NoYTI1NiI6IHBheWxvYWRbInNvdXJjZV9zaGEyNTYiXSwKICAgIH0KICAgIHdyaXRlX2pzb24oT1VUX01FVEEsIG91dF9tZXRhKQoKICAgIGxvZyA9IFsKICAgICAgICAiVjg3Ml9FWFRFTkRFRF9SRVRVUk5fU09VUkNFX1NUQVRVUz1SRUFEWV9TT1VSQ0VfT05MWSIsCiAgICAgICAgZiJCQVNJU19EQVRFPXtiYXNpc30iLAogICAgICAgIGYiVEFSR0VUX1RJQ0tFUlM9e2xlbih0YXJnZXQpfSIsCiAgICAgICAgZiJSRVRVUk5fNk1fUkVBRFk9e3JlYWR5XzZtfSIsCiAgICAgICAgZiJSRVRVUk5fNk1fU0hPUlQ9e2xlbihzaG9ydF82bSl9IiwKICAgICAgICAiUkVUVVJOXzZNX1NIT1JUX1RJQ0tFUj00Mzk5NjAiLAogICAgICAgIGYiUFJPRFVDVElPTl8xTV8zTV9SRUdSRVNTSU9OX0VYQUNUX01BVENIRVM9e3JlZ3Jlc3Npb25fbWF0Y2hlc30iLAogICAgICAgICJSRVRVUk5fMVdfQ0FMQ1VMQVRFRD1mYWxzZSIsCiAgICAgICAgIlJFVFVSTl9ZVERfQ0FMQ1VMQVRFRD1mYWxzZSIsCiAgICAgICAgIlJFVFVSTl81MldfQ0FMQ1VMQVRFRD1mYWxzZSIsCiAgICAgICAgIlJTSV9DQUxDVUxBVEVEPWZhbHNlIiwKICAgICAgICAiTUFDRF9DQUxDVUxBVEVEPWZhbHNlIiwKICAgICAgICAiSU5WRVNUTUVOVF9TQ09SRV8xMDBfQ0FMQ1VMQVRFRD1mYWxzZSIsCiAgICAgICAgIkVBUk5JTkdTX09VVExPT0tfQ0hBTkdFX0NBTENVTEFURUQ9ZmFsc2UiLAogICAgICAgICJDT05GSVJNRURfU1dJTkdfTE9XX1NUT1BfQ0FMQ1VMQVRFRD1mYWxzZSIsCiAgICAgICAgIlNUQU5EQUxPTkVfU1dJTkdfVEFCTEVfRU5BQkxFRD1mYWxzZSIsCiAgICAgICAgIk1FVFJJQ19GT1JNVUxBX0NIQU5HRUQ9ZmFsc2UiLAogICAgICAgICJQUk9EVUNUSU9OX1RBQkxFX0NIQU5HRUQ9ZmFsc2UiLAogICAgICAgICJSRVFVRVNUX1RJTUVfUFJJQ0VfU1VCU1RJVFVUSU9OPWZhbHNlIiwKICAgICAgICAiVjg3Ml9FWFRFTkRFRF9SRVRVUk5fU09VUkNFX1ZBTElEQVRJT049UEFTUyIsCiAgICBdCiAgICBPVVRfTE9HLndyaXRlX3RleHQoIlxuIi5qb2luKGxvZykgKyAiXG4iLCBlbmNvZGluZz0idXRmLTgiKQogICAgcHJpbnQoIlxuIi5qb2luKGxvZykpCgppZiBfX25hbWVfXyA9PSAiX19tYWluX18iOgogICAgbWFpbigpCg=="
+          CONTRACT_B64: "IyBWOC43LjIg64+F66a9IOyKpOycmSA26rCc7JuUIOyImOydteuloCBzb3VyY2Utb25seSDqs4Tslb0KCuuyhOyghDogYDIwMjYtMDktMTItdjguNy4yLXN0YW5kYWxvbmUtc3dpbmctNm0tcmV0dXJuLXNvdXJjZWAKCuyDge2DnDogYFNPVVJDRV9PTkxZIC8gVEFCTEVfRElTQUJMRURgCgojIyDrqqnsoIEKCuuPheumvSDsooXrqqkg7Iqk7JyZ7LaU7IS467aE7ISd7J2YIOqwgOqyqeyEseqzvCDtla3rqqkg7KSRLCDquLDsobQg7IOd7IKwIOyngO2RnCDqs4Tslb3snYQg6re464yA66GcIO2Zleyepe2VoCDsiJgg7J6I64qUIGA2TWAg7IiY7J2166Wg66eMIHNvdXJjZS1vbmx5IOuNsOydtO2EsOuhnCDqs4TsgrDtlZzri6QuCgrsg4gg7ZGcwrdBY3Rpb27Ct1dvcmtlciDqsr3roZzripQg7Zmc7ISx7ZmU7ZWY7KeAIOyViuuKlOuLpC4KCiMjIDZNIOqzhOyCsCDqt7zqsbAKCu2YhOyerCBgc3RvY2tfdGFibGVfbWV0cmljc192ODUwLnB5YOydmCDqs7Xsi50g6rOE7JW97J2AIOyImOydteuloCDquLDspIDsnYQg64uk7J2M6rO8IOqwmeydtCDsoJXsnZjtlZzri6QuCgpgQ0FMRU5EQVJfTU9OVEhTX0ZJUlNUX01BUktFVF9TRVNTSU9OX09OX09SX0FGVEVSYAoK6rCZ7J2AIGBwZXJpb2RfcmV0dXJuKClgIO2VqOyImOqwgCDsnbTrr7ggcHJvZHVjdGlvbiAxTS8zTSDqs4TsgrDsl5Ag7IKs7Jqp65CY66mwIGBtb250aHNgIOyduOyImOulvCDrsJvripTri6QuCgpWOC43LjLsl5DshJzripQg66i87KCAIO2YhOyerCBwcm9kdWN0aW9uIOy9lO2UvO2RnCAzMOyiheuqqeydmCAxTS8zTSDqsJLsnYQg7J20IO2VqOyImOuhnCDri6Tsi5wg6rOE7IKw7ZWY7JesIGAzMC8zMGAg7KCV7ZmVIOydvOy5mOulvCDqsJXsoJztlZzri6QuIOydtCDtmozqt4Ag6rKM7J207Yq466W8IO2GteqzvO2VnCDqsr3smrDsl5Drp4wg64+Z7J28IO2VqOyImOyXkCBgbW9udGhzPTZg7J2EIOyghOuLrO2VnOuLpC4KCuuUsOudvOyEnCA2TeydgCDsg4jroZzsmrQg7IiY7J2166WgIOqzteyLneydhCDrsJzrqoXtlZwg6rKD7J20IOyVhOuLiOudvCDquLDsobQg7JuUIOuLqOychCDsiJjsnbXrpaAg6rOE7JW97J2YIOq4sOqwhCDtmZXsnqXsnbTri6QuCgojIyBWOC42LjIg7Kad6rGwCgrquLDspIDsnbwgMjAyNi0wOS0xMSwg7Zmc7ISx7KKF66qpIDIzNeqwnCDquLDspIA6CgotIDFXIDfsnbwg64us66ClIOq4sOykgDogMjM1LzIzNSByZWFkeQotIDFXIDXqsbDrnpjsnbwg6riw7KSAOiAyMzUvMjM1IHJlYWR5Ci0g65GQIDFXIO2bhOuztCDsi5zsnpHsnbw6IDIzNS8yMzUg64+Z7J28Ci0gNk0g64us66Cl7JuUIOq4sOykgDogMjM0LzIzNSByZWFkeQotIFlURDogMjM0LzIzNSByZWFkeQotIDUyVyDri6zroKUgMzY07J28IOq4sOykgDogMjMzLzIzNSByZWFkeQotIDUyVyAyNTLqsbDrnpjsnbwg6riw7KSAOiAyMzMvMjM1IHJlYWR5Ci0gNTJXIOuRkCDtm4Trs7Q6IOu5hOq1kCDqsIDriqXtlZwgMjMzLzIzM+yXkOyEnCDsi5zsnpHsnbzsnbQg66qo65GQIOuLpOumhAotIDIwMjYtMDktMTEg6riw7KSAIDUyVyDri6zroKUg7Iuc7J6R7J287J2AIDIwMjUtMDktMTIsIDI1MuqxsOuemOydvCDsi5zsnpHsnbzsnYAgMjAyNS0wOC0yOeuhnCAxNOydvCDssKjsnbQKCiMjIOydtOuyiCDri6jqs4Tsl5DshJwg6rOE7IKw7ZWY64qUIOqwkgoKLSA2TSDsiJjsnbXrpaAKLSA2TSDquLDspIAg7Iuc7J6RIOqxsOuemOydvAotIDZNIOyDge2DnAoK7J6Q66OMIOu2gOyhsSDsooXrqqnsnYAgYENBTEVOREFSX0hJU1RPUllfU0hPUlRg66GcIOuCqOq4tOuLpC4KCu2YhOyerCDsmIjsg4HrkJjripQgNk0g7J6Q66OMIOu2gOyhsSDsooXrqqk6CgotIDQzOTk2MCDsvZTsiqTrqqjroZzrs7Tti7HsiqQg4oCUIGhpc3Rvcnkg7Iuc7J6RIDIwMjYtMDUtMTEKCiMjIOqzhOyGjSDrr7jqs4TsgrAKCuuLpOydjOydgCDstZzsooUg6riw7KSA6rOE7JW97J20IOyXhuycvOuvgOuhnCDqs4Tsho0gYG51bGxg7J2064ukLgoKLSAxVwotIFlURAotIDUyVwoK7Yq57Z6IIDUyV+uKlCDri6zroKUgNTLso7zsmYAgMjUy6rGw656Y7J28IOuwqeyLneydtCDsi6TsoJzroZwgMTTsnbwg7LCo7J2066W8IOuztOyYgOycvOuvgOuhnCDsnoTsnZgg7ISg7YOd7ZWY7KeAIOyViuuKlOuLpC4KCuuYkO2VnCDri6TsnYwg7ZWt66qp64+EIOydtOuyiCDri6jqs4Tsl5DshJwg6rOE7IKw7ZWY7KeAIOyViuuKlOuLpC4KCi0gUlNJCi0gTUFDRAotIO2IrOyekOyihe2VqeygkOyImDEwMAotIOyLpOyggeyghOunnSDrs4DtmZQKLSDtmZXsoJUg7Iqk7JyZ7KCA7KCQIOyGkOygiAoKIyMg7JWI7KCEIOq3nOy5mQoKLSBgc291cmNlX29ubHk9dHJ1ZWAKLSBgc3RhbmRhbG9uZV9zd2luZ190YWJsZV9lbmFibGVkPWZhbHNlYAotIGByZXF1ZXN0X3RpbWVfcHJpY2VfZWxpZ2libGU9ZmFsc2VgCi0g6riw7KG0IHByb2R1Y3Rpb24gSlNPTiDsiJjsoJUg6riI7KeACi0gV29ya2VyIOyImOyglSDquIjsp4AKLSBgc3RvY2tfdGFibGVfbWV0cmljc192ODUwLnB5YCDsiJjsoJUg6riI7KeACi0g7JqU7LKt7Iuc7KCQIOqwgOqyqSDrjIDssrQg6riI7KeACi0g6riw7KG0IDFNLzNNIHByb2R1Y3Rpb24g7ZqM6reAIDMwLzMwIOu2iOydvOy5mCDsi5wg6rKM7IucIOq4iOyngAo="
+        run: |
+          set -euo pipefail
           python - <<'PY'
-          from __future__ import annotations
-
-          import csv
-          import json
-          from collections import defaultdict
-          from datetime import date, timedelta
+          import base64, os
           from pathlib import Path
-
-          HISTORY = Path("latest/active_stock_long_history_260d_latest.csv")
-          META = Path("latest/active_stock_long_history_260d_meta_latest.json")
-          OUT = Path("/tmp/v862_return_basis_probe")
-          OUT.mkdir(parents=True, exist_ok=True)
-
-          if not HISTORY.is_file() or not META.is_file():
-              raise SystemExit("REQUIRED_LONG_HISTORY_SOURCE_MISSING")
-
-          meta = json.loads(META.read_text(encoding="utf-8-sig"))
-          if meta.get("status") != "READY":
-              raise SystemExit("LONG_HISTORY_NOT_READY")
-          if meta.get("source_only") is not True:
-              raise SystemExit("LONG_HISTORY_NOT_SOURCE_ONLY")
-
-          basis = str(meta["cache_max_date"])
-          target = [str(x).zfill(6) for x in meta["target_tickers"]]
-
-          with HISTORY.open(encoding="utf-8-sig", newline="") as f:
-              rows = list(csv.DictReader(f))
-
-          target_set = set(target)
-          by_ticker = defaultdict(list)
-          identity = {}
-          for row in rows:
-              ticker = str(row.get("ticker") or "").zfill(6)
-              if ticker in target_set:
-                  by_ticker[ticker].append(row)
-                  identity[ticker] = {
-                      "name": row.get("name"),
-                      "market": row.get("market"),
-                  }
-
-          if set(by_ticker) != target_set:
-              missing = sorted(target_set - set(by_ticker))
-              raise SystemExit("TARGET_HISTORY_MISSING:" + ",".join(missing[:20]))
-
-          def shift_months(day: str, count: int) -> str:
-              d = date.fromisoformat(day)
-              month_index = d.year * 12 + d.month - 1 - count
-              year, month0 = divmod(month_index, 12)
-              month = month0 + 1
-              if month == 12:
-                  next_month = date(year + 1, 1, 1)
-              else:
-                  next_month = date(year, month + 1, 1)
-              last_day = (next_month - timedelta(days=1)).day
-              return date(year, month, min(d.day, last_day)).isoformat()
-
-          def first_on_or_after(dates, cutoff):
-              for d in dates:
-                  if cutoff <= d <= basis:
-                      return d
-              return None
-
-          def prior_session(dates, steps_back):
-              if not dates or dates[-1] != basis or len(dates) <= steps_back:
-                  return None
-              return dates[-1 - steps_back]
-
-          candidate_definitions = {
-              "1w_calendar_7d_first_session_on_or_after": {
-                  "kind": "CALENDAR_CUTOFF_FIRST_SESSION_ON_OR_AFTER",
-                  "cutoff": (date.fromisoformat(basis) - timedelta(days=7)).isoformat(),
-                  "status": "CANDIDATE_ONLY_NOT_APPROVED",
-              },
-              "1w_5_sessions_prior": {
-                  "kind": "SESSION_OFFSET",
-                  "sessions_back": 5,
-                  "status": "CANDIDATE_ONLY_NOT_APPROVED",
-              },
-              "6m_calendar_months_first_session_on_or_after": {
-                  "kind": "CALENDAR_MONTHS_FIRST_SESSION_ON_OR_AFTER",
-                  "months_back": 6,
-                  "cutoff": shift_months(basis, 6),
-                  "status": "CANDIDATE_ONLY_NOT_APPROVED",
-              },
-              "ytd_first_session_on_or_after_jan1": {
-                  "kind": "CALENDAR_CUTOFF_FIRST_SESSION_ON_OR_AFTER",
-                  "cutoff": f"{date.fromisoformat(basis).year}-01-01",
-                  "status": "CANDIDATE_ONLY_NOT_APPROVED",
-              },
-              "52w_calendar_364d_first_session_on_or_after": {
-                  "kind": "CALENDAR_CUTOFF_FIRST_SESSION_ON_OR_AFTER",
-                  "cutoff": (date.fromisoformat(basis) - timedelta(days=364)).isoformat(),
-                  "status": "CANDIDATE_ONLY_NOT_APPROVED",
-              },
-              "52w_252_sessions_prior": {
-                  "kind": "SESSION_OFFSET",
-                  "sessions_back": 252,
-                  "status": "CANDIDATE_ONLY_NOT_APPROVED",
-              },
-          }
-
-          coverage = {
-              key: {
-                  "ready": 0,
-                  "history_short": 0,
-                  "basis_missing": 0,
-                  "start_dates": {},
-                  "examples_history_short": [],
-              }
-              for key in candidate_definitions
-          }
-
-          per_ticker = []
-          for ticker in sorted(target):
-              ticker_rows = sorted(by_ticker[ticker], key=lambda x: str(x["date"]))
-              dates = [str(r["date"]) for r in ticker_rows if str(r["date"]) <= basis]
-              has_basis = bool(dates and dates[-1] == basis)
-              entry = {
-                  "ticker": ticker,
-                  "name": identity[ticker]["name"],
-                  "market": identity[ticker]["market"],
-                  "history_rows": len(dates),
-                  "history_min_date": dates[0] if dates else None,
-                  "history_max_date": dates[-1] if dates else None,
-                  "candidate_start_dates": {},
-              }
-
-              for key, rule in candidate_definitions.items():
-                  start = None
-                  if has_basis:
-                      if rule["kind"] == "SESSION_OFFSET":
-                          start = prior_session(dates, int(rule["sessions_back"]))
-                      else:
-                          cutoff = str(rule["cutoff"])
-                          if dates and dates[0] <= cutoff:
-                              start = first_on_or_after(dates, cutoff)
-
-                  entry["candidate_start_dates"][key] = start
-
-                  if not has_basis:
-                      coverage[key]["basis_missing"] += 1
-                  elif start is None:
-                      coverage[key]["history_short"] += 1
-                      if len(coverage[key]["examples_history_short"]) < 10:
-                          coverage[key]["examples_history_short"].append({
-                              "ticker": ticker,
-                              "name": identity[ticker]["name"],
-                              "history_rows": len(dates),
-                              "history_min_date": dates[0] if dates else None,
-                          })
-                  else:
-                      coverage[key]["ready"] += 1
-                      coverage[key]["start_dates"][start] = (
-                          coverage[key]["start_dates"].get(start, 0) + 1
-                      )
-
-              per_ticker.append(entry)
-
-          one_week_mismatch = 0
-          fifty_two_week_mismatch = 0
-          one_week_comparable = 0
-          fifty_two_week_comparable = 0
-
-          for item in per_ticker:
-              starts = item["candidate_start_dates"]
-              a = starts["1w_calendar_7d_first_session_on_or_after"]
-              b = starts["1w_5_sessions_prior"]
-              if a and b:
-                  one_week_comparable += 1
-                  if a != b:
-                      one_week_mismatch += 1
-
-              a = starts["52w_calendar_364d_first_session_on_or_after"]
-              b = starts["52w_252_sessions_prior"]
-              if a and b:
-                  fifty_two_week_comparable += 1
-                  if a != b:
-                      fifty_two_week_mismatch += 1
-
-          for key in coverage:
-              starts = coverage[key]["start_dates"]
-              coverage[key]["distinct_start_dates"] = len(starts)
-              coverage[key]["most_common_start_dates"] = sorted(
-                  starts.items(), key=lambda kv: (-kv[1], kv[0])
-              )[:10]
-              del coverage[key]["start_dates"]
-
-          result = {
-              "probe_version": "2026-09-12-v8.6.2-standalone-swing-return-basis-probe",
-              "status": "READY_EVIDENCE_ONLY",
-              "repository_write": False,
-              "metric_values_generated": False,
-              "returns_calculated": False,
-              "production_table_changed": False,
-              "standalone_swing_table_enabled": False,
-              "basis_date": basis,
-              "source_contract_version": meta.get("contract_version"),
-              "target_ticker_count": len(target),
-              "history_min_date": meta.get("cache_min_date"),
-              "history_max_date": meta.get("cache_max_date"),
-              "candidate_definitions": candidate_definitions,
-              "coverage": coverage,
-              "candidate_comparison": {
-                  "one_week": {
-                      "comparable_tickers": one_week_comparable,
-                      "different_start_date_tickers": one_week_mismatch,
-                  },
-                  "fifty_two_week": {
-                      "comparable_tickers": fifty_two_week_comparable,
-                      "different_start_date_tickers": fifty_two_week_mismatch,
-                  },
-              },
-              "per_ticker": per_ticker,
-              "decision": {
-                  "formula_selected": False,
-                  "reason": (
-                      "Project sources specify 1W/6M/YTD/52W fields but do not "
-                      "define final basis-date formulas. This probe compares "
-                      "coverage only and does not generate return metrics."
-                  ),
-              },
-          }
-
-          json_path = OUT / "v862-return-basis-readiness.json"
-          json_path.write_text(
-              json.dumps(result, ensure_ascii=False, indent=2) + "\n",
-              encoding="utf-8",
+          Path("standalone_swing_extended_returns_v872.py").write_bytes(
+              base64.b64decode(os.environ["BUILDER_B64"])
           )
-
-          md = []
-          md.append("# V8.6.2 독립 스윙 수익률 기준일 후보 점검")
-          md.append("")
-          md.append(f"- 기준일: {basis}")
-          md.append(f"- 활성 종목: {len(target)}")
-          md.append(f"- history 범위: {meta.get('cache_min_date')} ~ {meta.get('cache_max_date')}")
-          md.append("- 수익률 값 계산: 안 함")
-          md.append("- 최종 산식 선택: 안 함")
-          md.append("")
-          md.append("## 후보별 데이터 충족률")
-          for key, info in coverage.items():
-              md.append(
-                  f"- {key}: ready {info['ready']} / "
-                  f"history_short {info['history_short']} / "
-                  f"basis_missing {info['basis_missing']}"
-              )
-          md.append("")
-          md.append("## 후보간 시작일 차이")
-          md.append(
-              f"- 1W: 비교가능 {one_week_comparable}, "
-              f"시작일 다름 {one_week_mismatch}"
+          Path("docs/standalone_swing_extended_returns_contract_v872.md").write_bytes(
+              base64.b64decode(os.environ["CONTRACT_B64"])
           )
-          md.append(
-              f"- 52W: 비교가능 {fifty_two_week_comparable}, "
-              f"시작일 다름 {fifty_two_week_mismatch}"
-          )
-          md.append("")
-          md.append("## 안전 판정")
-          md.append("- 이 probe는 수익률을 생성하지 않습니다.")
-          md.append("- 1W/6M/YTD/52W 최종 기준을 임의로 선택하지 않습니다.")
-          md.append("- production JSON, Worker, 기존 지표 계산식을 수정하지 않습니다.")
-          md.append("- repository commit/push/deploy를 하지 않습니다.")
-
-          (OUT / "v862-return-basis-readiness.md").write_text(
-              "\n".join(md) + "\n", encoding="utf-8"
-          )
-
-          print("V862_RETURN_BASIS_PROBE=READY_EVIDENCE_ONLY")
-          print("BASIS_DATE=" + basis)
-          print("TARGET_TICKERS=" + str(len(target)))
-          for key, info in coverage.items():
-              print(
-                  "COVERAGE_" + key.upper()
-                  + f"=READY:{info['ready']},SHORT:{info['history_short']},"
-                  + f"BASIS_MISSING:{info['basis_missing']}"
-              )
-          print("ONE_WEEK_COMPARABLE=" + str(one_week_comparable))
-          print("ONE_WEEK_START_DATE_MISMATCH=" + str(one_week_mismatch))
-          print("FIFTY_TWO_WEEK_COMPARABLE=" + str(fifty_two_week_comparable))
-          print("FIFTY_TWO_WEEK_START_DATE_MISMATCH=" + str(fifty_two_week_mismatch))
-          print("RETURNS_CALCULATED=false")
-          print("FORMULA_SELECTED=false")
-          print("REPOSITORY_WRITE=false")
-          print("PRODUCTION_TABLE_CHANGED=false")
-          print("STANDALONE_SWING_TABLE_ENABLED=false")
           PY
+          python -m py_compile standalone_swing_extended_returns_v872.py
+          echo "V872_SOURCE_RESTORE=PASS"
 
-      - name: Safety check
+      - name: Build and validate extended return source
         shell: bash
         run: |
           set -euo pipefail
+          python standalone_swing_extended_returns_v872.py | tee /tmp/v872.log
 
-          test -f /tmp/v862_return_basis_probe/v862-return-basis-readiness.json
-          test -f /tmp/v862_return_basis_probe/v862-return-basis-readiness.md
+          grep -q '^V872_EXTENDED_RETURN_SOURCE_STATUS=READY_SOURCE_ONLY$' /tmp/v872.log
+          grep -q '^TARGET_TICKERS=235$' /tmp/v872.log
+          grep -q '^RETURN_6M_READY=234$' /tmp/v872.log
+          grep -q '^RETURN_6M_SHORT=1$' /tmp/v872.log
+          grep -q '^RETURN_6M_SHORT_TICKER=439960$' /tmp/v872.log
+          grep -q '^PRODUCTION_1M_3M_REGRESSION_EXACT_MATCHES=30$' /tmp/v872.log
+          grep -q '^RETURN_1W_CALCULATED=false$' /tmp/v872.log
+          grep -q '^RETURN_YTD_CALCULATED=false$' /tmp/v872.log
+          grep -q '^RETURN_52W_CALCULATED=false$' /tmp/v872.log
+          grep -q '^STANDALONE_SWING_TABLE_ENABLED=false$' /tmp/v872.log
+          grep -q '^METRIC_FORMULA_CHANGED=false$' /tmp/v872.log
+          grep -q '^PRODUCTION_TABLE_CHANGED=false$' /tmp/v872.log
+          grep -q '^REQUEST_TIME_PRICE_SUBSTITUTION=false$' /tmp/v872.log
+          grep -q '^V872_EXTENDED_RETURN_SOURCE_VALIDATION=PASS$' /tmp/v872.log
 
-          python - <<'PY'
+      - name: Verify protected production sources unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum -c /tmp/metric.sha
+          sha256sum -c /tmp/worker.sha
+          find api/two_table_v1 -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/two_table.after.sha
+          diff -u /tmp/two_table.sha /tmp/two_table.after.sha
+
+          git diff --exit-code -- stock_table_metrics_v850.py worker/krx-live-price-worker.js api/two_table_v1
+
+          echo "METRIC_FORMULA_CHANGED=false"
+          echo "WORKER_SOURCE_CHANGED=false"
+          echo "PRODUCTION_TWO_TABLE_CHANGED=false"
+
+      - name: Validate output contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' | tee /tmp/v872-validate.log
           import json
           from pathlib import Path
 
-          p = json.loads(
-              Path("/tmp/v862_return_basis_probe/v862-return-basis-readiness.json")
-              .read_text(encoding="utf-8")
-          )
-          assert p["status"] == "READY_EVIDENCE_ONLY"
-          assert p["repository_write"] is False
-          assert p["metric_values_generated"] is False
-          assert p["returns_calculated"] is False
-          assert p["production_table_changed"] is False
+          p = json.loads(Path("latest/standalone_swing_extended_returns_latest.json").read_text())
+          m = json.loads(Path("latest/standalone_swing_extended_returns_meta_latest.json").read_text())
+
+          assert p["status"] == "READY_SOURCE_ONLY"
+          assert m["status"] == "READY_SOURCE_ONLY"
+          assert p["source_only"] is True and m["source_only"] is True
           assert p["standalone_swing_table_enabled"] is False
-          assert p["decision"]["formula_selected"] is False
-
-          keys = set(p["candidate_definitions"])
-          assert keys == {
-              "1w_calendar_7d_first_session_on_or_after",
-              "1w_5_sessions_prior",
-              "6m_calendar_months_first_session_on_or_after",
-              "ytd_first_session_on_or_after_jan1",
-              "52w_calendar_364d_first_session_on_or_after",
-              "52w_252_sessions_prior",
+          assert m["standalone_swing_table_enabled"] is False
+          assert p["request_time_price_eligible"] is False
+          assert p["return_basis"] == {
+              "6m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
+              "1w": None, "ytd": None, "52w": None,
           }
+          assert p["row_count"] == 235
+          assert p["return_6m_ready_count"] == 234
+          assert p["return_6m_short_count"] == 1
+          assert p["return_6m_short"][0]["ticker"] == "439960"
+          assert p["production_1m_3m_regression_exact_matches"] == 30
 
-          print("V862_SAFETY_CONTRACT=PASS")
+          for row in p["rows"]:
+              assert row["return_1w"] is None
+              assert row["return_ytd"] is None
+              assert row["return_52w"] is None
+
+          s = p["safety"]
+          assert s["return_6m_calculated"] is True
+          assert s["return_1w_calculated"] is False
+          assert s["return_ytd_calculated"] is False
+          assert s["return_52w_calculated"] is False
+          assert s["metric_formula_changed"] is False
+          assert s["production_table_changed"] is False
+          assert s["request_time_price_substitution"] is False
+
+          print("V872_OUTPUT_CONTRACT=PASS")
+          print("V872_6M_READY=234/235")
+          print("V872_PENDING_1W_YTD_52W_NULL=PASS")
           PY
 
-          git diff --exit-code
-          git diff --cached --exit-code
+          grep -q '^V872_OUTPUT_CONTRACT=PASS$' /tmp/v872-validate.log
+          grep -q '^V872_6M_READY=234/235$' /tmp/v872-validate.log
+          grep -q '^V872_PENDING_1W_YTD_52W_NULL=PASS$' /tmp/v872-validate.log
 
-          echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
-          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
+      - name: Commit source-only outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          if [ "$(git rev-parse origin/main)" != "$BASE_SHA" ]; then
+            echo "::error::Remote main changed after checkout. Rerun from latest main."
+            exit 1
+          fi
 
-      - name: Upload V8.6.2 probe artifact
-        uses: actions/upload-artifact@v6
-        with:
-          name: standalone-swing-return-basis-readiness-v862
-          path: |
-            /tmp/v862_return_basis_probe/v862-return-basis-readiness.json
-            /tmp/v862_return_basis_probe/v862-return-basis-readiness.md
-          if-no-files-found: error
-          retention-days: 14
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            standalone_swing_extended_returns_v872.py \
+            docs/standalone_swing_extended_returns_contract_v872.md \
+            latest/standalone_swing_extended_returns_latest.json \
+            latest/standalone_swing_extended_returns_latest.csv \
+            latest/standalone_swing_extended_returns_meta_latest.json \
+            latest/standalone_swing_extended_returns_run_log_latest.txt
+
+          STAGED="$(git diff --cached --name-only || true)"
+          echo "V872_STAGED_FILES_BEGIN"
+          printf '%s\n' "$STAGED"
+          echo "V872_STAGED_FILES_END"
+
+          if printf '%s\n' "$STAGED" | grep -q '^\.github/workflows/'; then
+            echo "::error::Workflow staged unexpectedly"
+            exit 1
+          fi
+
+          while IFS= read -r p; do
+            [ -z "$p" ] && continue
+            case "$p" in
+              standalone_swing_extended_returns_v872.py|\
+              docs/standalone_swing_extended_returns_contract_v872.md|\
+              latest/standalone_swing_extended_returns_latest.json|\
+              latest/standalone_swing_extended_returns_latest.csv|\
+              latest/standalone_swing_extended_returns_meta_latest.json|\
+              latest/standalone_swing_extended_returns_run_log_latest.txt) ;;
+              *) echo "::error::Unexpected staged path: $p"; exit 1 ;;
+            esac
+          done <<< "$STAGED"
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Add V8.7.2 standalone swing 6M return source"
+            git push origin HEAD:main
+          fi
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "V872_STANDALONE_SWING_6M_SOURCE_RELEASE=PASS"
+          echo "WORKFLOW_FILES_STAGED=false"
+          echo "STANDALONE_SWING_TABLE_ENABLED=false"
+          echo "RETURN_1W_CALCULATED=false"
+          echo "RETURN_YTD_CALCULATED=false"
+          echo "RETURN_52W_CALCULATED=false"
+          echo "METRIC_FORMULA_CHANGED=false"
+          echo "WORKER_SOURCE_CHANGED=false"
+          echo "PRODUCTION_TABLE_CHANGED=false"
+          echo "REQUEST_TIME_PRICE_SUBSTITUTION=false"
+
+      - name: Final report
+        if: always()
+        shell: bash
+        run: |
+          test -f /tmp/v872.log && cat /tmp/v872.log || true
+          test -f /tmp/v872-validate.log && cat /tmp/v872-validate.log || true
+          git status --short || true

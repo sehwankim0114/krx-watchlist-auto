@@ -1,214 +1,458 @@
-name: Build standalone swing 6M return source v8.7.2
+name: Preview standalone swing analysis v8.7.3
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: collect-krx-watchlist-latest
+  group: v873-standalone-swing-preview
   cancel-in-progress: false
 
 jobs:
-  build:
+  preview:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
       - name: Checkout latest main
         uses: actions/checkout@v6
         with:
           ref: main
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
-      - name: Capture base and protected hashes
+      - name: Build read-only standalone swing preview
         shell: bash
         run: |
           set -euo pipefail
-          echo "BASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
-          sha256sum stock_table_metrics_v850.py > /tmp/metric.sha
-          sha256sum worker/krx-live-price-worker.js > /tmp/worker.sha
-          find api/two_table_v1 -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/two_table.sha
-          echo "V872_BASE_SHA=$(git rev-parse HEAD)"
 
-      - name: Restore V8.7.2 source builder
-        shell: bash
-        env:
-          BUILDER_B64: "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwojIC0qLSBjb2Rpbmc6IHV0Zi04IC0qLQpmcm9tIF9fZnV0dXJlX18gaW1wb3J0IGFubm90YXRpb25zCgppbXBvcnQgY3N2CmltcG9ydCBoYXNobGliCmltcG9ydCBqc29uCmZyb20gY29sbGVjdGlvbnMgaW1wb3J0IGRlZmF1bHRkaWN0CmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aAoKZnJvbSBzdG9ja190YWJsZV9tZXRyaWNzX3Y4NTAgaW1wb3J0ICgKICAgIFZFUlNJT04gYXMgTUVUUklDX1ZFUlNJT04sCiAgICBub3JtYWxpemVfYmFycywKICAgIHBlcmlvZF9yZXR1cm4sCikKClNDUklQVF9WRVJTSU9OID0gInN0YW5kYWxvbmVfc3dpbmdfZXh0ZW5kZWRfcmV0dXJuc192ODcyLnB5IHYxLjAuMC1zb3VyY2Utb25seSIKQ09OVFJBQ1RfVkVSU0lPTiA9ICIyMDI2LTA5LTEyLXY4LjcuMi1zdGFuZGFsb25lLXN3aW5nLTZtLXJldHVybi1zb3VyY2UiCgpISVNUT1JZX0NTViA9IFBhdGgoImxhdGVzdC9hY3RpdmVfc3RvY2tfbG9uZ19oaXN0b3J5XzI2MGRfbGF0ZXN0LmNzdiIpCkhJU1RPUllfTUVUQSA9IFBhdGgoImxhdGVzdC9hY3RpdmVfc3RvY2tfbG9uZ19oaXN0b3J5XzI2MGRfbWV0YV9sYXRlc3QuanNvbiIpCklOREVYX0NTViA9IFBhdGgoImxhdGVzdC9vZmZpY2lhbF9pbmRleF9oaXN0b3J5X2xhdGVzdC5jc3YiKQpLT1NQSV9QUk9EID0gUGF0aCgiYXBpL3R3b190YWJsZV92MS9rb3NwaS5qc29uIikKU1dJTkdfTUVUQSA9IFBhdGgoImxhdGVzdC9zdGFuZGFsb25lX3N3aW5nX3NvdXJjZV9tZXRhX2xhdGVzdC5qc29uIikKCk9VVF9KU09OID0gUGF0aCgibGF0ZXN0L3N0YW5kYWxvbmVfc3dpbmdfZXh0ZW5kZWRfcmV0dXJuc19sYXRlc3QuanNvbiIpCk9VVF9DU1YgPSBQYXRoKCJsYXRlc3Qvc3RhbmRhbG9uZV9zd2luZ19leHRlbmRlZF9yZXR1cm5zX2xhdGVzdC5jc3YiKQpPVVRfTUVUQSA9IFBhdGgoImxhdGVzdC9zdGFuZGFsb25lX3N3aW5nX2V4dGVuZGVkX3JldHVybnNfbWV0YV9sYXRlc3QuanNvbiIpCk9VVF9MT0cgPSBQYXRoKCJsYXRlc3Qvc3RhbmRhbG9uZV9zd2luZ19leHRlbmRlZF9yZXR1cm5zX3J1bl9sb2dfbGF0ZXN0LnR4dCIpCgpkZWYgcmVhZF9qc29uKHBhdGg6IFBhdGgpOgogICAgcmV0dXJuIGpzb24ubG9hZHMocGF0aC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04LXNpZyIpKQoKZGVmIHJlYWRfY3N2KHBhdGg6IFBhdGgpOgogICAgd2l0aCBwYXRoLm9wZW4oZW5jb2Rpbmc9InV0Zi04LXNpZyIsIG5ld2xpbmU9IiIpIGFzIGY6CiAgICAgICAgcmV0dXJuIGxpc3QoY3N2LkRpY3RSZWFkZXIoZikpCgpkZWYgc2hhMjU2KHBhdGg6IFBhdGgpOgogICAgaCA9IGhhc2hsaWIuc2hhMjU2KCkKICAgIHdpdGggcGF0aC5vcGVuKCJyYiIpIGFzIGY6CiAgICAgICAgZm9yIGNodW5rIGluIGl0ZXIobGFtYmRhOiBmLnJlYWQoMTAyNCAqIDEwMjQpLCBiIiIpOgogICAgICAgICAgICBoLnVwZGF0ZShjaHVuaykKICAgIHJldHVybiBoLmhleGRpZ2VzdCgpCgpkZWYgd3JpdGVfanNvbihwYXRoOiBQYXRoLCBvYmopOgogICAgcGF0aC53cml0ZV90ZXh0KGpzb24uZHVtcHMob2JqLCBlbnN1cmVfYXNjaWk9RmFsc2UsIGluZGVudD0yLCBhbGxvd19uYW49RmFsc2UpICsgIlxuIiwgZW5jb2Rpbmc9InV0Zi04IikKCmRlZiBtYWluKCk6CiAgICByZXF1aXJlZCA9IFsKICAgICAgICBISVNUT1JZX0NTViwgSElTVE9SWV9NRVRBLCBJTkRFWF9DU1YsIEtPU1BJX1BST0QsIFNXSU5HX01FVEEsCiAgICAgICAgUGF0aCgic3RvY2tfdGFibGVfbWV0cmljc192ODUwLnB5IiksCiAgICBdCiAgICBmb3IgcCBpbiByZXF1aXJlZDoKICAgICAgICBpZiBub3QgcC5pc19maWxlKCk6CiAgICAgICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIk1JU1NJTkdfUkVRVUlSRURfU09VUkNFOiIgKyBzdHIocCkpCgogICAgaGlzdF9tZXRhID0gcmVhZF9qc29uKEhJU1RPUllfTUVUQSkKICAgIHN3aW5nX21ldGEgPSByZWFkX2pzb24oU1dJTkdfTUVUQSkKICAgIHByb2QgPSByZWFkX2pzb24oS09TUElfUFJPRCkKCiAgICBpZiBoaXN0X21ldGEuZ2V0KCJzdGF0dXMiKSAhPSAiUkVBRFkiOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIkxPTkdfSElTVE9SWV9OT1RfUkVBRFkiKQogICAgaWYgaGlzdF9tZXRhLmdldCgic291cmNlX29ubHkiKSBpcyBub3QgVHJ1ZToKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJMT05HX0hJU1RPUllfTk9UX1NPVVJDRV9PTkxZIikKICAgIGlmIGhpc3RfbWV0YS5nZXQoInJlcXVlc3RfdGltZV9wcmljZV9lbGlnaWJsZSIpIGlzIG5vdCBGYWxzZToKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJMT05HX0hJU1RPUllfUkVRVUVTVF9USU1FX0dVQVJEX0ZBSUxFRCIpCiAgICBpZiBzd2luZ19tZXRhLmdldCgic3RhdHVzIikgIT0gIlJFQURZX1NPVVJDRV9PTkxZIjoKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJTV0lOR19TT1VSQ0VfTk9UX1JFQURZIikKICAgIGlmIHN3aW5nX21ldGEuZ2V0KCJzdGFuZGFsb25lX3N3aW5nX3RhYmxlX2VuYWJsZWQiKSBpcyBub3QgRmFsc2U6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiU1dJTkdfVEFCTEVfQUxSRUFEWV9FTkFCTEVEX1VORVhQRUNURURMWSIpCgogICAgYmFzaXMgPSBzdHIoaGlzdF9tZXRhLmdldCgiY2FjaGVfbWF4X2RhdGUiKSBvciAiIikKICAgIGlmIHN3aW5nX21ldGEuZ2V0KCJiYXNpc19kYXRlIikgIT0gYmFzaXM6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiU1dJTkdfU09VUkNFX0JBU0lTX01JU01BVENIIikKICAgIGlmIHByb2QuZ2V0KCJiYXNpc19kYXRlIikgIT0gYmFzaXM6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiUFJPRFVDVElPTl9CQVNJU19NSVNNQVRDSCIpCiAgICBpZiBwcm9kLmdldCgic3RhdHVzIikgIT0gIlJFQURZIjoKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJQUk9EVUNUSU9OX05PVF9SRUFEWSIpCgogICAgdGFyZ2V0ID0gW3N0cih4KS56ZmlsbCg2KSBmb3IgeCBpbiBoaXN0X21ldGEuZ2V0KCJ0YXJnZXRfdGlja2VycyIsIFtdKV0KICAgIGlmIGxlbih0YXJnZXQpICE9IGludChoaXN0X21ldGEuZ2V0KCJ0YXJnZXRfdGlja2VyX2NvdW50Iikgb3IgMCk6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiVEFSR0VUX01FVEFfQ09VTlRfTUlTTUFUQ0giKQoKICAgIGhpc3RvcnkgPSByZWFkX2NzdihISVNUT1JZX0NTVikKICAgIHRhcmdldF9zZXQgPSBzZXQodGFyZ2V0KQogICAgYnlfdGlja2VyID0gZGVmYXVsdGRpY3QobGlzdCkKICAgIGlkZW50aXR5ID0ge30KICAgIGZvciByb3cgaW4gaGlzdG9yeToKICAgICAgICB0aWNrZXIgPSBzdHIocm93LmdldCgidGlja2VyIikgb3IgIiIpLnpmaWxsKDYpCiAgICAgICAgaWYgdGlja2VyIGluIHRhcmdldF9zZXQ6CiAgICAgICAgICAgIGJ5X3RpY2tlclt0aWNrZXJdLmFwcGVuZChyb3cpCiAgICAgICAgICAgIGlkZW50aXR5W3RpY2tlcl0gPSB7CiAgICAgICAgICAgICAgICAibmFtZSI6IHN0cihyb3cuZ2V0KCJuYW1lIikgb3IgIiIpLAogICAgICAgICAgICAgICAgIm1hcmtldCI6IHN0cihyb3cuZ2V0KCJtYXJrZXQiKSBvciAiIiksCiAgICAgICAgICAgIH0KCiAgICBpZiBzZXQoYnlfdGlja2VyKSAhPSB0YXJnZXRfc2V0OgogICAgICAgIG1pc3NpbmcgPSBzb3J0ZWQodGFyZ2V0X3NldCAtIHNldChieV90aWNrZXIpKQogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIlRBUkdFVF9ISVNUT1JZX01JU1NJTkc6IiArICIsIi5qb2luKG1pc3NpbmdbOjIwXSkpCgogICAgaW5kZXhfcm93cyA9IHJlYWRfY3N2KElOREVYX0NTVikKICAgIHNlc3Npb25zID0gc29ydGVkKHsKICAgICAgICBzdHIoclsiZGF0ZSJdKQogICAgICAgIGZvciByIGluIGluZGV4X3Jvd3MKICAgICAgICBpZiBzdHIoci5nZXQoIm1hcmtldCIpKSA9PSAiS09TUEkiIGFuZCBzdHIoci5nZXQoImRhdGUiKSkgPD0gYmFzaXMKICAgIH0pCiAgICBpZiBub3Qgc2Vzc2lvbnMgb3Igc2Vzc2lvbnNbLTFdICE9IGJhc2lzOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIktPU1BJX1NFU1NJT05fQ0FMRU5EQVJfTk9UX0NVUlJFTlQiKQoKICAgICMgUmVncmVzc2lvbiBnYXRlOiBnZW5lcmljIHBlcmlvZF9yZXR1cm4obW9udGhzPU4pIG11c3QgcmVwcm9kdWNlIHRoZQogICAgIyBjdXJyZW50IHByb2R1Y3Rpb24gMU0vM00gdmFsdWVzIGJlZm9yZSBpdCBpcyByZXVzZWQgZm9yIDZNLgogICAgcHJvZF9yb3dzID0gcHJvZC5nZXQoInJvd3MiKSBvciBbXQogICAgaWYgbGVuKHByb2Rfcm93cykgIT0gMzA6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiUFJPRFVDVElPTl9LT1NQSV9OT1RfMzAiKQoKICAgIHJlZ3Jlc3Npb25fbWF0Y2hlcyA9IDAKICAgIHJlZ3Jlc3Npb25fbWlzbWF0Y2hlcyA9IFtdCiAgICBmb3Igcm93IGluIHByb2Rfcm93czoKICAgICAgICB0aWNrZXIgPSBzdHIocm93LmdldCgidGlja2VyIikgb3IgIiIpLnpmaWxsKDYpCiAgICAgICAgYmFycyA9IG5vcm1hbGl6ZV9iYXJzKGJ5X3RpY2tlclt0aWNrZXJdLCBiYXNpcykKICAgICAgICBleHBlY3RlZCA9IChyb3cuZ2V0KCJtZXRyaWNzIikgb3Ige30pLmdldCgicmV0dXJucyIpIG9yIHt9CiAgICAgICAgYWN0dWFsID0gewogICAgICAgICAgICAiMSI6IHBlcmlvZF9yZXR1cm4oYmFycywgYmFzaXMsIDEsIHNlc3Npb25zKSwKICAgICAgICAgICAgIjMiOiBwZXJpb2RfcmV0dXJuKGJhcnMsIGJhc2lzLCAzLCBzZXNzaW9ucyksCiAgICAgICAgfQogICAgICAgIGlmIGFjdHVhbCA9PSB7IjEiOiBleHBlY3RlZC5nZXQoIjEiKSwgIjMiOiBleHBlY3RlZC5nZXQoIjMiKX06CiAgICAgICAgICAgIHJlZ3Jlc3Npb25fbWF0Y2hlcyArPSAxCiAgICAgICAgZWxzZToKICAgICAgICAgICAgcmVncmVzc2lvbl9taXNtYXRjaGVzLmFwcGVuZCh7CiAgICAgICAgICAgICAgICAidGlja2VyIjogdGlja2VyLAogICAgICAgICAgICAgICAgIm5hbWUiOiByb3cuZ2V0KCJuYW1lIiksCiAgICAgICAgICAgICAgICAiZXhwZWN0ZWQiOiB7IjEiOiBleHBlY3RlZC5nZXQoIjEiKSwgIjMiOiBleHBlY3RlZC5nZXQoIjMiKX0sCiAgICAgICAgICAgICAgICAiYWN0dWFsIjogYWN0dWFsLAogICAgICAgICAgICB9KQoKICAgIGlmIHJlZ3Jlc3Npb25fbWF0Y2hlcyAhPSAzMCBvciByZWdyZXNzaW9uX21pc21hdGNoZXM6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgKICAgICAgICAgICAgIlBFUklPRF9SRVRVUk5fUkVHUkVTU0lPTl9GQUlMRUQ6IgogICAgICAgICAgICArIGpzb24uZHVtcHMocmVncmVzc2lvbl9taXNtYXRjaGVzLCBlbnN1cmVfYXNjaWk9RmFsc2UpWzo2MDAwXQogICAgICAgICkKCiAgICByb3dzID0gW10KICAgIHJlYWR5XzZtID0gMAogICAgc2hvcnRfNm0gPSBbXQogICAgZm9yIHRpY2tlciBpbiBzb3J0ZWQodGFyZ2V0KToKICAgICAgICBiYXJzID0gbm9ybWFsaXplX2JhcnMoYnlfdGlja2VyW3RpY2tlcl0sIGJhc2lzKQogICAgICAgIHJldDYgPSBwZXJpb2RfcmV0dXJuKGJhcnMsIGJhc2lzLCA2LCBzZXNzaW9ucykKICAgICAgICBpZiByZXQ2LmdldCgic3RhdHVzIikgPT0gIk9LIjoKICAgICAgICAgICAgcmVhZHlfNm0gKz0gMQogICAgICAgIGVsc2U6CiAgICAgICAgICAgIHNob3J0XzZtLmFwcGVuZCh7CiAgICAgICAgICAgICAgICAidGlja2VyIjogdGlja2VyLAogICAgICAgICAgICAgICAgIm5hbWUiOiBpZGVudGl0eVt0aWNrZXJdWyJuYW1lIl0sCiAgICAgICAgICAgICAgICAiaGlzdG9yeV9yb3dzIjogbGVuKGJhcnMpLAogICAgICAgICAgICAgICAgImhpc3RvcnlfbWluX2RhdGUiOiBiYXJzWzBdWyJkYXRlIl0gaWYgYmFycyBlbHNlIE5vbmUsCiAgICAgICAgICAgICAgICAic3RhdHVzIjogcmV0Ni5nZXQoInN0YXR1cyIpLAogICAgICAgICAgICB9KQogICAgICAgIHJvd3MuYXBwZW5kKHsKICAgICAgICAgICAgInRpY2tlciI6IHRpY2tlciwKICAgICAgICAgICAgIm5hbWUiOiBpZGVudGl0eVt0aWNrZXJdWyJuYW1lIl0sCiAgICAgICAgICAgICJtYXJrZXQiOiBpZGVudGl0eVt0aWNrZXJdWyJtYXJrZXQiXSwKICAgICAgICAgICAgImJhc2lzX2RhdGUiOiBiYXNpcywKICAgICAgICAgICAgInJldHVybl82bSI6IHJldDYsCiAgICAgICAgICAgICJyZXR1cm5fMXciOiBOb25lLAogICAgICAgICAgICAicmV0dXJuX3l0ZCI6IE5vbmUsCiAgICAgICAgICAgICJyZXR1cm5fNTJ3IjogTm9uZSwKICAgICAgICAgICAgInBlbmRpbmdfcmVhc29uIjogewogICAgICAgICAgICAgICAgInJldHVybl8xdyI6ICJGSU5BTF9CQVNJU19DT05UUkFDVF9OT1RfREVGSU5FRCIsCiAgICAgICAgICAgICAgICAicmV0dXJuX3l0ZCI6ICJGSU5BTF9CQVNJU19DT05UUkFDVF9OT1RfREVGSU5FRCIsCiAgICAgICAgICAgICAgICAicmV0dXJuXzUydyI6ICJGSU5BTF9CQVNJU19DT05UUkFDVF9OT1RfREVGSU5FRF81MldfQ0FMRU5EQVJfVlNfMjUyX1NFU1NJT05TX0RJRkZFUlMiLAogICAgICAgICAgICB9LAogICAgICAgIH0pCgogICAgaWYgcmVhZHlfNm0gIT0gbGVuKHRhcmdldCkgLSAxOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoZiJVTkVYUEVDVEVEXzZNX1JFQURZX0NPVU5UOntyZWFkeV82bX0ve2xlbih0YXJnZXQpfSIpCiAgICBpZiBsZW4oc2hvcnRfNm0pICE9IDEgb3Igc2hvcnRfNm1bMF1bInRpY2tlciJdICE9ICI0Mzk5NjAiOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIlVORVhQRUNURURfNk1fU0hPUlRfU0VUOiIgKyBqc29uLmR1bXBzKHNob3J0XzZtLCBlbnN1cmVfYXNjaWk9RmFsc2UpKQoKICAgIHBheWxvYWQgPSB7CiAgICAgICAgImNvbnRyYWN0X3ZlcnNpb24iOiBDT05UUkFDVF9WRVJTSU9OLAogICAgICAgICJzY3JpcHRfdmVyc2lvbiI6IFNDUklQVF9WRVJTSU9OLAogICAgICAgICJzdGF0dXMiOiAiUkVBRFlfU09VUkNFX09OTFkiLAogICAgICAgICJzb3VyY2Vfb25seSI6IFRydWUsCiAgICAgICAgInN0YW5kYWxvbmVfc3dpbmdfdGFibGVfZW5hYmxlZCI6IEZhbHNlLAogICAgICAgICJyZXF1ZXN0X3RpbWVfcHJpY2VfZWxpZ2libGUiOiBGYWxzZSwKICAgICAgICAiYmFzaXNfZGF0ZSI6IGJhc2lzLAogICAgICAgICJtZXRyaWNfY29udHJhY3RfdmVyc2lvbiI6IE1FVFJJQ19WRVJTSU9OLAogICAgICAgICJyZXR1cm5fYmFzaXMiOiB7CiAgICAgICAgICAgICI2bSI6ICJDQUxFTkRBUl9NT05USFNfRklSU1RfTUFSS0VUX1NFU1NJT05fT05fT1JfQUZURVIiLAogICAgICAgICAgICAiMXciOiBOb25lLAogICAgICAgICAgICAieXRkIjogTm9uZSwKICAgICAgICAgICAgIjUydyI6IE5vbmUsCiAgICAgICAgfSwKICAgICAgICAicm93X2NvdW50IjogbGVuKHJvd3MpLAogICAgICAgICJyZXR1cm5fNm1fcmVhZHlfY291bnQiOiByZWFkeV82bSwKICAgICAgICAicmV0dXJuXzZtX3Nob3J0X2NvdW50IjogbGVuKHNob3J0XzZtKSwKICAgICAgICAicmV0dXJuXzZtX3Nob3J0Ijogc2hvcnRfNm0sCiAgICAgICAgInByb2R1Y3Rpb25fMW1fM21fcmVncmVzc2lvbl9leGFjdF9tYXRjaGVzIjogcmVncmVzc2lvbl9tYXRjaGVzLAogICAgICAgICJyb3dzIjogcm93cywKICAgICAgICAic2FmZXR5IjogewogICAgICAgICAgICAicmV0dXJuXzZtX2NhbGN1bGF0ZWQiOiBUcnVlLAogICAgICAgICAgICAicmV0dXJuXzF3X2NhbGN1bGF0ZWQiOiBGYWxzZSwKICAgICAgICAgICAgInJldHVybl95dGRfY2FsY3VsYXRlZCI6IEZhbHNlLAogICAgICAgICAgICAicmV0dXJuXzUyd19jYWxjdWxhdGVkIjogRmFsc2UsCiAgICAgICAgICAgICJyc2lfY2FsY3VsYXRlZCI6IEZhbHNlLAogICAgICAgICAgICAibWFjZF9jYWxjdWxhdGVkIjogRmFsc2UsCiAgICAgICAgICAgICJpbnZlc3RtZW50X3Njb3JlXzEwMF9jYWxjdWxhdGVkIjogRmFsc2UsCiAgICAgICAgICAgICJlYXJuaW5nc19vdXRsb29rX2NoYW5nZV9jYWxjdWxhdGVkIjogRmFsc2UsCiAgICAgICAgICAgICJjb25maXJtZWRfc3dpbmdfbG93X3N0b3BfY2FsY3VsYXRlZCI6IEZhbHNlLAogICAgICAgICAgICAibWV0cmljX2Zvcm11bGFfY2hhbmdlZCI6IEZhbHNlLAogICAgICAgICAgICAicHJvZHVjdGlvbl90YWJsZV9jaGFuZ2VkIjogRmFsc2UsCiAgICAgICAgICAgICJyZXF1ZXN0X3RpbWVfcHJpY2Vfc3Vic3RpdHV0aW9uIjogRmFsc2UsCiAgICAgICAgfSwKICAgICAgICAic291cmNlX3NoYTI1NiI6IHtzdHIocCk6IHNoYTI1NihwKSBmb3IgcCBpbiByZXF1aXJlZH0sCiAgICB9CiAgICB3cml0ZV9qc29uKE9VVF9KU09OLCBwYXlsb2FkKQoKICAgIGZsYXRfZmllbGRzID0gWwogICAgICAgICJiYXNpc19kYXRlIiwgIm1hcmtldCIsICJ0aWNrZXIiLCAibmFtZSIsCiAgICAgICAgInJldHVybl82bV9wY3QiLCAicmV0dXJuXzZtX3N0YXJ0X2RhdGUiLCAicmV0dXJuXzZtX3N0YXR1cyIsCiAgICAgICAgInJldHVybl8xdyIsICJyZXR1cm5feXRkIiwgInJldHVybl81MnciLAogICAgXQogICAgd2l0aCBPVVRfQ1NWLm9wZW4oInciLCBlbmNvZGluZz0idXRmLTgtc2lnIiwgbmV3bGluZT0iIikgYXMgZjoKICAgICAgICB3ID0gY3N2LkRpY3RXcml0ZXIoZiwgZmllbGRuYW1lcz1mbGF0X2ZpZWxkcykKICAgICAgICB3LndyaXRlaGVhZGVyKCkKICAgICAgICBmb3IgciBpbiByb3dzOgogICAgICAgICAgICB3LndyaXRlcm93KHsKICAgICAgICAgICAgICAgICJiYXNpc19kYXRlIjogYmFzaXMsCiAgICAgICAgICAgICAgICAibWFya2V0IjogclsibWFya2V0Il0sCiAgICAgICAgICAgICAgICAidGlja2VyIjogclsidGlja2VyIl0sCiAgICAgICAgICAgICAgICAibmFtZSI6IHJbIm5hbWUiXSwKICAgICAgICAgICAgICAgICJyZXR1cm5fNm1fcGN0IjogclsicmV0dXJuXzZtIl0uZ2V0KCJwY3QiKSwKICAgICAgICAgICAgICAgICJyZXR1cm5fNm1fc3RhcnRfZGF0ZSI6IHJbInJldHVybl82bSJdLmdldCgic3RhcnRfZGF0ZSIpLAogICAgICAgICAgICAgICAgInJldHVybl82bV9zdGF0dXMiOiByWyJyZXR1cm5fNm0iXS5nZXQoInN0YXR1cyIpLAogICAgICAgICAgICAgICAgInJldHVybl8xdyI6IE5vbmUsCiAgICAgICAgICAgICAgICAicmV0dXJuX3l0ZCI6IE5vbmUsCiAgICAgICAgICAgICAgICAicmV0dXJuXzUydyI6IE5vbmUsCiAgICAgICAgICAgIH0pCgogICAgb3V0X21ldGEgPSB7CiAgICAgICAgImNvbnRyYWN0X3ZlcnNpb24iOiBDT05UUkFDVF9WRVJTSU9OLAogICAgICAgICJzY3JpcHRfdmVyc2lvbiI6IFNDUklQVF9WRVJTSU9OLAogICAgICAgICJzdGF0dXMiOiAiUkVBRFlfU09VUkNFX09OTFkiLAogICAgICAgICJzb3VyY2Vfb25seSI6IFRydWUsCiAgICAgICAgInN0YW5kYWxvbmVfc3dpbmdfdGFibGVfZW5hYmxlZCI6IEZhbHNlLAogICAgICAgICJyZXF1ZXN0X3RpbWVfcHJpY2VfZWxpZ2libGUiOiBGYWxzZSwKICAgICAgICAiYmFzaXNfZGF0ZSI6IGJhc2lzLAogICAgICAgICJ0YXJnZXRfdGlja2VyX2NvdW50IjogbGVuKHRhcmdldCksCiAgICAgICAgInJldHVybl82bV9yZWFkeV9jb3VudCI6IHJlYWR5XzZtLAogICAgICAgICJyZXR1cm5fNm1fc2hvcnRfY291bnQiOiBsZW4oc2hvcnRfNm0pLAogICAgICAgICJyZXR1cm5fNm1fc2hvcnQiOiBzaG9ydF82bSwKICAgICAgICAicHJvZHVjdGlvbl8xbV8zbV9yZWdyZXNzaW9uX2V4YWN0X21hdGNoZXMiOiByZWdyZXNzaW9uX21hdGNoZXMsCiAgICAgICAgInBlbmRpbmdfcmV0dXJucyI6IFsiMXciLCAieXRkIiwgIjUydyJdLAogICAgICAgICJzYWZldHkiOiBwYXlsb2FkWyJzYWZldHkiXSwKICAgICAgICAic291cmNlX3NoYTI1NiI6IHBheWxvYWRbInNvdXJjZV9zaGEyNTYiXSwKICAgIH0KICAgIHdyaXRlX2pzb24oT1VUX01FVEEsIG91dF9tZXRhKQoKICAgIGxvZyA9IFsKICAgICAgICAiVjg3Ml9FWFRFTkRFRF9SRVRVUk5fU09VUkNFX1NUQVRVUz1SRUFEWV9TT1VSQ0VfT05MWSIsCiAgICAgICAgZiJCQVNJU19EQVRFPXtiYXNpc30iLAogICAgICAgIGYiVEFSR0VUX1RJQ0tFUlM9e2xlbih0YXJnZXQpfSIsCiAgICAgICAgZiJSRVRVUk5fNk1fUkVBRFk9e3JlYWR5XzZtfSIsCiAgICAgICAgZiJSRVRVUk5fNk1fU0hPUlQ9e2xlbihzaG9ydF82bSl9IiwKICAgICAgICAiUkVUVVJOXzZNX1NIT1JUX1RJQ0tFUj00Mzk5NjAiLAogICAgICAgIGYiUFJPRFVDVElPTl8xTV8zTV9SRUdSRVNTSU9OX0VYQUNUX01BVENIRVM9e3JlZ3Jlc3Npb25fbWF0Y2hlc30iLAogICAgICAgICJSRVRVUk5fMVdfQ0FMQ1VMQVRFRD1mYWxzZSIsCiAgICAgICAgIlJFVFVSTl9ZVERfQ0FMQ1VMQVRFRD1mYWxzZSIsCiAgICAgICAgIlJFVFVSTl81MldfQ0FMQ1VMQVRFRD1mYWxzZSIsCiAgICAgICAgIlJTSV9DQUxDVUxBVEVEPWZhbHNlIiwKICAgICAgICAiTUFDRF9DQUxDVUxBVEVEPWZhbHNlIiwKICAgICAgICAiSU5WRVNUTUVOVF9TQ09SRV8xMDBfQ0FMQ1VMQVRFRD1mYWxzZSIsCiAgICAgICAgIkVBUk5JTkdTX09VVExPT0tfQ0hBTkdFX0NBTENVTEFURUQ9ZmFsc2UiLAogICAgICAgICJDT05GSVJNRURfU1dJTkdfTE9XX1NUT1BfQ0FMQ1VMQVRFRD1mYWxzZSIsCiAgICAgICAgIlNUQU5EQUxPTkVfU1dJTkdfVEFCTEVfRU5BQkxFRD1mYWxzZSIsCiAgICAgICAgIk1FVFJJQ19GT1JNVUxBX0NIQU5HRUQ9ZmFsc2UiLAogICAgICAgICJQUk9EVUNUSU9OX1RBQkxFX0NIQU5HRUQ9ZmFsc2UiLAogICAgICAgICJSRVFVRVNUX1RJTUVfUFJJQ0VfU1VCU1RJVFVUSU9OPWZhbHNlIiwKICAgICAgICAiVjg3Ml9FWFRFTkRFRF9SRVRVUk5fU09VUkNFX1ZBTElEQVRJT049UEFTUyIsCiAgICBdCiAgICBPVVRfTE9HLndyaXRlX3RleHQoIlxuIi5qb2luKGxvZykgKyAiXG4iLCBlbmNvZGluZz0idXRmLTgiKQogICAgcHJpbnQoIlxuIi5qb2luKGxvZykpCgppZiBfX25hbWVfXyA9PSAiX19tYWluX18iOgogICAgbWFpbigpCg=="
-          CONTRACT_B64: "IyBWOC43LjIg64+F66a9IOyKpOycmSA26rCc7JuUIOyImOydteuloCBzb3VyY2Utb25seSDqs4Tslb0KCuuyhOyghDogYDIwMjYtMDktMTItdjguNy4yLXN0YW5kYWxvbmUtc3dpbmctNm0tcmV0dXJuLXNvdXJjZWAKCuyDge2DnDogYFNPVVJDRV9PTkxZIC8gVEFCTEVfRElTQUJMRURgCgojIyDrqqnsoIEKCuuPheumvSDsooXrqqkg7Iqk7JyZ7LaU7IS467aE7ISd7J2YIOqwgOqyqeyEseqzvCDtla3rqqkg7KSRLCDquLDsobQg7IOd7IKwIOyngO2RnCDqs4Tslb3snYQg6re464yA66GcIO2Zleyepe2VoCDsiJgg7J6I64qUIGA2TWAg7IiY7J2166Wg66eMIHNvdXJjZS1vbmx5IOuNsOydtO2EsOuhnCDqs4TsgrDtlZzri6QuCgrsg4gg7ZGcwrdBY3Rpb27Ct1dvcmtlciDqsr3roZzripQg7Zmc7ISx7ZmU7ZWY7KeAIOyViuuKlOuLpC4KCiMjIDZNIOqzhOyCsCDqt7zqsbAKCu2YhOyerCBgc3RvY2tfdGFibGVfbWV0cmljc192ODUwLnB5YOydmCDqs7Xsi50g6rOE7JW97J2AIOyImOydteuloCDquLDspIDsnYQg64uk7J2M6rO8IOqwmeydtCDsoJXsnZjtlZzri6QuCgpgQ0FMRU5EQVJfTU9OVEhTX0ZJUlNUX01BUktFVF9TRVNTSU9OX09OX09SX0FGVEVSYAoK6rCZ7J2AIGBwZXJpb2RfcmV0dXJuKClgIO2VqOyImOqwgCDsnbTrr7ggcHJvZHVjdGlvbiAxTS8zTSDqs4TsgrDsl5Ag7IKs7Jqp65CY66mwIGBtb250aHNgIOyduOyImOulvCDrsJvripTri6QuCgpWOC43LjLsl5DshJzripQg66i87KCAIO2YhOyerCBwcm9kdWN0aW9uIOy9lO2UvO2RnCAzMOyiheuqqeydmCAxTS8zTSDqsJLsnYQg7J20IO2VqOyImOuhnCDri6Tsi5wg6rOE7IKw7ZWY7JesIGAzMC8zMGAg7KCV7ZmVIOydvOy5mOulvCDqsJXsoJztlZzri6QuIOydtCDtmozqt4Ag6rKM7J207Yq466W8IO2GteqzvO2VnCDqsr3smrDsl5Drp4wg64+Z7J28IO2VqOyImOyXkCBgbW9udGhzPTZg7J2EIOyghOuLrO2VnOuLpC4KCuuUsOudvOyEnCA2TeydgCDsg4jroZzsmrQg7IiY7J2166WgIOqzteyLneydhCDrsJzrqoXtlZwg6rKD7J20IOyVhOuLiOudvCDquLDsobQg7JuUIOuLqOychCDsiJjsnbXrpaAg6rOE7JW97J2YIOq4sOqwhCDtmZXsnqXsnbTri6QuCgojIyBWOC42LjIg7Kad6rGwCgrquLDspIDsnbwgMjAyNi0wOS0xMSwg7Zmc7ISx7KKF66qpIDIzNeqwnCDquLDspIA6CgotIDFXIDfsnbwg64us66ClIOq4sOykgDogMjM1LzIzNSByZWFkeQotIDFXIDXqsbDrnpjsnbwg6riw7KSAOiAyMzUvMjM1IHJlYWR5Ci0g65GQIDFXIO2bhOuztCDsi5zsnpHsnbw6IDIzNS8yMzUg64+Z7J28Ci0gNk0g64us66Cl7JuUIOq4sOykgDogMjM0LzIzNSByZWFkeQotIFlURDogMjM0LzIzNSByZWFkeQotIDUyVyDri6zroKUgMzY07J28IOq4sOykgDogMjMzLzIzNSByZWFkeQotIDUyVyAyNTLqsbDrnpjsnbwg6riw7KSAOiAyMzMvMjM1IHJlYWR5Ci0gNTJXIOuRkCDtm4Trs7Q6IOu5hOq1kCDqsIDriqXtlZwgMjMzLzIzM+yXkOyEnCDsi5zsnpHsnbzsnbQg66qo65GQIOuLpOumhAotIDIwMjYtMDktMTEg6riw7KSAIDUyVyDri6zroKUg7Iuc7J6R7J287J2AIDIwMjUtMDktMTIsIDI1MuqxsOuemOydvCDsi5zsnpHsnbzsnYAgMjAyNS0wOC0yOeuhnCAxNOydvCDssKjsnbQKCiMjIOydtOuyiCDri6jqs4Tsl5DshJwg6rOE7IKw7ZWY64qUIOqwkgoKLSA2TSDsiJjsnbXrpaAKLSA2TSDquLDspIAg7Iuc7J6RIOqxsOuemOydvAotIDZNIOyDge2DnAoK7J6Q66OMIOu2gOyhsSDsooXrqqnsnYAgYENBTEVOREFSX0hJU1RPUllfU0hPUlRg66GcIOuCqOq4tOuLpC4KCu2YhOyerCDsmIjsg4HrkJjripQgNk0g7J6Q66OMIOu2gOyhsSDsooXrqqk6CgotIDQzOTk2MCDsvZTsiqTrqqjroZzrs7Tti7HsiqQg4oCUIGhpc3Rvcnkg7Iuc7J6RIDIwMjYtMDUtMTEKCiMjIOqzhOyGjSDrr7jqs4TsgrAKCuuLpOydjOydgCDstZzsooUg6riw7KSA6rOE7JW97J20IOyXhuycvOuvgOuhnCDqs4Tsho0gYG51bGxg7J2064ukLgoKLSAxVwotIFlURAotIDUyVwoK7Yq57Z6IIDUyV+uKlCDri6zroKUgNTLso7zsmYAgMjUy6rGw656Y7J28IOuwqeyLneydtCDsi6TsoJzroZwgMTTsnbwg7LCo7J2066W8IOuztOyYgOycvOuvgOuhnCDsnoTsnZgg7ISg7YOd7ZWY7KeAIOyViuuKlOuLpC4KCuuYkO2VnCDri6TsnYwg7ZWt66qp64+EIOydtOuyiCDri6jqs4Tsl5DshJwg6rOE7IKw7ZWY7KeAIOyViuuKlOuLpC4KCi0gUlNJCi0gTUFDRAotIO2IrOyekOyihe2VqeygkOyImDEwMAotIOyLpOyggeyghOunnSDrs4DtmZQKLSDtmZXsoJUg7Iqk7JyZ7KCA7KCQIOyGkOygiAoKIyMg7JWI7KCEIOq3nOy5mQoKLSBgc291cmNlX29ubHk9dHJ1ZWAKLSBgc3RhbmRhbG9uZV9zd2luZ190YWJsZV9lbmFibGVkPWZhbHNlYAotIGByZXF1ZXN0X3RpbWVfcHJpY2VfZWxpZ2libGU9ZmFsc2VgCi0g6riw7KG0IHByb2R1Y3Rpb24gSlNPTiDsiJjsoJUg6riI7KeACi0gV29ya2VyIOyImOyglSDquIjsp4AKLSBgc3RvY2tfdGFibGVfbWV0cmljc192ODUwLnB5YCDsiJjsoJUg6riI7KeACi0g7JqU7LKt7Iuc7KCQIOqwgOqyqSDrjIDssrQg6riI7KeACi0g6riw7KG0IDFNLzNNIHByb2R1Y3Rpb24g7ZqM6reAIDMwLzMwIOu2iOydvOy5mCDsi5wg6rKM7IucIOq4iOyngAo="
-        run: |
-          set -euo pipefail
           python - <<'PY'
-          import base64, os
-          from pathlib import Path
-          Path("standalone_swing_extended_returns_v872.py").write_bytes(
-              base64.b64decode(os.environ["BUILDER_B64"])
-          )
-          Path("docs/standalone_swing_extended_returns_contract_v872.md").write_bytes(
-              base64.b64decode(os.environ["CONTRACT_B64"])
-          )
-          PY
-          python -m py_compile standalone_swing_extended_returns_v872.py
-          echo "V872_SOURCE_RESTORE=PASS"
+          from __future__ import annotations
 
-      - name: Build and validate extended return source
-        shell: bash
-        run: |
-          set -euo pipefail
-          python standalone_swing_extended_returns_v872.py | tee /tmp/v872.log
-
-          grep -q '^V872_EXTENDED_RETURN_SOURCE_STATUS=READY_SOURCE_ONLY$' /tmp/v872.log
-          grep -q '^TARGET_TICKERS=235$' /tmp/v872.log
-          grep -q '^RETURN_6M_READY=234$' /tmp/v872.log
-          grep -q '^RETURN_6M_SHORT=1$' /tmp/v872.log
-          grep -q '^RETURN_6M_SHORT_TICKER=439960$' /tmp/v872.log
-          grep -q '^PRODUCTION_1M_3M_REGRESSION_EXACT_MATCHES=30$' /tmp/v872.log
-          grep -q '^RETURN_1W_CALCULATED=false$' /tmp/v872.log
-          grep -q '^RETURN_YTD_CALCULATED=false$' /tmp/v872.log
-          grep -q '^RETURN_52W_CALCULATED=false$' /tmp/v872.log
-          grep -q '^STANDALONE_SWING_TABLE_ENABLED=false$' /tmp/v872.log
-          grep -q '^METRIC_FORMULA_CHANGED=false$' /tmp/v872.log
-          grep -q '^PRODUCTION_TABLE_CHANGED=false$' /tmp/v872.log
-          grep -q '^REQUEST_TIME_PRICE_SUBSTITUTION=false$' /tmp/v872.log
-          grep -q '^V872_EXTENDED_RETURN_SOURCE_VALIDATION=PASS$' /tmp/v872.log
-
-      - name: Verify protected production sources unchanged
-        shell: bash
-        run: |
-          set -euo pipefail
-          sha256sum -c /tmp/metric.sha
-          sha256sum -c /tmp/worker.sha
-          find api/two_table_v1 -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/two_table.after.sha
-          diff -u /tmp/two_table.sha /tmp/two_table.after.sha
-
-          git diff --exit-code -- stock_table_metrics_v850.py worker/krx-live-price-worker.js api/two_table_v1
-
-          echo "METRIC_FORMULA_CHANGED=false"
-          echo "WORKER_SOURCE_CHANGED=false"
-          echo "PRODUCTION_TWO_TABLE_CHANGED=false"
-
-      - name: Validate output contract
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY' | tee /tmp/v872-validate.log
+          import csv
           import json
           from pathlib import Path
 
-          p = json.loads(Path("latest/standalone_swing_extended_returns_latest.json").read_text())
-          m = json.loads(Path("latest/standalone_swing_extended_returns_meta_latest.json").read_text())
+          BASE = Path(".")
+          OUT = Path("/tmp/v873_standalone_swing_preview")
+          OUT.mkdir(parents=True, exist_ok=True)
 
-          assert p["status"] == "READY_SOURCE_ONLY"
-          assert m["status"] == "READY_SOURCE_ONLY"
-          assert p["source_only"] is True and m["source_only"] is True
-          assert p["standalone_swing_table_enabled"] is False
-          assert m["standalone_swing_table_enabled"] is False
-          assert p["request_time_price_eligible"] is False
-          assert p["return_basis"] == {
-              "6m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
-              "1w": None, "ytd": None, "52w": None,
+          SWING = BASE / "latest/standalone_swing_source_latest.json"
+          EXT = BASE / "latest/standalone_swing_extended_returns_latest.json"
+          GLOSSARY = BASE / "latest/stock_table_metric_glossary_latest.json"
+          TABLE_DIR = BASE / "api/two_table_v1"
+          TABLES = ("kospi", "decliners", "decliners24")
+
+          for p in (SWING, EXT, GLOSSARY):
+              if not p.is_file():
+                  raise SystemExit("MISSING_REQUIRED_SOURCE:" + str(p))
+          for name in TABLES:
+              p = TABLE_DIR / f"{name}.json"
+              if not p.is_file():
+                  raise SystemExit("MISSING_PRODUCTION_TABLE:" + str(p))
+
+          def read(path):
+              return json.loads(path.read_text(encoding="utf-8-sig"))
+
+          swing = read(SWING)
+          ext = read(EXT)
+          glossary = read(GLOSSARY)
+
+          if swing.get("status") != "READY_SOURCE_ONLY":
+              raise SystemExit("SWING_SOURCE_NOT_READY")
+          if ext.get("status") != "READY_SOURCE_ONLY":
+              raise SystemExit("EXTENDED_RETURN_SOURCE_NOT_READY")
+          if swing.get("standalone_swing_table_enabled") is not False:
+              raise SystemExit("STANDALONE_SWING_ALREADY_ENABLED_UNEXPECTEDLY")
+          if ext.get("standalone_swing_table_enabled") is not False:
+              raise SystemExit("EXTENDED_SWING_ALREADY_ENABLED_UNEXPECTEDLY")
+
+          basis = swing.get("basis_date")
+          if not basis or ext.get("basis_date") != basis:
+              raise SystemExit("SOURCE_BASIS_MISMATCH")
+
+          swing_rows = {
+              str(r["ticker"]).zfill(6): r
+              for r in swing.get("rows") or []
           }
-          assert p["row_count"] == 235
-          assert p["return_6m_ready_count"] == 234
-          assert p["return_6m_short_count"] == 1
-          assert p["return_6m_short"][0]["ticker"] == "439960"
-          assert p["production_1m_3m_regression_exact_matches"] == 30
+          ext_rows = {
+              str(r["ticker"]).zfill(6): r
+              for r in ext.get("rows") or []
+          }
+          if not swing_rows or set(swing_rows) != set(ext_rows):
+              raise SystemExit("SWING_EXTENDED_TICKER_SET_MISMATCH")
 
-          for row in p["rows"]:
-              assert row["return_1w"] is None
-              assert row["return_ytd"] is None
-              assert row["return_52w"] is None
+          production = {}
+          table_membership = {}
+          duplicate_mismatch = []
 
-          s = p["safety"]
-          assert s["return_6m_calculated"] is True
-          assert s["return_1w_calculated"] is False
-          assert s["return_ytd_calculated"] is False
-          assert s["return_52w_calculated"] is False
-          assert s["metric_formula_changed"] is False
-          assert s["production_table_changed"] is False
-          assert s["request_time_price_substitution"] is False
+          for name in TABLES:
+              payload = read(TABLE_DIR / f"{name}.json")
+              if payload.get("status") != "READY":
+                  raise SystemExit("PRODUCTION_TABLE_NOT_READY:" + name)
+              if payload.get("basis_date") != basis:
+                  raise SystemExit("PRODUCTION_TABLE_BASIS_MISMATCH:" + name)
 
-          print("V872_OUTPUT_CONTRACT=PASS")
-          print("V872_6M_READY=234/235")
-          print("V872_PENDING_1W_YTD_52W_NULL=PASS")
+              for row in payload.get("rows") or []:
+                  ticker = str(row.get("ticker") or "").zfill(6)
+                  metrics = row.get("metrics") or {}
+                  snapshot = {
+                      "sector_theme": row.get("sector_theme"),
+                      "rs_sector_pp": metrics.get("rs_sector_pp"),
+                      "sector_benchmark": metrics.get("sector_benchmark"),
+                  }
+                  if ticker in production and production[ticker] != snapshot:
+                      duplicate_mismatch.append(ticker)
+                  else:
+                      production[ticker] = snapshot
+                  table_membership.setdefault(ticker, []).append(name)
+
+          if duplicate_mismatch:
+              raise SystemExit(
+                  "PRODUCTION_DUPLICATE_SECTOR_MISMATCH:"
+                  + ",".join(sorted(set(duplicate_mismatch)))
+              )
+
+          rows = []
+          sector_ready = 0
+          sixm_ready = 0
+          metric_ok = 0
+
+          def ma_value(row, period):
+              return ((row.get("ma") or {}).get(str(period)) or {})
+
+          for ticker in sorted(swing_rows):
+              s = swing_rows[ticker]
+              e = ext_rows[ticker]
+              p = production.get(ticker) or {}
+              rs_sector = p.get("rs_sector_pp")
+
+              if isinstance(rs_sector, dict) and rs_sector.get("1") is not None and rs_sector.get("3") is not None:
+                  sector_ready += 1
+
+              r6 = e.get("return_6m") or {}
+              if r6.get("status") == "OK":
+                  sixm_ready += 1
+
+              if s.get("metric_status") == "OK":
+                  metric_ok += 1
+
+              swing_info = s.get("swing") or {}
+              streak = s.get("streak") or {}
+              run = s.get("run") or {}
+              returns = s.get("returns") or {}
+              rs_kospi = s.get("rs_kospi_pp") or {}
+              atr = s.get("atr14") or {}
+              trailing = s.get("trailing_reference") or {}
+
+              rows.append({
+                  "ticker": ticker,
+                  "name": s.get("name"),
+                  "market": s.get("market"),
+                  "basis_date": basis,
+                  "official_close": s.get("official_close"),
+                  "production_table_membership": table_membership.get(ticker, []),
+                  "sector_theme": p.get("sector_theme"),
+                  "sector_benchmark": p.get("sector_benchmark"),
+                  "returns": {
+                      "1w": None,
+                      "1m": (returns.get("1") or {}).get("pct"),
+                      "3m": (returns.get("3") or {}).get("pct"),
+                      "6m": r6.get("pct") if r6.get("status") == "OK" else None,
+                      "ytd": None,
+                      "52w": None,
+                  },
+                  "return_basis_dates": {
+                      "1m": (returns.get("1") or {}).get("start_date"),
+                      "3m": (returns.get("3") or {}).get("start_date"),
+                      "6m": r6.get("start_date") if r6.get("status") == "OK" else None,
+                  },
+                  "swing": {
+                      "phase": swing_info.get("phase"),
+                      "phase_ko": swing_info.get("phase_ko"),
+                      "trough_date": swing_info.get("trough_date"),
+                      "peak_date": swing_info.get("peak_date"),
+                      "from_trough_pct": swing_info.get("from_trough_pct"),
+                      "from_peak_pct": swing_info.get("from_peak_pct"),
+                      "momentum_5d_pct": swing_info.get("momentum_5d_pct"),
+                  },
+                  "ma": {
+                      str(period): ma_value(s, period)
+                      for period in (5, 20, 60, 120)
+                  },
+                  "mean_run_days": run.get("average"),
+                  "streak": {
+                      "direction": streak.get("direction"),
+                      "days": streak.get("days"),
+                      "change_pct": streak.get("change_pct"),
+                  },
+                  "rs_kospi_pp": {
+                      "1m": rs_kospi.get("1"),
+                      "3m": rs_kospi.get("3"),
+                  },
+                  "rs_sector_pp": {
+                      "1m": rs_sector.get("1"),
+                      "3m": rs_sector.get("3"),
+                  } if isinstance(rs_sector, dict) else None,
+                  "atr14": atr,
+                  "avg_daily_range_20_pct": s.get("avg_daily_range_20_pct"),
+                  "range_3m": s.get("range_3m"),
+                  "trailing_reference": {
+                      "ma20_close_level": trailing.get("ma20_close_level"),
+                      "confirmed_swing_low_stop": None,
+                      "status": trailing.get("status"),
+                  },
+                  "pending": {
+                      "rsi": None,
+                      "macd": None,
+                      "return_1w": None,
+                      "return_ytd": None,
+                      "return_52w": None,
+                      "investment_score_100": None,
+                      "earnings_outlook_change": None,
+                      "confirmed_swing_low_stop": None,
+                  },
+              })
+
+          row_count = len(rows)
+          if row_count != int(swing.get("row_count") or 0):
+              raise SystemExit("PREVIEW_ROW_COUNT_MISMATCH")
+          if sixm_ready != int(ext.get("return_6m_ready_count") or 0):
+              raise SystemExit("PREVIEW_6M_READY_MISMATCH")
+          if sector_ready <= 0:
+              raise SystemExit("PREVIEW_SECTOR_RS_ZERO")
+
+          payload = {
+              "version": "2026-09-12-v8.7.3-standalone-swing-preview",
+              "status": "READY_PREVIEW_ONLY",
+              "repository_write": False,
+              "production_activation": False,
+              "action_route_enabled": False,
+              "standalone_swing_table_enabled": False,
+              "basis_date": basis,
+              "row_count": row_count,
+              "metric_ok_count": metric_ok,
+              "return_6m_ready_count": sixm_ready,
+              "return_6m_missing_count": row_count - sixm_ready,
+              "sector_rs_ready_count": sector_ready,
+              "sector_rs_missing_count": row_count - sector_ready,
+              "production_unique_ticker_count": len(production),
+              "display_contract_status": "PREVIEW_NOT_FINAL_HEADER",
+              "glossary_footer": glossary.get("compact_footer"),
+              "rows": rows,
+              "safety": {
+                  "rsi_calculated": False,
+                  "macd_calculated": False,
+                  "return_1w_calculated": False,
+                  "return_ytd_calculated": False,
+                  "return_52w_calculated": False,
+                  "investment_score_100_calculated": False,
+                  "earnings_outlook_change_calculated": False,
+                  "confirmed_swing_low_stop_calculated": False,
+                  "request_time_price_substitution": False,
+                  "production_table_changed": False,
+                  "worker_changed": False,
+              },
+          }
+
+          json_path = OUT / "standalone-swing-preview-v873.json"
+          json_path.write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+              encoding="utf-8",
+          )
+
+          csv_fields = [
+              "ticker", "name", "market", "official_close",
+              "return_1m_pct", "return_3m_pct", "return_6m_pct",
+              "swing_phase_ko", "swing_trough_date", "swing_peak_date",
+              "from_trough_pct", "from_peak_pct", "momentum_5d_pct",
+              "ma5_direction", "ma20_direction", "ma60_direction", "ma120_direction",
+              "mean_run_days", "streak_direction", "streak_days", "streak_change_pct",
+              "rs_kospi_1m_pp", "rs_kospi_3m_pp",
+              "rs_sector_1m_pp", "rs_sector_3m_pp",
+              "atr14_pct", "avg_daily_range_20_pct",
+              "ma20_reference", "confirmed_swing_low_stop",
+          ]
+          with (OUT / "standalone-swing-preview-v873.csv").open(
+              "w", encoding="utf-8-sig", newline=""
+          ) as f:
+              w = csv.DictWriter(f, fieldnames=csv_fields)
+              w.writeheader()
+              for r in rows:
+                  rs_sec = r["rs_sector_pp"] or {}
+                  w.writerow({
+                      "ticker": r["ticker"],
+                      "name": r["name"],
+                      "market": r["market"],
+                      "official_close": r["official_close"],
+                      "return_1m_pct": r["returns"]["1m"],
+                      "return_3m_pct": r["returns"]["3m"],
+                      "return_6m_pct": r["returns"]["6m"],
+                      "swing_phase_ko": r["swing"]["phase_ko"],
+                      "swing_trough_date": r["swing"]["trough_date"],
+                      "swing_peak_date": r["swing"]["peak_date"],
+                      "from_trough_pct": r["swing"]["from_trough_pct"],
+                      "from_peak_pct": r["swing"]["from_peak_pct"],
+                      "momentum_5d_pct": r["swing"]["momentum_5d_pct"],
+                      "ma5_direction": r["ma"]["5"].get("direction"),
+                      "ma20_direction": r["ma"]["20"].get("direction"),
+                      "ma60_direction": r["ma"]["60"].get("direction"),
+                      "ma120_direction": r["ma"]["120"].get("direction"),
+                      "mean_run_days": r["mean_run_days"],
+                      "streak_direction": r["streak"]["direction"],
+                      "streak_days": r["streak"]["days"],
+                      "streak_change_pct": r["streak"]["change_pct"],
+                      "rs_kospi_1m_pp": r["rs_kospi_pp"]["1m"],
+                      "rs_kospi_3m_pp": r["rs_kospi_pp"]["3m"],
+                      "rs_sector_1m_pp": rs_sec.get("1m"),
+                      "rs_sector_3m_pp": rs_sec.get("3m"),
+                      "atr14_pct": (r["atr14"] or {}).get("pct"),
+                      "avg_daily_range_20_pct": r["avg_daily_range_20_pct"],
+                      "ma20_reference": r["trailing_reference"]["ma20_close_level"],
+                      "confirmed_swing_low_stop": None,
+                  })
+
+          sample = rows[:15]
+          md = [
+              "# V8.7.3 독립 종목 스윙추세분석 Preview",
+              "",
+              f"- 기준일: {basis}",
+              f"- 전체 source 종목: {row_count}",
+              f"- 기존 지표 정상: {metric_ok}/{row_count}",
+              f"- 6M 수익률: {sixm_ready}/{row_count}",
+              f"- production 업종RS 연결: {sector_ready}/{row_count}",
+              "- 상태: Preview only / Action 미활성 / production 미변경",
+              "",
+              "## 현재 안전하게 표시 가능한 핵심 항목",
+              "",
+              "- 종목명·종목코드·시장·공식종가",
+              "- 1M·3M·6M 수익률",
+              "- 큰 스윙 상태·저점/고점 근거일·저/고점 대비 위치",
+              "- MA5/20/60/120 방향",
+              "- 평균등락일수·현재 연속등락",
+              "- KOSPI 대비 1M/3M RS",
+              "- production 종목에 한해 공식 KRX 업종RS",
+              "- ATR14·20일 평균 일중고저폭",
+              "- MA20 참고선",
+              "",
+              "## 아직 자료 미제공",
+              "",
+              "- 1W·YTD·52W",
+              "- RSI·MACD",
+              "- 투자종합점수100",
+              "- 실적전망 변화",
+              "- 확정 스윙저점 손절",
+              "",
+              "## 샘플 15종목",
+              "",
+              "|종목|1M|3M|6M|스윙|MA20|KOSPI RS 1M|업종RS 1M|ATR14%|",
+              "|---|---:|---:|---:|---|---|---:|---:|---:|",
+          ]
+          for r in sample:
+              rs_sec = r["rs_sector_pp"] or {}
+              def fmt(v):
+                  return "자료 미제공" if v is None else str(v)
+              md.append(
+                  f"|{r['name']}({r['ticker']})|"
+                  f"{fmt(r['returns']['1m'])}|{fmt(r['returns']['3m'])}|{fmt(r['returns']['6m'])}|"
+                  f"{fmt(r['swing']['phase_ko'])}|{fmt(r['ma']['20'].get('direction'))}|"
+                  f"{fmt(r['rs_kospi_pp']['1m'])}|{fmt(rs_sec.get('1m'))}|"
+                  f"{fmt((r['atr14'] or {}).get('pct'))}|"
+              )
+          md += [
+              "",
+              "※ 이 표는 최종 독립 스윙표 헤더가 아니라 데이터 준비상태를 확인하는 Preview입니다.",
+              "※ 스윙은 미래예측이 아니라 확정 일봉 기반의 현재 위치 분류입니다.",
+          ]
+          (OUT / "standalone-swing-preview-v873.md").write_text(
+              "\n".join(md) + "\n", encoding="utf-8"
+          )
+
+          print("V873_STANDALONE_SWING_PREVIEW=READY_PREVIEW_ONLY")
+          print("BASIS_DATE=" + str(basis))
+          print("PREVIEW_ROWS=" + str(row_count))
+          print("METRIC_OK=" + str(metric_ok))
+          print("RETURN_6M_READY=" + str(sixm_ready))
+          print("SECTOR_RS_READY=" + str(sector_ready))
+          print("SECTOR_RS_MISSING=" + str(row_count - sector_ready))
+          print("PRODUCTION_UNIQUE_TICKERS=" + str(len(production)))
+          print("FINAL_HEADER_SELECTED=false")
+          print("ACTION_ROUTE_ENABLED=false")
+          print("PRODUCTION_ACTIVATION=false")
+          print("REPOSITORY_WRITE=false")
+          print("RSI_CALCULATED=false")
+          print("MACD_CALCULATED=false")
+          print("RETURN_1W_CALCULATED=false")
+          print("RETURN_YTD_CALCULATED=false")
+          print("RETURN_52W_CALCULATED=false")
+          print("CONFIRMED_SWING_LOW_STOP_CALCULATED=false")
+          print("REQUEST_TIME_PRICE_SUBSTITUTION=false")
           PY
 
-          grep -q '^V872_OUTPUT_CONTRACT=PASS$' /tmp/v872-validate.log
-          grep -q '^V872_6M_READY=234/235$' /tmp/v872-validate.log
-          grep -q '^V872_PENDING_1W_YTD_52W_NULL=PASS$' /tmp/v872-validate.log
-
-      - name: Commit source-only outputs
+      - name: Validate read-only safety
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin main
-          if [ "$(git rev-parse origin/main)" != "$BASE_SHA" ]; then
-            echo "::error::Remote main changed after checkout. Rerun from latest main."
-            exit 1
-          fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          test -f /tmp/v873_standalone_swing_preview/standalone-swing-preview-v873.json
+          test -f /tmp/v873_standalone_swing_preview/standalone-swing-preview-v873.csv
+          test -f /tmp/v873_standalone_swing_preview/standalone-swing-preview-v873.md
 
-          git add \
-            standalone_swing_extended_returns_v872.py \
-            docs/standalone_swing_extended_returns_contract_v872.md \
-            latest/standalone_swing_extended_returns_latest.json \
-            latest/standalone_swing_extended_returns_latest.csv \
-            latest/standalone_swing_extended_returns_meta_latest.json \
-            latest/standalone_swing_extended_returns_run_log_latest.txt
+          python - <<'PY'
+          import json
+          from pathlib import Path
 
-          STAGED="$(git diff --cached --name-only || true)"
-          echo "V872_STAGED_FILES_BEGIN"
-          printf '%s\n' "$STAGED"
-          echo "V872_STAGED_FILES_END"
+          p = json.loads(
+              Path("/tmp/v873_standalone_swing_preview/standalone-swing-preview-v873.json")
+              .read_text(encoding="utf-8")
+          )
 
-          if printf '%s\n' "$STAGED" | grep -q '^\.github/workflows/'; then
-            echo "::error::Workflow staged unexpectedly"
-            exit 1
-          fi
+          assert p["status"] == "READY_PREVIEW_ONLY"
+          assert p["repository_write"] is False
+          assert p["production_activation"] is False
+          assert p["action_route_enabled"] is False
+          assert p["standalone_swing_table_enabled"] is False
+          assert p["row_count"] > 0
+          assert p["metric_ok_count"] == p["row_count"]
+          assert p["return_6m_ready_count"] == p["row_count"] - 1
+          assert p["sector_rs_ready_count"] > 0
 
-          while IFS= read -r p; do
-            [ -z "$p" ] && continue
-            case "$p" in
-              standalone_swing_extended_returns_v872.py|\
-              docs/standalone_swing_extended_returns_contract_v872.md|\
-              latest/standalone_swing_extended_returns_latest.json|\
-              latest/standalone_swing_extended_returns_latest.csv|\
-              latest/standalone_swing_extended_returns_meta_latest.json|\
-              latest/standalone_swing_extended_returns_run_log_latest.txt) ;;
-              *) echo "::error::Unexpected staged path: $p"; exit 1 ;;
-            esac
-          done <<< "$STAGED"
+          s = p["safety"]
+          assert s["rsi_calculated"] is False
+          assert s["macd_calculated"] is False
+          assert s["return_1w_calculated"] is False
+          assert s["return_ytd_calculated"] is False
+          assert s["return_52w_calculated"] is False
+          assert s["investment_score_100_calculated"] is False
+          assert s["earnings_outlook_change_calculated"] is False
+          assert s["confirmed_swing_low_stop_calculated"] is False
+          assert s["request_time_price_substitution"] is False
+          assert s["production_table_changed"] is False
+          assert s["worker_changed"] is False
 
-          if ! git diff --cached --quiet; then
-            git commit -m "Add V8.7.2 standalone swing 6M return source"
-            git push origin HEAD:main
-          fi
+          print("V873_PREVIEW_CONTRACT=PASS")
+          print("V873_PREVIEW_ONLY_NO_PRODUCTION_CHANGE=PASS")
+          PY
 
-          echo "COMMIT_SHA=$(git rev-parse HEAD)"
-          echo "PUSH_SUCCESS=true"
-          echo "V872_STANDALONE_SWING_6M_SOURCE_RELEASE=PASS"
-          echo "WORKFLOW_FILES_STAGED=false"
-          echo "STANDALONE_SWING_TABLE_ENABLED=false"
-          echo "RETURN_1W_CALCULATED=false"
-          echo "RETURN_YTD_CALCULATED=false"
-          echo "RETURN_52W_CALCULATED=false"
-          echo "METRIC_FORMULA_CHANGED=false"
-          echo "WORKER_SOURCE_CHANGED=false"
-          echo "PRODUCTION_TABLE_CHANGED=false"
-          echo "REQUEST_TIME_PRICE_SUBSTITUTION=false"
+          git diff --exit-code
+          git diff --cached --exit-code
 
-      - name: Final report
-        if: always()
-        shell: bash
-        run: |
-          test -f /tmp/v872.log && cat /tmp/v872.log || true
-          test -f /tmp/v872-validate.log && cat /tmp/v872-validate.log || true
-          git status --short || true
+          echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
+          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
+
+      - name: Upload standalone swing preview
+        uses: actions/upload-artifact@v6
+        with:
+          name: standalone-swing-preview-v873
+          path: |
+            /tmp/v873_standalone_swing_preview/standalone-swing-preview-v873.json
+            /tmp/v873_standalone_swing_preview/standalone-swing-preview-v873.csv
+            /tmp/v873_standalone_swing_preview/standalone-swing-preview-v873.md
+          if-no-files-found: error
+          retention-days: 14

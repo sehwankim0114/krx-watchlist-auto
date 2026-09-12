@@ -93,7 +93,7 @@ def build(repo, output):
         raise ValueError("METRIC_GLOSSARY_VERSION_MISSING")
     if not isinstance(glossary_footer, str) or not glossary_footer.strip() or len(glossary_footer) > 700:
         raise ValueError("METRIC_GLOSSARY_FOOTER_INVALID")
-    if not isinstance(glossary_terms, dict) or set(glossary_terms) != {"swing", "ma", "atr14", "rs_kospi", "streak"}:
+    if not isinstance(glossary_terms, dict) or set(glossary_terms) != {"swing", "ma", "atr14", "rs_kospi", "rs_sector", "streak"}:
         raise ValueError("METRIC_GLOSSARY_TERMS_INVALID")
     if glossary_policy.get("attach_to_stock_tables") is not True:
         raise ValueError("METRIC_GLOSSARY_DISPLAY_POLICY_INVALID")

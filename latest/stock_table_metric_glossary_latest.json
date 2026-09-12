@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-11-v8.5.9-swing-anchor-source-and-glossary",
+  "version": "2026-09-12-v8.7.0-sector-rs-production",
   "display_policy": {
     "attach_to_stock_tables": true,
     "recommended_location": "TABLE_FOOTNOTE",
@@ -31,7 +31,12 @@
       "label": "연속등락",
       "short": "현재 진행 중인 연속 상승·하락 방향, 일수, 누적등락률",
       "detail": "예: ↓3일 / -3.6%는 최근 3거래일 연속 하락했고 그 연속 구간 누적등락률이 -3.6%라는 뜻이다."
+    },
+    "rs_sector": {
+      "label": "업종RS 1M/3M",
+      "short": "같은 기간 공식 KRX 업종지수 대비 상대수익률 차이(%p)",
+      "detail": "양수면 같은 기간 선택된 공식 KRX 업종지수보다 강했고 음수면 약했다는 뜻이다. KOSPI 대비 RS와 별개이며 요청시점 현재가로 재계산하지 않는다."
     }
   },
-  "compact_footer_text": "읽는 법: 스윙=최근 큰 가격파동의 현재 위치(미래예측 아님) · MA5/20/60/120=단기→중장기 이동평균 방향 · ATR14=최근 14기간 평균진폭(예상수익률 아님) · RS=KOSPI 대비 상대수익률 차이 · 연속등락=현재 연속 상승/하락 일수와 누적등락률"
+  "compact_footer_text": "읽는 법: 스윙=최근 큰 가격파동의 현재 위치(미래예측 아님) · MA5/20/60/120=단기→중장기 이동평균 방향 · ATR14=최근 14기간 평균진폭(예상수익률 아님) · RS=KOSPI 대비 상대수익률 차이 · 업종RS=같은 기간 공식 KRX 업종지수 대비 상대수익률 차이(%p) · 연속등락=현재 연속 상승/하락 일수와 누적등락률"
 }

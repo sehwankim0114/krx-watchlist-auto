@@ -36,7 +36,7 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 
-SCRIPT_VERSION = "build_api_json.py v5.2_recommendation_policy_isolation"
+SCRIPT_VERSION = "build_api_json.py v5.3_sector_rs_v870_hook"
 SCHEMA_VERSION = "4.2"
 ROOT = Path(__file__).resolve().parent
 LATEST = ROOT / "latest"
@@ -1037,13 +1037,13 @@ def main() -> int:
     )
     # PRICE_POSITION_V78_END
 
-    # TWO_TABLE_SHADOW_V851_BEGIN
-    # Explicit new-layout release; legacy API rows remain untouched.
-    from two_table_release_v853 import publish as publish_two_table_shadow
-    two_table_shadow = publish_two_table_shadow(ROOT)
-    print("V853_REGULAR_BUILD_HOOK=PASS")
-    print("TWO_TABLE_SHADOW_STATUS=" + two_table_shadow["status"])
-    # TWO_TABLE_SHADOW_V851_END
+    # TWO_TABLE_RELEASE_V870_BEGIN
+    # Production two-table release with official KRX sector RS.
+    from two_table_release_v870 import publish as publish_two_table_release
+    two_table_release = publish_two_table_release(ROOT)
+    print("V870_REGULAR_BUILD_HOOK=PASS")
+    print("TWO_TABLE_RELEASE_STATUS=" + two_table_release["status"])
+    # TWO_TABLE_RELEASE_V870_END
 
     print(f"BUILD_ID={build_id}")
     print(f"API_STATUS={overall_status}")

@@ -1,0 +1,4135 @@
+{
+  "contract_version": "2026-09-12-v8.7.5-standalone-swing-sector-rs-source",
+  "script_version": "standalone_swing_sector_rs_v875.py v1.0.0-source-only",
+  "status": "READY_SOURCE_ONLY",
+  "source_only": true,
+  "standalone_swing_table_enabled": false,
+  "request_time_price_eligible": false,
+  "basis_date": "2026-09-11",
+  "row_count": 235,
+  "market_counts": {
+    "KOSPI": 210,
+    "KOSDAQ": 25
+  },
+  "kospi_sector_rs_ready_count": 210,
+  "kosdaq_sector_rs_null_count": 25,
+  "production_unique_ticker_count": 112,
+  "production_regression_exact_matches": 112,
+  "production_regression_mismatches": 0,
+  "glossary_footer_text": "읽는 법: 스윙=최근 큰 가격파동의 현재 위치(미래예측 아님) · MA5/20/60/120=단기→중장기 이동평균 방향 · ATR14=최근 14기간 평균진폭(예상수익률 아님) · RS=KOSPI 대비 상대수익률 차이 · 업종RS=같은 기간 공식 KRX 업종지수 대비 상대수익률 차이(%p) · 연속등락=현재 연속 상승/하락 일수와 누적등락률",
+  "rows": [
+    {
+      "ticker": "000270",
+      "name": "기아",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1015",
+        "benchmark_name": "운송장비·부품",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 0.1482,
+        "3": 3.624
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "000370",
+      "name": "한화손해보험",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1025",
+        "benchmark_name": "보험",
+        "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 28.8852,
+        "3": 38.8226
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "000500",
+      "name": "가온전선",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 46.6188,
+        "3": -7.8141
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "000540",
+      "name": "흥국화재",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1025",
+        "benchmark_name": "보험",
+        "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 1.0659,
+        "3": 4.6498
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "000640",
+      "name": "동아쏘시오홀딩스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -12.4463,
+        "3": 11.5688
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "000650",
+      "name": "천일고속",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1019",
+        "benchmark_name": "운송·창고",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -11.5555,
+        "3": -36.1714
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "000660",
+      "name": "SK하이닉스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 12.1991,
+        "3": 0.0354
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "000810",
+      "name": "삼성화재",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1025",
+        "benchmark_name": "보험",
+        "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -1.4518,
+        "3": 7.5717
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "000880",
+      "name": "한화",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 61.5747,
+        "3": 15.0504
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "000990",
+      "name": "DB하이텍",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -1.4395,
+        "3": -18.0391
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "001020",
+      "name": "페이퍼코리아",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1007",
+        "benchmark_name": "종이·목재",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 13.657,
+        "3": -4.3471
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "001045",
+      "name": "CJ우",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
+        "common_ticker": "001040"
+      },
+      "rs_sector_pp": {
+        "1": -13.9461,
+        "3": -5.4903
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "001060",
+      "name": "JW중외제약",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1009",
+        "benchmark_name": "제약",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 12.4813,
+        "3": -6.6726
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "001200",
+      "name": "유진투자증권",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1024",
+        "benchmark_name": "증권",
+        "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 3.3363,
+        "3": 22.5595
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "001210",
+      "name": "금호전기",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 190.1883,
+        "3": 2439.1458
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "001290",
+      "name": "상상인증권",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1024",
+        "benchmark_name": "증권",
+        "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 299.7461,
+        "3": 404.9926
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "001420",
+      "name": "태원물산",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1015",
+        "benchmark_name": "운송장비·부품",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 9.1074,
+        "3": 49.3424
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "001440",
+      "name": "대한전선",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -10.7185,
+        "3": -6.3716
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "001527",
+      "name": "동양2우B",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1010",
+        "benchmark_name": "비금속",
+        "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
+        "common_ticker": "001520"
+      },
+      "rs_sector_pp": {
+        "1": -13.7597,
+        "3": -19.8615
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "001530",
+      "name": "DI동일",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1016",
+        "benchmark_name": "유통",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 4.5797,
+        "3": 30.9799
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "001560",
+      "name": "제일연마",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1010",
+        "benchmark_name": "비금속",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 0.5072,
+        "3": -9.1127
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "001770",
+      "name": "SHD",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1011",
+        "benchmark_name": "금속",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 30.9214,
+        "3": -26.4784
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "001820",
+      "name": "삼화콘덴서",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 47.6448,
+        "3": 16.8666
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "002210",
+      "name": "동성제약",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1009",
+        "benchmark_name": "제약",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -2.6219,
+        "3": 37.7599
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "002380",
+      "name": "KCC",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 5.6211,
+        "3": -2.7207
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "002420",
+      "name": "우양피앤엘",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1016",
+        "benchmark_name": "유통",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -10.5111,
+        "3": 12.0814
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "002450",
+      "name": "삼익악기",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1027",
+        "benchmark_name": "제조",
+        "selection_mode": "DIRECT_MANUFACTURING_FALLBACK_NO_NARROWER",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -12.5639,
+        "3": 3.2739
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "002990",
+      "name": "금호건설",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1018",
+        "benchmark_name": "건설",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 14.5678,
+        "3": 287.6364
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "003010",
+      "name": "혜인",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1016",
+        "benchmark_name": "유통",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 31.6157,
+        "3": 114.2263
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "003230",
+      "name": "삼양식품",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1005",
+        "benchmark_name": "음식료·담배",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 4.1446,
+        "3": 9.9825
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "003280",
+      "name": "흥아해운",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1019",
+        "benchmark_name": "운송·창고",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 7.5271,
+        "3": -7.937
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "003350",
+      "name": "한국화장품제조",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 49.6664,
+        "3": 89.4179
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "003490",
+      "name": "대한항공",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1019",
+        "benchmark_name": "운송·창고",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 7.2879,
+        "3": 7.3382
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "003495",
+      "name": "대한항공우",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1019",
+        "benchmark_name": "운송·창고",
+        "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
+        "common_ticker": "003490"
+      },
+      "rs_sector_pp": {
+        "1": -0.4123,
+        "3": -7.9938
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "003530",
+      "name": "한화투자증권",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1024",
+        "benchmark_name": "증권",
+        "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 9.8409,
+        "3": 10.7871
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "003540",
+      "name": "대신증권",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1024",
+        "benchmark_name": "증권",
+        "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 8.6728,
+        "3": 18.5745
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "003550",
+      "name": "LG",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -2.0734,
+        "3": 6.1472
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "003580",
+      "name": "HLB글로벌",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1016",
+        "benchmark_name": "유통",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -1.242,
+        "3": 24.9514
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "003670",
+      "name": "포스코퓨처엠",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 3.1419,
+        "3": 14.1157
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "004170",
+      "name": "신세계",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1016",
+        "benchmark_name": "유통",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -12.9441,
+        "3": -33.4762
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "004310",
+      "name": "현대약품",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1009",
+        "benchmark_name": "제약",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 64.5855,
+        "3": 64.3287
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "004370",
+      "name": "농심",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1005",
+        "benchmark_name": "음식료·담배",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 7.0347,
+        "3": 11.8423
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "004490",
+      "name": "세방전지",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -5.1549,
+        "3": 32.025
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "004545",
+      "name": "깨끗한나라우",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1007",
+        "benchmark_name": "종이·목재",
+        "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
+        "common_ticker": "004540"
+      },
+      "rs_sector_pp": {
+        "1": -14.9213,
+        "3": -58.8178
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "004710",
+      "name": "한솔테크닉스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -2.3634,
+        "3": -9.5194
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "004770",
+      "name": "써니전자",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 7.9446,
+        "3": 42.8917
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "004870",
+      "name": "티웨이홀딩스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1010",
+        "benchmark_name": "비금속",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -14.1626,
+        "3": 317.5047
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "004910",
+      "name": "조광페인트",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -9.2415,
+        "3": -0.7013
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "005320",
+      "name": "온타이드",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1016",
+        "benchmark_name": "유통",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 46.1116,
+        "3": 21.5409
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "005380",
+      "name": "현대차",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1015",
+        "benchmark_name": "운송장비·부품",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 0.7948,
+        "3": -13.4594
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "005385",
+      "name": "현대차우",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1015",
+        "benchmark_name": "운송장비·부품",
+        "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
+        "common_ticker": "005380"
+      },
+      "rs_sector_pp": {
+        "1": -2.0597,
+        "3": 0.0821
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "005387",
+      "name": "현대차2우B",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1015",
+        "benchmark_name": "운송장비·부품",
+        "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
+        "common_ticker": "005380"
+      },
+      "rs_sector_pp": {
+        "1": -3.5968,
+        "3": -0.8844
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "005389",
+      "name": "현대차3우B",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1015",
+        "benchmark_name": "운송장비·부품",
+        "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
+        "common_ticker": "005380"
+      },
+      "rs_sector_pp": {
+        "1": -1.918,
+        "3": 2.1577
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "005490",
+      "name": "POSCO홀딩스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1011",
+        "benchmark_name": "금속",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 4.0286,
+        "3": -2.7835
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "005500",
+      "name": "삼진제약",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1009",
+        "benchmark_name": "제약",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 9.8104,
+        "3": -9.4322
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "005820",
+      "name": "원림",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1006",
+        "benchmark_name": "섬유·의류",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -0.5434,
+        "3": 13.6763
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "005830",
+      "name": "DB손해보험",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1025",
+        "benchmark_name": "보험",
+        "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 8.0629,
+        "3": 41.0312
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "005930",
+      "name": "삼성전자",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -6.6081,
+        "3": 0.5801
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "005935",
+      "name": "삼성전자우",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
+        "common_ticker": "005930"
+      },
+      "rs_sector_pp": {
+        "1": -7.6891,
+        "3": 13.6874
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "006110",
+      "name": "삼아알미늄",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1011",
+        "benchmark_name": "금속",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 18.3007,
+        "3": 3.5871
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "006220",
+      "name": "제주은행",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 5.2193,
+        "3": -14.1519
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "006260",
+      "name": "LS",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -6.8817,
+        "3": -12.9618
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "006360",
+      "name": "GS건설",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1018",
+        "benchmark_name": "건설",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -2.6652,
+        "3": 37.0154
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "006370",
+      "name": "대구백화점",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1016",
+        "benchmark_name": "유통",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -33.0417,
+        "3": -22.5159
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "006380",
+      "name": "카프로",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -98.9891,
+        "3": -98.4226
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "006400",
+      "name": "삼성SDI",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 3.6484,
+        "3": 23.1188
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "006490",
+      "name": "프리티",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1020",
+        "benchmark_name": "통신",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 164.229,
+        "3": 713.8617
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "006650",
+      "name": "대한유화",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 11.4141,
+        "3": -17.1686
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "006800",
+      "name": "미래에셋증권",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1024",
+        "benchmark_name": "증권",
+        "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -0.5239,
+        "3": -11.0705
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "007390",
+      "name": "네이처셀",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "007660",
+      "name": "이수페타시스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 10.212,
+        "3": 2.9953
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "007810",
+      "name": "코리아써키트",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -28.2016,
+        "3": -49.4994
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "008060",
+      "name": "대덕",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -11.1666,
+        "3": -24.3959
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "008770",
+      "name": "호텔신라",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1016",
+        "benchmark_name": "유통",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -9.7064,
+        "3": -13.0493
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "008930",
+      "name": "한미사이언스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 2.923,
+        "3": 70.2879
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "009150",
+      "name": "삼성전기",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -4.0238,
+        "3": -8.6469
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "009200",
+      "name": "무림페이퍼",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1007",
+        "benchmark_name": "종이·목재",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -6.7506,
+        "3": -1.5333
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "009420",
+      "name": "한올바이오파마",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1009",
+        "benchmark_name": "제약",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -0.8028,
+        "3": -12.5217
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "009540",
+      "name": "HD한국조선해양",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -14.1173,
+        "3": -1.1671
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "010120",
+      "name": "LS ELECTRIC",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -14.2199,
+        "3": 2.8976
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "010130",
+      "name": "고려아연",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1011",
+        "benchmark_name": "금속",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -2.3368,
+        "3": 5.2091
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "010140",
+      "name": "삼성중공업",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1015",
+        "benchmark_name": "운송장비·부품",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 4.0467,
+        "3": 7.0552
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "010170",
+      "name": "대한광통신",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "010580",
+      "name": "에스엠벡셀",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1015",
+        "benchmark_name": "운송장비·부품",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 69.0428,
+        "3": 44.9582
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "010950",
+      "name": "S-Oil",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 3.6644,
+        "3": 30.9247
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "011070",
+      "name": "LG이노텍",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -16.0517,
+        "3": -35.5562
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "011200",
+      "name": "HMM",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1019",
+        "benchmark_name": "운송·창고",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -5.0377,
+        "3": 1.2144
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "011780",
+      "name": "금호석유화학",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -4.2301,
+        "3": 2.6429
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "012160",
+      "name": "영흥",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1011",
+        "benchmark_name": "금속",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -6.3598,
+        "3": 493.0161
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "012170",
+      "name": "아센디오",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1047",
+        "benchmark_name": "오락·문화",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 289.9744,
+        "3": 194.2348
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "012280",
+      "name": "영화금속",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1015",
+        "benchmark_name": "운송장비·부품",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 375.9937,
+        "3": 371.875
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "012330",
+      "name": "현대모비스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1015",
+        "benchmark_name": "운송장비·부품",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -10.2637,
+        "3": -5.3944
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "012450",
+      "name": "한화에어로스페이스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1015",
+        "benchmark_name": "운송장비·부품",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 4.3333,
+        "3": 29.0777
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "012690",
+      "name": "모나리자",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1007",
+        "benchmark_name": "종이·목재",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -4.6322,
+        "3": -15.8257
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "012750",
+      "name": "에스원",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1026",
+        "benchmark_name": "일반서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -1.1071,
+        "3": 3.4166
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "013360",
+      "name": "일성건설",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1018",
+        "benchmark_name": "건설",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -23.8849,
+        "3": 10.1187
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "013570",
+      "name": "디와이",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -4.3122,
+        "3": 15.5564
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "014160",
+      "name": "대영포장",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1007",
+        "benchmark_name": "종이·목재",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -8.9534,
+        "3": -20.7095
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "014990",
+      "name": "인디에프",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1006",
+        "benchmark_name": "섬유·의류",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 126.0186,
+        "3": 775.1837
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "017670",
+      "name": "SK텔레콤",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1020",
+        "benchmark_name": "통신",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 3.7797,
+        "3": 0.0479
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "018260",
+      "name": "삼성에스디에스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1046",
+        "benchmark_name": "IT 서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 1.8485,
+        "3": 10.9038
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "019680",
+      "name": "대교",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1026",
+        "benchmark_name": "일반서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 50.939,
+        "3": 57.2712
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "020000",
+      "name": "한섬",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1006",
+        "benchmark_name": "섬유·의류",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -3.1649,
+        "3": -21.4773
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "020120",
+      "name": "키다리스튜디오",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1046",
+        "benchmark_name": "IT 서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 132.6545,
+        "3": 163.1847
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "020560",
+      "name": "아시아나항공",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1019",
+        "benchmark_name": "운송·창고",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 6.8036,
+        "3": 3.5075
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "021240",
+      "name": "코웨이",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1026",
+        "benchmark_name": "일반서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -9.6939,
+        "3": 0.7671
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "022100",
+      "name": "포스코DX",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1026",
+        "benchmark_name": "일반서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -2.7538,
+        "3": -20.9769
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "023960",
+      "name": "에쓰씨엔지니어링",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1018",
+        "benchmark_name": "건설",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -7.5503,
+        "3": 0.2383
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "024720",
+      "name": "콜마홀딩스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -11.5515,
+        "3": 16.7585
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "025860",
+      "name": "남해화학",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 1.7863,
+        "3": -2.8249
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "028050",
+      "name": "삼성E&A",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1026",
+        "benchmark_name": "일반서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -3.047,
+        "3": 9.2537
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "028260",
+      "name": "삼성물산",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1016",
+        "benchmark_name": "유통",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 4.6723,
+        "3": 2.6747
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "028670",
+      "name": "팬오션",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1019",
+        "benchmark_name": "운송·창고",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 2.9828,
+        "3": 11.325
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "029530",
+      "name": "신도리코",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -19.7149,
+        "3": 5.4575
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "029780",
+      "name": "삼성카드",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -9.6552,
+        "3": -2.0035
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "032830",
+      "name": "삼성생명",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1025",
+        "benchmark_name": "보험",
+        "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -2.2545,
+        "3": -11.6508
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "033240",
+      "name": "자화전자",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -15.1426,
+        "3": -8.6378
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "033780",
+      "name": "KT&G",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1005",
+        "benchmark_name": "음식료·담배",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -2.2718,
+        "3": -5.8763
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "034020",
+      "name": "두산에너빌리티",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1012",
+        "benchmark_name": "기계·장비",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 7.0381,
+        "3": 9.6459
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "034730",
+      "name": "SK",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 5.6897,
+        "3": 3.2351
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "035420",
+      "name": "NAVER",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1046",
+        "benchmark_name": "IT 서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 4.4619,
+        "3": 6.1414
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "035720",
+      "name": "카카오",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1046",
+        "benchmark_name": "IT 서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -7.2668,
+        "3": 1.7402
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "036570",
+      "name": "NC",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1046",
+        "benchmark_name": "IT 서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -11.6029,
+        "3": -7.0076
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "036580",
+      "name": "팜스코",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1005",
+        "benchmark_name": "음식료·담배",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -2.8788,
+        "3": 2.4763
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "036930",
+      "name": "주성엔지니어링",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "039490",
+      "name": "키움증권",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1024",
+        "benchmark_name": "증권",
+        "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -2.0826,
+        "3": 4.8752
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "041190",
+      "name": "우리기술투자",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "042660",
+      "name": "한화오션",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1015",
+        "benchmark_name": "운송장비·부품",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 2.0614,
+        "3": 4.3841
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "042700",
+      "name": "한미반도체",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1012",
+        "benchmark_name": "기계·장비",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -1.0709,
+        "3": -13.4558
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "044380",
+      "name": "주연테크",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -41.6578,
+        "3": -44.1772
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "047040",
+      "name": "대우건설",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1018",
+        "benchmark_name": "건설",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 1.3817,
+        "3": -12.6696
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "047050",
+      "name": "포스코인터내셔널",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1016",
+        "benchmark_name": "유통",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 0.9931,
+        "3": 12.474
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "047810",
+      "name": "한국항공우주",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1015",
+        "benchmark_name": "운송장비·부품",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 2.1916,
+        "3": 14.4364
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "051905",
+      "name": "LG생활건강우",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
+        "common_ticker": "051900"
+      },
+      "rs_sector_pp": {
+        "1": -10.6749,
+        "3": 0.7739
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "051910",
+      "name": "LG화학",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -2.6328,
+        "3": -15.4454
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "052690",
+      "name": "한전기술",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1026",
+        "benchmark_name": "일반서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 45.3755,
+        "3": 27.873
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "055550",
+      "name": "신한지주",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 2.0868,
+        "3": 18.0079
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "058730",
+      "name": "다스코",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1011",
+        "benchmark_name": "금속",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -7.4466,
+        "3": 33.4126
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "058860",
+      "name": "KTis",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1046",
+        "benchmark_name": "IT 서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 7.7713,
+        "3": 12.7934
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "060250",
+      "name": "NHN KCP",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "060370",
+      "name": "LS마린솔루션",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "062040",
+      "name": "산일전기",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -7.4331,
+        "3": 7.0302
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "063160",
+      "name": "종근당바이오",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1009",
+        "benchmark_name": "제약",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 0.5711,
+        "3": -23.5349
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "064260",
+      "name": "다날",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "064350",
+      "name": "현대로템",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1015",
+        "benchmark_name": "운송장비·부품",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -6.3532,
+        "3": -11.6593
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "064400",
+      "name": "LG씨엔에스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1046",
+        "benchmark_name": "IT 서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 3.0724,
+        "3": -8.7343
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "066570",
+      "name": "LG전자",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -5.1624,
+        "3": 2.0651
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "066575",
+      "name": "LG전자우",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
+        "common_ticker": "066570"
+      },
+      "rs_sector_pp": {
+        "1": -8.8394,
+        "3": 5.7701
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "067310",
+      "name": "하나마이크론",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "068270",
+      "name": "셀트리온",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1009",
+        "benchmark_name": "제약",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -4.1964,
+        "3": 0.1702
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "069620",
+      "name": "대웅제약",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1009",
+        "benchmark_name": "제약",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -2.8412,
+        "3": -14.0325
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "071050",
+      "name": "한국금융지주",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -8.2231,
+        "3": -14.3301
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "071840",
+      "name": "롯데하이마트",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1016",
+        "benchmark_name": "유통",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -6.7369,
+        "3": 7.8514
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "072130",
+      "name": "유엔젤",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1046",
+        "benchmark_name": "IT 서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 9.1936,
+        "3": 11.0127
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "073240",
+      "name": "금호타이어",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -4.2625,
+        "3": 61.3518
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "078340",
+      "name": "컴투스",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "078520",
+      "name": "에이블씨엔씨",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -26.442,
+        "3": -8.8704
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "079550",
+      "name": "LIG디펜스앤에어로스페이스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1011",
+        "benchmark_name": "금속",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -9.058,
+        "3": -7.3361
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "081000",
+      "name": "일진다이아",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 6.0291,
+        "3": -4.4464
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "082740",
+      "name": "한화엔진",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1012",
+        "benchmark_name": "기계·장비",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 3.0064,
+        "3": 7.562
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "085620",
+      "name": "미래에셋생명",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1025",
+        "benchmark_name": "보험",
+        "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 5.6165,
+        "3": -28.2994
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "086280",
+      "name": "현대글로비스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1019",
+        "benchmark_name": "운송·창고",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 2.1314,
+        "3": -2.9095
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "086450",
+      "name": "동국제약",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "086520",
+      "name": "에코프로",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "086790",
+      "name": "하나금융지주",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 1.9577,
+        "3": 21.5308
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "088350",
+      "name": "한화생명",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1025",
+        "benchmark_name": "보험",
+        "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 18.3004,
+        "3": 30.2079
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "088980",
+      "name": "맥쿼리인프라",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -7.8553,
+        "3": -8.934
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "090430",
+      "name": "아모레퍼시픽",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 0.0629,
+        "3": 23.9695
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "090460",
+      "name": "비에이치",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -9.9919,
+        "3": -11.4744
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "091810",
+      "name": "트리니티항공",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1019",
+        "benchmark_name": "운송·창고",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 333.1623,
+        "3": 258.1719
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "092790",
+      "name": "넥스틸",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1011",
+        "benchmark_name": "금속",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 10.2598,
+        "3": 7.7471
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "095610",
+      "name": "테스",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "096530",
+      "name": "씨젠",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "096770",
+      "name": "SK이노베이션",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 14.4123,
+        "3": 38.6088
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "097950",
+      "name": "CJ제일제당",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1005",
+        "benchmark_name": "음식료·담배",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -2.1842,
+        "3": -6.3952
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "097955",
+      "name": "CJ제일제당 우",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1005",
+        "benchmark_name": "음식료·담배",
+        "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
+        "common_ticker": "097950"
+      },
+      "rs_sector_pp": {
+        "1": -0.1213,
+        "3": 0.4037
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "100250",
+      "name": "진양홀딩스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 1.3686,
+        "3": 4.7503
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "100790",
+      "name": "미래에셋벤처투자",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "100840",
+      "name": "SNT에너지",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1012",
+        "benchmark_name": "기계·장비",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 22.6462,
+        "3": 21.8821
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "103590",
+      "name": "일진전기",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -0.0721,
+        "3": 5.0504
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "105560",
+      "name": "KB금융",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 0.8312,
+        "3": 18.9217
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "108230",
+      "name": "톱텍",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "128940",
+      "name": "한미약품",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1009",
+        "benchmark_name": "제약",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 23.4967,
+        "3": 5.8454
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "130660",
+      "name": "한전산업",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1026",
+        "benchmark_name": "일반서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 7.7651,
+        "3": 4.8165
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "138930",
+      "name": "BNK금융지주",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 0.9613,
+        "3": -3.7953
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "139480",
+      "name": "이마트",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1016",
+        "benchmark_name": "유통",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -10.4197,
+        "3": -3.4665
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "181710",
+      "name": "NHN",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1046",
+        "benchmark_name": "IT 서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 12.0256,
+        "3": 54.6023
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "195870",
+      "name": "해성디에스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -26.129,
+        "3": -24.2809
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "207940",
+      "name": "삼성바이오로직스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1009",
+        "benchmark_name": "제약",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -0.9092,
+        "3": 2.9811
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "214320",
+      "name": "이노션",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1026",
+        "benchmark_name": "일반서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -12.517,
+        "3": -13.051
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "214420",
+      "name": "토니모리",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -14.5781,
+        "3": -6.1131
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "214450",
+      "name": "파마리서치",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "217590",
+      "name": "티엠씨",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -38.1226,
+        "3": -37.3103
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "234080",
+      "name": "JW생명과학",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1009",
+        "benchmark_name": "제약",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 4.8448,
+        "3": -8.66
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "234690",
+      "name": "녹십자웰빙",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "241590",
+      "name": "화승엔터프라이즈",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1006",
+        "benchmark_name": "섬유·의류",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -11.0322,
+        "3": -14.5377
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "247540",
+      "name": "에코프로비엠",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "249420",
+      "name": "일동제약",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1009",
+        "benchmark_name": "제약",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 9.5423,
+        "3": -24.5513
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "257720",
+      "name": "실리콘투",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "261780",
+      "name": "아리바이오랩",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "263750",
+      "name": "펄어비스",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "267250",
+      "name": "HD현대",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 4.2935,
+        "3": 2.3107
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "267260",
+      "name": "HD현대일렉트릭",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -13.8763,
+        "3": -13.8956
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "267270",
+      "name": "HD건설기계",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1012",
+        "benchmark_name": "기계·장비",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -9.1695,
+        "3": 6.7435
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "271940",
+      "name": "일진하이솔루스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1015",
+        "benchmark_name": "운송장비·부품",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 7.93,
+        "3": 11.5759
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "271980",
+      "name": "제일약품",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1009",
+        "benchmark_name": "제약",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 7.0644,
+        "3": -7.5426
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "272210",
+      "name": "한화시스템",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -17.7023,
+        "3": -6.1866
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "278470",
+      "name": "에이피알",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -5.7697,
+        "3": -11.0801
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "286940",
+      "name": "롯데이노베이트",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1046",
+        "benchmark_name": "IT 서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -0.1676,
+        "3": 6.3363
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "293490",
+      "name": "카카오게임즈",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "298000",
+      "name": "효성화학",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -26.2018,
+        "3": 40.4581
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "298040",
+      "name": "효성중공업",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -14.1464,
+        "3": 1.7144
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "298690",
+      "name": "에어부산",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1019",
+        "benchmark_name": "운송·창고",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -2.3268,
+        "3": -14.1907
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "307950",
+      "name": "현대오토에버",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1046",
+        "benchmark_name": "IT 서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -1.86,
+        "3": -31.1165
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "317330",
+      "name": "덕산테코피아",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "317400",
+      "name": "자이에스앤디",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1045",
+        "benchmark_name": "부동산",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 35.3833,
+        "3": 231.1061
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "329180",
+      "name": "HD현대중공업",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1015",
+        "benchmark_name": "운송장비·부품",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 1.1102,
+        "3": -3.3812
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "336260",
+      "name": "두산퓨얼셀",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 22.506,
+        "3": -16.9893
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "353200",
+      "name": "대덕전자",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -19.4478,
+        "3": -22.4337
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "357250",
+      "name": "미래에셋맵스리츠",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1045",
+        "benchmark_name": "부동산",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -3.1843,
+        "3": -0.8824
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "357780",
+      "name": "솔브레인",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "361610",
+      "name": "SK아이이테크놀로지",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -5.3005,
+        "3": -4.7946
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "373220",
+      "name": "LG에너지솔루션",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -13.4073,
+        "3": 7.4189
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "377300",
+      "name": "카카오페이",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -2.9448,
+        "3": 4.7326
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "402340",
+      "name": "SK스퀘어",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 9.2866,
+        "3": -9.8232
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "403550",
+      "name": "쏘카",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1026",
+        "benchmark_name": "일반서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -12.6016,
+        "3": -8.2469
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "439960",
+      "name": "코스모로보틱스",
+      "market": "KOSDAQ",
+      "basis_date": "2026-09-11",
+      "status": "NOT_SUPPORTED_CURRENT_CONTRACT",
+      "sector_benchmark": null,
+      "rs_sector_pp": {
+        "1": null,
+        "3": null
+      },
+      "missing_reason": "CURRENT_OFFICIAL_SECTOR_RS_CONTRACT_IS_KOSPI_ONLY"
+    },
+    {
+      "ticker": "443060",
+      "name": "HD현대마린솔루션",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1026",
+        "benchmark_name": "일반서비스",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 16.2651,
+        "3": -2.1002
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "454910",
+      "name": "두산로보틱스",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1012",
+        "benchmark_name": "기계·장비",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -13.0304,
+        "3": -27.4209
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "456040",
+      "name": "OCI",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -0.2322,
+        "3": -26.1122
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "457190",
+      "name": "이수스페셜티케미컬",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -4.4052,
+        "3": -20.767
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "475560",
+      "name": "더본코리아",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1016",
+        "benchmark_name": "유통",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": 5.3854,
+        "3": 7.3022
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "483650",
+      "name": "달바글로벌",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1008",
+        "benchmark_name": "화학",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -34.1377,
+        "3": -22.27
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "489790",
+      "name": "한화비전",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1013",
+        "benchmark_name": "전기전자",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -22.4098,
+        "3": -19.0684
+      },
+      "missing_reason": null
+    },
+    {
+      "ticker": "499790",
+      "name": "GS피앤엘",
+      "market": "KOSPI",
+      "basis_date": "2026-09-11",
+      "status": "READY",
+      "sector_benchmark": {
+        "benchmark_ticker": "1021",
+        "benchmark_name": "금융",
+        "selection_mode": "DIRECT_NARROW",
+        "common_ticker": null
+      },
+      "rs_sector_pp": {
+        "1": -15.2909,
+        "3": -20.1575
+      },
+      "missing_reason": null
+    }
+  ],
+  "safety": {
+    "new_sector_contract_defined": false,
+    "kosdaq_sector_mapping_invented": false,
+    "production_table_changed": false,
+    "worker_changed": false,
+    "metric_formula_changed": false,
+    "request_time_price_substitution": false
+  }
+}

@@ -1,0 +1,321 @@
+{
+  "version": "2026-09-12-v8.7.3-investment-score-blocker-audit",
+  "generated_at_kst": "2026-09-12T18:14:49+09:00",
+  "status": "AUDIT_ONLY",
+  "production_unique_tickers": 112,
+  "financial_cache_matches": 112,
+  "investment_raw_cache_matches": 99,
+  "investment_raw_cache_missing": 13,
+  "missing_raw_tickers": [
+    {
+      "ticker": "001045",
+      "name": "CJ우",
+      "financial_source_status": "NO_CORP_CODE",
+      "financial_data_status": "LIMITED",
+      "corp_identity_status": "NO_CORP_CODE",
+      "corp_identity_reason": "OpenDART 기업코드 후보 없음",
+      "corp_code": ""
+    },
+    {
+      "ticker": "001527",
+      "name": "동양2우B",
+      "financial_source_status": "NO_CORP_CODE",
+      "financial_data_status": "LIMITED",
+      "corp_identity_status": "NO_CORP_CODE",
+      "corp_identity_reason": "OpenDART 기업코드 후보 없음",
+      "corp_code": ""
+    },
+    {
+      "ticker": "001530",
+      "name": "DI동일",
+      "financial_source_status": "NO_CORP_CODE",
+      "financial_data_status": "LIMITED",
+      "corp_identity_status": "MISMATCH",
+      "corp_identity_reason": "KRX 종목명=DI동일; OpenDART 후보=디아이동일",
+      "corp_code": ""
+    },
+    {
+      "ticker": "002380",
+      "name": "KCC",
+      "financial_source_status": "NO_CORP_CODE",
+      "financial_data_status": "LIMITED",
+      "corp_identity_status": "MISMATCH",
+      "corp_identity_reason": "KRX 종목명=KCC; OpenDART 후보=케이씨씨",
+      "corp_code": ""
+    },
+    {
+      "ticker": "003495",
+      "name": "대한항공우",
+      "financial_source_status": "NO_CORP_CODE",
+      "financial_data_status": "LIMITED",
+      "corp_identity_status": "NO_CORP_CODE",
+      "corp_identity_reason": "OpenDART 기업코드 후보 없음",
+      "corp_code": ""
+    },
+    {
+      "ticker": "004545",
+      "name": "깨끗한나라우",
+      "financial_source_status": "NO_CORP_CODE",
+      "financial_data_status": "LIMITED",
+      "corp_identity_status": "NO_CORP_CODE",
+      "corp_identity_reason": "OpenDART 기업코드 후보 없음",
+      "corp_code": ""
+    },
+    {
+      "ticker": "005385",
+      "name": "현대차우",
+      "financial_source_status": "NO_CORP_CODE",
+      "financial_data_status": "LIMITED",
+      "corp_identity_status": "NO_CORP_CODE",
+      "corp_identity_reason": "OpenDART 기업코드 후보 없음",
+      "corp_code": ""
+    },
+    {
+      "ticker": "005387",
+      "name": "현대차2우B",
+      "financial_source_status": "NO_CORP_CODE",
+      "financial_data_status": "LIMITED",
+      "corp_identity_status": "NO_CORP_CODE",
+      "corp_identity_reason": "OpenDART 기업코드 후보 없음",
+      "corp_code": ""
+    },
+    {
+      "ticker": "005389",
+      "name": "현대차3우B",
+      "financial_source_status": "NO_CORP_CODE",
+      "financial_data_status": "LIMITED",
+      "corp_identity_status": "NO_CORP_CODE",
+      "corp_identity_reason": "OpenDART 기업코드 후보 없음",
+      "corp_code": ""
+    },
+    {
+      "ticker": "051905",
+      "name": "LG생활건강우",
+      "financial_source_status": "NO_CORP_CODE",
+      "financial_data_status": "LIMITED",
+      "corp_identity_status": "NO_CORP_CODE",
+      "corp_identity_reason": "OpenDART 기업코드 후보 없음",
+      "corp_code": ""
+    },
+    {
+      "ticker": "066575",
+      "name": "LG전자우",
+      "financial_source_status": "NO_CORP_CODE",
+      "financial_data_status": "LIMITED",
+      "corp_identity_status": "NO_CORP_CODE",
+      "corp_identity_reason": "OpenDART 기업코드 후보 없음",
+      "corp_code": ""
+    },
+    {
+      "ticker": "088980",
+      "name": "맥쿼리인프라",
+      "financial_source_status": "API_STATUS_013:조회된 데이타가 없습니다.",
+      "financial_data_status": "LIMITED",
+      "corp_identity_status": "MATCH",
+      "corp_identity_reason": "동일 종목코드 후보 중 KRX 종목명과 회사명 완전일치",
+      "corp_code": "00435297"
+    },
+    {
+      "ticker": "097955",
+      "name": "CJ제일제당 우",
+      "financial_source_status": "NO_CORP_CODE",
+      "financial_data_status": "LIMITED",
+      "corp_identity_status": "NO_CORP_CODE",
+      "corp_identity_reason": "OpenDART 기업코드 후보 없음",
+      "corp_code": ""
+    }
+  ],
+  "operating_cash_flow_probe": {
+    "basis": "OpenDART 2025 사업보고서 전체 재무제표 CF statement",
+    "targets": 99,
+    "full_account_ok": 99,
+    "tickers_with_candidate": 99,
+    "tickers_with_exact_ifrs_account_id": 99,
+    "top_account_ids": [
+      [
+        "ifrs-full_CashFlowsFromUsedInOperatingActivities",
+        99
+      ],
+      [
+        "ifrs-full_CashFlowsFromUsedInOperations",
+        9
+      ],
+      [
+        "dart_NetCashflowsFromUsedInOperations",
+        4
+      ],
+      [
+        "-표준계정코드 미사용-",
+        4
+      ],
+      [
+        "dart_AdjustmentsForAssetsLiabilitiesOfOperatingActivities",
+        1
+      ]
+    ],
+    "top_account_names": [
+      [
+        "영업활동현금흐름",
+        57
+      ],
+      [
+        "영업활동으로 인한 현금흐름",
+        30
+      ],
+      [
+        "영업활동에서 창출된 현금흐름",
+        6
+      ],
+      [
+        "영업활동에서 창출된 현금",
+        4
+      ],
+      [
+        "영업활동으로부터 창출된 현금흐름",
+        3
+      ],
+      [
+        "영업활동순현금흐름",
+        3
+      ],
+      [
+        "영업활동으로인한 현금흐름",
+        2
+      ],
+      [
+        "영업활동 현금흐름",
+        2
+      ],
+      [
+        "I.영업활동으로 인한 현금흐름",
+        1
+      ],
+      [
+        "영업활동에 사용된 현금",
+        1
+      ],
+      [
+        "영업활동으로 인한 현금수취액:",
+        1
+      ],
+      [
+        "영업활동으로 인한 현금지급액:",
+        1
+      ],
+      [
+        "영업활동으로 인한 순현금흐름",
+        1
+      ],
+      [
+        "Ⅰ. 영업활동으로인한현금흐름",
+        1
+      ],
+      [
+        "영업활동으로인한현금흐름",
+        1
+      ],
+      [
+        "영업활동으로부터의 현금흐름",
+        1
+      ],
+      [
+        "영업활동으로 창출된 현금",
+        1
+      ],
+      [
+        "Ⅰ. 영업활동으로 인한 현금흐름",
+        1
+      ]
+    ],
+    "activation_status": "NOT_ACTIVATED_AUDIT_ONLY"
+  },
+  "average_absolute_daily_return": {
+    "project_phrase_hit_count": 12,
+    "explicit_lookback_hit_count": 1,
+    "lookback_contract_status": "DEFINED_IN_PROJECT",
+    "phrase_hits": [
+      {
+        "path": "market_metric_labels_enricher.py",
+        "line": 221,
+        "text": "else f\"최근 20거래일 하루평균 절대등락률 ({elasticity_source})\""
+      },
+      {
+        "path": "market_metric_labels_enricher.py",
+        "line": 336,
+        "text": "\"basis\": \"최근 20거래일 하루평균 절대등락률\","
+      },
+      {
+        "path": "investment_score_readiness_v871.py",
+        "line": 51,
+        "text": "(\"liquidity_elasticity\", \"하루평균 절대등락률\", 4, \"avg_daily_range_20_pct는 고저폭이라 동일 지표 아님\", \"SOURCE_NOT_CONNECTED\"),"
+      },
+      {
+        "path": "investment_score_readiness_v871.py",
+        "line": 318,
+        "text": "\"- avg_daily_range_20_pct를 하루평균 절대등락률로 대체 금지\","
+      },
+      {
+        "path": "docs/scoring_system_v6.md",
+        "line": 36,
+        "text": "| 거래활발·가격탄력 | 10점 | 20일 평균 거래대금, 거래량, 하루평균 절대등락률 |"
+      },
+      {
+        "path": "docs/scoring_system_v6.md",
+        "line": 101,
+        "text": "| 하루평균 절대등락률 | 4점 |"
+      },
+      {
+        "path": "docs/investment_score_readiness_contract_v871.md",
+        "line": 15,
+        "text": "- avg_daily_range_20_pct를 하루평균 절대등락률로 대체 금지"
+      },
+      {
+        "path": ".github/workflows/v871-audit-investment-score-readiness.yml",
+        "line": 85,
+        "text": "(\"liquidity_elasticity\", \"하루평균 절대등락률\", 4, \"avg_daily_range_20_pct는 고저폭이라 동일 지표 아님\", \"SOURCE_NOT_CONNECTED\"),"
+      },
+      {
+        "path": ".github/workflows/v871-audit-investment-score-readiness.yml",
+        "line": 352,
+        "text": "\"- avg_daily_range_20_pct를 하루평균 절대등락률로 대체 금지\","
+      },
+      {
+        "path": ".github/workflows/v873-audit-investment-score-remaining-blockers.yml",
+        "line": 361,
+        "text": "if \"하루평균 절대등락률\" in line:"
+      },
+      {
+        "path": ".github/workflows/v873-audit-investment-score-remaining-blockers.yml",
+        "line": 452,
+        "text": "\"## 하루평균 절대등락률\","
+      },
+      {
+        "path": ".github/workflows/v873-audit-investment-score-remaining-blockers.yml",
+        "line": 479,
+        "text": "\"- 하루평균 절대등락률 기간 임의 생성 금지\","
+      }
+    ],
+    "explicit_lookback_hits": [
+      {
+        "path": "docs/scoring_system_v6.md",
+        "line": 36,
+        "text": "| 거래활발·가격탄력 | 10점 | 20일 평균 거래대금, 거래량, 하루평균 절대등락률 |"
+      }
+    ],
+    "avg_daily_range_20_pct_substitution_allowed": false
+  },
+  "policy_blockers": {
+    "raw_value_to_points_thresholds": "NOT_DEFINED",
+    "net_cash_debt_scope": "NOT_DEFINED",
+    "ev_ebitda_da_policy": "NOT_DEFINED",
+    "quarter_acceleration_thresholds": "NOT_DEFINED",
+    "supply_subscore_rule": "NOT_DEFINED"
+  },
+  "hard_guards": {
+    "investment_score_100_calculated": false,
+    "production_api_changed": false,
+    "ocf_rule_activated": false,
+    "absolute_return_lookback_invented": false,
+    "thresholds_invented": false
+  }
+}

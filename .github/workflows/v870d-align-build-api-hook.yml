@@ -1,0 +1,135 @@
+name: Align build_api_json hook with V8.7.0
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v870d-align-build-api-hook
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Patch build_api_json.py V8.7.0 hook
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("build_api_json.py")
+          text = path.read_text(encoding="utf-8")
+
+          old_lines = [
+              "    # TWO_TABLE_SHADOW_V851_BEGIN",
+              "    # Explicit new-layout release; legacy API rows remain untouched.",
+              "    from two_table_release_v853 import publish as publish_two_table_shadow",
+              "    two_table_shadow = publish_two_table_shadow(ROOT)",
+              '    print("V853_REGULAR_BUILD_HOOK=PASS")',
+              '    print("TWO_TABLE_SHADOW_STATUS=" + two_table_shadow["status"])',
+              "    # TWO_TABLE_SHADOW_V851_END",
+          ]
+          new_lines = [
+              "    # TWO_TABLE_RELEASE_V870_BEGIN",
+              "    # Production two-table release with official KRX sector RS.",
+              "    from two_table_release_v870 import publish as publish_two_table_release",
+              "    two_table_release = publish_two_table_release(ROOT)",
+              '    print("V870_REGULAR_BUILD_HOOK=PASS")',
+              '    print("TWO_TABLE_RELEASE_STATUS=" + two_table_release["status"])',
+              "    # TWO_TABLE_RELEASE_V870_END",
+          ]
+
+          old_block = "\n".join(old_lines)
+          new_block = "\n".join(new_lines)
+
+          if old_block in text:
+              text = text.replace(old_block, new_block, 1)
+          elif new_block not in text:
+              raise SystemExit("BUILD_API_V853_HOOK_BLOCK_NOT_FOUND")
+
+          old_version = 'SCRIPT_VERSION = "build_api_json.py v5.2_recommendation_policy_isolation"'
+          new_version = 'SCRIPT_VERSION = "build_api_json.py v5.3_sector_rs_v870_hook"'
+          if old_version in text:
+              text = text.replace(old_version, new_version, 1)
+          elif new_version not in text:
+              raise SystemExit("BUILD_API_SCRIPT_VERSION_ANCHOR_NOT_FOUND")
+
+          path.write_text(text, encoding="utf-8")
+          print("BUILD_API_V870_HOOK_PATCH=PASS")
+          PY
+
+      - name: Validate patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile build_api_json.py
+          grep -F 'from two_table_release_v870 import publish as publish_two_table_release' build_api_json.py
+          grep -F 'V870_REGULAR_BUILD_HOOK=PASS' build_api_json.py
+          if grep -F 'from two_table_release_v853 import publish as publish_two_table_shadow' build_api_json.py; then
+            echo "::error::Old V8.5.3 hook still present"
+            exit 1
+          fi
+          echo "BUILD_API_V870_HOOK_VALIDATION=PASS"
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CHANGED_FILES_BEGIN"
+          git status --short
+          echo "CHANGED_FILES_END"
+          python - <<'PY'
+          import subprocess
+
+          allowed = {"build_api_json.py"}
+          out = subprocess.check_output(["git", "status", "--porcelain"], text=True)
+          changed = set()
+          for line in out.splitlines():
+              if not line.strip():
+                  continue
+              path = line[3:]
+              if " -> " in path:
+                  path = path.split(" -> ", 1)[1]
+              changed.add(path)
+
+          unexpected = changed - allowed
+          if unexpected:
+              raise SystemExit("UNEXPECTED_CHANGED_FILES=" + repr(sorted(unexpected)))
+          if changed != allowed:
+              raise SystemExit("EXPECTED_BUILD_API_CHANGE_MISSING")
+          print("CHANGE_SCOPE=PASS")
+          PY
+
+      - name: Commit and push build hook alignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add build_api_json.py
+          git commit -m "Align build API hook with V8.7.0 sector RS"
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          fi
+          git push origin HEAD:main
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "PRODUCTION_DATA_CHANGED=false"

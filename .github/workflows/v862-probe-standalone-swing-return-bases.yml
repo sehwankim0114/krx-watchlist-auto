@@ -1,4 +1,4 @@
-name: Validate standalone swing promotion gate v8.7.9
+name: Validate standalone swing request-time price path v8.7.10
 
 on:
   workflow_dispatch:
@@ -7,13 +7,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: v879-standalone-swing-promotion-gate
+  group: v8710-standalone-swing-request-price-probe
   cancel-in-progress: false
 
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout latest main
@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Validate source gaps and promotion readiness
+      - name: Validate existing request-time price path
         shell: bash
         run: |
           set -euo pipefail
@@ -35,431 +35,480 @@ jobs:
           python - <<'PY'
           from __future__ import annotations
 
-          import csv
           import json
-          from collections import defaultdict, Counter
+          import math
+          import time
+          import urllib.parse
+          import urllib.request
           from pathlib import Path
 
-          from stock_table_metrics_v850 import normalize_bars
-
-          INTEGRATED = Path("latest/standalone_swing_integrated_latest.json")
-          HISTORY = Path("latest/active_stock_long_history_260d_latest.csv")
-          HISTORY_META = Path("latest/active_stock_long_history_260d_meta_latest.json")
-          OUT = Path("/tmp/v879_standalone_swing_promotion_gate")
+          SOURCE = Path("latest/standalone_swing_integrated_latest.json")
+          README = Path("README_사용법.md")
+          SCHEMA = Path("docs/custom_gpt_action_schema.yaml")
+          OUT = Path("/tmp/v8710_request_price_probe")
           OUT.mkdir(parents=True, exist_ok=True)
 
-          for p in (INTEGRATED, HISTORY, HISTORY_META):
+          WORKER = "https://krx-live-price-ksh.diaconos.workers.dev"
+          OPERATION_ID = "getRequestTimePrices"
+
+          for p in (SOURCE, README, SCHEMA):
               if not p.is_file():
                   raise SystemExit("MISSING_REQUIRED_SOURCE:" + str(p))
 
-          integrated = json.loads(INTEGRATED.read_text(encoding="utf-8-sig"))
-          hist_meta = json.loads(HISTORY_META.read_text(encoding="utf-8-sig"))
+          source = json.loads(SOURCE.read_text(encoding="utf-8-sig"))
+          readme_text = README.read_text(encoding="utf-8-sig")
+          schema_text = SCHEMA.read_text(encoding="utf-8-sig")
 
-          if integrated.get("status") != "READY_SOURCE_ONLY":
+          if source.get("status") != "READY_SOURCE_ONLY":
               raise SystemExit("INTEGRATED_SOURCE_NOT_READY")
-          if integrated.get("source_only") is not True:
-              raise SystemExit("INTEGRATED_NOT_SOURCE_ONLY")
-          if integrated.get("standalone_swing_table_enabled") is not False:
-              raise SystemExit("TABLE_ALREADY_ENABLED_UNEXPECTEDLY")
-          if integrated.get("action_route_enabled") is not False:
-              raise SystemExit("ACTION_ALREADY_ENABLED_UNEXPECTEDLY")
-          if hist_meta.get("status") != "READY":
-              raise SystemExit("HISTORY_NOT_READY")
+          if source.get("standalone_swing_table_enabled") is not False:
+              raise SystemExit("STANDALONE_TABLE_ALREADY_ENABLED")
+          if source.get("action_route_enabled") is not False:
+              raise SystemExit("STANDALONE_ACTION_ALREADY_ENABLED")
 
-          basis = integrated.get("basis_date")
-          if not basis or hist_meta.get("cache_max_date") != basis:
-              raise SystemExit("BASIS_MISMATCH")
+          # Latest repository contracts must agree before any live probe.
+          if WORKER not in readme_text:
+              raise SystemExit("README_WORKER_DOMAIN_MISMATCH")
+          if WORKER not in schema_text:
+              raise SystemExit("SCHEMA_WORKER_DOMAIN_MISMATCH")
+          if f"operationId: {OPERATION_ID}" not in schema_text:
+              raise SystemExit("REQUEST_PRICE_OPERATION_ID_MISSING")
+          if "처음 10개씩, 실패만 5개씩, 남은 실패는 2개씩 재시도" not in readme_text:
+              raise SystemExit("README_RETRY_POLICY_MISSING")
+          if "at most 10 items per initial batch" not in schema_text:
+              raise SystemExit("SCHEMA_INITIAL_BATCH_POLICY_MISSING")
+          if "at most 5 and 2" not in schema_text:
+              raise SystemExit("SCHEMA_RETRY_BATCH_POLICY_MISSING")
 
-          rows = {
-              str(r["ticker"]).zfill(6): r
-              for r in integrated.get("rows") or []
-          }
-          if len(rows) != int(integrated.get("row_count") or 0):
-              raise SystemExit("INTEGRATED_ROW_COUNT_MISMATCH")
+          rows = source.get("rows") or []
+          if len(rows) != int(source.get("row_count") or 0):
+              raise SystemExit("SOURCE_ROW_COUNT_MISMATCH")
 
-          with HISTORY.open(encoding="utf-8-sig", newline="") as f:
-              history_rows = list(csv.DictReader(f))
+          items = []
+          official_close = {}
+          identity = {}
+          for row in rows:
+              ticker = str(row.get("ticker") or "").zfill(6)
+              market = str(row.get("market") or "")
+              if not ticker.isdigit() or len(ticker) != 6:
+                  raise SystemExit("INVALID_TICKER:" + ticker)
+              if market not in ("KOSPI", "KOSDAQ"):
+                  raise SystemExit("INVALID_MARKET:" + ticker + ":" + market)
+              key = ticker + "|" + market
+              items.append(key)
+              official_close[key] = row.get("official_close")
+              identity[key] = {
+                  "ticker": ticker,
+                  "name": row.get("name"),
+                  "market": market,
+              }
 
-          by_ticker = defaultdict(list)
-          for raw in history_rows:
-              ticker = str(raw.get("ticker") or "").zfill(6)
-              if ticker in rows:
-                  by_ticker[ticker].append(raw)
+          if len(items) != len(set(items)):
+              raise SystemExit("DUPLICATE_QUOTE_ITEMS")
 
-          if set(by_ticker) != set(rows):
-              missing = sorted(set(rows) - set(by_ticker))
-              raise SystemExit("HISTORY_TICKER_MISSING:" + ",".join(missing[:20]))
-
-          def num(v):
-              try:
-                  if v is None or str(v).strip() == "":
-                      return None
-                  return float(str(v).replace(",", ""))
-              except Exception:
-                  return None
-
-          ma_gap_rows = []
-          sixm_gap_rows = []
-          atr_gap_rows = []
-          range20_gap_rows = []
-          atr_invalid_day_class = Counter()
-          total_invalid_days = 0
-          zero_no_trade_days = 0
-          positive_relation_error_days = 0
-          other_invalid_days = 0
-          zero_days_close_equals_prev = 0
-          zero_days_with_prev = 0
-
-          for ticker in sorted(rows):
-              row = rows[ticker]
-              raw_rows = sorted(by_ticker[ticker], key=lambda x: str(x["date"]))
-              bars = normalize_bars(raw_rows, basis)
-
-              if not bars or bars[-1]["date"] != basis:
-                  raise SystemExit("LATEST_OFFICIAL_BAR_MISSING:" + ticker)
-
-              raw_map = {str(r["date"]): r for r in raw_rows}
-              raw_dates = [str(r["date"]) for r in raw_rows]
-              prev_close_by_date = {}
-              prev_close = None
-              for r in raw_rows:
-                  day = str(r["date"])
-                  prev_close_by_date[day] = prev_close
-                  c = num(r.get("close"))
-                  if c is not None and c > 0:
-                      prev_close = c
-
-              # MA full-readiness diagnostic.
-              ma = row.get("ma") or {}
-              missing_ma = [
-                  p for p in (5, 20, 60, 120)
-                  if (ma.get(str(p)) or {}).get("value") is None
-                  or (ma.get(str(p)) or {}).get("direction") is None
-              ]
-              if missing_ma:
-                  required = max(p + 5 for p in missing_ma)
-                  expected_history_short = len(bars) < required
-                  ma_gap_rows.append({
-                      "ticker": ticker,
-                      "name": row.get("name"),
-                      "market": row.get("market"),
-                      "observation_count": len(bars),
-                      "missing_periods": missing_ma,
-                      "required_closes_for_direction": required,
-                      "history_short_explains_gap": expected_history_short,
-                  })
-
-              # 6M missing should be history-short only.
-              perf6 = (row.get("price_performance") or {}).get("6m") or {}
-              if perf6.get("status") != "OK":
-                  sixm_gap_rows.append({
-                      "ticker": ticker,
-                      "name": row.get("name"),
-                      "market": row.get("market"),
-                      "status": perf6.get("status"),
-                      "start_date": perf6.get("start_date"),
-                      "observation_count": len(bars),
-                      "history_min_date": bars[0]["date"],
-                  })
-
-              # ATR gaps: inspect exact raw official rows that normalize_bars rejected.
-              atr = row.get("atr14") or {}
-              last126 = bars[-126:]
-              invalid_days = []
-              for b in last126:
-                  if b.get("high") is not None and b.get("low") is not None:
-                      continue
-                  day = b["date"]
-                  raw = raw_map.get(day) or {}
-                  o = num(raw.get("open"))
-                  h = num(raw.get("high"))
-                  l = num(raw.get("low"))
-                  c = num(raw.get("close"))
-                  v = num(raw.get("volume"))
-                  tv = num(raw.get("trading_value"))
-
-                  if h == 0 and l == 0 and c is not None and c > 0 and (v in (0, None)) and (tv in (0, None)):
-                      kind = "ZERO_HIGH_LOW_NO_TRADE_ROW"
-                      zero_no_trade_days += 1
-                      prev = prev_close_by_date.get(day)
-                      if prev is not None:
-                          zero_days_with_prev += 1
-                          if c == prev:
-                              zero_days_close_equals_prev += 1
-                  elif h is not None and l is not None and h > 0 and l > 0 and c is not None and not (l <= c <= h):
-                      kind = "POSITIVE_OHLC_RELATION_ERROR"
-                      positive_relation_error_days += 1
-                  else:
-                      kind = "OTHER_INVALID_OHLC"
-                      other_invalid_days += 1
-
-                  total_invalid_days += 1
-                  atr_invalid_day_class[kind] += 1
-                  invalid_days.append({
-                      "date": day,
-                      "kind": kind,
-                      "open": o,
-                      "high": h,
-                      "low": l,
-                      "close": c,
-                      "volume": v,
-                      "trading_value": tv,
-                      "previous_close": prev_close_by_date.get(day),
-                  })
-
-              if atr.get("pct") is None:
-                  atr_gap_rows.append({
-                      "ticker": ticker,
-                      "name": row.get("name"),
-                      "market": row.get("market"),
-                      "observation_count": len(bars),
-                      "invalid_day_count_last126": len(invalid_days),
-                      "invalid_day_classes": dict(Counter(x["kind"] for x in invalid_days)),
-                      "all_invalid_days_are_zero_no_trade": bool(invalid_days) and all(
-                          x["kind"] == "ZERO_HIGH_LOW_NO_TRADE_ROW"
-                          for x in invalid_days
-                      ),
-                      "examples": invalid_days[:8],
-                  })
-              elif invalid_days:
-                  raise SystemExit("ATR_READY_DESPITE_INVALID_LAST126:" + ticker)
-
-              # 20-day average range missing is also acceptable only when recent OHLC
-              # contains official zero/no-trade rows.
-              if row.get("avg_daily_range_20_pct") is None:
-                  last20 = bars[-20:]
-                  bad20 = []
-                  for b in last20:
-                      if b.get("high") is None or b.get("low") is None:
-                          raw = raw_map.get(b["date"]) or {}
-                          bad20.append({
-                              "date": b["date"],
-                              "high": num(raw.get("high")),
-                              "low": num(raw.get("low")),
-                              "close": num(raw.get("close")),
-                              "volume": num(raw.get("volume")),
-                              "trading_value": num(raw.get("trading_value")),
-                          })
-                  range20_gap_rows.append({
-                      "ticker": ticker,
-                      "name": row.get("name"),
-                      "market": row.get("market"),
-                      "bad20_count": len(bad20),
-                      "all_bad20_zero_no_trade": bool(bad20) and all(
-                          x["high"] == 0 and x["low"] == 0
-                          and (x["volume"] in (0, None))
-                          and (x["trading_value"] in (0, None))
-                          for x in bad20
-                      ),
-                  })
-
-          unexplained_ma = [
-              r for r in ma_gap_rows
-              if not r["history_short_explains_gap"]
-          ]
-          unexplained_atr = [
-              r for r in atr_gap_rows
-              if not r["all_invalid_days_are_zero_no_trade"]
-          ]
-          unexplained_range20 = [
-              r for r in range20_gap_rows
-              if not r["all_bad20_zero_no_trade"]
-          ]
-          unexpected_6m = [
-              r for r in sixm_gap_rows
-              if r["status"] not in (
-                  "CALENDAR_HISTORY_SHORT",
-                  "HISTORY_SHORT_OR_DATE_MISSING",
+          def request_json(url: str, timeout=15):
+              req = urllib.request.Request(
+                  url,
+                  headers={
+                      "Accept": "application/json",
+                      "User-Agent": "krx-watchlist-v8710-request-price-probe",
+                      "Cache-Control": "no-cache",
+                  },
               )
-          ]
+              with urllib.request.urlopen(req, timeout=timeout) as resp:
+                  raw = resp.read(2_000_000)
+                  if resp.status != 200:
+                      raise RuntimeError(f"HTTP_{resp.status}")
+              return json.loads(raw.decode("utf-8"))
 
-          data_quality_gate_pass = (
-              not unexplained_ma
-              and not unexplained_atr
-              and not unexplained_range20
-              and not unexpected_6m
-              and positive_relation_error_days == 0
-              and other_invalid_days == 0
+          health = request_json(WORKER + "/health")
+          if health.get("status") != "OK":
+              raise SystemExit("WORKER_HEALTH_NOT_OK")
+          if health.get("service") != "krx-live-price":
+              raise SystemExit("WORKER_SERVICE_MISMATCH")
+          if (health.get("providers") or {}).get("KR") != "NAVER_STOCK_MOBILE":
+              raise SystemExit("WORKER_KR_PROVIDER_MISMATCH")
+          if "/quotes?items=KEY|MARKET,..." not in (health.get("endpoints") or []):
+              raise SystemExit("WORKER_QUOTES_ENDPOINT_MISSING")
+
+          attempt_log = []
+          success_by_key = {}
+          error_by_key = {}
+
+          def response_key(q):
+              ticker = q.get("ticker") or q.get("code") or q.get("quote_key")
+              if ticker is not None:
+                  ticker = str(ticker).strip()
+                  if "|" in ticker:
+                      ticker = ticker.split("|", 1)[0]
+                  if ticker.isdigit():
+                      ticker = ticker.zfill(6)
+              market = str(q.get("market") or "").strip()
+              if ticker and market in ("KOSPI", "KOSDAQ"):
+                  return ticker + "|" + market
+              inp = str(q.get("input") or "")
+              if "|" in inp:
+                  t, m = inp.split("|", 1)
+                  t = t.strip().zfill(6)
+                  m = m.strip()
+                  if t.isdigit() and len(t) == 6 and m in ("KOSPI", "KOSDAQ"):
+                      return t + "|" + m
+              return None
+
+          def numeric_price(q):
+              for field in ("current_price", "price"):
+                  value = q.get(field)
+                  if isinstance(value, bool) or value is None:
+                      continue
+                  try:
+                      n = float(value)
+                  except Exception:
+                      continue
+                  if math.isfinite(n) and n > 0:
+                      return n, field
+              return None, None
+
+          def call_batch(batch, stage, ordinal):
+              assert batch and len(batch) <= {"initial10": 10, "retry5": 5, "retry2": 2}[stage]
+              url = WORKER + "/quotes?" + urllib.parse.urlencode({"items": ",".join(batch)})
+              started = time.time()
+              http_error = None
+              payload = None
+              try:
+                  payload = request_json(url)
+              except Exception as exc:
+                  http_error = f"{type(exc).__name__}:{exc}"
+
+              local_success = set()
+              local_fail = set(batch)
+
+              if payload is not None:
+                  quotes = payload.get("quotes") or []
+                  if not isinstance(quotes, list):
+                      raise RuntimeError("QUOTES_NOT_LIST")
+
+                  for q in quotes:
+                      if not isinstance(q, dict):
+                          continue
+                      key = response_key(q)
+                      if key not in batch:
+                          continue
+                      price, price_field = numeric_price(q)
+                      if q.get("ok") is True and price is not None:
+                          local_success.add(key)
+                          local_fail.discard(key)
+                          success_by_key[key] = {
+                              "current_price": price,
+                              "price_field": price_field,
+                              "source": q.get("source"),
+                              "price_source": q.get("price_source"),
+                              "source_kind": q.get("source_kind"),
+                              "price_time": q.get("price_time"),
+                              "traded_at": q.get("traded_at"),
+                              "price_as_of": q.get("price_as_of"),
+                              "market_status": q.get("market_status"),
+                              "session_status": q.get("session_status"),
+                              "after_hours_reflected": q.get("after_hours_reflected"),
+                          }
+                          error_by_key.pop(key, None)
+                      else:
+                          error_by_key[key] = {
+                              "error_code": q.get("error_code"),
+                              "error": q.get("error"),
+                              "status": q.get("status"),
+                          }
+
+                  # Explicit failures may exist without a quote row.
+                  for f in payload.get("failures") or []:
+                      if not isinstance(f, dict):
+                          continue
+                      key = response_key(f)
+                      if key in batch and key not in local_success:
+                          error_by_key[key] = {
+                              "error_code": f.get("error_code"),
+                              "error": f.get("error"),
+                              "status": "FAILURE_LIST",
+                          }
+
+              if http_error:
+                  for key in batch:
+                      error_by_key[key] = {
+                          "error_code": "HTTP_OR_PARSE_ERROR",
+                          "error": http_error,
+                          "status": "REQUEST_FAILED",
+                      }
+
+              attempt_log.append({
+                  "stage": stage,
+                  "ordinal": ordinal,
+                  "batch_size": len(batch),
+                  "requested_items": list(batch),
+                  "success_count": len(local_success),
+                  "failure_count": len(local_fail),
+                  "worker_status": payload.get("status") if isinstance(payload, dict) else None,
+                  "worker_ok_count": payload.get("ok_count") if isinstance(payload, dict) else None,
+                  "worker_failed_count": payload.get("failed_count") if isinstance(payload, dict) else None,
+                  "elapsed_ms": round((time.time() - started) * 1000, 1),
+                  "http_error": http_error,
+              })
+              time.sleep(0.12)
+              return [key for key in batch if key in local_fail]
+
+          def batches(seq, size):
+              return [seq[i:i+size] for i in range(0, len(seq), size)]
+
+          # Stage 1: every ticker, max 10 each.
+          failed_initial = []
+          for i, batch in enumerate(batches(items, 10), start=1):
+              failed_initial.extend(call_batch(batch, "initial10", i))
+
+          # Stage 2: only failures, max 5 each.
+          failed_after_5 = []
+          for i, batch in enumerate(batches(failed_initial, 5), start=1):
+              failed_after_5.extend(call_batch(batch, "retry5", i))
+
+          # Stage 3: remaining failures, max 2 each.
+          final_failed = []
+          for i, batch in enumerate(batches(failed_after_5, 2), start=1):
+              final_failed.extend(call_batch(batch, "retry2", i))
+
+          final_failed = list(dict.fromkeys(final_failed))
+          success_keys = [key for key in items if key in success_by_key]
+          final_failed_set = set(final_failed)
+
+          # Every source ticker must end in exactly one terminal state.
+          if set(success_keys) & final_failed_set:
+              raise SystemExit("SUCCESS_FAILURE_OVERLAP")
+          terminal = set(success_keys) | final_failed_set
+          if terminal != set(items):
+              missing = sorted(set(items) - terminal)
+              raise SystemExit("TERMINAL_STATE_MISSING:" + ",".join(missing[:20]))
+
+          # Strong safety checks: no static price may be injected into failures.
+          results = []
+          static_substitution_count = 0
+          invalid_success_count = 0
+          for key in items:
+              ident = identity[key]
+              if key in success_by_key:
+                  q = success_by_key[key]
+                  price = q["current_price"]
+                  if not isinstance(price, (int, float)) or not math.isfinite(price) or price <= 0:
+                      invalid_success_count += 1
+                  results.append({
+                      **ident,
+                      "quote_item": key,
+                      "status": "OK",
+                      "request_time_price": price,
+                      "official_close_reference_only": official_close[key],
+                      "source": q.get("source"),
+                      "price_source": q.get("price_source"),
+                      "source_kind": q.get("source_kind"),
+                      "price_time": q.get("price_time"),
+                      "traded_at": q.get("traded_at"),
+                      "price_as_of": q.get("price_as_of"),
+                      "market_status": q.get("market_status"),
+                      "session_status": q.get("session_status"),
+                      "after_hours_reflected": q.get("after_hours_reflected"),
+                  })
+              else:
+                  # Explicit null. Never insert official_close here.
+                  result = {
+                      **ident,
+                      "quote_item": key,
+                      "status": "FAILED",
+                      "request_time_price": None,
+                      "official_close_reference_only": official_close[key],
+                      "display_policy": "⚪ 현재가 확인 실패",
+                      "error": error_by_key.get(key),
+                  }
+                  if result["request_time_price"] == official_close[key] and official_close[key] is not None:
+                      static_substitution_count += 1
+                  results.append(result)
+
+          stage_sizes_ok = all(
+              a["batch_size"] <= {"initial10": 10, "retry5": 5, "retry2": 2}[a["stage"]]
+              for a in attempt_log
+          )
+          retry_scope_ok = (
+              set(failed_after_5).issubset(set(failed_initial))
+              and final_failed_set.issubset(set(failed_after_5))
           )
 
+          success_count = len(success_keys)
+          failed_count = len(final_failed)
+          coverage = round(100.0 * success_count / len(items), 2)
+
+          status = "PASS" if (
+              stage_sizes_ok
+              and retry_scope_ok
+              and invalid_success_count == 0
+              and static_substitution_count == 0
+              and success_count > 0
+              and success_count + failed_count == len(items)
+          ) else "BLOCKED"
+
           result = {
-              "version": "2026-09-12-v8.7.9-standalone-swing-promotion-gate",
-              "status": "PASS" if data_quality_gate_pass else "BLOCKED",
+              "version": "2026-09-13-v8.7.10-standalone-swing-request-time-price-path",
+              "status": status,
               "repository_write": False,
               "production_change": False,
               "worker_change": False,
-              "metric_formula_change": False,
-              "basis_date": basis,
-              "row_count": len(rows),
-              "data_quality_promotion_gate_pass": data_quality_gate_pass,
-              "ma_gap_count": len(ma_gap_rows),
-              "ma_gap_rows": ma_gap_rows,
-              "unexplained_ma_gap_count": len(unexplained_ma),
-              "return_6m_gap_count": len(sixm_gap_rows),
-              "return_6m_gap_rows": sixm_gap_rows,
-              "unexpected_return_6m_gap_count": len(unexpected_6m),
-              "atr14_gap_count": len(atr_gap_rows),
-              "atr14_gap_rows": atr_gap_rows,
-              "atr_invalid_day_count_total": total_invalid_days,
-              "atr_invalid_day_class_counts": dict(sorted(atr_invalid_day_class.items())),
-              "zero_no_trade_day_count": zero_no_trade_days,
-              "zero_no_trade_days_with_previous_close": zero_days_with_prev,
-              "zero_no_trade_days_close_equals_previous": zero_days_close_equals_prev,
-              "positive_ohlc_relation_error_day_count": positive_relation_error_days,
-              "other_invalid_ohlc_day_count": other_invalid_days,
-              "unexplained_atr_gap_count": len(unexplained_atr),
-              "range20_gap_count": len(range20_gap_rows),
-              "range20_gap_rows": range20_gap_rows,
-              "unexplained_range20_gap_count": len(unexplained_range20),
-              "accepted_null_display_policy": {
-                  "ma": "자료 미제공 when required history is insufficient; no fabricated MA",
-                  "return_6m": "자료 미제공 when calendar history is insufficient",
-                  "atr14": "자료 미제공 when official lookback contains zero/no-trade OHLC rows; no imputation",
-                  "avg_daily_range_20_pct": "자료 미제공 when recent official OHLC has zero/no-trade rows",
-                  "kosdaq_sector_rs": "자료 미제공 under current KOSPI-only official sector-RS contract",
-                  "pending_metrics": "자료 미제공; remain null until separate approved contracts exist",
+              "action_schema_change": False,
+              "standalone_command_defined": False,
+              "standalone_route_enabled": False,
+              "basis_date": source.get("basis_date"),
+              "source_row_count": len(items),
+              "worker_base_url": WORKER,
+              "worker_health": {
+                  "status": health.get("status"),
+                  "service": health.get("service"),
+                  "version": health.get("version"),
+                  "build_version": health.get("build_version"),
+                  "kr_provider": (health.get("providers") or {}).get("KR"),
               },
-              "activation_still_blocked_by": [
-                  "NO_FINAL_STANDALONE_TABLE_HEADER_CONTRACT",
-                  "NO_STANDALONE_COMMAND_OR_ROUTE_CONTRACT",
-                  "REQUEST_TIME_PRICE_PATH_NOT_WIRED_TO_STANDALONE_TABLE",
-                  "1W_YTD_52W_FORMULAS_NOT_APPROVED",
-                  "RSI_MACD_FORMULAS_NOT_APPROVED",
-                  "CONFIRMED_SWING_LOW_STOP_POLICY_NOT_DEFINED",
-                  "INVESTMENT_SCORE_THRESHOLDS_NOT_DEFINED",
-                  "EARNINGS_OUTLOOK_SOURCE_NOT_CONNECTED",
-                  "KOSDAQ_OFFICIAL_SECTOR_RS_CONTRACT_NOT_DEFINED",
-              ],
+              "existing_action_operation_id": OPERATION_ID,
+              "retry_contract": {
+                  "initial_batch_max": 10,
+                  "retry_failed_batch_max": 5,
+                  "final_retry_failed_batch_max": 2,
+                  "initial_failed_count": len(failed_initial),
+                  "after_retry5_failed_count": len(failed_after_5),
+                  "final_failed_count": failed_count,
+                  "stage_sizes_ok": stage_sizes_ok,
+                  "retry_scope_ok": retry_scope_ok,
+              },
+              "quote_result": {
+                  "success_count": success_count,
+                  "failed_count": failed_count,
+                  "coverage_pct": coverage,
+                  "invalid_success_count": invalid_success_count,
+                  "static_price_substitution_count": static_substitution_count,
+                  "failed_display_policy": "⚪ 현재가 확인 실패",
+              },
+              "attempt_log": attempt_log,
+              "final_results": results,
               "decision": {
-                  "data_layer_ready_for_preproduction_contract": data_quality_gate_pass,
+                  "existing_request_price_path_reusable_for_standalone_swing": status == "PASS",
+                  "new_price_action_required": False,
                   "production_activation_now": False,
-                  "auto_fill_missing_values": False,
-                  "metric_formula_change_required": False,
-                  "request_time_price_substitution": False,
+                  "static_price_fallback_allowed": False,
+                  "official_close_is_reference_only_not_request_price": True,
               },
           }
 
-          (OUT / "standalone-swing-promotion-gate-v879.json").write_text(
+          (OUT / "standalone-swing-request-price-path-v8710.json").write_text(
               json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
               encoding="utf-8",
           )
 
           md = [
-              "# V8.7.9 독립 스윙 운영승격 데이터품질 게이트",
+              "# V8.7.10 독립 스윙 요청시점 현재가 경로 검증",
               "",
-              f"- 기준일: {basis}",
-              f"- 전체 종목: {len(rows)}",
-              f"- 데이터품질 게이트: {'PASS' if data_quality_gate_pass else 'BLOCKED'}",
-              f"- MA 결측: {len(ma_gap_rows)} / 미설명 {len(unexplained_ma)}",
-              f"- 6M 결측: {len(sixm_gap_rows)} / 예상 밖 {len(unexpected_6m)}",
-              f"- ATR14 결측: {len(atr_gap_rows)} / 미설명 {len(unexplained_atr)}",
-              f"- ATR lookback 무효행 총수: {total_invalid_days}",
-              f"- 공식 0-OHLC·무거래형 행: {zero_no_trade_days}",
-              f"- 양수 OHLC 관계오류 행: {positive_relation_error_days}",
-              f"- 기타 비정상 OHLC 행: {other_invalid_days}",
-              f"- 20일 평균 일중고저폭 결측: {len(range20_gap_rows)} / 미설명 {len(unexplained_range20)}",
+              f"- 판정: {status}",
+              f"- 확정 일봉 기준일: {source.get('basis_date')}",
+              f"- 검증 종목: {len(items)}",
+              f"- Worker: {WORKER}",
+              f"- 기존 Action operationId: {OPERATION_ID}",
+              f"- Worker build: {health.get('build_version')}",
+              f"- 초기 10개 단계 후 실패: {len(failed_initial)}",
+              f"- 실패 5개 재시도 후 잔여: {len(failed_after_5)}",
+              f"- 실패 2개 재시도 후 최종 실패: {failed_count}",
+              f"- 최종 성공: {success_count}/{len(items)} ({coverage:.2f}%)",
+              f"- 정적 종가 현재가 대체: {static_substitution_count}",
+              f"- 잘못된 성공가격: {invalid_success_count}",
               "",
-              "## MA 결측",
+              "## 계약 판정",
+              f"- 10→5→2 배치 크기 준수: {stage_sizes_ok}",
+              f"- 실패 종목만 재시도: {retry_scope_ok}",
+              "- 최종 실패는 `⚪ 현재가 확인 실패`로 유지",
+              "- official_close는 참고값으로만 보관하며 요청시점 현재가로 대체하지 않음",
+              "- 새 가격 Action은 만들지 않고 기존 getRequestTimePrices 재사용",
+              "- 이번 단계에서는 독립 스윙 명령어·표 경로를 활성화하지 않음",
           ]
-          for r in ma_gap_rows:
-              md.append(
-                  f"- {r['name']}({r['ticker']}): 관측 {r['observation_count']}일, "
-                  f"결측 {r['missing_periods']}, 필요 {r['required_closes_for_direction']}일, "
-                  f"상장이력 부족 설명={r['history_short_explains_gap']}"
-              )
 
-          md += ["", "## ATR14 결측 종목"]
-          for r in atr_gap_rows:
-              md.append(
-                  f"- {r['name']}({r['ticker']}): 최근126 무효 OHLC "
-                  f"{r['invalid_day_count_last126']}일, "
-                  f"전부 0-OHLC·무거래형={r['all_invalid_days_are_zero_no_trade']}"
-              )
+          if final_failed:
+              md += ["", "## 최종 실패 종목"]
+              for key in final_failed:
+                  ident = identity[key]
+                  md.append(
+                      f"- {ident['name']}({ident['ticker']}, {ident['market']}): "
+                      f"{json.dumps(error_by_key.get(key), ensure_ascii=False)}"
+                  )
 
-          md += [
-              "",
-              "## 운영승격 원칙",
-              "- 원천자료 결측은 `자료 미제공`으로 표시한다.",
-              "- MA·ATR·변동폭을 임의 보간하거나 계산식을 완화하지 않는다.",
-              "- 요청시점 현재가 실패를 정적 종가로 대체하지 않는다.",
-              "- 이번 단계는 데이터품질 게이트만 판단하며 표·Action·Worker를 활성화하지 않는다.",
-              "",
-              "## 아직 남은 활성화 차단요인",
-          ]
-          for blocker in result["activation_still_blocked_by"]:
-              md.append(f"- {blocker}")
-
-          (OUT / "standalone-swing-promotion-gate-v879.md").write_text(
+          (OUT / "standalone-swing-request-price-path-v8710.md").write_text(
               "\n".join(md) + "\n",
               encoding="utf-8",
           )
 
-          print("V879_PROMOTION_GATE_STATUS=" + result["status"])
-          print("BASIS_DATE=" + basis)
-          print("TOTAL_ROWS=" + str(len(rows)))
-          print("MA_GAP_COUNT=" + str(len(ma_gap_rows)))
-          print("UNEXPLAINED_MA_GAP_COUNT=" + str(len(unexplained_ma)))
-          print("RETURN_6M_GAP_COUNT=" + str(len(sixm_gap_rows)))
-          print("UNEXPECTED_RETURN_6M_GAP_COUNT=" + str(len(unexpected_6m)))
-          print("ATR14_GAP_COUNT=" + str(len(atr_gap_rows)))
-          print("UNEXPLAINED_ATR_GAP_COUNT=" + str(len(unexplained_atr)))
-          print("ATR_INVALID_DAY_COUNT_TOTAL=" + str(total_invalid_days))
-          print("ZERO_NO_TRADE_DAY_COUNT=" + str(zero_no_trade_days))
-          print("POSITIVE_OHLC_RELATION_ERROR_DAY_COUNT=" + str(positive_relation_error_days))
-          print("OTHER_INVALID_OHLC_DAY_COUNT=" + str(other_invalid_days))
-          print("RANGE20_GAP_COUNT=" + str(len(range20_gap_rows)))
-          print("UNEXPLAINED_RANGE20_GAP_COUNT=" + str(len(unexplained_range20)))
-          print("DATA_LAYER_READY_FOR_PREPRODUCTION_CONTRACT=" + str(data_quality_gate_pass).lower())
+          print("V8710_REQUEST_PRICE_PATH_STATUS=" + status)
+          print("SOURCE_ROWS=" + str(len(items)))
+          print("HEALTH_STATUS=" + str(health.get("status")))
+          print("HEALTH_SERVICE=" + str(health.get("service")))
+          print("WORKER_BUILD=" + str(health.get("build_version")))
+          print("ACTION_OPERATION_ID=" + OPERATION_ID)
+          print("INITIAL_FAILED=" + str(len(failed_initial)))
+          print("AFTER_RETRY5_FAILED=" + str(len(failed_after_5)))
+          print("FINAL_FAILED=" + str(failed_count))
+          print("FINAL_SUCCESS=" + str(success_count))
+          print("COVERAGE_PCT=" + f"{coverage:.2f}")
+          print("BATCH_SIZES_OK=" + str(stage_sizes_ok).lower())
+          print("RETRY_SCOPE_OK=" + str(retry_scope_ok).lower())
+          print("INVALID_SUCCESS_COUNT=" + str(invalid_success_count))
+          print("STATIC_PRICE_SUBSTITUTION_COUNT=" + str(static_substitution_count))
+          print("NEW_PRICE_ACTION_REQUIRED=false")
+          print("STANDALONE_ROUTE_ENABLED=false")
           print("PRODUCTION_ACTIVATION_NOW=false")
-          print("AUTO_FILL_MISSING_VALUES=false")
-          print("METRIC_FORMULA_CHANGE_REQUIRED=false")
           print("REPOSITORY_WRITE=false")
           print("PRODUCTION_CHANGE=false")
           print("WORKER_CHANGE=false")
           print("REQUEST_TIME_PRICE_SUBSTITUTION=false")
           PY
 
-      - name: Validate promotion-gate safety
+      - name: Validate read-only price-path contract
         shell: bash
         run: |
           set -euo pipefail
 
-          test -f /tmp/v879_standalone_swing_promotion_gate/standalone-swing-promotion-gate-v879.json
-          test -f /tmp/v879_standalone_swing_promotion_gate/standalone-swing-promotion-gate-v879.md
+          test -f /tmp/v8710_request_price_probe/standalone-swing-request-price-path-v8710.json
+          test -f /tmp/v8710_request_price_probe/standalone-swing-request-price-path-v8710.md
 
           python - <<'PY'
           import json
           from pathlib import Path
 
           p = json.loads(
-              Path("/tmp/v879_standalone_swing_promotion_gate/standalone-swing-promotion-gate-v879.json")
+              Path("/tmp/v8710_request_price_probe/standalone-swing-request-price-path-v8710.json")
               .read_text(encoding="utf-8")
           )
 
           assert p["repository_write"] is False
           assert p["production_change"] is False
           assert p["worker_change"] is False
-          assert p["metric_formula_change"] is False
+          assert p["action_schema_change"] is False
+          assert p["standalone_command_defined"] is False
+          assert p["standalone_route_enabled"] is False
+          assert p["existing_action_operation_id"] == "getRequestTimePrices"
+          assert p["retry_contract"]["stage_sizes_ok"] is True
+          assert p["retry_contract"]["retry_scope_ok"] is True
+          assert p["quote_result"]["invalid_success_count"] == 0
+          assert p["quote_result"]["static_price_substitution_count"] == 0
+          assert p["quote_result"]["success_count"] + p["quote_result"]["failed_count"] == p["source_row_count"]
+          assert p["decision"]["new_price_action_required"] is False
           assert p["decision"]["production_activation_now"] is False
-          assert p["decision"]["auto_fill_missing_values"] is False
-          assert p["decision"]["metric_formula_change_required"] is False
-          assert p["decision"]["request_time_price_substitution"] is False
+          assert p["decision"]["static_price_fallback_allowed"] is False
+          assert p["decision"]["official_close_is_reference_only_not_request_price"] is True
 
           if p["status"] == "PASS":
-              assert p["data_quality_promotion_gate_pass"] is True
-              assert p["unexplained_ma_gap_count"] == 0
-              assert p["unexpected_return_6m_gap_count"] == 0
-              assert p["unexplained_atr_gap_count"] == 0
-              assert p["unexplained_range20_gap_count"] == 0
-              assert p["positive_ohlc_relation_error_day_count"] == 0
-              assert p["other_invalid_ohlc_day_count"] == 0
-              print("V879_DATA_QUALITY_GATE=PASS")
+              assert p["decision"]["existing_request_price_path_reusable_for_standalone_swing"] is True
+              assert p["quote_result"]["success_count"] > 0
+              print("V8710_EXISTING_PRICE_ACTION_REUSABLE=PASS")
           else:
-              print("V879_DATA_QUALITY_GATE=BLOCKED")
+              print("V8710_EXISTING_PRICE_ACTION_REUSABLE=BLOCKED")
 
-          print("V879_NO_FORMULA_RELAXATION=PASS")
-          print("V879_NO_AUTOFILL=PASS")
-          print("V879_READ_ONLY_SAFETY=PASS")
+          print("V8710_10_5_2_RETRY_CONTRACT=PASS")
+          print("V8710_NO_STATIC_PRICE_FALLBACK=PASS")
+          print("V8710_READ_ONLY_SAFETY=PASS")
           PY
 
           git diff --exit-code
@@ -468,12 +517,12 @@ jobs:
           echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
           echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
 
-      - name: Upload V8.7.9 promotion gate artifact
+      - name: Upload V8.7.10 request-price evidence
         uses: actions/upload-artifact@v6
         with:
-          name: standalone-swing-promotion-gate-v879
+          name: standalone-swing-request-price-path-v8710
           path: |
-            /tmp/v879_standalone_swing_promotion_gate/standalone-swing-promotion-gate-v879.json
-            /tmp/v879_standalone_swing_promotion_gate/standalone-swing-promotion-gate-v879.md
+            /tmp/v8710_request_price_probe/standalone-swing-request-price-path-v8710.json
+            /tmp/v8710_request_price_probe/standalone-swing-request-price-path-v8710.md
           if-no-files-found: error
           retention-days: 14

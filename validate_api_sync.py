@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
-SCRIPT_VERSION = "validate_api_sync.py v1.10_action_schema_712_dual_width"
+SCRIPT_VERSION = "validate_api_sync.py v1.11_v870_two_table_release"
 
 
 def read_json(path: Path) -> Dict[str, Any]:
@@ -497,12 +497,12 @@ def main() -> int:
 
     # TWO_TABLE_SHADOW_V851_BEGIN
     # Check the explicitly released layout and all preserved source guards.
-    from two_table_release_v853 import DIRECTORY, validate_bundle
+    from two_table_release_v870 import DIRECTORY, validate_bundle
     try:
         validate_bundle(api / DIRECTORY, api.parent)
-        print("V853_TWO_TABLE_RELEASE_CONTRACT=PASS")
+        print("V870_TWO_TABLE_RELEASE_CONTRACT=PASS")
     except (OSError, ValueError, KeyError, TypeError) as exc:
-        errors.append("two-table shadow contract: " + str(exc))
+        errors.append("two-table V8.7.0 release contract: " + str(exc))
     # TWO_TABLE_SHADOW_V851_END
 
     report = {

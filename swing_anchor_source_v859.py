@@ -29,7 +29,7 @@ from stock_table_metrics_v850 import (
     swing_phase,
 )
 
-SCRIPT_VERSION = "swing_anchor_source_v859.py v1.0.0-source-evidence-only"
+SCRIPT_VERSION = "swing_anchor_source_v859.py v1.1.0-preserve-extended-glossary"
 CONTRACT_VERSION = "2026-09-11-v8.5.9-swing-anchor-source-and-glossary"
 KST = ZoneInfo("Asia/Seoul")
 
@@ -340,7 +340,22 @@ def build():
         raise RuntimeError("CONFIRMED_SWING_LOW_STOP_UNEXPECTEDLY_GENERATED")
 
     atomic_csv(OUT_CSV, out_rows)
-    atomic_json(OUT_GLOSSARY, GLOSSARY)
+
+    # V8.7.0+ may extend the shared stock-table glossary (for example rs_sector).
+    # This V8.5.9 source builder owns swing evidence, not later glossary terms.
+    glossary_payload = GLOSSARY
+    if OUT_GLOSSARY.exists():
+        current_glossary = read_json(OUT_GLOSSARY)
+        current_terms = current_glossary.get("terms") or {}
+        required_base_terms = {"swing", "ma", "atr14", "rs_kospi", "streak"}
+        if (
+            isinstance(current_terms, dict)
+            and required_base_terms.issubset(set(current_terms))
+            and "rs_sector" in current_terms
+            and current_glossary.get("display_policy", {}).get("attach_to_stock_tables") is True
+        ):
+            glossary_payload = current_glossary
+    atomic_json(OUT_GLOSSARY, glossary_payload)
 
     meta = {
         "script_version": SCRIPT_VERSION,
@@ -389,7 +404,7 @@ def build():
         f"PHASE_COUNTS={json.dumps(dict(sorted(phase_counts.items())), ensure_ascii=False, sort_keys=True)}",
         "KOSPI30_SWING_ANCHOR_EXACT_MATCHES=30",
         "KOSPI30_SWING_ANCHOR_MISMATCHES=0",
-        "GLOSSARY_TERMS=5",
+        f"GLOSSARY_TERMS={len((glossary_payload.get('terms') or {}))}",
         "GLOSSARY_FUTURE_TABLE_DISPLAY_REQUIRED=true",
         "CONFIRMED_SWING_LOW_STOP_CALCULATED=false",
         "STANDALONE_SWING_TABLE_ENABLED=false",
@@ -423,8 +438,10 @@ def validate():
         raise RuntimeError("METRIC_FORMULA_GUARD_FAILED")
     if len(rows) != int(meta.get("row_count") or 0):
         raise RuntimeError("ROW_COUNT_MISMATCH")
-    if len(glossary.get("terms") or {}) != 5:
-        raise RuntimeError("GLOSSARY_TERM_COUNT_INVALID")
+    glossary_terms = glossary.get("terms") or {}
+    required_glossary_terms = {"swing", "ma", "atr14", "rs_kospi", "streak"}
+    if not isinstance(glossary_terms, dict) or not required_glossary_terms.issubset(set(glossary_terms)):
+        raise RuntimeError("GLOSSARY_REQUIRED_TERMS_INVALID")
     if glossary.get("display_policy", {}).get("attach_to_stock_tables") is not True:
         raise RuntimeError("GLOSSARY_DISPLAY_POLICY_MISSING")
     if any(str(r.get("confirmed_swing_low_stop") or "").strip() for r in rows):
@@ -432,7 +449,7 @@ def validate():
 
     print("V859_VALIDATION=PASS")
     print(f"ROWS={len(rows)}")
-    print("GLOSSARY_TERMS=5")
+    print(f"GLOSSARY_TERMS={len(glossary_terms)}")
     print("CONFIRMED_SWING_LOW_STOP_EMPTY_ALL=PASS")
     print("KOSPI30_SWING_ANCHOR_EXACT_MATCHES=30")
     print("REQUEST_TIME_PRICE_SUBSTITUTION=false")

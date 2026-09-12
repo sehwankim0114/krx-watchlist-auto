@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: KRX Watchlist and Request-Time Price Unified API
-  version: 7.1.1
+  version: 7.1.2
   description: Single-domain unified Action for synchronized GitHub stock-table JSON, request-time KR/US auxiliary
     quotes, and health checks. Use this schema as the only Action set for krx-live-price-ksh.diaconos.workers.dev.
 servers:
@@ -105,7 +105,7 @@ paths:
   /tables/v1/{table}:
     get:
       operationId: getKospiWatchlist
-      summary: Get new-format 코피표 or 연속하락표 with guarded pagination
+      summary: Get guarded 코피표 or 연속하락표 with 14/15-column compatible rows
       description: '코피표: table=kospi (30 rows). 연속하락표: decliners. 2.4연속하락표: decliners24.
         Production only. Fetch all pages, pin source_build_id after page 1. Never fall back to old tables or preview.'
       parameters:
@@ -467,11 +467,11 @@ components:
           items:
             type: array
             minItems: 14
-            maxItems: 14
+            maxItems: 15
             items: {}
         metric_glossary_version:
           type: string
-          description: Version of the five-term stock-table reading guide attached to this payload.
+          description: Version of the stock-table reading guide attached to this payload; the production guide may include KOSPI RS and KRX industry RS.
         metric_glossary_footer:
           type: string
           description: Korean one-line reading guide. Print it exactly once immediately below the completed main table.

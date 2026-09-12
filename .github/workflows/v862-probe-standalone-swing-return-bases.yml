@@ -1,266 +1,517 @@
-name: Build integrated standalone swing source v8.7.6
+name: Preview integrated standalone swing table v8.7.7
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: collect-krx-watchlist-latest
+  group: v877-integrated-standalone-swing-preview
   cancel-in-progress: false
 
 jobs:
-  build:
+  preview:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
       - name: Checkout latest main
         uses: actions/checkout@v6
         with:
           ref: main
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
-      - name: Capture base and protected hashes
+      - name: Build final-preproduction preview
         shell: bash
         run: |
           set -euo pipefail
-          echo "BASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
-          sha256sum stock_table_metrics_v850.py > /tmp/metric.sha
-          sha256sum worker/krx-live-price-worker.js > /tmp/worker.sha
-          find api/two_table_v1 -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/two_table.sha
-          sha256sum latest/standalone_swing_source_latest.json > /tmp/swing_source.sha
-          sha256sum latest/standalone_swing_extended_returns_latest.json > /tmp/extended_source.sha
-          sha256sum latest/standalone_swing_sector_rs_latest.json > /tmp/sector_source.sha
-          sha256sum latest/stock_table_metric_glossary_latest.json > /tmp/glossary.sha
-          echo "V876_BASE_SHA=$(git rev-parse HEAD)"
 
-      - name: Restore V8.7.6 builder and contract
-        shell: bash
-        env:
-          BUILDER_B64: "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwojIC0qLSBjb2Rpbmc6IHV0Zi04IC0qLQpmcm9tIF9fZnV0dXJlX18gaW1wb3J0IGFubm90YXRpb25zCgppbXBvcnQgY3N2CmltcG9ydCBoYXNobGliCmltcG9ydCBqc29uCmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aAoKU0NSSVBUX1ZFUlNJT04gPSAic3RhbmRhbG9uZV9zd2luZ19pbnRlZ3JhdGVkX3Y4NzYucHkgdjEuMC4wLXNvdXJjZS1vbmx5IgpDT05UUkFDVF9WRVJTSU9OID0gIjIwMjYtMDktMTItdjguNy42LXN0YW5kYWxvbmUtc3dpbmctaW50ZWdyYXRlZC1zb3VyY2UiCgpTV0lORyA9IFBhdGgoImxhdGVzdC9zdGFuZGFsb25lX3N3aW5nX3NvdXJjZV9sYXRlc3QuanNvbiIpCkVYVEVOREVEID0gUGF0aCgibGF0ZXN0L3N0YW5kYWxvbmVfc3dpbmdfZXh0ZW5kZWRfcmV0dXJuc19sYXRlc3QuanNvbiIpClNFQ1RPUl9SUyA9IFBhdGgoImxhdGVzdC9zdGFuZGFsb25lX3N3aW5nX3NlY3Rvcl9yc19sYXRlc3QuanNvbiIpCkdMT1NTQVJZID0gUGF0aCgibGF0ZXN0L3N0b2NrX3RhYmxlX21ldHJpY19nbG9zc2FyeV9sYXRlc3QuanNvbiIpCgpPVVRfSlNPTiA9IFBhdGgoImxhdGVzdC9zdGFuZGFsb25lX3N3aW5nX2ludGVncmF0ZWRfbGF0ZXN0Lmpzb24iKQpPVVRfQ1NWID0gUGF0aCgibGF0ZXN0L3N0YW5kYWxvbmVfc3dpbmdfaW50ZWdyYXRlZF9sYXRlc3QuY3N2IikKT1VUX01FVEEgPSBQYXRoKCJsYXRlc3Qvc3RhbmRhbG9uZV9zd2luZ19pbnRlZ3JhdGVkX21ldGFfbGF0ZXN0Lmpzb24iKQpPVVRfTE9HID0gUGF0aCgibGF0ZXN0L3N0YW5kYWxvbmVfc3dpbmdfaW50ZWdyYXRlZF9ydW5fbG9nX2xhdGVzdC50eHQiKQoKUEVORElOR19LRVlTID0gWwogICAgInJldHVybl8xdyIsCiAgICAicmV0dXJuX3l0ZCIsCiAgICAicmV0dXJuXzUydyIsCiAgICAicnNpIiwKICAgICJtYWNkIiwKICAgICJpbnZlc3RtZW50X3Njb3JlXzEwMCIsCiAgICAiZWFybmluZ3Nfb3V0bG9va19jaGFuZ2UiLAogICAgImNvbmZpcm1lZF9zd2luZ19sb3dfc3RvcCIsCl0KCmRlZiByZWFkX2pzb24ocGF0aDogUGF0aCk6CiAgICByZXR1cm4ganNvbi5sb2FkcyhwYXRoLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgtc2lnIikpCgpkZWYgd3JpdGVfanNvbihwYXRoOiBQYXRoLCB2YWx1ZSk6CiAgICBwYXRoLndyaXRlX3RleHQoCiAgICAgICAganNvbi5kdW1wcyh2YWx1ZSwgZW5zdXJlX2FzY2lpPUZhbHNlLCBpbmRlbnQ9MiwgYWxsb3dfbmFuPUZhbHNlKSArICJcbiIsCiAgICAgICAgZW5jb2Rpbmc9InV0Zi04IiwKICAgICkKCmRlZiBzaGEyNTYocGF0aDogUGF0aCk6CiAgICBoID0gaGFzaGxpYi5zaGEyNTYoKQogICAgd2l0aCBwYXRoLm9wZW4oInJiIikgYXMgZjoKICAgICAgICBmb3IgY2h1bmsgaW4gaXRlcihsYW1iZGE6IGYucmVhZCgxMDI0ICogMTAyNCksIGIiIik6CiAgICAgICAgICAgIGgudXBkYXRlKGNodW5rKQogICAgcmV0dXJuIGguaGV4ZGlnZXN0KCkKCmRlZiBtYWluKCk6CiAgICBmb3IgcCBpbiAoU1dJTkcsIEVYVEVOREVELCBTRUNUT1JfUlMsIEdMT1NTQVJZKToKICAgICAgICBpZiBub3QgcC5pc19maWxlKCk6CiAgICAgICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIk1JU1NJTkdfUkVRVUlSRURfU09VUkNFOiIgKyBzdHIocCkpCgogICAgc3dpbmcgPSByZWFkX2pzb24oU1dJTkcpCiAgICBleHRlbmRlZCA9IHJlYWRfanNvbihFWFRFTkRFRCkKICAgIHNlY3RvciA9IHJlYWRfanNvbihTRUNUT1JfUlMpCiAgICBnbG9zc2FyeSA9IHJlYWRfanNvbihHTE9TU0FSWSkKCiAgICBmb3IgbGFiZWwsIHBheWxvYWQgaW4gKAogICAgICAgICgiU1dJTkciLCBzd2luZyksCiAgICAgICAgKCJFWFRFTkRFRCIsIGV4dGVuZGVkKSwKICAgICAgICAoIlNFQ1RPUl9SUyIsIHNlY3RvciksCiAgICApOgogICAgICAgIGlmIHBheWxvYWQuZ2V0KCJzdGF0dXMiKSAhPSAiUkVBRFlfU09VUkNFX09OTFkiOgogICAgICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KGYie2xhYmVsfV9TT1VSQ0VfTk9UX1JFQURZIikKICAgICAgICBpZiBwYXlsb2FkLmdldCgic291cmNlX29ubHkiKSBpcyBub3QgVHJ1ZToKICAgICAgICAgICAgcmFpc2UgU3lzdGVtRXhpdChmIntsYWJlbH1fTk9UX1NPVVJDRV9PTkxZIikKICAgICAgICBpZiBwYXlsb2FkLmdldCgic3RhbmRhbG9uZV9zd2luZ190YWJsZV9lbmFibGVkIikgaXMgbm90IEZhbHNlOgogICAgICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KGYie2xhYmVsfV9UQUJMRV9BTFJFQURZX0VOQUJMRUQiKQoKICAgIGJhc2lzID0gc3dpbmcuZ2V0KCJiYXNpc19kYXRlIikKICAgIGlmIG5vdCBiYXNpczoKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJCQVNJU19NSVNTSU5HIikKICAgIGlmIGV4dGVuZGVkLmdldCgiYmFzaXNfZGF0ZSIpICE9IGJhc2lzIG9yIHNlY3Rvci5nZXQoImJhc2lzX2RhdGUiKSAhPSBiYXNpczoKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJTT1VSQ0VfQkFTSVNfTUlTTUFUQ0giKQoKICAgIGZvb3RlciA9IGdsb3NzYXJ5LmdldCgiY29tcGFjdF9mb290ZXJfdGV4dCIpCiAgICBpZiBub3QgZm9vdGVyIG9yIG5vdCBmb290ZXIuc3RhcnRzd2l0aCgi7J2964qUIOuylToiKToKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJHTE9TU0FSWV9GT09URVJfTk9UX1JFQURZIikKCiAgICBzd2luZ19yb3dzID0gewogICAgICAgIHN0cihyWyJ0aWNrZXIiXSkuemZpbGwoNik6IHIKICAgICAgICBmb3IgciBpbiBzd2luZy5nZXQoInJvd3MiKSBvciBbXQogICAgfQogICAgZXh0X3Jvd3MgPSB7CiAgICAgICAgc3RyKHJbInRpY2tlciJdKS56ZmlsbCg2KTogcgogICAgICAgIGZvciByIGluIGV4dGVuZGVkLmdldCgicm93cyIpIG9yIFtdCiAgICB9CiAgICBzZWN0b3Jfcm93cyA9IHsKICAgICAgICBzdHIoclsidGlja2VyIl0pLnpmaWxsKDYpOiByCiAgICAgICAgZm9yIHIgaW4gc2VjdG9yLmdldCgicm93cyIpIG9yIFtdCiAgICB9CgogICAgaWYgbm90IHN3aW5nX3Jvd3M6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiU1dJTkdfUk9XU19FTVBUWSIpCiAgICBpZiBzZXQoc3dpbmdfcm93cykgIT0gc2V0KGV4dF9yb3dzKToKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJTV0lOR19FWFRFTkRFRF9USUNLRVJfU0VUX01JU01BVENIIikKICAgIGlmIHNldChzd2luZ19yb3dzKSAhPSBzZXQoc2VjdG9yX3Jvd3MpOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIlNXSU5HX1NFQ1RPUl9USUNLRVJfU0VUX01JU01BVENIIikKCiAgICBpZiBsZW4oc3dpbmdfcm93cykgIT0gaW50KHN3aW5nLmdldCgicm93X2NvdW50Iikgb3IgMCk6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiU1dJTkdfUk9XX0NPVU5UX01JU01BVENIIikKICAgIGlmIGxlbihleHRfcm93cykgIT0gaW50KGV4dGVuZGVkLmdldCgicm93X2NvdW50Iikgb3IgMCk6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiRVhURU5ERURfUk9XX0NPVU5UX01JU01BVENIIikKICAgIGlmIGxlbihzZWN0b3Jfcm93cykgIT0gaW50KHNlY3Rvci5nZXQoInJvd19jb3VudCIpIG9yIDApOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIlNFQ1RPUl9ST1dfQ09VTlRfTUlTTUFUQ0giKQoKICAgIGludGVncmF0ZWRfcm93cyA9IFtdCiAgICBzaXhtX3JlYWR5ID0gMAogICAgc2l4bV9taXNzaW5nID0gMAogICAga29zcGlfc2VjdG9yX3JlYWR5ID0gMAogICAga29zZGFxX3NlY3Rvcl9udWxsID0gMAoKICAgIGZvciB0aWNrZXIgaW4gc29ydGVkKHN3aW5nX3Jvd3MpOgogICAgICAgIHMgPSBzd2luZ19yb3dzW3RpY2tlcl0KICAgICAgICBlID0gZXh0X3Jvd3NbdGlja2VyXQogICAgICAgIHIgPSBzZWN0b3Jfcm93c1t0aWNrZXJdCgogICAgICAgIGlmIHMuZ2V0KCJuYW1lIikgIT0gZS5nZXQoIm5hbWUiKSBvciBzLmdldCgibmFtZSIpICE9IHIuZ2V0KCJuYW1lIik6CiAgICAgICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIk5BTUVfTUlTTUFUQ0g6IiArIHRpY2tlcikKICAgICAgICBpZiBzLmdldCgibWFya2V0IikgIT0gZS5nZXQoIm1hcmtldCIpIG9yIHMuZ2V0KCJtYXJrZXQiKSAhPSByLmdldCgibWFya2V0Iik6CiAgICAgICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIk1BUktFVF9NSVNNQVRDSDoiICsgdGlja2VyKQogICAgICAgIGlmIGUuZ2V0KCJiYXNpc19kYXRlIikgIT0gYmFzaXMgb3Igci5nZXQoImJhc2lzX2RhdGUiKSAhPSBiYXNpczoKICAgICAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiUk9XX0JBU0lTX01JU01BVENIOiIgKyB0aWNrZXIpCgogICAgICAgIG1hcmtldCA9IHMuZ2V0KCJtYXJrZXQiKQogICAgICAgIHJldHVybnMgPSBzLmdldCgicmV0dXJucyIpIG9yIHt9CiAgICAgICAgb25lX20gPSByZXR1cm5zLmdldCgiMSIpIG9yIHt9CiAgICAgICAgdGhyZWVfbSA9IHJldHVybnMuZ2V0KCIzIikgb3Ige30KCiAgICAgICAgaWYgb25lX20uZ2V0KCJzdGF0dXMiKSAhPSAiT0siIG9yIHRocmVlX20uZ2V0KCJzdGF0dXMiKSAhPSAiT0siOgogICAgICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJDT1JFX1JFVFVSTl9OT1RfUkVBRFk6IiArIHRpY2tlcikKCiAgICAgICAgc2l4X20gPSBlLmdldCgicmV0dXJuXzZtIikgb3Ige30KICAgICAgICBpZiBzaXhfbS5nZXQoInN0YXR1cyIpID09ICJPSyI6CiAgICAgICAgICAgIHNpeG1fcmVhZHkgKz0gMQogICAgICAgIGVsc2U6CiAgICAgICAgICAgIHNpeG1fbWlzc2luZyArPSAxCgogICAgICAgIHJzX3NlY3RvciA9IHIuZ2V0KCJyc19zZWN0b3JfcHAiKSBvciB7IjEiOiBOb25lLCAiMyI6IE5vbmV9CiAgICAgICAgc2VjdG9yX2JlbmNobWFyayA9IHIuZ2V0KCJzZWN0b3JfYmVuY2htYXJrIikKCiAgICAgICAgaWYgbWFya2V0ID09ICJLT1NQSSI6CiAgICAgICAgICAgIGlmIHIuZ2V0KCJzdGF0dXMiKSAhPSAiUkVBRFkiOgogICAgICAgICAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiS09TUElfU0VDVE9SX1NUQVRVU19OT1RfUkVBRFk6IiArIHRpY2tlcikKICAgICAgICAgICAgaWYgcnNfc2VjdG9yLmdldCgiMSIpIGlzIE5vbmUgb3IgcnNfc2VjdG9yLmdldCgiMyIpIGlzIE5vbmU6CiAgICAgICAgICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJLT1NQSV9TRUNUT1JfVkFMVUVfTUlTU0lORzoiICsgdGlja2VyKQogICAgICAgICAgICBpZiBub3Qgc2VjdG9yX2JlbmNobWFyazoKICAgICAgICAgICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIktPU1BJX1NFQ1RPUl9CRU5DSE1BUktfTUlTU0lORzoiICsgdGlja2VyKQogICAgICAgICAgICBrb3NwaV9zZWN0b3JfcmVhZHkgKz0gMQogICAgICAgIGVsaWYgbWFya2V0ID09ICJLT1NEQVEiOgogICAgICAgICAgICBpZiByLmdldCgic3RhdHVzIikgIT0gIk5PVF9TVVBQT1JURURfQ1VSUkVOVF9DT05UUkFDVCI6CiAgICAgICAgICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJLT1NEQVFfU0VDVE9SX1NUQVRVU19VTkVYUEVDVEVEOiIgKyB0aWNrZXIpCiAgICAgICAgICAgIGlmIHJzX3NlY3RvciAhPSB7IjEiOiBOb25lLCAiMyI6IE5vbmV9OgogICAgICAgICAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiS09TREFRX1NFQ1RPUl9WQUxVRV9OT1RfTlVMTDoiICsgdGlja2VyKQogICAgICAgICAgICBpZiBzZWN0b3JfYmVuY2htYXJrIGlzIG5vdCBOb25lOgogICAgICAgICAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiS09TREFRX1NFQ1RPUl9CRU5DSE1BUktfTk9UX05VTEw6IiArIHRpY2tlcikKICAgICAgICAgICAga29zZGFxX3NlY3Rvcl9udWxsICs9IDEKICAgICAgICBlbHNlOgogICAgICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJVTktOT1dOX01BUktFVDoiICsgc3RyKG1hcmtldCkpCgogICAgICAgIHRyYWlsaW5nID0gcy5nZXQoInRyYWlsaW5nX3JlZmVyZW5jZSIpIG9yIHt9CiAgICAgICAgaWYgdHJhaWxpbmcuZ2V0KCJjb25maXJtZWRfc3dpbmdfbG93X3N0b3AiKSBpcyBub3QgTm9uZToKICAgICAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiQ09ORklSTUVEX1NXSU5HX1NUT1BfUE9QVUxBVEVEOiIgKyB0aWNrZXIpCgogICAgICAgIHBlbmRpbmcgPSB7a2V5OiBOb25lIGZvciBrZXkgaW4gUEVORElOR19LRVlTfQoKICAgICAgICByb3cgPSB7CiAgICAgICAgICAgICJ0aWNrZXIiOiB0aWNrZXIsCiAgICAgICAgICAgICJuYW1lIjogcy5nZXQoIm5hbWUiKSwKICAgICAgICAgICAgIm1hcmtldCI6IG1hcmtldCwKICAgICAgICAgICAgImJhc2lzX2RhdGUiOiBiYXNpcywKICAgICAgICAgICAgIm9mZmljaWFsX2Nsb3NlIjogcy5nZXQoIm9mZmljaWFsX2Nsb3NlIiksCiAgICAgICAgICAgICJtZXRyaWNfc3RhdHVzIjogcy5nZXQoIm1ldHJpY19zdGF0dXMiKSwKICAgICAgICAgICAgInByaWNlX3BlcmZvcm1hbmNlIjogewogICAgICAgICAgICAgICAgIjF3IjogTm9uZSwKICAgICAgICAgICAgICAgICIxbSI6IG9uZV9tLAogICAgICAgICAgICAgICAgIjNtIjogdGhyZWVfbSwKICAgICAgICAgICAgICAgICI2bSI6IHNpeF9tLAogICAgICAgICAgICAgICAgInl0ZCI6IE5vbmUsCiAgICAgICAgICAgICAgICAiNTJ3IjogTm9uZSwKICAgICAgICAgICAgfSwKICAgICAgICAgICAgInN3aW5nIjogcy5nZXQoInN3aW5nIiksCiAgICAgICAgICAgICJtYSI6IHMuZ2V0KCJtYSIpLAogICAgICAgICAgICAicnVuIjogcy5nZXQoInJ1biIpLAogICAgICAgICAgICAic3RyZWFrIjogcy5nZXQoInN0cmVhayIpLAogICAgICAgICAgICAicnNfa29zcGlfcHAiOiBzLmdldCgicnNfa29zcGlfcHAiKSwKICAgICAgICAgICAgInNlY3Rvcl9iZW5jaG1hcmsiOiBzZWN0b3JfYmVuY2htYXJrLAogICAgICAgICAgICAicnNfc2VjdG9yX3BwIjogcnNfc2VjdG9yLAogICAgICAgICAgICAiYXRyMTQiOiBzLmdldCgiYXRyMTQiKSwKICAgICAgICAgICAgImF2Z19kYWlseV9yYW5nZV8yMF9wY3QiOiBzLmdldCgiYXZnX2RhaWx5X3JhbmdlXzIwX3BjdCIpLAogICAgICAgICAgICAicmFuZ2VfM20iOiBzLmdldCgicmFuZ2VfM20iKSwKICAgICAgICAgICAgInRyYWlsaW5nX3JlZmVyZW5jZSI6IHsKICAgICAgICAgICAgICAgICJtYTIwX2Nsb3NlX2xldmVsIjogdHJhaWxpbmcuZ2V0KCJtYTIwX2Nsb3NlX2xldmVsIiksCiAgICAgICAgICAgICAgICAiYmVsb3dfbWEyMF9hdF9vZmZpY2lhbF9jbG9zZSI6IHRyYWlsaW5nLmdldCgiYmVsb3dfbWEyMF9hdF9vZmZpY2lhbF9jbG9zZSIpLAogICAgICAgICAgICAgICAgImNvbmZpcm1lZF9zd2luZ19sb3dfc3RvcCI6IE5vbmUsCiAgICAgICAgICAgICAgICAic3RhdHVzIjogdHJhaWxpbmcuZ2V0KCJzdGF0dXMiKSwKICAgICAgICAgICAgfSwKICAgICAgICAgICAgIm1hdGNoZXNfZGVjbGluZXJzXzI0Ijogcy5nZXQoIm1hdGNoZXNfZGVjbGluZXJzXzI0IiksCiAgICAgICAgICAgICJwZW5kaW5nX21ldHJpY3MiOiBwZW5kaW5nLAogICAgICAgIH0KICAgICAgICBpbnRlZ3JhdGVkX3Jvd3MuYXBwZW5kKHJvdykKCiAgICByb3dfY291bnQgPSBsZW4oaW50ZWdyYXRlZF9yb3dzKQogICAgaWYgc2l4bV9yZWFkeSAhPSBpbnQoZXh0ZW5kZWQuZ2V0KCJyZXR1cm5fNm1fcmVhZHlfY291bnQiKSBvciAwKToKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJTSVhfTU9OVEhfUkVBRFlfQ09VTlRfTUlTTUFUQ0giKQogICAgaWYgc2l4bV9taXNzaW5nICE9IGludChleHRlbmRlZC5nZXQoInJldHVybl82bV9zaG9ydF9jb3VudCIpIG9yIDApOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIlNJWF9NT05USF9NSVNTSU5HX0NPVU5UX01JU01BVENIIikKICAgIGlmIGtvc3BpX3NlY3Rvcl9yZWFkeSAhPSBpbnQoc2VjdG9yLmdldCgia29zcGlfc2VjdG9yX3JzX3JlYWR5X2NvdW50Iikgb3IgMCk6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiS09TUElfU0VDVE9SX1JFQURZX0NPVU5UX01JU01BVENIIikKICAgIGlmIGtvc2RhcV9zZWN0b3JfbnVsbCAhPSBpbnQoc2VjdG9yLmdldCgia29zZGFxX3NlY3Rvcl9yc19udWxsX2NvdW50Iikgb3IgMCk6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiS09TREFRX1NFQ1RPUl9OVUxMX0NPVU5UX01JU01BVENIIikKCiAgICBzYWZldHkgPSB7CiAgICAgICAgInN0YW5kYWxvbmVfc3dpbmdfdGFibGVfZW5hYmxlZCI6IEZhbHNlLAogICAgICAgICJhY3Rpb25fcm91dGVfZW5hYmxlZCI6IEZhbHNlLAogICAgICAgICJwcm9kdWN0aW9uX3RhYmxlX2NoYW5nZWQiOiBGYWxzZSwKICAgICAgICAid29ya2VyX2NoYW5nZWQiOiBGYWxzZSwKICAgICAgICAibWV0cmljX2Zvcm11bGFfY2hhbmdlZCI6IEZhbHNlLAogICAgICAgICJyZXF1ZXN0X3RpbWVfcHJpY2Vfc3Vic3RpdHV0aW9uIjogRmFsc2UsCiAgICAgICAgInJldHVybl8xd19jYWxjdWxhdGVkIjogRmFsc2UsCiAgICAgICAgInJldHVybl95dGRfY2FsY3VsYXRlZCI6IEZhbHNlLAogICAgICAgICJyZXR1cm5fNTJ3X2NhbGN1bGF0ZWQiOiBGYWxzZSwKICAgICAgICAicnNpX2NhbGN1bGF0ZWQiOiBGYWxzZSwKICAgICAgICAibWFjZF9jYWxjdWxhdGVkIjogRmFsc2UsCiAgICAgICAgImludmVzdG1lbnRfc2NvcmVfMTAwX2NhbGN1bGF0ZWQiOiBGYWxzZSwKICAgICAgICAiZWFybmluZ3Nfb3V0bG9va19jaGFuZ2VfY2FsY3VsYXRlZCI6IEZhbHNlLAogICAgICAgICJjb25maXJtZWRfc3dpbmdfbG93X3N0b3BfY2FsY3VsYXRlZCI6IEZhbHNlLAogICAgICAgICJrb3NkYXFfc2VjdG9yX21hcHBpbmdfaW52ZW50ZWQiOiBGYWxzZSwKICAgIH0KCiAgICBwYXlsb2FkID0gewogICAgICAgICJjb250cmFjdF92ZXJzaW9uIjogQ09OVFJBQ1RfVkVSU0lPTiwKICAgICAgICAic2NyaXB0X3ZlcnNpb24iOiBTQ1JJUFRfVkVSU0lPTiwKICAgICAgICAic3RhdHVzIjogIlJFQURZX1NPVVJDRV9PTkxZIiwKICAgICAgICAic291cmNlX29ubHkiOiBUcnVlLAogICAgICAgICJzdGFuZGFsb25lX3N3aW5nX3RhYmxlX2VuYWJsZWQiOiBGYWxzZSwKICAgICAgICAiYWN0aW9uX3JvdXRlX2VuYWJsZWQiOiBGYWxzZSwKICAgICAgICAicmVxdWVzdF90aW1lX3ByaWNlX2VsaWdpYmxlIjogRmFsc2UsCiAgICAgICAgImJhc2lzX2RhdGUiOiBiYXNpcywKICAgICAgICAicm93X2NvdW50Ijogcm93X2NvdW50LAogICAgICAgICJtYXJrZXRfY291bnRzIjogc2VjdG9yLmdldCgibWFya2V0X2NvdW50cyIpLAogICAgICAgICJyZXR1cm5fNm1fcmVhZHlfY291bnQiOiBzaXhtX3JlYWR5LAogICAgICAgICJyZXR1cm5fNm1fbWlzc2luZ19jb3VudCI6IHNpeG1fbWlzc2luZywKICAgICAgICAia29zcGlfc2VjdG9yX3JzX3JlYWR5X2NvdW50Ijoga29zcGlfc2VjdG9yX3JlYWR5LAogICAgICAgICJrb3NkYXFfc2VjdG9yX3JzX251bGxfY291bnQiOiBrb3NkYXFfc2VjdG9yX251bGwsCiAgICAgICAgInBlbmRpbmdfbWV0cmljcyI6IFBFTkRJTkdfS0VZUywKICAgICAgICAibWV0cmljX2dsb3NzYXJ5X3ZlcnNpb24iOiBnbG9zc2FyeS5nZXQoInZlcnNpb24iKSwKICAgICAgICAibWV0cmljX2dsb3NzYXJ5X2Zvb3RlciI6IGZvb3RlciwKICAgICAgICAic291cmNlX2xpbmVhZ2UiOiB7CiAgICAgICAgICAgICJzd2luZ19jb250cmFjdF92ZXJzaW9uIjogc3dpbmcuZ2V0KCJjb250cmFjdF92ZXJzaW9uIiksCiAgICAgICAgICAgICJleHRlbmRlZF9yZXR1cm5zX2NvbnRyYWN0X3ZlcnNpb24iOiBleHRlbmRlZC5nZXQoImNvbnRyYWN0X3ZlcnNpb24iKSwKICAgICAgICAgICAgInNlY3Rvcl9yc19jb250cmFjdF92ZXJzaW9uIjogc2VjdG9yLmdldCgiY29udHJhY3RfdmVyc2lvbiIpLAogICAgICAgIH0sCiAgICAgICAgInNvdXJjZV9zaGEyNTYiOiB7CiAgICAgICAgICAgIHN0cihTV0lORyk6IHNoYTI1NihTV0lORyksCiAgICAgICAgICAgIHN0cihFWFRFTkRFRCk6IHNoYTI1NihFWFRFTkRFRCksCiAgICAgICAgICAgIHN0cihTRUNUT1JfUlMpOiBzaGEyNTYoU0VDVE9SX1JTKSwKICAgICAgICAgICAgc3RyKEdMT1NTQVJZKTogc2hhMjU2KEdMT1NTQVJZKSwKICAgICAgICB9LAogICAgICAgICJyb3dzIjogaW50ZWdyYXRlZF9yb3dzLAogICAgICAgICJzYWZldHkiOiBzYWZldHksCiAgICB9CiAgICB3cml0ZV9qc29uKE9VVF9KU09OLCBwYXlsb2FkKQoKICAgIGNzdl9maWVsZHMgPSBbCiAgICAgICAgImJhc2lzX2RhdGUiLCAibWFya2V0IiwgInRpY2tlciIsICJuYW1lIiwgIm9mZmljaWFsX2Nsb3NlIiwKICAgICAgICAicmV0dXJuXzF3X3BjdCIsICJyZXR1cm5fMW1fcGN0IiwgInJldHVybl8zbV9wY3QiLCAicmV0dXJuXzZtX3BjdCIsCiAgICAgICAgInJldHVybl95dGRfcGN0IiwgInJldHVybl81MndfcGN0IiwKICAgICAgICAic3dpbmdfcGhhc2UiLCAic3dpbmdfcGhhc2Vfa28iLCAic3dpbmdfdHJvdWdoX2RhdGUiLCAic3dpbmdfcGVha19kYXRlIiwKICAgICAgICAiZnJvbV90cm91Z2hfcGN0IiwgImZyb21fcGVha19wY3QiLCAibW9tZW50dW1fNWRfcGN0IiwKICAgICAgICAibWE1X2RpcmVjdGlvbiIsICJtYTIwX2RpcmVjdGlvbiIsICJtYTYwX2RpcmVjdGlvbiIsICJtYTEyMF9kaXJlY3Rpb24iLAogICAgICAgICJtZWFuX3J1bl9kYXlzIiwgInN0cmVha19kaXJlY3Rpb24iLCAic3RyZWFrX2RheXMiLCAic3RyZWFrX2NoYW5nZV9wY3QiLAogICAgICAgICJyc19rb3NwaV8xbV9wcCIsICJyc19rb3NwaV8zbV9wcCIsCiAgICAgICAgInNlY3Rvcl9iZW5jaG1hcmtfdGlja2VyIiwgInNlY3Rvcl9iZW5jaG1hcmtfbmFtZSIsCiAgICAgICAgInJzX3NlY3Rvcl8xbV9wcCIsICJyc19zZWN0b3JfM21fcHAiLAogICAgICAgICJhdHIxNF9wY3QiLCAiYXZnX2RhaWx5X3JhbmdlXzIwX3BjdCIsCiAgICAgICAgIm1hMjBfcmVmZXJlbmNlIiwgImNvbmZpcm1lZF9zd2luZ19sb3dfc3RvcCIsCiAgICAgICAgInJzaSIsICJtYWNkIiwgImludmVzdG1lbnRfc2NvcmVfMTAwIiwgImVhcm5pbmdzX291dGxvb2tfY2hhbmdlIiwKICAgIF0KCiAgICB3aXRoIE9VVF9DU1Yub3BlbigidyIsIGVuY29kaW5nPSJ1dGYtOC1zaWciLCBuZXdsaW5lPSIiKSBhcyBmOgogICAgICAgIHcgPSBjc3YuRGljdFdyaXRlcihmLCBmaWVsZG5hbWVzPWNzdl9maWVsZHMpCiAgICAgICAgdy53cml0ZWhlYWRlcigpCiAgICAgICAgZm9yIHJvdyBpbiBpbnRlZ3JhdGVkX3Jvd3M6CiAgICAgICAgICAgIHBlcmYgPSByb3dbInByaWNlX3BlcmZvcm1hbmNlIl0KICAgICAgICAgICAgc3dpbmdfaW5mbyA9IHJvdy5nZXQoInN3aW5nIikgb3Ige30KICAgICAgICAgICAgbWEgPSByb3cuZ2V0KCJtYSIpIG9yIHt9CiAgICAgICAgICAgIHJ1biA9IHJvdy5nZXQoInJ1biIpIG9yIHt9CiAgICAgICAgICAgIHN0cmVhayA9IHJvdy5nZXQoInN0cmVhayIpIG9yIHt9CiAgICAgICAgICAgIHJzayA9IHJvdy5nZXQoInJzX2tvc3BpX3BwIikgb3Ige30KICAgICAgICAgICAgcnNzID0gcm93LmdldCgicnNfc2VjdG9yX3BwIikgb3Ige30KICAgICAgICAgICAgYmVuY2ggPSByb3cuZ2V0KCJzZWN0b3JfYmVuY2htYXJrIikgb3Ige30KICAgICAgICAgICAgYXRyID0gcm93LmdldCgiYXRyMTQiKSBvciB7fQogICAgICAgICAgICB0cmFpbGluZyA9IHJvdy5nZXQoInRyYWlsaW5nX3JlZmVyZW5jZSIpIG9yIHt9CgogICAgICAgICAgICBkZWYgbWFfZGlyKHBlcmlvZCk6CiAgICAgICAgICAgICAgICByZXR1cm4gKG1hLmdldChzdHIocGVyaW9kKSkgb3Ige30pLmdldCgiZGlyZWN0aW9uIikKCiAgICAgICAgICAgIHcud3JpdGVyb3coewogICAgICAgICAgICAgICAgImJhc2lzX2RhdGUiOiBiYXNpcywKICAgICAgICAgICAgICAgICJtYXJrZXQiOiByb3dbIm1hcmtldCJdLAogICAgICAgICAgICAgICAgInRpY2tlciI6IHJvd1sidGlja2VyIl0sCiAgICAgICAgICAgICAgICAibmFtZSI6IHJvd1sibmFtZSJdLAogICAgICAgICAgICAgICAgIm9mZmljaWFsX2Nsb3NlIjogcm93WyJvZmZpY2lhbF9jbG9zZSJdLAogICAgICAgICAgICAgICAgInJldHVybl8xd19wY3QiOiBOb25lLAogICAgICAgICAgICAgICAgInJldHVybl8xbV9wY3QiOiAocGVyZlsiMW0iXSBvciB7fSkuZ2V0KCJwY3QiKSwKICAgICAgICAgICAgICAgICJyZXR1cm5fM21fcGN0IjogKHBlcmZbIjNtIl0gb3Ige30pLmdldCgicGN0IiksCiAgICAgICAgICAgICAgICAicmV0dXJuXzZtX3BjdCI6IChwZXJmWyI2bSJdIG9yIHt9KS5nZXQoInBjdCIpLAogICAgICAgICAgICAgICAgInJldHVybl95dGRfcGN0IjogTm9uZSwKICAgICAgICAgICAgICAgICJyZXR1cm5fNTJ3X3BjdCI6IE5vbmUsCiAgICAgICAgICAgICAgICAic3dpbmdfcGhhc2UiOiBzd2luZ19pbmZvLmdldCgicGhhc2UiKSwKICAgICAgICAgICAgICAgICJzd2luZ19waGFzZV9rbyI6IHN3aW5nX2luZm8uZ2V0KCJwaGFzZV9rbyIpLAogICAgICAgICAgICAgICAgInN3aW5nX3Ryb3VnaF9kYXRlIjogc3dpbmdfaW5mby5nZXQoInRyb3VnaF9kYXRlIiksCiAgICAgICAgICAgICAgICAic3dpbmdfcGVha19kYXRlIjogc3dpbmdfaW5mby5nZXQoInBlYWtfZGF0ZSIpLAogICAgICAgICAgICAgICAgImZyb21fdHJvdWdoX3BjdCI6IHN3aW5nX2luZm8uZ2V0KCJmcm9tX3Ryb3VnaF9wY3QiKSwKICAgICAgICAgICAgICAgICJmcm9tX3BlYWtfcGN0Ijogc3dpbmdfaW5mby5nZXQoImZyb21fcGVha19wY3QiKSwKICAgICAgICAgICAgICAgICJtb21lbnR1bV81ZF9wY3QiOiBzd2luZ19pbmZvLmdldCgibW9tZW50dW1fNWRfcGN0IiksCiAgICAgICAgICAgICAgICAibWE1X2RpcmVjdGlvbiI6IG1hX2Rpcig1KSwKICAgICAgICAgICAgICAgICJtYTIwX2RpcmVjdGlvbiI6IG1hX2RpcigyMCksCiAgICAgICAgICAgICAgICAibWE2MF9kaXJlY3Rpb24iOiBtYV9kaXIoNjApLAogICAgICAgICAgICAgICAgIm1hMTIwX2RpcmVjdGlvbiI6IG1hX2RpcigxMjApLAogICAgICAgICAgICAgICAgIm1lYW5fcnVuX2RheXMiOiBydW4uZ2V0KCJhdmVyYWdlIiksCiAgICAgICAgICAgICAgICAic3RyZWFrX2RpcmVjdGlvbiI6IHN0cmVhay5nZXQoImRpcmVjdGlvbiIpLAogICAgICAgICAgICAgICAgInN0cmVha19kYXlzIjogc3RyZWFrLmdldCgiZGF5cyIpLAogICAgICAgICAgICAgICAgInN0cmVha19jaGFuZ2VfcGN0Ijogc3RyZWFrLmdldCgiY2hhbmdlX3BjdCIpLAogICAgICAgICAgICAgICAgInJzX2tvc3BpXzFtX3BwIjogcnNrLmdldCgiMSIpLAogICAgICAgICAgICAgICAgInJzX2tvc3BpXzNtX3BwIjogcnNrLmdldCgiMyIpLAogICAgICAgICAgICAgICAgInNlY3Rvcl9iZW5jaG1hcmtfdGlja2VyIjogYmVuY2guZ2V0KCJiZW5jaG1hcmtfdGlja2VyIiksCiAgICAgICAgICAgICAgICAic2VjdG9yX2JlbmNobWFya19uYW1lIjogYmVuY2guZ2V0KCJiZW5jaG1hcmtfbmFtZSIpLAogICAgICAgICAgICAgICAgInJzX3NlY3Rvcl8xbV9wcCI6IHJzcy5nZXQoIjEiKSwKICAgICAgICAgICAgICAgICJyc19zZWN0b3JfM21fcHAiOiByc3MuZ2V0KCIzIiksCiAgICAgICAgICAgICAgICAiYXRyMTRfcGN0IjogYXRyLmdldCgicGN0IiksCiAgICAgICAgICAgICAgICAiYXZnX2RhaWx5X3JhbmdlXzIwX3BjdCI6IHJvdy5nZXQoImF2Z19kYWlseV9yYW5nZV8yMF9wY3QiKSwKICAgICAgICAgICAgICAgICJtYTIwX3JlZmVyZW5jZSI6IHRyYWlsaW5nLmdldCgibWEyMF9jbG9zZV9sZXZlbCIpLAogICAgICAgICAgICAgICAgImNvbmZpcm1lZF9zd2luZ19sb3dfc3RvcCI6IE5vbmUsCiAgICAgICAgICAgICAgICAicnNpIjogTm9uZSwKICAgICAgICAgICAgICAgICJtYWNkIjogTm9uZSwKICAgICAgICAgICAgICAgICJpbnZlc3RtZW50X3Njb3JlXzEwMCI6IE5vbmUsCiAgICAgICAgICAgICAgICAiZWFybmluZ3Nfb3V0bG9va19jaGFuZ2UiOiBOb25lLAogICAgICAgICAgICB9KQoKICAgIG1ldGEgPSB7CiAgICAgICAgImNvbnRyYWN0X3ZlcnNpb24iOiBDT05UUkFDVF9WRVJTSU9OLAogICAgICAgICJzY3JpcHRfdmVyc2lvbiI6IFNDUklQVF9WRVJTSU9OLAogICAgICAgICJzdGF0dXMiOiAiUkVBRFlfU09VUkNFX09OTFkiLAogICAgICAgICJzb3VyY2Vfb25seSI6IFRydWUsCiAgICAgICAgInN0YW5kYWxvbmVfc3dpbmdfdGFibGVfZW5hYmxlZCI6IEZhbHNlLAogICAgICAgICJhY3Rpb25fcm91dGVfZW5hYmxlZCI6IEZhbHNlLAogICAgICAgICJyZXF1ZXN0X3RpbWVfcHJpY2VfZWxpZ2libGUiOiBGYWxzZSwKICAgICAgICAiYmFzaXNfZGF0ZSI6IGJhc2lzLAogICAgICAgICJyb3dfY291bnQiOiByb3dfY291bnQsCiAgICAgICAgIm1hcmtldF9jb3VudHMiOiBzZWN0b3IuZ2V0KCJtYXJrZXRfY291bnRzIiksCiAgICAgICAgInJldHVybl82bV9yZWFkeV9jb3VudCI6IHNpeG1fcmVhZHksCiAgICAgICAgInJldHVybl82bV9taXNzaW5nX2NvdW50Ijogc2l4bV9taXNzaW5nLAogICAgICAgICJrb3NwaV9zZWN0b3JfcnNfcmVhZHlfY291bnQiOiBrb3NwaV9zZWN0b3JfcmVhZHksCiAgICAgICAgImtvc2RhcV9zZWN0b3JfcnNfbnVsbF9jb3VudCI6IGtvc2RhcV9zZWN0b3JfbnVsbCwKICAgICAgICAicGVuZGluZ19tZXRyaWNzIjogUEVORElOR19LRVlTLAogICAgICAgICJtZXRyaWNfZ2xvc3NhcnlfdmVyc2lvbiI6IGdsb3NzYXJ5LmdldCgidmVyc2lvbiIpLAogICAgICAgICJtZXRyaWNfZ2xvc3NhcnlfZm9vdGVyX2tleSI6ICJjb21wYWN0X2Zvb3Rlcl90ZXh0IiwKICAgICAgICAic291cmNlX2xpbmVhZ2UiOiBwYXlsb2FkWyJzb3VyY2VfbGluZWFnZSJdLAogICAgICAgICJzb3VyY2Vfc2hhMjU2IjogcGF5bG9hZFsic291cmNlX3NoYTI1NiJdLAogICAgICAgICJzYWZldHkiOiBzYWZldHksCiAgICB9CiAgICB3cml0ZV9qc29uKE9VVF9NRVRBLCBtZXRhKQoKICAgIGxvZ19saW5lcyA9IFsKICAgICAgICAiVjg3Nl9JTlRFR1JBVEVEX1NXSU5HX1NPVVJDRV9TVEFUVVM9UkVBRFlfU09VUkNFX09OTFkiLAogICAgICAgIGYiQkFTSVNfREFURT17YmFzaXN9IiwKICAgICAgICBmIklOVEVHUkFURURfUk9XUz17cm93X2NvdW50fSIsCiAgICAgICAgZiJLT1NQSV9ST1dTPXtzZWN0b3IuZ2V0KCdtYXJrZXRfY291bnRzJywge30pLmdldCgnS09TUEknKX0iLAogICAgICAgIGYiS09TREFRX1JPV1M9e3NlY3Rvci5nZXQoJ21hcmtldF9jb3VudHMnLCB7fSkuZ2V0KCdLT1NEQVEnKX0iLAogICAgICAgIGYiUkVUVVJOXzZNX1JFQURZPXtzaXhtX3JlYWR5fSIsCiAgICAgICAgZiJSRVRVUk5fNk1fTUlTU0lORz17c2l4bV9taXNzaW5nfSIsCiAgICAgICAgZiJLT1NQSV9TRUNUT1JfUlNfUkVBRFk9e2tvc3BpX3NlY3Rvcl9yZWFkeX0iLAogICAgICAgIGYiS09TREFRX1NFQ1RPUl9SU19OVUxMPXtrb3NkYXFfc2VjdG9yX251bGx9IiwKICAgICAgICAiR0xPU1NBUllfRk9PVEVSX0tFWT1jb21wYWN0X2Zvb3Rlcl90ZXh0IiwKICAgICAgICAiR0xPU1NBUllfRk9PVEVSX1JFQURZPXRydWUiLAogICAgICAgICJSRVRVUk5fMVdfQ0FMQ1VMQVRFRD1mYWxzZSIsCiAgICAgICAgIlJFVFVSTl9ZVERfQ0FMQ1VMQVRFRD1mYWxzZSIsCiAgICAgICAgIlJFVFVSTl81MldfQ0FMQ1VMQVRFRD1mYWxzZSIsCiAgICAgICAgIlJTSV9DQUxDVUxBVEVEPWZhbHNlIiwKICAgICAgICAiTUFDRF9DQUxDVUxBVEVEPWZhbHNlIiwKICAgICAgICAiSU5WRVNUTUVOVF9TQ09SRV8xMDBfQ0FMQ1VMQVRFRD1mYWxzZSIsCiAgICAgICAgIkVBUk5JTkdTX09VVExPT0tfQ0hBTkdFX0NBTENVTEFURUQ9ZmFsc2UiLAogICAgICAgICJDT05GSVJNRURfU1dJTkdfTE9XX1NUT1BfQ0FMQ1VMQVRFRD1mYWxzZSIsCiAgICAgICAgIktPU0RBUV9TRUNUT1JfTUFQUElOR19JTlZFTlRFRD1mYWxzZSIsCiAgICAgICAgIlNUQU5EQUxPTkVfU1dJTkdfVEFCTEVfRU5BQkxFRD1mYWxzZSIsCiAgICAgICAgIkFDVElPTl9ST1VURV9FTkFCTEVEPWZhbHNlIiwKICAgICAgICAiUFJPRFVDVElPTl9UQUJMRV9DSEFOR0VEPWZhbHNlIiwKICAgICAgICAiV09SS0VSX1NPVVJDRV9DSEFOR0VEPWZhbHNlIiwKICAgICAgICAiTUVUUklDX0ZPUk1VTEFfQ0hBTkdFRD1mYWxzZSIsCiAgICAgICAgIlJFUVVFU1RfVElNRV9QUklDRV9TVUJTVElUVVRJT049ZmFsc2UiLAogICAgICAgICJWODc2X0lOVEVHUkFURURfU1dJTkdfU09VUkNFX1ZBTElEQVRJT049UEFTUyIsCiAgICBdCiAgICBPVVRfTE9HLndyaXRlX3RleHQoIlxuIi5qb2luKGxvZ19saW5lcykgKyAiXG4iLCBlbmNvZGluZz0idXRmLTgiKQogICAgcHJpbnQoIlxuIi5qb2luKGxvZ19saW5lcykpCgppZiBfX25hbWVfXyA9PSAiX19tYWluX18iOgogICAgbWFpbigpCg=="
-          CONTRACT_B64: "IyBWOC43LjYg64+F66a9IOyKpOycmSDthrXtlakgc291cmNlLW9ubHkg6rOE7JW9CgrrsoTsoIQ6IGAyMDI2LTA5LTEyLXY4LjcuNi1zdGFuZGFsb25lLXN3aW5nLWludGVncmF0ZWQtc291cmNlYAoK7IOB7YOcOiBgU09VUkNFX09OTFkgLyBUQUJMRV9ESVNBQkxFRCAvIEFDVElPTl9ESVNBQkxFRGAKCiMjIOuqqeyggQoK7ZiE7J6s6rmM7KeAIOqygOymneuQnCDrj4Xrpr0g7Iqk7JyZIOq0gOugqCBzb3VyY2Xrpbwg7KKF66qp67OEIO2VmOuCmOydmCDthrXtlakg6rCd7LK066GcIOqysO2Vqe2VnOuLpC4KCuyeheugpToKCi0gYGxhdGVzdC9zdGFuZGFsb25lX3N3aW5nX3NvdXJjZV9sYXRlc3QuanNvbmAKLSBgbGF0ZXN0L3N0YW5kYWxvbmVfc3dpbmdfZXh0ZW5kZWRfcmV0dXJuc19sYXRlc3QuanNvbmAKLSBgbGF0ZXN0L3N0YW5kYWxvbmVfc3dpbmdfc2VjdG9yX3JzX2xhdGVzdC5qc29uYAotIGBsYXRlc3Qvc3RvY2tfdGFibGVfbWV0cmljX2dsb3NzYXJ5X2xhdGVzdC5qc29uYAoK7J2067KIIOuLqOqzhOuKlCDsg4gg7ZGcwrdBY3Rpb27Ct1dvcmtlciDqsr3roZzrpbwg7Zmc7ISx7ZmU7ZWY7KeAIOyViuuKlOuLpC4KCiMjIO2Gte2VqeuQmOuKlCDtmZXsoJUg7ZWt66qpCgotIOyiheuqqeuqhcK37KKF66qp7L2U65Ocwrfsi5zsnqXCt+qzteyLneyiheqwgMK36riw7KSA7J28Ci0gMU3CtzNNIO2ZleyglSDsnbzrtIkg7IiY7J2166WgCi0gNk0g7IiY7J2166WgCi0g7YGwIOyKpOycmSDsg4Htg5wKLSB0cm91Z2gvcGVhayDrgqDsp5wKLSDsoIDsoJDCt+qzoOygkCDrjIDruYQg7ZiE7J6sIOychOy5mAotIDXqsbDrnpjsnbwg66qo66mY7YWACi0gTUE1LzIwLzYwLzEyMCDqsJLCt+uwqe2WpQotIO2Pieq3oOuTseudveydvOyImAotIO2YhOyerCDsl7Dsho3rk7Hrnb0g7J287IiYwrfriITsoIHrk7Hrnb3rpaAKLSBLT1NQSSDrjIDruYQgMU0vM00gUlMKLSBLT1NQSSDsooXrqqnsnZgg6rO17IudIEtSWCDsl4XsooVSUyAxTS8zTQotIEFUUjE0Ci0gMjDsnbwg7Y+J6regIOydvOykkeqzoOyggO2PrQotIDPqsJzsm5Qg6rOg6rCAwrfsoIDqsIAg67KU7JyECi0gTUEyMCDssLjqs6DshKAKLSAyLjQg7KGw6rG0IOydvOy5mCDsl6zrtoAKLSDtlbXsi6wg7Jqp7Ja0IGdsb3NzYXJ5IGZvb3RlcgoKIyMg7Iuc7J6l67OEIOyXheyihVJTCgpLT1NQSToKLSBWOC43LjUgc291cmNlIOqwkuydhCDsgqzsmqntlZzri6QuCi0g7ZiE7J6sIHNvdXJjZSDrjIDsg4EgS09TUEkg7KKF66qp7J2AIOuqqOuRkCBSRUFEWeyXrOyVvCDtlZzri6QuCgpLT1NEQVE6Ci0g7ZiE7J6sIOqzteyLnSDqs4Tslb3snbQgS09TUEkg6riw7KSA7J2066+A66GcIOyXheyihVJT64qUIG51bGzsnYQg7Jyg7KeA7ZWc64ukLgotIOyDiCDrp6TtlZEg6rec7LmZ7J2EIOyehOydmCDsg53shLHtlZjsp4Ag7JWK64qU64ukLgoKIyMg6rOE7IaNIOuvuOqzhOyCsAoK6rO17IudIOqzhOyCsOqzhOyVvSDrmJDripQg7JuQ7LKcIOyGjOyKpOqwgCDslYTsp4Eg67aA7KGx7ZWcIOuLpOydjCDtla3rqqnsnYAg66qo65GQIG51bGzsnbTri6QuCgotIDFXIOyImOydteuloAotIFlURCDsiJjsnbXrpaAKLSA1Mlcg7IiY7J2166WgCi0gUlNJCi0gTUFDRAotIO2IrOyekOyihe2VqeygkOyImDEwMAotIOyLpOyggeyghOunnSDrs4DtmZQKLSDtmZXsoJUg7Iqk7JyZ7KCA7KCQIOq4sOuwmCDstpTsoIHshpDsoIgKCiMjIDZNIOyekOujjCDrtoDsobEKCjZN7J2AIOq4sOyhtCDsm5Qg64uo7JyEIOyImOydteuloCDqs4Tslb3snYQg7ZmV7J6l7ZW0IOqzhOyCsO2VnOuLpC4KCuyDgeyepSDsnbTroKXsnbQg67aA7KGx7ZWcIOyiheuqqeydgCDquLDsobQgc291cmNl7J2YIOyDge2DnOqwkuydhCDqt7jrjIDroZwg7Jyg7KeA7ZWY66mwIOyehOydmCDrs7TqsITtlZjsp4Ag7JWK64qU64ukLgoKIyMgZ2xvc3NhcnkKCmBsYXRlc3Qvc3RvY2tfdGFibGVfbWV0cmljX2dsb3NzYXJ5X2xhdGVzdC5qc29uYOydmCDsi6TsoJwg7YKkOgoKYGNvbXBhY3RfZm9vdGVyX3RleHRgCgrrpbwg7IKs7Jqp7ZWc64ukLgoKIyMg7JWI7KCEIOq3nOy5mQoKLSBgc291cmNlX29ubHk9dHJ1ZWAKLSBgc3RhbmRhbG9uZV9zd2luZ190YWJsZV9lbmFibGVkPWZhbHNlYAotIGBhY3Rpb25fcm91dGVfZW5hYmxlZD1mYWxzZWAKLSBgcmVxdWVzdF90aW1lX3ByaWNlX2VsaWdpYmxlPWZhbHNlYAotIOq4sOyhtCBwcm9kdWN0aW9uIOuRkO2RnCBKU09OIOyImOyglSDquIjsp4AKLSBXb3JrZXIg7IiY7KCVIOq4iOyngAotIOq4sOyhtCDsp4DtkZwg6rOE7IKw7IudIOyImOyglSDquIjsp4AKLSDsmpTssq3si5zsoJAg7ZiE7J6s6rCAIOyLpO2MqCDsi5wg7KCV7KCBIOyiheqwgCDrjIDssrQg6riI7KeACi0g66+47KCc6rO1IOyngO2RnCDsnoTsnZgg6rOE7IKwIOq4iOyngAotIOuLpOyXtCDroIjsnbTslYTsm4PCt+y1nOyihSDtlZzquIAg7Jqp7Ja0IOygleumrOuKlCDtlITroZzsoJ3tirgg66eI7KeA66eJIOuLqOqzhOuhnCDrgqjquLTri6QuCg=="
-        run: |
-          set -euo pipefail
           python - <<'PY'
-          import base64, os
+          from __future__ import annotations
+
+          import json
           from pathlib import Path
-          Path("standalone_swing_integrated_v876.py").write_bytes(
-              base64.b64decode(os.environ["BUILDER_B64"])
+
+          SOURCE = Path("latest/standalone_swing_integrated_latest.json")
+          META = Path("latest/standalone_swing_integrated_meta_latest.json")
+          OUT = Path("/tmp/v877_integrated_swing_preview")
+          OUT.mkdir(parents=True, exist_ok=True)
+
+          if not SOURCE.is_file() or not META.is_file():
+              raise SystemExit("V876_INTEGRATED_SOURCE_MISSING")
+
+          source = json.loads(SOURCE.read_text(encoding="utf-8-sig"))
+          meta = json.loads(META.read_text(encoding="utf-8-sig"))
+
+          if source.get("status") != "READY_SOURCE_ONLY":
+              raise SystemExit("V876_SOURCE_NOT_READY")
+          if meta.get("status") != "READY_SOURCE_ONLY":
+              raise SystemExit("V876_META_NOT_READY")
+          if source.get("source_only") is not True:
+              raise SystemExit("V876_NOT_SOURCE_ONLY")
+          if source.get("standalone_swing_table_enabled") is not False:
+              raise SystemExit("TABLE_ALREADY_ENABLED_UNEXPECTEDLY")
+          if source.get("action_route_enabled") is not False:
+              raise SystemExit("ACTION_ALREADY_ENABLED_UNEXPECTEDLY")
+
+          rows = source.get("rows") or []
+          if len(rows) != int(source.get("row_count") or 0):
+              raise SystemExit("SOURCE_ROW_COUNT_MISMATCH")
+
+          basis = source.get("basis_date")
+          if not basis or meta.get("basis_date") != basis:
+              raise SystemExit("BASIS_MISMATCH")
+
+          pending_expected = {
+              "return_1w", "return_ytd", "return_52w",
+              "rsi", "macd", "investment_score_100",
+              "earnings_outlook_change", "confirmed_swing_low_stop",
+          }
+          if set(source.get("pending_metrics") or []) != pending_expected:
+              raise SystemExit("PENDING_CONTRACT_MISMATCH")
+
+          counts = {
+              "total": len(rows),
+              "KOSPI": 0,
+              "KOSDAQ": 0,
+              "return_1m_ready": 0,
+              "return_3m_ready": 0,
+              "return_6m_ready": 0,
+              "return_6m_missing": 0,
+              "swing_ready": 0,
+              "ma_5_20_60_120_ready": 0,
+              "atr14_ready": 0,
+              "mean_run_ready": 0,
+              "streak_ready": 0,
+              "rs_kospi_ready": 0,
+              "rs_sector_ready": 0,
+              "rs_sector_missing": 0,
+              "ma20_reference_ready": 0,
+              "confirmed_stop_ready": 0,
+              "pending_contract_violations": 0,
+          }
+
+          # The eventual standalone analysis is a per-stock response, not a 235-row
+          # transport. Simulate one safe detail payload per ticker and record size.
+          max_single_payload_bytes = 0
+          max_single_payload_ticker = None
+
+          preview_rows = []
+          for row in rows:
+              market = row.get("market")
+              if market not in ("KOSPI", "KOSDAQ"):
+                  raise SystemExit("UNKNOWN_MARKET:" + str(market))
+              counts[market] += 1
+
+              perf = row.get("price_performance") or {}
+              if (perf.get("1m") or {}).get("status") == "OK":
+                  counts["return_1m_ready"] += 1
+              if (perf.get("3m") or {}).get("status") == "OK":
+                  counts["return_3m_ready"] += 1
+              if (perf.get("6m") or {}).get("status") == "OK":
+                  counts["return_6m_ready"] += 1
+              else:
+                  counts["return_6m_missing"] += 1
+
+              swing = row.get("swing") or {}
+              if swing.get("phase") and swing.get("phase_ko"):
+                  counts["swing_ready"] += 1
+
+              ma = row.get("ma") or {}
+              if all(
+                  (ma.get(str(p)) or {}).get("value") is not None
+                  and (ma.get(str(p)) or {}).get("direction") is not None
+                  for p in (5, 20, 60, 120)
+              ):
+                  counts["ma_5_20_60_120_ready"] += 1
+
+              atr = row.get("atr14") or {}
+              if atr.get("pct") is not None:
+                  counts["atr14_ready"] += 1
+
+              run = row.get("run") or {}
+              if run.get("average") is not None:
+                  counts["mean_run_ready"] += 1
+
+              streak = row.get("streak") or {}
+              if streak.get("direction") is not None and streak.get("days") is not None:
+                  counts["streak_ready"] += 1
+
+              rsk = row.get("rs_kospi_pp") or {}
+              if rsk.get("1") is not None and rsk.get("3") is not None:
+                  counts["rs_kospi_ready"] += 1
+
+              rss = row.get("rs_sector_pp") or {}
+              if rss.get("1") is not None and rss.get("3") is not None:
+                  counts["rs_sector_ready"] += 1
+              else:
+                  counts["rs_sector_missing"] += 1
+
+              trailing = row.get("trailing_reference") or {}
+              if trailing.get("ma20_close_level") is not None:
+                  counts["ma20_reference_ready"] += 1
+              if trailing.get("confirmed_swing_low_stop") is not None:
+                  counts["confirmed_stop_ready"] += 1
+
+              pending = row.get("pending_metrics") or {}
+              if set(pending) != pending_expected or any(v is not None for v in pending.values()):
+                  counts["pending_contract_violations"] += 1
+
+              if perf.get("1w") is not None or perf.get("ytd") is not None or perf.get("52w") is not None:
+                  counts["pending_contract_violations"] += 1
+
+              detail = {
+                  "status": "READY_PREVIEW_ONLY",
+                  "basis_date": basis,
+                  "name": row.get("name"),
+                  "ticker": row.get("ticker"),
+                  "market": market,
+                  "request_time_price": None,
+                  "request_time_price_status": "ACTION_NOT_ENABLED",
+                  "official_close": row.get("official_close"),
+                  "price_performance": {
+                      "1w": None,
+                      "1m": perf.get("1m"),
+                      "3m": perf.get("3m"),
+                      "6m": perf.get("6m"),
+                      "ytd": None,
+                      "52w": None,
+                  },
+                  "swing": swing,
+                  "ma": ma,
+                  "run": run,
+                  "streak": streak,
+                  "rs_kospi_pp": rsk,
+                  "sector_benchmark": row.get("sector_benchmark"),
+                  "rs_sector_pp": rss,
+                  "atr14": atr,
+                  "avg_daily_range_20_pct": row.get("avg_daily_range_20_pct"),
+                  "range_3m": row.get("range_3m"),
+                  "trailing_reference": {
+                      "ma20_close_level": trailing.get("ma20_close_level"),
+                      "below_ma20_at_official_close": trailing.get("below_ma20_at_official_close"),
+                      "confirmed_swing_low_stop": None,
+                      "status": trailing.get("status"),
+                  },
+                  "pending_metrics": {k: None for k in sorted(pending_expected)},
+                  "metric_glossary_footer": source.get("metric_glossary_footer"),
+              }
+
+              size = len(
+                  json.dumps(detail, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+              )
+              if size > max_single_payload_bytes:
+                  max_single_payload_bytes = size
+                  max_single_payload_ticker = row.get("ticker")
+
+              preview_rows.append(detail)
+
+          if counts["pending_contract_violations"] != 0:
+              raise SystemExit(
+                  "PENDING_CONTRACT_VIOLATION_COUNT="
+                  + str(counts["pending_contract_violations"])
+              )
+          if counts["confirmed_stop_ready"] != 0:
+              raise SystemExit("CONFIRMED_STOP_SHOULD_BE_ZERO")
+          if counts["KOSPI"] != int((source.get("market_counts") or {}).get("KOSPI") or 0):
+              raise SystemExit("KOSPI_COUNT_MISMATCH")
+          if counts["KOSDAQ"] != int((source.get("market_counts") or {}).get("KOSDAQ") or 0):
+              raise SystemExit("KOSDAQ_COUNT_MISMATCH")
+          if counts["return_6m_ready"] != int(source.get("return_6m_ready_count") or 0):
+              raise SystemExit("RETURN_6M_READY_MISMATCH")
+          if counts["rs_sector_ready"] != int(source.get("kospi_sector_rs_ready_count") or 0):
+              raise SystemExit("SECTOR_RS_READY_MISMATCH")
+          if counts["rs_sector_missing"] != int(source.get("kosdaq_sector_rs_null_count") or 0):
+              raise SystemExit("SECTOR_RS_MISSING_MISMATCH")
+
+          coverage = {
+              key: round(100.0 * value / counts["total"], 2)
+              for key, value in counts.items()
+              if key not in ("total", "KOSPI", "KOSDAQ", "pending_contract_violations")
+          }
+
+          readiness = {
+              "version": "2026-09-12-v8.7.7-integrated-standalone-swing-preview",
+              "status": "READY_PREVIEW_ONLY",
+              "repository_write": False,
+              "production_change": False,
+              "worker_change": False,
+              "action_route_enabled": False,
+              "standalone_swing_table_enabled": False,
+              "command_name_defined": False,
+              "final_header_selected": False,
+              "request_time_price_live_tested": False,
+              "basis_date": basis,
+              "row_count": counts["total"],
+              "market_counts": {
+                  "KOSPI": counts["KOSPI"],
+                  "KOSDAQ": counts["KOSDAQ"],
+              },
+              "ready_counts": counts,
+              "coverage_pct": coverage,
+              "max_single_stock_preview_payload_bytes": max_single_payload_bytes,
+              "max_single_stock_preview_payload_ticker": max_single_payload_ticker,
+              "production_candidate_fields": [
+                  "basic_identity",
+                  "official_close",
+                  "return_1m",
+                  "return_3m",
+                  "return_6m_with_short_history_missing",
+                  "swing_phase_and_anchors",
+                  "ma_5_20_60_120",
+                  "mean_run_days",
+                  "current_streak",
+                  "rs_kospi_1m_3m",
+                  "rs_sector_1m_3m_kospi_only",
+                  "atr14",
+                  "avg_daily_range_20_pct",
+                  "range_3m",
+                  "ma20_reference_only",
+                  "metric_glossary_footer",
+              ],
+              "not_ready_for_production_fields": [
+                  "return_1w",
+                  "return_ytd",
+                  "return_52w",
+                  "rsi",
+                  "macd",
+                  "investment_score_100",
+                  "earnings_outlook_change",
+                  "confirmed_swing_low_stop",
+                  "kosdaq_sector_rs",
+              ],
+              "activation_blockers": [
+                  "NO_FINAL_STANDALONE_TABLE_HEADER_CONTRACT",
+                  "NO_STANDALONE_ACTION_COMMAND_OR_ROUTE_CONTRACT",
+                  "REQUEST_TIME_PRICE_PATH_NOT_YET_WIRED_TO_STANDALONE_TABLE",
+                  "1W_YTD_52W_FORMULAS_NOT_APPROVED",
+                  "RSI_MACD_FORMULAS_NOT_APPROVED",
+                  "CONFIRMED_SWING_LOW_STOP_POLICY_NOT_DEFINED",
+                  "INVESTMENT_SCORE_THRESHOLDS_NOT_DEFINED",
+                  "EARNINGS_OUTLOOK_SOURCE_NOT_CONNECTED",
+                  "KOSDAQ_OFFICIAL_SECTOR_RS_CONTRACT_NOT_DEFINED",
+              ],
+              "metric_glossary_footer": source.get("metric_glossary_footer"),
+              "source_contract_version": source.get("contract_version"),
+              "source_lineage": source.get("source_lineage"),
+              "safety": {
+                  "pending_metrics_null": True,
+                  "confirmed_stop_null": True,
+                  "future_swing_prediction_generated": False,
+                  "request_time_price_substitution": False,
+                  "repository_write": False,
+                  "production_change": False,
+                  "worker_change": False,
+              },
+          }
+
+          (OUT / "standalone-swing-readiness-v877.json").write_text(
+              json.dumps(readiness, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+              encoding="utf-8",
           )
-          Path("docs/standalone_swing_integrated_contract_v876.md").write_bytes(
-              base64.b64decode(os.environ["CONTRACT_B64"])
+
+          # Save a compact sample: 10 KOSPI + all available first 5 KOSDAQ names.
+          kospi_sample = [r for r in preview_rows if r["market"] == "KOSPI"][:10]
+          kosdaq_sample = [r for r in preview_rows if r["market"] == "KOSDAQ"][:5]
+          sample = kospi_sample + kosdaq_sample
+          (OUT / "standalone-swing-sample-v877.json").write_text(
+              json.dumps(
+                  {
+                      "status": "READY_PREVIEW_ONLY",
+                      "basis_date": basis,
+                      "sample_count": len(sample),
+                      "rows": sample,
+                  },
+                  ensure_ascii=False,
+                  indent=2,
+                  allow_nan=False,
+              ) + "\n",
+              encoding="utf-8",
           )
+
+          def pct(v):
+              return "자료 미제공" if v is None else f"{v:.2f}%"
+
+          def pp(v):
+              return "자료 미제공" if v is None else f"{v:+.2f}%p"
+
+          md = [
+              "# V8.7.7 독립 종목 스윙추세분석 최종 직전 Preview",
+              "",
+              f"- 기준일: {basis}",
+              f"- source 종목: {counts['total']} (KOSPI {counts['KOSPI']} / KOSDAQ {counts['KOSDAQ']})",
+              f"- 1M 수익률 준비: {counts['return_1m_ready']}/{counts['total']}",
+              f"- 3M 수익률 준비: {counts['return_3m_ready']}/{counts['total']}",
+              f"- 6M 수익률 준비: {counts['return_6m_ready']}/{counts['total']}",
+              f"- 스윙 상태 준비: {counts['swing_ready']}/{counts['total']}",
+              f"- MA5/20/60/120 준비: {counts['ma_5_20_60_120_ready']}/{counts['total']}",
+              f"- ATR14 준비: {counts['atr14_ready']}/{counts['total']}",
+              f"- KOSPI 대비 RS 준비: {counts['rs_kospi_ready']}/{counts['total']}",
+              f"- 업종RS 준비: {counts['rs_sector_ready']}/{counts['total']} (KOSPI 전체)",
+              f"- 업종RS 미지원: {counts['rs_sector_missing']}/{counts['total']} (KOSDAQ)",
+              f"- 확정 스윙저점 손절: {counts['confirmed_stop_ready']}/{counts['total']} — 미제공 유지",
+              f"- 최대 단일종목 Preview payload: {max_single_payload_bytes} bytes ({max_single_payload_ticker})",
+              "",
+              "## 운영 후보로 바로 쓸 수 있는 항목",
+              "",
+              "- 기본정보: 종목명·종목코드·시장·기준일·공식종가",
+              "- 가격성과: 1M·3M·6M(상장이력 부족 시 자료 미제공)",
+              "- 스윙: 상태·저점/고점 근거일·저점/고점 대비 현재 위치·5거래일 모멘텀",
+              "- 추세: MA5/20/60/120 값·방향",
+              "- 연속등락: 평균등락일수·현재 연속방향·일수·누적등락률",
+              "- 상대강도: KOSPI 대비 1M/3M, KOSPI 종목 공식 업종RS 1M/3M",
+              "- 변동성: ATR14·20일 평균 일중고저폭",
+              "- 참고선: MA20 참고선(주문가격 아님)",
+              "",
+              "## 아직 운영 승격하면 안 되는 항목",
+              "",
+              "- 1W·YTD·52W 수익률",
+              "- RSI·MACD",
+              "- 투자종합점수100",
+              "- 실적전망 변화",
+              "- 확정 스윙저점 기반 추적손절",
+              "- KOSDAQ 공식 업종RS",
+              "",
+              "## 실제 표시형 샘플",
+              "",
+              "|종목|시장|1M|3M|6M|스윙|MA20|KOSPI RS 1M|업종RS 1M|ATR14|연속등락|",
+              "|---|---|---:|---:|---:|---|---|---:|---:|---:|---|",
+          ]
+
+          for r in sample:
+              perf = r["price_performance"]
+              swing = r["swing"] or {}
+              ma20 = (r["ma"].get("20") or {})
+              rsk = r["rs_kospi_pp"] or {}
+              rss = r["rs_sector_pp"] or {}
+              atr = r["atr14"] or {}
+              streak = r["streak"] or {}
+
+              six = perf.get("6m") or {}
+              six_pct = six.get("pct") if six.get("status") == "OK" else None
+
+              streak_text = (
+                  f"{'상승' if streak.get('direction') == 1 else '하락' if streak.get('direction') == -1 else '보합'} "
+                  f"{streak.get('days')}일 / {pct(streak.get('change_pct'))}"
+              )
+
+              md.append(
+                  f"|{r['name']}({r['ticker']})|{r['market']}|"
+                  f"{pct((perf.get('1m') or {}).get('pct'))}|"
+                  f"{pct((perf.get('3m') or {}).get('pct'))}|"
+                  f"{pct(six_pct)}|"
+                  f"{swing.get('phase_ko') or '자료 미제공'}|"
+                  f"{ma20.get('direction')}|"
+                  f"{pp(rsk.get('1'))}|"
+                  f"{pp(rss.get('1'))}|"
+                  f"{pct(atr.get('pct'))}|"
+                  f"{streak_text}|"
+              )
+
+          md += [
+              "",
+              source.get("metric_glossary_footer") or "",
+              "",
+              "※ 스윙은 확정 일봉의 과거 상태 분류이며 미래 포물선 예측이 아닙니다.",
+              "※ MA20은 확정 스윙저점 손절이 없을 때 참고선일 뿐 주문가격·보장 손절가격이 아닙니다.",
+              "※ 이 Preview는 최종 헤더·명령어·Action 경로를 확정하지 않습니다.",
+          ]
+
+          (OUT / "standalone-swing-preview-v877.md").write_text(
+              "\n".join(md) + "\n",
+              encoding="utf-8",
+          )
+
+          print("V877_STANDALONE_SWING_PREVIEW=READY_PREVIEW_ONLY")
+          print("BASIS_DATE=" + str(basis))
+          print("PREVIEW_ROWS=" + str(counts["total"]))
+          print("KOSPI_ROWS=" + str(counts["KOSPI"]))
+          print("KOSDAQ_ROWS=" + str(counts["KOSDAQ"]))
+          print("RETURN_1M_READY=" + str(counts["return_1m_ready"]))
+          print("RETURN_3M_READY=" + str(counts["return_3m_ready"]))
+          print("RETURN_6M_READY=" + str(counts["return_6m_ready"]))
+          print("SWING_READY=" + str(counts["swing_ready"]))
+          print("MA_FULL_READY=" + str(counts["ma_5_20_60_120_ready"]))
+          print("ATR14_READY=" + str(counts["atr14_ready"]))
+          print("RS_KOSPI_READY=" + str(counts["rs_kospi_ready"]))
+          print("RS_SECTOR_READY=" + str(counts["rs_sector_ready"]))
+          print("RS_SECTOR_MISSING=" + str(counts["rs_sector_missing"]))
+          print("CONFIRMED_STOP_READY=" + str(counts["confirmed_stop_ready"]))
+          print("PENDING_CONTRACT_VIOLATIONS=" + str(counts["pending_contract_violations"]))
+          print("MAX_SINGLE_STOCK_PREVIEW_PAYLOAD_BYTES=" + str(max_single_payload_bytes))
+          print("COMMAND_NAME_DEFINED=false")
+          print("FINAL_HEADER_SELECTED=false")
+          print("REQUEST_TIME_PRICE_LIVE_TESTED=false")
+          print("ACTION_ROUTE_ENABLED=false")
+          print("PRODUCTION_ACTIVATION=false")
+          print("REPOSITORY_WRITE=false")
+          print("PRODUCTION_CHANGE=false")
+          print("WORKER_CHANGE=false")
+          print("REQUEST_TIME_PRICE_SUBSTITUTION=false")
           PY
 
-          python -m py_compile standalone_swing_integrated_v876.py
-          echo "V876_SOURCE_RESTORE=PASS"
-
-      - name: Build integrated source-only cache
+      - name: Validate preview safety
         shell: bash
         run: |
           set -euo pipefail
 
-          python standalone_swing_integrated_v876.py | tee /tmp/v876.log
+          test -f /tmp/v877_integrated_swing_preview/standalone-swing-readiness-v877.json
+          test -f /tmp/v877_integrated_swing_preview/standalone-swing-sample-v877.json
+          test -f /tmp/v877_integrated_swing_preview/standalone-swing-preview-v877.md
 
-          grep -q '^V876_INTEGRATED_SWING_SOURCE_STATUS=READY_SOURCE_ONLY$' /tmp/v876.log
-          grep -q '^GLOSSARY_FOOTER_READY=true$' /tmp/v876.log
-          grep -q '^RETURN_1W_CALCULATED=false$' /tmp/v876.log
-          grep -q '^RETURN_YTD_CALCULATED=false$' /tmp/v876.log
-          grep -q '^RETURN_52W_CALCULATED=false$' /tmp/v876.log
-          grep -q '^RSI_CALCULATED=false$' /tmp/v876.log
-          grep -q '^MACD_CALCULATED=false$' /tmp/v876.log
-          grep -q '^INVESTMENT_SCORE_100_CALCULATED=false$' /tmp/v876.log
-          grep -q '^EARNINGS_OUTLOOK_CHANGE_CALCULATED=false$' /tmp/v876.log
-          grep -q '^CONFIRMED_SWING_LOW_STOP_CALCULATED=false$' /tmp/v876.log
-          grep -q '^KOSDAQ_SECTOR_MAPPING_INVENTED=false$' /tmp/v876.log
-          grep -q '^STANDALONE_SWING_TABLE_ENABLED=false$' /tmp/v876.log
-          grep -q '^ACTION_ROUTE_ENABLED=false$' /tmp/v876.log
-          grep -q '^PRODUCTION_TABLE_CHANGED=false$' /tmp/v876.log
-          grep -q '^WORKER_SOURCE_CHANGED=false$' /tmp/v876.log
-          grep -q '^METRIC_FORMULA_CHANGED=false$' /tmp/v876.log
-          grep -q '^REQUEST_TIME_PRICE_SUBSTITUTION=false$' /tmp/v876.log
-          grep -q '^V876_INTEGRATED_SWING_SOURCE_VALIDATION=PASS$' /tmp/v876.log
-
-      - name: Validate integrated contract
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          python - <<'PY' | tee /tmp/v876-validate.log
+          python - <<'PY'
           import json
           from pathlib import Path
 
           p = json.loads(
-              Path("latest/standalone_swing_integrated_latest.json")
-              .read_text(encoding="utf-8")
-          )
-          m = json.loads(
-              Path("latest/standalone_swing_integrated_meta_latest.json")
+              Path("/tmp/v877_integrated_swing_preview/standalone-swing-readiness-v877.json")
               .read_text(encoding="utf-8")
           )
 
-          assert p["status"] == "READY_SOURCE_ONLY"
-          assert m["status"] == "READY_SOURCE_ONLY"
-          assert p["source_only"] is True and m["source_only"] is True
-          assert p["standalone_swing_table_enabled"] is False
-          assert m["standalone_swing_table_enabled"] is False
+          assert p["status"] == "READY_PREVIEW_ONLY"
+          assert p["repository_write"] is False
+          assert p["production_change"] is False
+          assert p["worker_change"] is False
           assert p["action_route_enabled"] is False
-          assert m["action_route_enabled"] is False
-          assert p["request_time_price_eligible"] is False
-          assert p["row_count"] == m["row_count"]
-          assert p["row_count"] == p["market_counts"]["KOSPI"] + p["market_counts"]["KOSDAQ"]
-          assert p["return_6m_ready_count"] + p["return_6m_missing_count"] == p["row_count"]
-          assert p["kospi_sector_rs_ready_count"] == p["market_counts"]["KOSPI"]
-          assert p["kosdaq_sector_rs_null_count"] == p["market_counts"]["KOSDAQ"]
+          assert p["standalone_swing_table_enabled"] is False
+          assert p["command_name_defined"] is False
+          assert p["final_header_selected"] is False
+          assert p["request_time_price_live_tested"] is False
+          assert p["ready_counts"]["pending_contract_violations"] == 0
+          assert p["ready_counts"]["confirmed_stop_ready"] == 0
+          assert p["ready_counts"]["return_1m_ready"] == p["row_count"]
+          assert p["ready_counts"]["return_3m_ready"] == p["row_count"]
+          assert p["ready_counts"]["swing_ready"] == p["row_count"]
+          assert p["ready_counts"]["rs_sector_ready"] == p["market_counts"]["KOSPI"]
+          assert p["ready_counts"]["rs_sector_missing"] == p["market_counts"]["KOSDAQ"]
           assert p["metric_glossary_footer"].startswith("읽는 법:")
+          assert p["max_single_stock_preview_payload_bytes"] < 30000
 
-          expected_pending = {
-              "return_1w", "return_ytd", "return_52w", "rsi", "macd",
-              "investment_score_100", "earnings_outlook_change",
-              "confirmed_swing_low_stop",
-          }
-          assert set(p["pending_metrics"]) == expected_pending
-
-          for row in p["rows"]:
-              assert set(row["pending_metrics"]) == expected_pending
-              assert all(v is None for v in row["pending_metrics"].values())
-              assert row["price_performance"]["1w"] is None
-              assert row["price_performance"]["ytd"] is None
-              assert row["price_performance"]["52w"] is None
-              assert row["trailing_reference"]["confirmed_swing_low_stop"] is None
-              if row["market"] == "KOSPI":
-                  assert row["rs_sector_pp"]["1"] is not None
-                  assert row["rs_sector_pp"]["3"] is not None
-                  assert row["sector_benchmark"] is not None
-              else:
-                  assert row["market"] == "KOSDAQ"
-                  assert row["rs_sector_pp"] == {"1": None, "3": None}
-                  assert row["sector_benchmark"] is None
-
-          s = p["safety"]
-          assert s["standalone_swing_table_enabled"] is False
-          assert s["action_route_enabled"] is False
-          assert s["production_table_changed"] is False
-          assert s["worker_changed"] is False
-          assert s["metric_formula_changed"] is False
-          assert s["request_time_price_substitution"] is False
-
-          print("V876_INTEGRATED_CONTRACT=PASS")
-          print("V876_TICKER_SET_ALIGNMENT=PASS")
-          print("V876_PENDING_METRICS_NULL=PASS")
-          print("V876_KOSPI_SECTOR_RS_READY=PASS")
-          print("V876_KOSDAQ_SECTOR_RS_NULL=PASS")
-          print("V876_GLOSSARY_FOOTER=PASS")
+          print("V877_SOURCE_READINESS=PASS")
+          print("V877_PENDING_NULL_GUARD=PASS")
+          print("V877_SINGLE_STOCK_PAYLOAD_LT_30K=PASS")
+          print("V877_PREPRODUCTION_SAFETY=PASS")
           PY
 
-      - name: Verify protected sources unchanged
-        shell: bash
-        run: |
-          set -euo pipefail
+          git diff --exit-code
+          git diff --cached --exit-code
 
-          sha256sum -c /tmp/metric.sha
-          sha256sum -c /tmp/worker.sha
-          sha256sum -c /tmp/swing_source.sha
-          sha256sum -c /tmp/extended_source.sha
-          sha256sum -c /tmp/sector_source.sha
-          sha256sum -c /tmp/glossary.sha
+          echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
+          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
 
-          find api/two_table_v1 -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/two_table.after.sha
-          diff -u /tmp/two_table.sha /tmp/two_table.after.sha
-
-          git diff --exit-code -- \
-            stock_table_metrics_v850.py \
-            worker/krx-live-price-worker.js \
-            api/two_table_v1 \
-            latest/standalone_swing_source_latest.json \
-            latest/standalone_swing_extended_returns_latest.json \
-            latest/standalone_swing_sector_rs_latest.json \
-            latest/stock_table_metric_glossary_latest.json
-
-          echo "PROTECTED_SOURCE_FILES_CHANGED=false"
-          echo "PRODUCTION_TWO_TABLE_CHANGED=false"
-          echo "WORKER_SOURCE_CHANGED=false"
-          echo "METRIC_FORMULA_CHANGED=false"
-
-      - name: Commit V8.7.6 integrated source
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          git fetch origin main
-          if [ "$(git rev-parse origin/main)" != "$BASE_SHA" ]; then
-            echo "::error::Remote main changed after checkout. Rerun V8.7.6 from latest main."
-            echo "BASE_SHA=$BASE_SHA"
-            echo "ORIGIN_MAIN=$(git rev-parse origin/main)"
-            exit 1
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add \
-            standalone_swing_integrated_v876.py \
-            docs/standalone_swing_integrated_contract_v876.md \
-            latest/standalone_swing_integrated_latest.json \
-            latest/standalone_swing_integrated_latest.csv \
-            latest/standalone_swing_integrated_meta_latest.json \
-            latest/standalone_swing_integrated_run_log_latest.txt
-
-          STAGED="$(git diff --cached --name-only || true)"
-          echo "V876_STAGED_FILES_BEGIN"
-          printf '%s\n' "$STAGED"
-          echo "V876_STAGED_FILES_END"
-
-          if printf '%s\n' "$STAGED" | grep -q '^\.github/workflows/'; then
-            echo "::error::Workflow staged unexpectedly"
-            exit 1
-          fi
-
-          while IFS= read -r p; do
-            [ -z "$p" ] && continue
-            case "$p" in
-              standalone_swing_integrated_v876.py|\
-              docs/standalone_swing_integrated_contract_v876.md|\
-              latest/standalone_swing_integrated_latest.json|\
-              latest/standalone_swing_integrated_latest.csv|\
-              latest/standalone_swing_integrated_meta_latest.json|\
-              latest/standalone_swing_integrated_run_log_latest.txt) ;;
-              *)
-                echo "::error::Unexpected staged path: $p"
-                exit 1
-                ;;
-            esac
-          done <<< "$STAGED"
-
-          echo "WORKFLOW_FILES_STAGED=false"
-
-          if ! git diff --cached --quiet; then
-            git commit -m "Add V8.7.6 integrated standalone swing source"
-            git push origin HEAD:main
-          fi
-
-          echo "COMMIT_SHA=$(git rev-parse HEAD)"
-          echo "PUSH_SUCCESS=true"
-          echo "V876_INTEGRATED_STANDALONE_SWING_RELEASE=PASS"
-          echo "WORKFLOW_FILES_STAGED=false"
-          echo "STANDALONE_SWING_TABLE_ENABLED=false"
-          echo "ACTION_ROUTE_ENABLED=false"
-          echo "PRODUCTION_TABLE_CHANGED=false"
-          echo "WORKER_SOURCE_CHANGED=false"
-          echo "METRIC_FORMULA_CHANGED=false"
-          echo "REQUEST_TIME_PRICE_SUBSTITUTION=false"
-
-      - name: Final report
-        if: always()
-        shell: bash
-        run: |
-          test -f /tmp/v876.log && cat /tmp/v876.log || true
-          test -f /tmp/v876-validate.log && cat /tmp/v876-validate.log || true
-          git status --short || true
+      - name: Upload V8.7.7 preview artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: integrated-standalone-swing-preview-v877
+          path: |
+            /tmp/v877_integrated_swing_preview/standalone-swing-readiness-v877.json
+            /tmp/v877_integrated_swing_preview/standalone-swing-sample-v877.json
+            /tmp/v877_integrated_swing_preview/standalone-swing-preview-v877.md
+          if-no-files-found: error
+          retention-days: 14

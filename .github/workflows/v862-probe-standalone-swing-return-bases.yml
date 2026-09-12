@@ -1,4 +1,4 @@
-name: Preview standalone swing analysis v8.7.3
+name: Probe full standalone swing sector RS v8.7.4
 
 on:
   workflow_dispatch:
@@ -7,13 +7,18 @@ permissions:
   contents: read
 
 concurrency:
-  group: v873-standalone-swing-preview
+  group: v874-standalone-swing-sector-rs-probe
   cancel-in-progress: false
 
 jobs:
-  preview:
+  probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
+
+    env:
+      TZ: Asia/Seoul
+      KRX_ID: ${{ secrets.KRX_ID }}
+      KRX_PW: ${{ secrets.KRX_PW }}
 
     steps:
       - name: Checkout latest main
@@ -27,38 +32,51 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Build read-only standalone swing preview
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          echo "V874_DEPENDENCIES=PASS"
+
+      - name: Probe full KOSPI standalone sector RS
         shell: bash
         run: |
           set -euo pipefail
 
+          test -n "${KRX_ID:-}" || { echo "::error::KRX_ID secret missing"; exit 1; }
+          test -n "${KRX_PW:-}" || { echo "::error::KRX_PW secret missing"; exit 1; }
+
           python - <<'PY'
           from __future__ import annotations
 
-          import csv
+          import contextlib
+          import io
           import json
+          import time
+          from collections import Counter, defaultdict
           from pathlib import Path
 
-          BASE = Path(".")
-          OUT = Path("/tmp/v873_standalone_swing_preview")
+          from pykrx import stock
+
+          import sector_rs_source_v870 as sector
+
+          OUT = Path("/tmp/v874_standalone_sector_rs")
           OUT.mkdir(parents=True, exist_ok=True)
 
-          SWING = BASE / "latest/standalone_swing_source_latest.json"
-          EXT = BASE / "latest/standalone_swing_extended_returns_latest.json"
-          GLOSSARY = BASE / "latest/stock_table_metric_glossary_latest.json"
-          TABLE_DIR = BASE / "api/two_table_v1"
+          SWING = Path("latest/standalone_swing_source_latest.json")
+          EXT = Path("latest/standalone_swing_extended_returns_latest.json")
+          GLOSSARY = Path("latest/stock_table_metric_glossary_latest.json")
+          TABLE_DIR = Path("api/two_table_v1")
           TABLES = ("kospi", "decliners", "decliners24")
-
-          for p in (SWING, EXT, GLOSSARY):
-              if not p.is_file():
-                  raise SystemExit("MISSING_REQUIRED_SOURCE:" + str(p))
-          for name in TABLES:
-              p = TABLE_DIR / f"{name}.json"
-              if not p.is_file():
-                  raise SystemExit("MISSING_PRODUCTION_TABLE:" + str(p))
 
           def read(path):
               return json.loads(path.read_text(encoding="utf-8-sig"))
+
+          for p in (SWING, EXT, GLOSSARY, Path("sector_rs_source_v870.py")):
+              if not p.is_file():
+                  raise SystemExit("MISSING_REQUIRED_SOURCE:" + str(p))
 
           swing = read(SWING)
           ext = read(EXT)
@@ -69,375 +87,347 @@ jobs:
           if ext.get("status") != "READY_SOURCE_ONLY":
               raise SystemExit("EXTENDED_RETURN_SOURCE_NOT_READY")
           if swing.get("standalone_swing_table_enabled") is not False:
-              raise SystemExit("STANDALONE_SWING_ALREADY_ENABLED_UNEXPECTEDLY")
+              raise SystemExit("SWING_TABLE_ALREADY_ENABLED")
           if ext.get("standalone_swing_table_enabled") is not False:
-              raise SystemExit("EXTENDED_SWING_ALREADY_ENABLED_UNEXPECTEDLY")
+              raise SystemExit("EXT_TABLE_ALREADY_ENABLED")
 
           basis = swing.get("basis_date")
           if not basis or ext.get("basis_date") != basis:
-              raise SystemExit("SOURCE_BASIS_MISMATCH")
+              raise SystemExit("BASIS_MISMATCH")
 
           swing_rows = {
               str(r["ticker"]).zfill(6): r
               for r in swing.get("rows") or []
           }
-          ext_rows = {
-              str(r["ticker"]).zfill(6): r
-              for r in ext.get("rows") or []
-          }
-          if not swing_rows or set(swing_rows) != set(ext_rows):
-              raise SystemExit("SWING_EXTENDED_TICKER_SET_MISMATCH")
+          if len(swing_rows) != int(swing.get("row_count") or 0):
+              raise SystemExit("SWING_ROW_COUNT_MISMATCH")
 
-          production = {}
-          table_membership = {}
-          duplicate_mismatch = []
+          kospi_tickers = sorted(
+              ticker for ticker, row in swing_rows.items()
+              if row.get("market") == "KOSPI"
+          )
+          kosdaq_tickers = sorted(
+              ticker for ticker, row in swing_rows.items()
+              if row.get("market") == "KOSDAQ"
+          )
+          unknown_market = sorted(
+              ticker for ticker, row in swing_rows.items()
+              if row.get("market") not in ("KOSPI", "KOSDAQ")
+          )
+          if unknown_market:
+              raise SystemExit("UNKNOWN_MARKET:" + ",".join(unknown_market))
 
+          # Current production RS snapshot used as a strict regression gate.
+          prod = {}
           for name in TABLES:
               payload = read(TABLE_DIR / f"{name}.json")
               if payload.get("status") != "READY":
-                  raise SystemExit("PRODUCTION_TABLE_NOT_READY:" + name)
+                  raise SystemExit("PRODUCTION_NOT_READY:" + name)
               if payload.get("basis_date") != basis:
-                  raise SystemExit("PRODUCTION_TABLE_BASIS_MISMATCH:" + name)
-
+                  raise SystemExit("PRODUCTION_BASIS_MISMATCH:" + name)
               for row in payload.get("rows") or []:
                   ticker = str(row.get("ticker") or "").zfill(6)
                   metrics = row.get("metrics") or {}
-                  snapshot = {
-                      "sector_theme": row.get("sector_theme"),
-                      "rs_sector_pp": metrics.get("rs_sector_pp"),
-                      "sector_benchmark": metrics.get("sector_benchmark"),
+                  rs = metrics.get("rs_sector_pp")
+                  benchmark = metrics.get("sector_benchmark")
+                  if not isinstance(rs, dict) or rs.get("1") is None or rs.get("3") is None:
+                      raise SystemExit("PRODUCTION_RS_NOT_READY:" + ticker)
+                  snap = {
+                      "rs_sector_pp": {"1": rs["1"], "3": rs["3"]},
+                      "sector_benchmark": benchmark,
+                      "name": row.get("name"),
                   }
-                  if ticker in production and production[ticker] != snapshot:
-                      duplicate_mismatch.append(ticker)
-                  else:
-                      production[ticker] = snapshot
-                  table_membership.setdefault(ticker, []).append(name)
+                  if ticker in prod and prod[ticker] != snap:
+                      raise SystemExit("PRODUCTION_DUPLICATE_MISMATCH:" + ticker)
+                  prod[ticker] = snap
 
-          if duplicate_mismatch:
-              raise SystemExit(
-                  "PRODUCTION_DUPLICATE_SECTOR_MISMATCH:"
-                  + ",".join(sorted(set(duplicate_mismatch)))
-              )
+          if not prod:
+              raise SystemExit("PRODUCTION_RS_EMPTY")
+
+          # Official KRX source retrieval: exact same helper used by V8.7.0.
+          basis_compact, names, members, basic = sector.fetch_official_sources(basis)
+          if basis_compact != basis.replace("-", ""):
+              raise SystemExit("OFFICIAL_BASIS_MISMATCH")
+
+          mapping = {}
+          mapping_errors = {}
+
+          # Probe each ticker independently so one unmapped stock does not destroy
+          # the evidence artifact.
+          for ticker in kospi_tickers:
+              try:
+                  one = sector.build_mapping({ticker}, names, members, basic)
+                  mapping[ticker] = one[ticker]
+              except Exception as exc:
+                  mapping_errors[ticker] = repr(exc)
+
+          # Gather all required official industry-index close series.
+          starts = []
+          for ticker in mapping:
+              src = swing_rows[ticker].get("returns") or {}
+              for p in ("1", "3"):
+                  item = src.get(p) or {}
+                  if item.get("status") == "OK" and item.get("start_date"):
+                      starts.append(item["start_date"])
+          if not starts:
+              raise SystemExit("RETURN_STARTS_EMPTY")
+
+          earliest = min(starts).replace("-", "")
+          index_closes = {}
+          index_errors = {}
+          for idx in sorted({m["benchmark_ticker"] for m in mapping.values()}):
+              try:
+                  with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                      df = stock.get_index_ohlcv_by_date(
+                          earliest, basis.replace("-", ""), idx
+                      )
+                  if df is None or df.empty or "종가" not in df.columns:
+                      raise ValueError("INDEX_OHLCV_EMPTY")
+                  index_closes[idx] = {
+                      (dt.strftime("%Y-%m-%d") if hasattr(dt, "strftime") else str(dt)[:10]): float(value)
+                      for dt, value in df["종가"].items()
+                  }
+              except Exception as exc:
+                  index_errors[idx] = repr(exc)
+              time.sleep(0.08)
 
           rows = []
-          sector_ready = 0
-          sixm_ready = 0
-          metric_ok = 0
+          value_ready = 0
+          value_errors = {}
 
-          def ma_value(row, period):
-              return ((row.get("ma") or {}).get(str(period)) or {})
-
-          for ticker in sorted(swing_rows):
+          for ticker in kospi_tickers:
               s = swing_rows[ticker]
-              e = ext_rows[ticker]
-              p = production.get(ticker) or {}
-              rs_sector = p.get("rs_sector_pp")
-
-              if isinstance(rs_sector, dict) and rs_sector.get("1") is not None and rs_sector.get("3") is not None:
-                  sector_ready += 1
-
-              r6 = e.get("return_6m") or {}
-              if r6.get("status") == "OK":
-                  sixm_ready += 1
-
-              if s.get("metric_status") == "OK":
-                  metric_ok += 1
-
-              swing_info = s.get("swing") or {}
-              streak = s.get("streak") or {}
-              run = s.get("run") or {}
-              returns = s.get("returns") or {}
-              rs_kospi = s.get("rs_kospi_pp") or {}
-              atr = s.get("atr14") or {}
-              trailing = s.get("trailing_reference") or {}
-
-              rows.append({
+              m = mapping.get(ticker)
+              item = {
                   "ticker": ticker,
                   "name": s.get("name"),
-                  "market": s.get("market"),
-                  "basis_date": basis,
-                  "official_close": s.get("official_close"),
-                  "production_table_membership": table_membership.get(ticker, []),
-                  "sector_theme": p.get("sector_theme"),
-                  "sector_benchmark": p.get("sector_benchmark"),
-                  "returns": {
-                      "1w": None,
-                      "1m": (returns.get("1") or {}).get("pct"),
-                      "3m": (returns.get("3") or {}).get("pct"),
-                      "6m": r6.get("pct") if r6.get("status") == "OK" else None,
-                      "ytd": None,
-                      "52w": None,
-                  },
-                  "return_basis_dates": {
-                      "1m": (returns.get("1") or {}).get("start_date"),
-                      "3m": (returns.get("3") or {}).get("start_date"),
-                      "6m": r6.get("start_date") if r6.get("status") == "OK" else None,
-                  },
-                  "swing": {
-                      "phase": swing_info.get("phase"),
-                      "phase_ko": swing_info.get("phase_ko"),
-                      "trough_date": swing_info.get("trough_date"),
-                      "peak_date": swing_info.get("peak_date"),
-                      "from_trough_pct": swing_info.get("from_trough_pct"),
-                      "from_peak_pct": swing_info.get("from_peak_pct"),
-                      "momentum_5d_pct": swing_info.get("momentum_5d_pct"),
-                  },
-                  "ma": {
-                      str(period): ma_value(s, period)
-                      for period in (5, 20, 60, 120)
-                  },
-                  "mean_run_days": run.get("average"),
-                  "streak": {
-                      "direction": streak.get("direction"),
-                      "days": streak.get("days"),
-                      "change_pct": streak.get("change_pct"),
-                  },
-                  "rs_kospi_pp": {
-                      "1m": rs_kospi.get("1"),
-                      "3m": rs_kospi.get("3"),
-                  },
-                  "rs_sector_pp": {
-                      "1m": rs_sector.get("1"),
-                      "3m": rs_sector.get("3"),
-                  } if isinstance(rs_sector, dict) else None,
-                  "atr14": atr,
-                  "avg_daily_range_20_pct": s.get("avg_daily_range_20_pct"),
-                  "range_3m": s.get("range_3m"),
-                  "trailing_reference": {
-                      "ma20_close_level": trailing.get("ma20_close_level"),
-                      "confirmed_swing_low_stop": None,
-                      "status": trailing.get("status"),
-                  },
-                  "pending": {
-                      "rsi": None,
-                      "macd": None,
-                      "return_1w": None,
-                      "return_ytd": None,
-                      "return_52w": None,
-                      "investment_score_100": None,
-                      "earnings_outlook_change": None,
-                      "confirmed_swing_low_stop": None,
-                  },
-              })
+                  "market": "KOSPI",
+                  "mapping_status": "READY" if m else "UNMAPPED",
+                  "mapping": m,
+                  "rs_sector_pp": None,
+                  "error": mapping_errors.get(ticker),
+              }
 
-          row_count = len(rows)
-          if row_count != int(swing.get("row_count") or 0):
-              raise SystemExit("PREVIEW_ROW_COUNT_MISMATCH")
-          if sixm_ready != int(ext.get("return_6m_ready_count") or 0):
-              raise SystemExit("PREVIEW_6M_READY_MISMATCH")
-          if sector_ready <= 0:
-              raise SystemExit("PREVIEW_SECTOR_RS_ZERO")
+              if m:
+                  idx = m["benchmark_ticker"]
+                  closes = index_closes.get(idx)
+                  if not closes:
+                      item["mapping_status"] = "INDEX_HISTORY_FAILED"
+                      item["error"] = index_errors.get(idx, "INDEX_HISTORY_UNAVAILABLE")
+                  else:
+                      values = {}
+                      ok = True
+                      for p in ("1", "3"):
+                          src = (s.get("returns") or {}).get(p) or {}
+                          start = src.get("start_date")
+                          pct = src.get("pct")
+                          if src.get("status") != "OK" or start is None or pct is None:
+                              ok = False
+                              item["error"] = f"STOCK_RETURN_NOT_READY:{p}"
+                              break
+                          if start not in closes or basis not in closes:
+                              ok = False
+                              item["error"] = f"INDEX_DATE_MISSING:{p}:{start}"
+                              break
+                          start_close = closes[start]
+                          end_close = closes[basis]
+                          if start_close <= 0:
+                              ok = False
+                              item["error"] = f"INDEX_START_CLOSE_INVALID:{p}:{start}"
+                              break
+                          index_return = 100.0 * (end_close / start_close - 1.0)
+                          values[p] = round(float(pct) - index_return, 4)
 
-          payload = {
-              "version": "2026-09-12-v8.7.3-standalone-swing-preview",
-              "status": "READY_PREVIEW_ONLY",
+                      if ok:
+                          item["rs_sector_pp"] = values
+                          item["mapping_status"] = "READY_WITH_VALUES"
+                          value_ready += 1
+                      else:
+                          value_errors[ticker] = item["error"]
+
+              rows.append(item)
+
+          # Strict production regression: extended calculation must reproduce
+          # every currently published V8.7.0 production value and benchmark.
+          regression_matches = 0
+          regression_mismatches = []
+          by_ticker = {r["ticker"]: r for r in rows}
+
+          for ticker, expected in sorted(prod.items()):
+              actual = by_ticker.get(ticker)
+              if actual is None:
+                  regression_mismatches.append({
+                      "ticker": ticker,
+                      "reason": "NOT_IN_STANDALONE_KOSPI_SOURCE",
+                  })
+                  continue
+
+              expected_b = expected.get("sector_benchmark") or {}
+              actual_b = actual.get("mapping") or {}
+              actual_rs = actual.get("rs_sector_pp")
+
+              benchmark_ok = (
+                  str(expected_b.get("benchmark_ticker")) == str(actual_b.get("benchmark_ticker"))
+                  and expected_b.get("benchmark_name") == actual_b.get("benchmark_name")
+              )
+              rs_ok = actual_rs == expected["rs_sector_pp"]
+
+              if benchmark_ok and rs_ok:
+                  regression_matches += 1
+              else:
+                  regression_mismatches.append({
+                      "ticker": ticker,
+                      "name": expected.get("name"),
+                      "expected_rs": expected["rs_sector_pp"],
+                      "actual_rs": actual_rs,
+                      "expected_benchmark": expected_b,
+                      "actual_benchmark": actual_b,
+                  })
+
+          footer = glossary.get("compact_footer_text")
+          if not footer:
+              raise SystemExit("GLOSSARY_COMPACT_FOOTER_TEXT_MISSING")
+
+          result = {
+              "version": "2026-09-12-v8.7.4-standalone-sector-rs-coverage-probe",
+              "status": "READY_EVIDENCE_ONLY",
               "repository_write": False,
-              "production_activation": False,
-              "action_route_enabled": False,
+              "production_change": False,
               "standalone_swing_table_enabled": False,
               "basis_date": basis,
-              "row_count": row_count,
-              "metric_ok_count": metric_ok,
-              "return_6m_ready_count": sixm_ready,
-              "return_6m_missing_count": row_count - sixm_ready,
-              "sector_rs_ready_count": sector_ready,
-              "sector_rs_missing_count": row_count - sector_ready,
-              "production_unique_ticker_count": len(production),
-              "display_contract_status": "PREVIEW_NOT_FINAL_HEADER",
-              "glossary_footer": glossary.get("compact_footer"),
+              "source_ticker_count": len(swing_rows),
+              "market_counts": {
+                  "KOSPI": len(kospi_tickers),
+                  "KOSDAQ": len(kosdaq_tickers),
+              },
+              "kospi_mapping_ready_count": len(mapping),
+              "kospi_mapping_missing_count": len(kospi_tickers) - len(mapping),
+              "kospi_rs_value_ready_count": value_ready,
+              "kospi_rs_value_missing_count": len(kospi_tickers) - value_ready,
+              "kosdaq_sector_rs_status": "NOT_PROBED_CURRENT_CONTRACT_KOSPI_ONLY",
+              "production_unique_ticker_count": len(prod),
+              "production_regression_exact_matches": regression_matches,
+              "production_regression_mismatch_count": len(regression_mismatches),
+              "production_regression_mismatches": regression_mismatches,
+              "index_history_error_count": len(index_errors),
+              "mapping_errors": mapping_errors,
+              "value_errors": value_errors,
+              "glossary_footer_text": footer,
               "rows": rows,
               "safety": {
-                  "rsi_calculated": False,
-                  "macd_calculated": False,
-                  "return_1w_calculated": False,
-                  "return_ytd_calculated": False,
-                  "return_52w_calculated": False,
-                  "investment_score_100_calculated": False,
-                  "earnings_outlook_change_calculated": False,
-                  "confirmed_swing_low_stop_calculated": False,
-                  "request_time_price_substitution": False,
+                  "new_sector_contract_defined": False,
+                  "kosdaq_sector_mapping_invented": False,
                   "production_table_changed": False,
                   "worker_changed": False,
+                  "metric_formula_changed": False,
+                  "request_time_price_substitution": False,
               },
           }
 
-          json_path = OUT / "standalone-swing-preview-v873.json"
-          json_path.write_text(
-              json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+          (OUT / "standalone-sector-rs-coverage-v874.json").write_text(
+              json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
               encoding="utf-8",
           )
 
-          csv_fields = [
-              "ticker", "name", "market", "official_close",
-              "return_1m_pct", "return_3m_pct", "return_6m_pct",
-              "swing_phase_ko", "swing_trough_date", "swing_peak_date",
-              "from_trough_pct", "from_peak_pct", "momentum_5d_pct",
-              "ma5_direction", "ma20_direction", "ma60_direction", "ma120_direction",
-              "mean_run_days", "streak_direction", "streak_days", "streak_change_pct",
-              "rs_kospi_1m_pp", "rs_kospi_3m_pp",
-              "rs_sector_1m_pp", "rs_sector_3m_pp",
-              "atr14_pct", "avg_daily_range_20_pct",
-              "ma20_reference", "confirmed_swing_low_stop",
-          ]
-          with (OUT / "standalone-swing-preview-v873.csv").open(
-              "w", encoding="utf-8-sig", newline=""
-          ) as f:
-              w = csv.DictWriter(f, fieldnames=csv_fields)
-              w.writeheader()
-              for r in rows:
-                  rs_sec = r["rs_sector_pp"] or {}
-                  w.writerow({
-                      "ticker": r["ticker"],
-                      "name": r["name"],
-                      "market": r["market"],
-                      "official_close": r["official_close"],
-                      "return_1m_pct": r["returns"]["1m"],
-                      "return_3m_pct": r["returns"]["3m"],
-                      "return_6m_pct": r["returns"]["6m"],
-                      "swing_phase_ko": r["swing"]["phase_ko"],
-                      "swing_trough_date": r["swing"]["trough_date"],
-                      "swing_peak_date": r["swing"]["peak_date"],
-                      "from_trough_pct": r["swing"]["from_trough_pct"],
-                      "from_peak_pct": r["swing"]["from_peak_pct"],
-                      "momentum_5d_pct": r["swing"]["momentum_5d_pct"],
-                      "ma5_direction": r["ma"]["5"].get("direction"),
-                      "ma20_direction": r["ma"]["20"].get("direction"),
-                      "ma60_direction": r["ma"]["60"].get("direction"),
-                      "ma120_direction": r["ma"]["120"].get("direction"),
-                      "mean_run_days": r["mean_run_days"],
-                      "streak_direction": r["streak"]["direction"],
-                      "streak_days": r["streak"]["days"],
-                      "streak_change_pct": r["streak"]["change_pct"],
-                      "rs_kospi_1m_pp": r["rs_kospi_pp"]["1m"],
-                      "rs_kospi_3m_pp": r["rs_kospi_pp"]["3m"],
-                      "rs_sector_1m_pp": rs_sec.get("1m"),
-                      "rs_sector_3m_pp": rs_sec.get("3m"),
-                      "atr14_pct": (r["atr14"] or {}).get("pct"),
-                      "avg_daily_range_20_pct": r["avg_daily_range_20_pct"],
-                      "ma20_reference": r["trailing_reference"]["ma20_close_level"],
-                      "confirmed_swing_low_stop": None,
-                  })
-
-          sample = rows[:15]
           md = [
-              "# V8.7.3 독립 종목 스윙추세분석 Preview",
+              "# V8.7.4 독립 스윙 업종RS 전체범위 Probe",
               "",
               f"- 기준일: {basis}",
-              f"- 전체 source 종목: {row_count}",
-              f"- 기존 지표 정상: {metric_ok}/{row_count}",
-              f"- 6M 수익률: {sixm_ready}/{row_count}",
-              f"- production 업종RS 연결: {sector_ready}/{row_count}",
-              "- 상태: Preview only / Action 미활성 / production 미변경",
+              f"- 전체 독립 스윙 source: {len(swing_rows)}",
+              f"- KOSPI: {len(kospi_tickers)}",
+              f"- KOSDAQ: {len(kosdaq_tickers)}",
+              f"- KOSPI 공식 업종 매핑 성공: {len(mapping)}/{len(kospi_tickers)}",
+              f"- KOSPI 업종RS 값 계산 성공: {value_ready}/{len(kospi_tickers)}",
+              f"- 기존 production 회귀 일치: {regression_matches}/{len(prod)}",
+              f"- 기존 production 회귀 불일치: {len(regression_mismatches)}",
+              f"- 업종지수 히스토리 오류: {len(index_errors)}",
               "",
-              "## 현재 안전하게 표시 가능한 핵심 항목",
+              "## 원칙",
               "",
-              "- 종목명·종목코드·시장·공식종가",
-              "- 1M·3M·6M 수익률",
-              "- 큰 스윙 상태·저점/고점 근거일·저/고점 대비 위치",
-              "- MA5/20/60/120 방향",
-              "- 평균등락일수·현재 연속등락",
-              "- KOSPI 대비 1M/3M RS",
-              "- production 종목에 한해 공식 KRX 업종RS",
-              "- ATR14·20일 평균 일중고저폭",
-              "- MA20 참고선",
+              "- 기존 V8.7.0 공식 KRX KOSPI 업종지수 매핑 로직만 재사용한다.",
+              "- KOSDAQ 25종목에는 새 업종 매핑 규칙을 만들지 않는다.",
+              "- repository·production·Worker를 수정하지 않는다.",
+              "- 요청시점 현재가로 업종RS를 재계산하지 않는다.",
               "",
-              "## 아직 자료 미제공",
+              "## 핵심 용어 읽는 법",
               "",
-              "- 1W·YTD·52W",
-              "- RSI·MACD",
-              "- 투자종합점수100",
-              "- 실적전망 변화",
-              "- 확정 스윙저점 손절",
-              "",
-              "## 샘플 15종목",
-              "",
-              "|종목|1M|3M|6M|스윙|MA20|KOSPI RS 1M|업종RS 1M|ATR14%|",
-              "|---|---:|---:|---:|---|---|---:|---:|---:|",
+              footer,
           ]
-          for r in sample:
-              rs_sec = r["rs_sector_pp"] or {}
-              def fmt(v):
-                  return "자료 미제공" if v is None else str(v)
-              md.append(
-                  f"|{r['name']}({r['ticker']})|"
-                  f"{fmt(r['returns']['1m'])}|{fmt(r['returns']['3m'])}|{fmt(r['returns']['6m'])}|"
-                  f"{fmt(r['swing']['phase_ko'])}|{fmt(r['ma']['20'].get('direction'))}|"
-                  f"{fmt(r['rs_kospi_pp']['1m'])}|{fmt(rs_sec.get('1m'))}|"
-                  f"{fmt((r['atr14'] or {}).get('pct'))}|"
-              )
-          md += [
-              "",
-              "※ 이 표는 최종 독립 스윙표 헤더가 아니라 데이터 준비상태를 확인하는 Preview입니다.",
-              "※ 스윙은 미래예측이 아니라 확정 일봉 기반의 현재 위치 분류입니다.",
-          ]
-          (OUT / "standalone-swing-preview-v873.md").write_text(
+
+          if mapping_errors:
+              md += ["", "## KOSPI 미매핑 종목"]
+              for ticker, error in sorted(mapping_errors.items()):
+                  md.append(
+                      f"- {swing_rows[ticker].get('name')}({ticker}): `{error}`"
+                  )
+
+          if regression_mismatches:
+              md += ["", "## Production 회귀 불일치"]
+              for x in regression_mismatches[:20]:
+                  md.append("- " + json.dumps(x, ensure_ascii=False))
+
+          (OUT / "standalone-sector-rs-coverage-v874.md").write_text(
               "\n".join(md) + "\n", encoding="utf-8"
           )
 
-          print("V873_STANDALONE_SWING_PREVIEW=READY_PREVIEW_ONLY")
-          print("BASIS_DATE=" + str(basis))
-          print("PREVIEW_ROWS=" + str(row_count))
-          print("METRIC_OK=" + str(metric_ok))
-          print("RETURN_6M_READY=" + str(sixm_ready))
-          print("SECTOR_RS_READY=" + str(sector_ready))
-          print("SECTOR_RS_MISSING=" + str(row_count - sector_ready))
-          print("PRODUCTION_UNIQUE_TICKERS=" + str(len(production)))
-          print("FINAL_HEADER_SELECTED=false")
-          print("ACTION_ROUTE_ENABLED=false")
-          print("PRODUCTION_ACTIVATION=false")
+          print("V874_SECTOR_RS_PROBE=READY_EVIDENCE_ONLY")
+          print("SOURCE_TICKERS=" + str(len(swing_rows)))
+          print("KOSPI_TICKERS=" + str(len(kospi_tickers)))
+          print("KOSDAQ_TICKERS=" + str(len(kosdaq_tickers)))
+          print("KOSPI_MAPPING_READY=" + str(len(mapping)))
+          print("KOSPI_MAPPING_MISSING=" + str(len(kospi_tickers) - len(mapping)))
+          print("KOSPI_RS_VALUE_READY=" + str(value_ready))
+          print("KOSPI_RS_VALUE_MISSING=" + str(len(kospi_tickers) - value_ready))
+          print("PRODUCTION_UNIQUE_TICKERS=" + str(len(prod)))
+          print("PRODUCTION_REGRESSION_EXACT_MATCHES=" + str(regression_matches))
+          print("PRODUCTION_REGRESSION_MISMATCHES=" + str(len(regression_mismatches)))
+          print("INDEX_HISTORY_ERRORS=" + str(len(index_errors)))
+          print("GLOSSARY_FOOTER_KEY=compact_footer_text")
+          print("GLOSSARY_FOOTER_READY=true")
+          print("KOSDAQ_SECTOR_MAPPING_INVENTED=false")
           print("REPOSITORY_WRITE=false")
-          print("RSI_CALCULATED=false")
-          print("MACD_CALCULATED=false")
-          print("RETURN_1W_CALCULATED=false")
-          print("RETURN_YTD_CALCULATED=false")
-          print("RETURN_52W_CALCULATED=false")
-          print("CONFIRMED_SWING_LOW_STOP_CALCULATED=false")
+          print("PRODUCTION_CHANGE=false")
           print("REQUEST_TIME_PRICE_SUBSTITUTION=false")
           PY
 
-      - name: Validate read-only safety
+      - name: Validate probe safety
         shell: bash
         run: |
           set -euo pipefail
 
-          test -f /tmp/v873_standalone_swing_preview/standalone-swing-preview-v873.json
-          test -f /tmp/v873_standalone_swing_preview/standalone-swing-preview-v873.csv
-          test -f /tmp/v873_standalone_swing_preview/standalone-swing-preview-v873.md
+          test -f /tmp/v874_standalone_sector_rs/standalone-sector-rs-coverage-v874.json
+          test -f /tmp/v874_standalone_sector_rs/standalone-sector-rs-coverage-v874.md
 
           python - <<'PY'
           import json
           from pathlib import Path
 
           p = json.loads(
-              Path("/tmp/v873_standalone_swing_preview/standalone-swing-preview-v873.json")
+              Path("/tmp/v874_standalone_sector_rs/standalone-sector-rs-coverage-v874.json")
               .read_text(encoding="utf-8")
           )
 
-          assert p["status"] == "READY_PREVIEW_ONLY"
+          assert p["status"] == "READY_EVIDENCE_ONLY"
           assert p["repository_write"] is False
-          assert p["production_activation"] is False
-          assert p["action_route_enabled"] is False
+          assert p["production_change"] is False
           assert p["standalone_swing_table_enabled"] is False
-          assert p["row_count"] > 0
-          assert p["metric_ok_count"] == p["row_count"]
-          assert p["return_6m_ready_count"] == p["row_count"] - 1
-          assert p["sector_rs_ready_count"] > 0
+          assert p["source_ticker_count"] == p["market_counts"]["KOSPI"] + p["market_counts"]["KOSDAQ"]
+          assert p["production_regression_mismatch_count"] == 0
+          assert p["production_regression_exact_matches"] == p["production_unique_ticker_count"]
+          assert p["glossary_footer_text"].startswith("읽는 법:")
+          assert p["kosdaq_sector_rs_status"] == "NOT_PROBED_CURRENT_CONTRACT_KOSPI_ONLY"
 
           s = p["safety"]
-          assert s["rsi_calculated"] is False
-          assert s["macd_calculated"] is False
-          assert s["return_1w_calculated"] is False
-          assert s["return_ytd_calculated"] is False
-          assert s["return_52w_calculated"] is False
-          assert s["investment_score_100_calculated"] is False
-          assert s["earnings_outlook_change_calculated"] is False
-          assert s["confirmed_swing_low_stop_calculated"] is False
-          assert s["request_time_price_substitution"] is False
+          assert s["new_sector_contract_defined"] is False
+          assert s["kosdaq_sector_mapping_invented"] is False
           assert s["production_table_changed"] is False
           assert s["worker_changed"] is False
+          assert s["metric_formula_changed"] is False
+          assert s["request_time_price_substitution"] is False
 
-          print("V873_PREVIEW_CONTRACT=PASS")
-          print("V873_PREVIEW_ONLY_NO_PRODUCTION_CHANGE=PASS")
+          print("V874_PRODUCTION_RS_REGRESSION=PASS")
+          print("V874_GLOSSARY_FOOTER_FIX=PASS")
+          print("V874_READ_ONLY_SAFETY=PASS")
           PY
 
           git diff --exit-code
@@ -446,13 +436,12 @@ jobs:
           echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
           echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
 
-      - name: Upload standalone swing preview
+      - name: Upload V8.7.4 evidence
         uses: actions/upload-artifact@v6
         with:
-          name: standalone-swing-preview-v873
+          name: standalone-sector-rs-coverage-v874
           path: |
-            /tmp/v873_standalone_swing_preview/standalone-swing-preview-v873.json
-            /tmp/v873_standalone_swing_preview/standalone-swing-preview-v873.csv
-            /tmp/v873_standalone_swing_preview/standalone-swing-preview-v873.md
+            /tmp/v874_standalone_sector_rs/standalone-sector-rs-coverage-v874.json
+            /tmp/v874_standalone_sector_rs/standalone-sector-rs-coverage-v874.md
           if-no-files-found: error
           retention-days: 14

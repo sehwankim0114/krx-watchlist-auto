@@ -1,0 +1,435 @@
+name: Expand investment-score source coverage v8.7.2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v872-investment-score-source-coverage
+  cancel-in-progress: false
+
+jobs:
+  expand:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          echo "V872_DEPENDENCIES=PASS"
+
+      - name: Patch financial target coverage for V8.7.0 production tables
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("financial_valuation_enricher.py")
+          text = path.read_text(encoding="utf-8")
+
+          old_version = 'SCRIPT_VERSION = "financial_valuation_enricher.py v1.2.0-duplicate-stock-code-fix"'
+          new_version = 'SCRIPT_VERSION = "financial_valuation_enricher.py v1.3.0-production-two-table-targets"'
+          if old_version in text:
+              text = text.replace(old_version, new_version, 1)
+          elif new_version not in text:
+              raise SystemExit("FINANCIAL_SCRIPT_VERSION_ANCHOR_NOT_FOUND")
+
+          variant_anchor = "\n".join([
+              "VARIANT_SUFFIXES = (",
+              '    "",',
+              '    "_current_basis",',
+              '    "_supplemented",',
+              ")",
+              "",
+          ])
+          variant_replacement = "\n".join([
+              "VARIANT_SUFFIXES = (",
+              '    "",',
+              '    "_current_basis",',
+              '    "_supplemented",',
+              ")",
+              "",
+              "# V8.7.0 production two-table tickers are supplemental DART targets.",
+              "# They do not replace the existing CSV target universe.",
+              "PRODUCTION_TWO_TABLE_FILES = (",
+              '    "api/two_table_v1/kospi.json",',
+              '    "api/two_table_v1/decliners.json",',
+              '    "api/two_table_v1/decliners24.json",',
+              ")",
+              'PRODUCTION_TWO_TABLE_VERSION = "2026-09-12-v8.7.0-sector-rs-production-release"',
+              "",
+          ])
+          if "PRODUCTION_TWO_TABLE_FILES = (" not in text:
+              if variant_anchor not in text:
+                  raise SystemExit("VARIANT_SUFFIX_ANCHOR_NOT_FOUND")
+              text = text.replace(variant_anchor, variant_replacement, 1)
+
+          load_anchor = "\n".join([
+              "def load_market_metrics(",
+              "    output_dir: Path,",
+              ") -> Dict[str, Dict[str, Any]]:",
+          ])
+
+          helper_lines = [
+              "def collect_production_two_table_metadata(",
+              "    repo_root: Path,",
+              ") -> Dict[str, Dict[str, str]]:",
+              "    # Read current production two-table rows as supplemental DART targets.",
+              '    manifest_path = repo_root / "api" / "two_table_v1" / "manifest.json"',
+              "    if not manifest_path.exists():",
+              "        return {}",
+              "",
+              "    try:",
+              '        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))',
+              "    except Exception:",
+              "        return {}",
+              "",
+              '    if manifest.get("version") != PRODUCTION_TWO_TABLE_VERSION:',
+              "        return {}",
+              '    if manifest.get("release_stage") != "PRODUCTION":',
+              "        return {}",
+              "",
+              "    metadata: Dict[str, Dict[str, str]] = {}",
+              "    for relative in PRODUCTION_TWO_TABLE_FILES:",
+              "        target_path = repo_root / relative",
+              "        if not target_path.exists():",
+              "            continue",
+              "        try:",
+              '            payload = json.loads(target_path.read_text(encoding="utf-8"))',
+              "        except Exception:",
+              "            continue",
+              "",
+              '        for row in payload.get("rows") or []:',
+              "            if not isinstance(row, dict):",
+              "                continue",
+              '            ticker = clean_ticker(row.get("ticker", ""))',
+              "            if not ticker:",
+              "                continue",
+              "            current = metadata.setdefault(",
+              "                ticker,",
+              '                {"ticker": ticker, "name": "", "market": ""},',
+              "            )",
+              '            if not current["name"]:',
+              '                current["name"] = normalize_text(row.get("name", ""))',
+              '            if not current["market"]:',
+              '                current["market"] = normalize_text(row.get("market", ""))',
+              "",
+              "    return metadata",
+              "",
+              "",
+              "def load_market_metrics(",
+              "    output_dir: Path,",
+              ") -> Dict[str, Dict[str, Any]]:",
+          ]
+          helper = "\n".join(helper_lines)
+
+          if "def collect_production_two_table_metadata(" not in text:
+              if load_anchor not in text:
+                  raise SystemExit("LOAD_MARKET_METRICS_ANCHOR_NOT_FOUND")
+              text = text.replace(load_anchor, helper, 1)
+
+          old_main = "\n".join([
+              "    metadata = collect_target_metadata(",
+              "        output_dir,",
+              "        target_files,",
+              "    )",
+              "    market_metrics = load_market_metrics(output_dir)",
+              '    log_lines.append(f"TARGET_TICKERS={len(metadata)}")',
+          ])
+          new_main = "\n".join([
+              "    metadata = collect_target_metadata(",
+              "        output_dir,",
+              "        target_files,",
+              "    )",
+              "    legacy_target_count = len(metadata)",
+              '    production_metadata = collect_production_two_table_metadata(Path("."))',
+              "    for ticker, value in production_metadata.items():",
+              "        current = metadata.setdefault(",
+              "            ticker,",
+              '            {"ticker": ticker, "name": "", "market": ""},',
+              "        )",
+              '        if not current.get("name"):',
+              '            current["name"] = value.get("name", "")',
+              '        if not current.get("market"):',
+              '            current["market"] = value.get("market", "")',
+              "",
+              "    market_metrics = load_market_metrics(output_dir)",
+              '    log_lines.append(f"LEGACY_TARGET_TICKERS={legacy_target_count}")',
+              "    log_lines.append(",
+              '        f"PRODUCTION_TWO_TABLE_TARGET_TICKERS={len(production_metadata)}"',
+              "    )",
+              '    log_lines.append(f"TARGET_TICKERS={len(metadata)}")',
+          ])
+
+          if "PRODUCTION_TWO_TABLE_TARGET_TICKERS=" not in text:
+              if old_main not in text:
+                  raise SystemExit("MAIN_METADATA_ANCHOR_NOT_FOUND")
+              text = text.replace(old_main, new_main, 1)
+
+          path.write_text(text, encoding="utf-8")
+          print("V872_FINANCIAL_TARGET_PATCH=PASS")
+          PY
+
+          python -m py_compile financial_valuation_enricher.py
+          python financial_valuation_enricher.py --self-test | tee /tmp/v872_fin_selftest.txt
+          grep -q 'SELF_TEST_STATUS=OK' /tmp/v872_fin_selftest.txt
+          grep -F 'PRODUCTION_TWO_TABLE_TARGET_TICKERS=' financial_valuation_enricher.py
+          echo "V872_FINANCIAL_PATCH_VALIDATION=PASS"
+
+      - name: Refresh financial valuation cache for current production universe
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -n "${DART_API_KEY:-}" || {
+            echo "::error::DART_API_KEY secret is missing"
+            exit 1
+          }
+
+          python financial_valuation_enricher.py \
+            --output-dir latest \
+            --workers 4 \
+            --timeout 30 \
+            --max-api-calls 5000 \
+            --retry-hours 0 \
+            --no-enrich \
+            | tee /tmp/v872_financial_refresh.txt
+
+          grep -q 'FINANCIAL_VALUATION_STATUS=OK' /tmp/v872_financial_refresh.txt
+
+          echo "----- financial valuation refresh -----"
+          cat latest/financial_valuation_run_log_latest.txt
+
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          def ticker(value):
+              return str(value or "").strip().zfill(6)
+
+          prod = {}
+          for name in ("kospi", "decliners", "decliners24"):
+              data = json.loads(
+                  Path(f"api/two_table_v1/{name}.json").read_text(encoding="utf-8")
+              )
+              for row in data.get("rows") or []:
+                  prod[ticker(row["ticker"])] = row.get("name", "")
+
+          with Path("latest/financial_valuation_cache_latest.csv").open(
+              encoding="utf-8-sig", newline=""
+          ) as f:
+              cache = {ticker(r["ticker"]): r for r in csv.DictReader(f)}
+
+          missing = sorted(set(prod) - set(cache))
+          print(f"PRODUCTION_UNIQUE_TICKERS={len(prod)}")
+          print(f"FINANCIAL_CACHE_PRODUCTION_MATCHES={len(set(prod) & set(cache))}")
+          print(f"FINANCIAL_CACHE_PRODUCTION_MISSING={len(missing)}")
+
+          if missing:
+              print("MISSING_TICKERS=" + ",".join(missing))
+              raise SystemExit("FINANCIAL_PRODUCTION_TARGET_COVERAGE_INCOMPLETE")
+
+          print("V872_FINANCIAL_PRODUCTION_TARGET_COVERAGE=PASS")
+          PY
+
+      - name: Refresh investment-score raw source cache
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m py_compile investment_score_source_enricher_v854.py
+          python investment_score_source_enricher_v854.py --self-test \
+            | tee /tmp/v872_score_source_selftest.txt
+
+          grep -q 'SELF_TEST=PASS' /tmp/v872_score_source_selftest.txt
+          grep -q 'SCORE_VALUES_GENERATED=false' /tmp/v872_score_source_selftest.txt
+
+          python investment_score_source_enricher_v854.py \
+            --output-dir latest \
+            --workers 4 \
+            --timeout 30 \
+            --max-full-account-calls 5000 \
+            | tee /tmp/v872_score_source_refresh.txt
+
+          grep -q 'INVESTMENT_SCORE_SOURCE_STATUS=OK' \
+            /tmp/v872_score_source_refresh.txt
+          grep -q 'INVESTMENT_SCORE_100_CALCULATED=false' \
+            /tmp/v872_score_source_refresh.txt
+          grep -q 'NET_CASH_CALCULATED=false' \
+            /tmp/v872_score_source_refresh.txt
+          grep -q 'EV_EBITDA_CALCULATED=false' \
+            /tmp/v872_score_source_refresh.txt
+
+          echo "----- investment score raw source refresh -----"
+          cat latest/investment_score_source_run_log_latest.txt
+
+          echo "V872_INVESTMENT_RAW_SOURCE_REFRESH=PASS"
+
+      - name: Re-run V8.7.1 readiness audit
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m py_compile investment_score_readiness_v871.py
+          python investment_score_readiness_v871.py \
+            | tee /tmp/v872_readiness.txt
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(
+              Path("latest/investment_score_readiness_latest.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          universe = data["universe"]
+          total = int(universe["unique_ticker_count"])
+          fin = int(universe["financial_cache_matches"])
+          raw = int(universe["investment_raw_cache_matches"])
+
+          print(f"READINESS_UNIQUE_TICKERS={total}")
+          print(f"READINESS_FINANCIAL_MATCHES={fin}")
+          print(f"READINESS_RAW_MATCHES={raw}")
+          print(f"READINESS_FINANCIAL_COVERAGE_PCT={round(fin * 100 / total, 2)}")
+          print(f"READINESS_RAW_COVERAGE_PCT={round(raw * 100 / total, 2)}")
+
+          if fin != total:
+              raise SystemExit("READINESS_FINANCIAL_TARGET_ALIGNMENT_FAILED")
+          if data["hard_guards"]["investment_score_100_calculated"] is not False:
+              raise SystemExit("INVESTMENT_SCORE_GUARD_BROKEN")
+          if data["overall"]["score_threshold_policy_status"] != "NOT_DEFINED":
+              raise SystemExit("THRESHOLD_POLICY_UNEXPECTEDLY_DEFINED")
+
+          print("V872_READINESS_REAUDIT=PASS")
+          print("INVESTMENT_SCORE_100_CALCULATED=false")
+          print("SCORE_THRESHOLD_POLICY_STATUS=NOT_DEFINED")
+          PY
+
+      - name: Verify production untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git status --porcelain -- api/two_table_v1 config/two_table_release.json | grep -q .; then
+            echo "::error::Production files changed"
+            git status --short -- api/two_table_v1 config/two_table_release.json
+            exit 1
+          fi
+
+          echo "V872_PRODUCTION_UNCHANGED=PASS"
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "CHANGED_FILES_BEGIN"
+          git status --short
+          echo "CHANGED_FILES_END"
+
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "financial_valuation_enricher.py",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/financial_valuation_run_log_latest.txt",
+              "latest/dart_corp_code_map_latest.csv",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/investment_score_source_run_log_latest.txt",
+              "latest/investment_score_readiness_latest.json",
+              "latest/investment_score_readiness_components_latest.csv",
+              "latest/investment_score_readiness_run_log_latest.txt",
+          }
+
+          out = subprocess.check_output(["git", "status", "--porcelain"], text=True)
+          changed = set()
+          for line in out.splitlines():
+              if not line.strip():
+                  continue
+              path = line[3:]
+              if " -> " in path:
+                  path = path.split(" -> ", 1)[1]
+              changed.add(path)
+
+          unexpected = changed - allowed
+          if unexpected:
+              raise SystemExit("UNEXPECTED_CHANGED_FILES=" + repr(sorted(unexpected)))
+
+          required = {
+              "financial_valuation_enricher.py",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/investment_score_readiness_latest.json",
+          }
+          missing = required - changed
+          if missing:
+              raise SystemExit("EXPECTED_CHANGED_FILES_MISSING=" + repr(sorted(missing)))
+
+          print("CHANGE_SCOPE=PASS")
+          PY
+
+      - name: Commit and push V8.7.2 source coverage expansion
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            financial_valuation_enricher.py \
+            latest/financial_valuation_cache_latest.csv \
+            latest/financial_valuation_run_log_latest.txt \
+            latest/dart_corp_code_map_latest.csv \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/investment_score_readiness_latest.json \
+            latest/investment_score_readiness_components_latest.csv \
+            latest/investment_score_readiness_run_log_latest.txt
+
+          git diff --cached --quiet && {
+            echo "::error::No changes staged"
+            exit 1
+          }
+
+          git commit -m "Expand investment score source coverage to production tables"
+
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          fi
+
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "PRODUCTION_DATA_CHANGED=false"
+          echo "INVESTMENT_SCORE_100_CALCULATED=false"
+          echo "NEXT_STEP=REVIEW_REMAINING_SOURCE_AND_THRESHOLD_BLOCKERS"

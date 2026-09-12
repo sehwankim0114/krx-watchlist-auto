@@ -1,4 +1,4 @@
-name: Diagnose standalone swing data gaps v8.7.8
+name: Validate standalone swing promotion gate v8.7.9
 
 on:
   workflow_dispatch:
@@ -7,11 +7,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: v878-standalone-swing-gap-diagnostic
+  group: v879-standalone-swing-promotion-gate
   cancel-in-progress: false
 
 jobs:
-  diagnose:
+  validate:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Diagnose MA and ATR gaps
+      - name: Validate source gaps and promotion readiness
         shell: bash
         run: |
           set -euo pipefail
@@ -43,355 +43,423 @@ jobs:
           from stock_table_metrics_v850 import normalize_bars
 
           INTEGRATED = Path("latest/standalone_swing_integrated_latest.json")
-          SWING = Path("latest/standalone_swing_source_latest.json")
           HISTORY = Path("latest/active_stock_long_history_260d_latest.csv")
           HISTORY_META = Path("latest/active_stock_long_history_260d_meta_latest.json")
-          OUT = Path("/tmp/v878_standalone_swing_gap_diagnostic")
+          OUT = Path("/tmp/v879_standalone_swing_promotion_gate")
           OUT.mkdir(parents=True, exist_ok=True)
 
-          for p in (INTEGRATED, SWING, HISTORY, HISTORY_META):
+          for p in (INTEGRATED, HISTORY, HISTORY_META):
               if not p.is_file():
                   raise SystemExit("MISSING_REQUIRED_SOURCE:" + str(p))
 
           integrated = json.loads(INTEGRATED.read_text(encoding="utf-8-sig"))
-          swing = json.loads(SWING.read_text(encoding="utf-8-sig"))
-          history_meta = json.loads(HISTORY_META.read_text(encoding="utf-8-sig"))
+          hist_meta = json.loads(HISTORY_META.read_text(encoding="utf-8-sig"))
 
           if integrated.get("status") != "READY_SOURCE_ONLY":
               raise SystemExit("INTEGRATED_SOURCE_NOT_READY")
-          if swing.get("status") != "READY_SOURCE_ONLY":
-              raise SystemExit("SWING_SOURCE_NOT_READY")
-          if history_meta.get("status") != "READY":
-              raise SystemExit("LONG_HISTORY_NOT_READY")
+          if integrated.get("source_only") is not True:
+              raise SystemExit("INTEGRATED_NOT_SOURCE_ONLY")
+          if integrated.get("standalone_swing_table_enabled") is not False:
+              raise SystemExit("TABLE_ALREADY_ENABLED_UNEXPECTEDLY")
+          if integrated.get("action_route_enabled") is not False:
+              raise SystemExit("ACTION_ALREADY_ENABLED_UNEXPECTEDLY")
+          if hist_meta.get("status") != "READY":
+              raise SystemExit("HISTORY_NOT_READY")
 
           basis = integrated.get("basis_date")
-          if not basis:
-              raise SystemExit("BASIS_MISSING")
-          if swing.get("basis_date") != basis:
-              raise SystemExit("SWING_BASIS_MISMATCH")
-          if history_meta.get("cache_max_date") != basis:
-              raise SystemExit("HISTORY_BASIS_MISMATCH")
+          if not basis or hist_meta.get("cache_max_date") != basis:
+              raise SystemExit("BASIS_MISMATCH")
 
-          integrated_rows = {
+          rows = {
               str(r["ticker"]).zfill(6): r
               for r in integrated.get("rows") or []
           }
-          swing_rows = {
-              str(r["ticker"]).zfill(6): r
-              for r in swing.get("rows") or []
-          }
-
-          if set(integrated_rows) != set(swing_rows):
-              raise SystemExit("INTEGRATED_SWING_TICKER_SET_MISMATCH")
+          if len(rows) != int(integrated.get("row_count") or 0):
+              raise SystemExit("INTEGRATED_ROW_COUNT_MISMATCH")
 
           with HISTORY.open(encoding="utf-8-sig", newline="") as f:
               history_rows = list(csv.DictReader(f))
 
           by_ticker = defaultdict(list)
-          for row in history_rows:
-              ticker = str(row.get("ticker") or "").zfill(6)
-              if ticker in integrated_rows:
-                  by_ticker[ticker].append(row)
+          for raw in history_rows:
+              ticker = str(raw.get("ticker") or "").zfill(6)
+              if ticker in rows:
+                  by_ticker[ticker].append(raw)
 
-          if set(by_ticker) != set(integrated_rows):
-              missing = sorted(set(integrated_rows) - set(by_ticker))
-              raise SystemExit("LONG_HISTORY_TICKER_MISSING:" + ",".join(missing[:20]))
+          if set(by_ticker) != set(rows):
+              missing = sorted(set(rows) - set(by_ticker))
+              raise SystemExit("HISTORY_TICKER_MISSING:" + ",".join(missing[:20]))
+
+          def num(v):
+              try:
+                  if v is None or str(v).strip() == "":
+                      return None
+                  return float(str(v).replace(",", ""))
+              except Exception:
+                  return None
 
           ma_gap_rows = []
+          sixm_gap_rows = []
           atr_gap_rows = []
-          atr_ready_rows = []
-          classifications = Counter()
+          range20_gap_rows = []
+          atr_invalid_day_class = Counter()
+          total_invalid_days = 0
+          zero_no_trade_days = 0
+          positive_relation_error_days = 0
+          other_invalid_days = 0
+          zero_days_close_equals_prev = 0
+          zero_days_with_prev = 0
 
-          for ticker in sorted(integrated_rows):
-              irow = integrated_rows[ticker]
-              srow = swing_rows[ticker]
+          for ticker in sorted(rows):
+              row = rows[ticker]
               raw_rows = sorted(by_ticker[ticker], key=lambda x: str(x["date"]))
               bars = normalize_bars(raw_rows, basis)
 
               if not bars or bars[-1]["date"] != basis:
-                  raise SystemExit("LATEST_BAR_MISSING:" + ticker)
+                  raise SystemExit("LATEST_OFFICIAL_BAR_MISSING:" + ticker)
 
-              ma = irow.get("ma") or {}
-              missing_ma_periods = [
+              raw_map = {str(r["date"]): r for r in raw_rows}
+              raw_dates = [str(r["date"]) for r in raw_rows]
+              prev_close_by_date = {}
+              prev_close = None
+              for r in raw_rows:
+                  day = str(r["date"])
+                  prev_close_by_date[day] = prev_close
+                  c = num(r.get("close"))
+                  if c is not None and c > 0:
+                      prev_close = c
+
+              # MA full-readiness diagnostic.
+              ma = row.get("ma") or {}
+              missing_ma = [
                   p for p in (5, 20, 60, 120)
                   if (ma.get(str(p)) or {}).get("value") is None
                   or (ma.get(str(p)) or {}).get("direction") is None
               ]
-
-              if missing_ma_periods:
+              if missing_ma:
+                  required = max(p + 5 for p in missing_ma)
+                  expected_history_short = len(bars) < required
                   ma_gap_rows.append({
                       "ticker": ticker,
-                      "name": irow.get("name"),
-                      "market": irow.get("market"),
+                      "name": row.get("name"),
+                      "market": row.get("market"),
                       "observation_count": len(bars),
-                      "history_min_date": bars[0]["date"],
-                      "history_max_date": bars[-1]["date"],
-                      "missing_ma_periods": missing_ma_periods,
-                      "required_for_direction": {
-                          "5": 10,
-                          "20": 25,
-                          "60": 65,
-                          "120": 125,
-                      },
-                      "source_missing": (srow.get("missing") or {}),
+                      "missing_periods": missing_ma,
+                      "required_closes_for_direction": required,
+                      "history_short_explains_gap": expected_history_short,
                   })
 
-              atr = irow.get("atr14") or {}
-              atr_ready = atr.get("pct") is not None
+              # 6M missing should be history-short only.
+              perf6 = (row.get("price_performance") or {}).get("6m") or {}
+              if perf6.get("status") != "OK":
+                  sixm_gap_rows.append({
+                      "ticker": ticker,
+                      "name": row.get("name"),
+                      "market": row.get("market"),
+                      "status": perf6.get("status"),
+                      "start_date": perf6.get("start_date"),
+                      "observation_count": len(bars),
+                      "history_min_date": bars[0]["date"],
+                  })
+
+              # ATR gaps: inspect exact raw official rows that normalize_bars rejected.
+              atr = row.get("atr14") or {}
               last126 = bars[-126:]
-
-              missing_hl_dates = [
-                  b["date"]
-                  for b in last126
-                  if b.get("high") is None or b.get("low") is None
-              ]
-              missing_hl_last20 = [
-                  b["date"]
-                  for b in bars[-20:]
-                  if b.get("high") is None or b.get("low") is None
-              ]
-
-              raw_map = {str(r["date"]): r for r in raw_rows}
-              raw_missing_count = 0
-              raw_invalid_count = 0
-              raw_examples = []
-
-              for day in missing_hl_dates:
+              invalid_days = []
+              for b in last126:
+                  if b.get("high") is not None and b.get("low") is not None:
+                      continue
+                  day = b["date"]
                   raw = raw_map.get(day) or {}
-                  high_raw = raw.get("high")
-                  low_raw = raw.get("low")
-                  close_raw = raw.get("close")
+                  o = num(raw.get("open"))
+                  h = num(raw.get("high"))
+                  l = num(raw.get("low"))
+                  c = num(raw.get("close"))
+                  v = num(raw.get("volume"))
+                  tv = num(raw.get("trading_value"))
 
-                  def num(v):
-                      try:
-                          return float(str(v).replace(",", ""))
-                      except Exception:
-                          return None
-
-                  h = num(high_raw)
-                  l = num(low_raw)
-                  c = num(close_raw)
-
-                  if h is None or l is None:
-                      raw_missing_count += 1
-                      kind = "RAW_HIGH_OR_LOW_MISSING"
+                  if h == 0 and l == 0 and c is not None and c > 0 and (v in (0, None)) and (tv in (0, None)):
+                      kind = "ZERO_HIGH_LOW_NO_TRADE_ROW"
+                      zero_no_trade_days += 1
+                      prev = prev_close_by_date.get(day)
+                      if prev is not None:
+                          zero_days_with_prev += 1
+                          if c == prev:
+                              zero_days_close_equals_prev += 1
+                  elif h is not None and l is not None and h > 0 and l > 0 and c is not None and not (l <= c <= h):
+                      kind = "POSITIVE_OHLC_RELATION_ERROR"
+                      positive_relation_error_days += 1
                   else:
-                      raw_invalid_count += 1
-                      kind = "RAW_OHLC_INVALID_RELATION"
+                      kind = "OTHER_INVALID_OHLC"
+                      other_invalid_days += 1
 
-                  if len(raw_examples) < 8:
-                      raw_examples.append({
-                          "date": day,
-                          "kind": kind,
-                          "raw_high": high_raw,
-                          "raw_low": low_raw,
-                          "raw_close": close_raw,
-                      })
+                  total_invalid_days += 1
+                  atr_invalid_day_class[kind] += 1
+                  invalid_days.append({
+                      "date": day,
+                      "kind": kind,
+                      "open": o,
+                      "high": h,
+                      "low": l,
+                      "close": c,
+                      "volume": v,
+                      "trading_value": tv,
+                      "previous_close": prev_close_by_date.get(day),
+                  })
 
-              if atr_ready:
-                  atr_ready_rows.append(ticker)
-                  continue
+              if atr.get("pct") is None:
+                  atr_gap_rows.append({
+                      "ticker": ticker,
+                      "name": row.get("name"),
+                      "market": row.get("market"),
+                      "observation_count": len(bars),
+                      "invalid_day_count_last126": len(invalid_days),
+                      "invalid_day_classes": dict(Counter(x["kind"] for x in invalid_days)),
+                      "all_invalid_days_are_zero_no_trade": bool(invalid_days) and all(
+                          x["kind"] == "ZERO_HIGH_LOW_NO_TRADE_ROW"
+                          for x in invalid_days
+                      ),
+                      "examples": invalid_days[:8],
+                  })
+              elif invalid_days:
+                  raise SystemExit("ATR_READY_DESPITE_INVALID_LAST126:" + ticker)
 
-              if len(bars) < 15:
-                  reason = "HISTORY_SHORT_LT_15"
-              elif missing_hl_dates:
-                  if raw_missing_count and raw_invalid_count:
-                      reason = "MIXED_RAW_MISSING_AND_INVALID_OHLC"
-                  elif raw_missing_count:
-                      reason = "RAW_HIGH_OR_LOW_MISSING_IN_LAST126"
-                  else:
-                      reason = "RAW_OHLC_INVALID_RELATION_IN_LAST126"
-              else:
-                  reason = "UNEXPECTED_ATR_NULL_WITH_COMPLETE_LAST126"
+              # 20-day average range missing is also acceptable only when recent OHLC
+              # contains official zero/no-trade rows.
+              if row.get("avg_daily_range_20_pct") is None:
+                  last20 = bars[-20:]
+                  bad20 = []
+                  for b in last20:
+                      if b.get("high") is None or b.get("low") is None:
+                          raw = raw_map.get(b["date"]) or {}
+                          bad20.append({
+                              "date": b["date"],
+                              "high": num(raw.get("high")),
+                              "low": num(raw.get("low")),
+                              "close": num(raw.get("close")),
+                              "volume": num(raw.get("volume")),
+                              "trading_value": num(raw.get("trading_value")),
+                          })
+                  range20_gap_rows.append({
+                      "ticker": ticker,
+                      "name": row.get("name"),
+                      "market": row.get("market"),
+                      "bad20_count": len(bad20),
+                      "all_bad20_zero_no_trade": bool(bad20) and all(
+                          x["high"] == 0 and x["low"] == 0
+                          and (x["volume"] in (0, None))
+                          and (x["trading_value"] in (0, None))
+                          for x in bad20
+                      ),
+                  })
 
-              classifications[reason] += 1
-              atr_gap_rows.append({
-                  "ticker": ticker,
-                  "name": irow.get("name"),
-                  "market": irow.get("market"),
-                  "observation_count": len(bars),
-                  "history_min_date": bars[0]["date"],
-                  "history_max_date": bars[-1]["date"],
-                  "atr_source_status": (srow.get("missing") or {}).get("atr14"),
-                  "diagnostic_reason": reason,
-                  "last126_bar_count": len(last126),
-                  "missing_high_low_last126_count": len(missing_hl_dates),
-                  "missing_high_low_last20_count": len(missing_hl_last20),
-                  "first_missing_high_low_date": missing_hl_dates[0] if missing_hl_dates else None,
-                  "last_missing_high_low_date": missing_hl_dates[-1] if missing_hl_dates else None,
-                  "raw_high_low_missing_count": raw_missing_count,
-                  "raw_ohlc_invalid_relation_count": raw_invalid_count,
-                  "raw_examples": raw_examples,
-              })
-
-          expected_ma_gap_count = (
-              len(integrated_rows)
-              - sum(
-                  1
-                  for row in integrated_rows.values()
-                  if all(
-                      (row.get("ma") or {}).get(str(p), {}).get("value") is not None
-                      and (row.get("ma") or {}).get(str(p), {}).get("direction") is not None
-                      for p in (5, 20, 60, 120)
-                  )
-              )
-          )
-
-          expected_atr_gap_count = (
-              len(integrated_rows)
-              - sum(
-                  1 for row in integrated_rows.values()
-                  if (row.get("atr14") or {}).get("pct") is not None
-              )
-          )
-
-          if len(ma_gap_rows) != expected_ma_gap_count:
-              raise SystemExit("MA_GAP_COUNT_INTERNAL_MISMATCH")
-          if len(atr_gap_rows) != expected_atr_gap_count:
-              raise SystemExit("ATR_GAP_COUNT_INTERNAL_MISMATCH")
-
-          unexpected_atr = [
+          unexplained_ma = [
+              r for r in ma_gap_rows
+              if not r["history_short_explains_gap"]
+          ]
+          unexplained_atr = [
               r for r in atr_gap_rows
-              if r["diagnostic_reason"] == "UNEXPECTED_ATR_NULL_WITH_COMPLETE_LAST126"
+              if not r["all_invalid_days_are_zero_no_trade"]
+          ]
+          unexplained_range20 = [
+              r for r in range20_gap_rows
+              if not r["all_bad20_zero_no_trade"]
+          ]
+          unexpected_6m = [
+              r for r in sixm_gap_rows
+              if r["status"] not in (
+                  "CALENDAR_HISTORY_SHORT",
+                  "HISTORY_SHORT_OR_DATE_MISSING",
+              )
           ]
 
+          data_quality_gate_pass = (
+              not unexplained_ma
+              and not unexplained_atr
+              and not unexplained_range20
+              and not unexpected_6m
+              and positive_relation_error_days == 0
+              and other_invalid_days == 0
+          )
+
           result = {
-              "version": "2026-09-12-v8.7.8-standalone-swing-gap-diagnostic",
-              "status": "READY_EVIDENCE_ONLY",
+              "version": "2026-09-12-v8.7.9-standalone-swing-promotion-gate",
+              "status": "PASS" if data_quality_gate_pass else "BLOCKED",
               "repository_write": False,
               "production_change": False,
               "worker_change": False,
               "metric_formula_change": False,
               "basis_date": basis,
-              "row_count": len(integrated_rows),
-              "ma_full_ready_count": len(integrated_rows) - len(ma_gap_rows),
+              "row_count": len(rows),
+              "data_quality_promotion_gate_pass": data_quality_gate_pass,
               "ma_gap_count": len(ma_gap_rows),
-              "atr14_ready_count": len(atr_ready_rows),
-              "atr14_gap_count": len(atr_gap_rows),
-              "atr14_gap_classification_counts": dict(sorted(classifications.items())),
-              "unexpected_atr_null_count": len(unexpected_atr),
               "ma_gap_rows": ma_gap_rows,
-              "atr_gap_rows": atr_gap_rows,
+              "unexplained_ma_gap_count": len(unexplained_ma),
+              "return_6m_gap_count": len(sixm_gap_rows),
+              "return_6m_gap_rows": sixm_gap_rows,
+              "unexpected_return_6m_gap_count": len(unexpected_6m),
+              "atr14_gap_count": len(atr_gap_rows),
+              "atr14_gap_rows": atr_gap_rows,
+              "atr_invalid_day_count_total": total_invalid_days,
+              "atr_invalid_day_class_counts": dict(sorted(atr_invalid_day_class.items())),
+              "zero_no_trade_day_count": zero_no_trade_days,
+              "zero_no_trade_days_with_previous_close": zero_days_with_prev,
+              "zero_no_trade_days_close_equals_previous": zero_days_close_equals_prev,
+              "positive_ohlc_relation_error_day_count": positive_relation_error_days,
+              "other_invalid_ohlc_day_count": other_invalid_days,
+              "unexplained_atr_gap_count": len(unexplained_atr),
+              "range20_gap_count": len(range20_gap_rows),
+              "range20_gap_rows": range20_gap_rows,
+              "unexplained_range20_gap_count": len(unexplained_range20),
+              "accepted_null_display_policy": {
+                  "ma": "자료 미제공 when required history is insufficient; no fabricated MA",
+                  "return_6m": "자료 미제공 when calendar history is insufficient",
+                  "atr14": "자료 미제공 when official lookback contains zero/no-trade OHLC rows; no imputation",
+                  "avg_daily_range_20_pct": "자료 미제공 when recent official OHLC has zero/no-trade rows",
+                  "kosdaq_sector_rs": "자료 미제공 under current KOSPI-only official sector-RS contract",
+                  "pending_metrics": "자료 미제공; remain null until separate approved contracts exist",
+              },
+              "activation_still_blocked_by": [
+                  "NO_FINAL_STANDALONE_TABLE_HEADER_CONTRACT",
+                  "NO_STANDALONE_COMMAND_OR_ROUTE_CONTRACT",
+                  "REQUEST_TIME_PRICE_PATH_NOT_WIRED_TO_STANDALONE_TABLE",
+                  "1W_YTD_52W_FORMULAS_NOT_APPROVED",
+                  "RSI_MACD_FORMULAS_NOT_APPROVED",
+                  "CONFIRMED_SWING_LOW_STOP_POLICY_NOT_DEFINED",
+                  "INVESTMENT_SCORE_THRESHOLDS_NOT_DEFINED",
+                  "EARNINGS_OUTLOOK_SOURCE_NOT_CONNECTED",
+                  "KOSDAQ_OFFICIAL_SECTOR_RS_CONTRACT_NOT_DEFINED",
+              ],
               "decision": {
-                  "ma_formula_change_required": False,
-                  "atr_formula_change_required": False,
+                  "data_layer_ready_for_preproduction_contract": data_quality_gate_pass,
+                  "production_activation_now": False,
                   "auto_fill_missing_values": False,
-                  "static_price_substitution": False,
-                  "note": (
-                      "This diagnostic classifies source/history gaps only. "
-                      "It does not relax or change the validated MA/ATR formulas."
-                  ),
+                  "metric_formula_change_required": False,
+                  "request_time_price_substitution": False,
               },
           }
 
-          (OUT / "standalone-swing-gap-diagnostic-v878.json").write_text(
+          (OUT / "standalone-swing-promotion-gate-v879.json").write_text(
               json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
               encoding="utf-8",
           )
 
           md = [
-              "# V8.7.8 독립 스윙 데이터 결측 진단",
+              "# V8.7.9 독립 스윙 운영승격 데이터품질 게이트",
               "",
               f"- 기준일: {basis}",
-              f"- 전체 종목: {len(integrated_rows)}",
-              f"- MA5/20/60/120 전체 준비: {len(integrated_rows)-len(ma_gap_rows)}/{len(integrated_rows)}",
-              f"- MA 결측: {len(ma_gap_rows)}",
-              f"- ATR14 준비: {len(atr_ready_rows)}/{len(integrated_rows)}",
-              f"- ATR14 결측: {len(atr_gap_rows)}",
-              f"- 예상 밖 ATR null: {len(unexpected_atr)}",
+              f"- 전체 종목: {len(rows)}",
+              f"- 데이터품질 게이트: {'PASS' if data_quality_gate_pass else 'BLOCKED'}",
+              f"- MA 결측: {len(ma_gap_rows)} / 미설명 {len(unexplained_ma)}",
+              f"- 6M 결측: {len(sixm_gap_rows)} / 예상 밖 {len(unexpected_6m)}",
+              f"- ATR14 결측: {len(atr_gap_rows)} / 미설명 {len(unexplained_atr)}",
+              f"- ATR lookback 무효행 총수: {total_invalid_days}",
+              f"- 공식 0-OHLC·무거래형 행: {zero_no_trade_days}",
+              f"- 양수 OHLC 관계오류 행: {positive_relation_error_days}",
+              f"- 기타 비정상 OHLC 행: {other_invalid_days}",
+              f"- 20일 평균 일중고저폭 결측: {len(range20_gap_rows)} / 미설명 {len(unexplained_range20)}",
               "",
-              "## MA 결측 종목",
+              "## MA 결측",
           ]
-
-          if ma_gap_rows:
-              for r in ma_gap_rows:
-                  md.append(
-                      f"- {r['name']}({r['ticker']}, {r['market']}): "
-                      f"관측 {r['observation_count']}일, 결측 MA={r['missing_ma_periods']}, "
-                      f"history {r['history_min_date']}~{r['history_max_date']}"
-                  )
-          else:
-              md.append("- 없음")
-
-          md += ["", "## ATR14 결측 분류"]
-          for reason, count in sorted(classifications.items()):
-              md.append(f"- {reason}: {count}종목")
+          for r in ma_gap_rows:
+              md.append(
+                  f"- {r['name']}({r['ticker']}): 관측 {r['observation_count']}일, "
+                  f"결측 {r['missing_periods']}, 필요 {r['required_closes_for_direction']}일, "
+                  f"상장이력 부족 설명={r['history_short_explains_gap']}"
+              )
 
           md += ["", "## ATR14 결측 종목"]
           for r in atr_gap_rows:
               md.append(
-                  f"- {r['name']}({r['ticker']}, {r['market']}): "
-                  f"{r['diagnostic_reason']}, 관측 {r['observation_count']}일, "
-                  f"최근126 고가/저가 결측 {r['missing_high_low_last126_count']}일, "
-                  f"최근20 결측 {r['missing_high_low_last20_count']}일"
+                  f"- {r['name']}({r['ticker']}): 최근126 무효 OHLC "
+                  f"{r['invalid_day_count_last126']}일, "
+                  f"전부 0-OHLC·무거래형={r['all_invalid_days_are_zero_no_trade']}"
               )
 
           md += [
               "",
-              "## 안전 판정",
-              "- 이 진단은 MA/ATR 계산식을 변경하지 않습니다.",
-              "- 결측치를 임의 보간하지 않습니다.",
-              "- 요청시점 현재가 또는 정적 종가로 결측을 대체하지 않습니다.",
-              "- repository·production·Worker를 변경하지 않습니다.",
+              "## 운영승격 원칙",
+              "- 원천자료 결측은 `자료 미제공`으로 표시한다.",
+              "- MA·ATR·변동폭을 임의 보간하거나 계산식을 완화하지 않는다.",
+              "- 요청시점 현재가 실패를 정적 종가로 대체하지 않는다.",
+              "- 이번 단계는 데이터품질 게이트만 판단하며 표·Action·Worker를 활성화하지 않는다.",
+              "",
+              "## 아직 남은 활성화 차단요인",
           ]
+          for blocker in result["activation_still_blocked_by"]:
+              md.append(f"- {blocker}")
 
-          (OUT / "standalone-swing-gap-diagnostic-v878.md").write_text(
+          (OUT / "standalone-swing-promotion-gate-v879.md").write_text(
               "\n".join(md) + "\n",
               encoding="utf-8",
           )
 
-          print("V878_GAP_DIAGNOSTIC=READY_EVIDENCE_ONLY")
+          print("V879_PROMOTION_GATE_STATUS=" + result["status"])
           print("BASIS_DATE=" + basis)
-          print("TOTAL_ROWS=" + str(len(integrated_rows)))
-          print("MA_FULL_READY=" + str(len(integrated_rows)-len(ma_gap_rows)))
+          print("TOTAL_ROWS=" + str(len(rows)))
           print("MA_GAP_COUNT=" + str(len(ma_gap_rows)))
-          print("ATR14_READY=" + str(len(atr_ready_rows)))
+          print("UNEXPLAINED_MA_GAP_COUNT=" + str(len(unexplained_ma)))
+          print("RETURN_6M_GAP_COUNT=" + str(len(sixm_gap_rows)))
+          print("UNEXPECTED_RETURN_6M_GAP_COUNT=" + str(len(unexpected_6m)))
           print("ATR14_GAP_COUNT=" + str(len(atr_gap_rows)))
-          print("UNEXPECTED_ATR_NULL_COUNT=" + str(len(unexpected_atr)))
-          for reason, count in sorted(classifications.items()):
-              print("ATR_CLASS_" + reason + "=" + str(count))
-          print("MA_FORMULA_CHANGE_REQUIRED=false")
-          print("ATR_FORMULA_CHANGE_REQUIRED=false")
+          print("UNEXPLAINED_ATR_GAP_COUNT=" + str(len(unexplained_atr)))
+          print("ATR_INVALID_DAY_COUNT_TOTAL=" + str(total_invalid_days))
+          print("ZERO_NO_TRADE_DAY_COUNT=" + str(zero_no_trade_days))
+          print("POSITIVE_OHLC_RELATION_ERROR_DAY_COUNT=" + str(positive_relation_error_days))
+          print("OTHER_INVALID_OHLC_DAY_COUNT=" + str(other_invalid_days))
+          print("RANGE20_GAP_COUNT=" + str(len(range20_gap_rows)))
+          print("UNEXPLAINED_RANGE20_GAP_COUNT=" + str(len(unexplained_range20)))
+          print("DATA_LAYER_READY_FOR_PREPRODUCTION_CONTRACT=" + str(data_quality_gate_pass).lower())
+          print("PRODUCTION_ACTIVATION_NOW=false")
           print("AUTO_FILL_MISSING_VALUES=false")
+          print("METRIC_FORMULA_CHANGE_REQUIRED=false")
           print("REPOSITORY_WRITE=false")
           print("PRODUCTION_CHANGE=false")
           print("WORKER_CHANGE=false")
           print("REQUEST_TIME_PRICE_SUBSTITUTION=false")
           PY
 
-      - name: Validate diagnostic safety
+      - name: Validate promotion-gate safety
         shell: bash
         run: |
           set -euo pipefail
 
-          test -f /tmp/v878_standalone_swing_gap_diagnostic/standalone-swing-gap-diagnostic-v878.json
-          test -f /tmp/v878_standalone_swing_gap_diagnostic/standalone-swing-gap-diagnostic-v878.md
+          test -f /tmp/v879_standalone_swing_promotion_gate/standalone-swing-promotion-gate-v879.json
+          test -f /tmp/v879_standalone_swing_promotion_gate/standalone-swing-promotion-gate-v879.md
 
           python - <<'PY'
           import json
           from pathlib import Path
 
           p = json.loads(
-              Path("/tmp/v878_standalone_swing_gap_diagnostic/standalone-swing-gap-diagnostic-v878.json")
+              Path("/tmp/v879_standalone_swing_promotion_gate/standalone-swing-promotion-gate-v879.json")
               .read_text(encoding="utf-8")
           )
 
-          assert p["status"] == "READY_EVIDENCE_ONLY"
           assert p["repository_write"] is False
           assert p["production_change"] is False
           assert p["worker_change"] is False
           assert p["metric_formula_change"] is False
-          assert p["ma_full_ready_count"] + p["ma_gap_count"] == p["row_count"]
-          assert p["atr14_ready_count"] + p["atr14_gap_count"] == p["row_count"]
-          assert p["decision"]["ma_formula_change_required"] is False
-          assert p["decision"]["atr_formula_change_required"] is False
+          assert p["decision"]["production_activation_now"] is False
           assert p["decision"]["auto_fill_missing_values"] is False
-          assert p["decision"]["static_price_substitution"] is False
+          assert p["decision"]["metric_formula_change_required"] is False
+          assert p["decision"]["request_time_price_substitution"] is False
 
-          print("V878_COUNT_RECONCILIATION=PASS")
-          print("V878_NO_FORMULA_CHANGE=PASS")
-          print("V878_NO_AUTOFILL=PASS")
-          print("V878_READ_ONLY_SAFETY=PASS")
+          if p["status"] == "PASS":
+              assert p["data_quality_promotion_gate_pass"] is True
+              assert p["unexplained_ma_gap_count"] == 0
+              assert p["unexpected_return_6m_gap_count"] == 0
+              assert p["unexplained_atr_gap_count"] == 0
+              assert p["unexplained_range20_gap_count"] == 0
+              assert p["positive_ohlc_relation_error_day_count"] == 0
+              assert p["other_invalid_ohlc_day_count"] == 0
+              print("V879_DATA_QUALITY_GATE=PASS")
+          else:
+              print("V879_DATA_QUALITY_GATE=BLOCKED")
+
+          print("V879_NO_FORMULA_RELAXATION=PASS")
+          print("V879_NO_AUTOFILL=PASS")
+          print("V879_READ_ONLY_SAFETY=PASS")
           PY
 
           git diff --exit-code
@@ -400,12 +468,12 @@ jobs:
           echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
           echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
 
-      - name: Upload V8.7.8 diagnostic artifact
+      - name: Upload V8.7.9 promotion gate artifact
         uses: actions/upload-artifact@v6
         with:
-          name: standalone-swing-gap-diagnostic-v878
+          name: standalone-swing-promotion-gate-v879
           path: |
-            /tmp/v878_standalone_swing_gap_diagnostic/standalone-swing-gap-diagnostic-v878.json
-            /tmp/v878_standalone_swing_gap_diagnostic/standalone-swing-gap-diagnostic-v878.md
+            /tmp/v879_standalone_swing_promotion_gate/standalone-swing-promotion-gate-v879.json
+            /tmp/v879_standalone_swing_promotion_gate/standalone-swing-promotion-gate-v879.md
           if-no-files-found: error
           retention-days: 14

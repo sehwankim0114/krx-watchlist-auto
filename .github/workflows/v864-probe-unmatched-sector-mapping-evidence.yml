@@ -1,0 +1,439 @@
+name: Probe unmatched sector mapping evidence v8.6.4
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v864-unmatched-sector-mapping-evidence
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      KRX_ID: ${{ secrets.KRX_ID }}
+      KRX_PW: ${{ secrets.KRX_PW }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependency
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "pykrx==1.2.8"
+
+      - name: Probe unmatched mapping evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import contextlib
+          import io
+          import json
+          import os
+          import re
+          import time
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          from pykrx import stock
+          from pykrx.website.krx.market.core import 전종목기본정보
+
+          OUT = Path("/tmp/v864_probe")
+          OUT.mkdir(parents=True, exist_ok=True)
+          JSON_PATH = OUT / "v864-unmatched-sector-mapping-evidence.json"
+          MD_PATH = OUT / "v864-unmatched-sector-mapping-evidence.md"
+
+          TABLES = ("kospi", "decliners", "decliners24")
+          INDUSTRY_INDEXES = {f"{x:04d}" for x in range(1005, 1027)} | {"1045", "1046", "1047"}
+
+          result = {
+              "probe_version": "2026-09-12-v8.6.4-unmatched-sector-mapping-evidence",
+              "run_at_kst": datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds"),
+              "repository_write": False,
+              "production_modified": False,
+              "release_guard_modified": False,
+              "rs_sector_generated": False,
+              "shadow_evidence_only": True,
+              "source": "KRX Data Marketplace authenticated session via pykrx 1.2.8",
+              "rules": {
+                  "industry_membership": "official KRX constituent membership only",
+                  "preferred_pairing": (
+                      "evidence candidate only: exact normalized KRX ISU_NM issuer stem "
+                      "+ target KIND_STKCERT_TP_NM is preferred "
+                      "+ paired issue KIND_STKCERT_TP_NM is common "
+                      "+ common candidate must be unique"
+                  ),
+                  "no_auto_promotion_to_production": True,
+                  "no_fuzzy_company_name_match": True,
+                  "no_ticker_prefix_guess": True,
+                  "no_sector_theme_fallback": True,
+              },
+              "status": "STARTED",
+              "errors": [],
+          }
+
+          def write_outputs():
+              JSON_PATH.write_text(
+                  json.dumps(result, ensure_ascii=False, indent=2),
+                  encoding="utf-8",
+              )
+
+              lines = [
+                  "# V8.6.4 미매핑 업종 근거 점검",
+                  "",
+                  f"- 기준일: {result.get('basis_date', '-')}",
+                  f"- 고유 production 종목: {result.get('unique_ticker_count', 0)}",
+                  f"- 직접 KRX 업종지수 매핑: {result.get('direct_industry_mapped_count', 0)}",
+                  f"- 미매핑: {result.get('unmatched_count', 0)}",
+                  f"- 미매핑 중 우선주: {result.get('unmatched_preferred_count', 0)}",
+                  f"- 미매핑 중 보통주/기타: {result.get('unmatched_nonpreferred_count', 0)}",
+                  f"- 우선주→보통주 유일 후보 확보: {result.get('preferred_unique_common_candidate_count', 0)}",
+                  f"- 후보 보통주의 업종지수까지 확인: {result.get('preferred_candidate_industry_ready_count', 0)}",
+                  f"- 판정: {result.get('status')}",
+                  "",
+                  "## 안전규칙",
+                  "- production JSON을 수정하지 않습니다.",
+                  "- rs_sector 값을 생성하거나 배포하지 않습니다.",
+                  "- 종목코드 앞자리 추정, fuzzy name matching, sector_theme 대체를 하지 않습니다.",
+                  "- KRX 전종목 기본정보의 정식 종목명과 주권종류를 근거로 후보만 만듭니다.",
+                  "",
+                  "## 미매핑 종목",
+              ]
+
+              for r in result.get("unmatched_rows", []):
+                  base = (
+                      f"{r.get('ticker')} {r.get('name')} | "
+                      f"KRX={r.get('krx_isu_nm')} | 종류={r.get('security_type')} | "
+                      f"전체지수소속={r.get('all_index_memberships')}"
+                  )
+                  if r.get("common_candidate"):
+                      cc = r["common_candidate"]
+                      base += (
+                          f" | 보통주후보={cc.get('ticker')} {cc.get('name')} "
+                          f"| 후보업종={cc.get('industry_memberships')}"
+                      )
+                  base += f" | {r.get('evidence_status')}"
+                  lines.append("- " + base)
+
+              if result.get("errors"):
+                  lines += ["", "## 오류요약"]
+                  for err in result["errors"][:100]:
+                      lines.append(f"- {err}")
+
+              MD_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+          if not (os.getenv("KRX_ID") and os.getenv("KRX_PW")):
+              result["status"] = "SECRET_MISSING"
+              result["errors"].append("KRX_ID and/or KRX_PW repository secret missing.")
+              write_outputs()
+              print("V864_UNMATCHED_SECTOR_EVIDENCE=SECRET_MISSING")
+              raise SystemExit(0)
+
+          # Load current production tables and enforce common source identity.
+          payloads = {}
+          for table in TABLES:
+              path = Path(f"api/two_table_v1/{table}.json")
+              if not path.is_file():
+                  result["status"] = "PRODUCTION_TABLE_MISSING"
+                  result["errors"].append(str(path))
+                  write_outputs()
+                  raise SystemExit(0)
+              payloads[table] = json.loads(path.read_text(encoding="utf-8-sig"))
+
+          bases = {str(p.get("basis_date") or "") for p in payloads.values()}
+          builds = {str(p.get("source_build_id") or "") for p in payloads.values()}
+          if len(bases) != 1 or "" in bases:
+              result["status"] = "TABLE_BASIS_MISMATCH"
+              result["errors"].append(repr(sorted(bases)))
+              write_outputs()
+              raise SystemExit(0)
+          if len(builds) != 1 or "" in builds:
+              result["status"] = "TABLE_BUILD_ID_MISMATCH"
+              result["errors"].append(repr(sorted(builds)))
+              write_outputs()
+              raise SystemExit(0)
+
+          basis_iso = next(iter(bases))
+          basis = basis_iso.replace("-", "")
+          result["basis_date"] = basis_iso
+          result["source_build_id"] = next(iter(builds))
+
+          prod = {}
+          for table, payload in payloads.items():
+              for row in payload.get("rows") or []:
+                  t = str(row.get("ticker") or "").zfill(6)
+                  prod.setdefault(t, {
+                      "ticker": t,
+                      "name": row.get("name"),
+                      "tables": [],
+                  })
+                  prod[t]["tables"].append(table)
+
+          result["unique_ticker_count"] = len(prod)
+
+          # Trigger authenticated session and fetch full KOSPI index list.
+          auth_buf = io.StringIO()
+          try:
+              with contextlib.redirect_stdout(auth_buf), contextlib.redirect_stderr(auth_buf):
+                  index_tickers = stock.get_index_ticker_list(basis, market="KOSPI") or []
+          except Exception as exc:
+              index_tickers = []
+              result["errors"].append("INDEX_LIST:" + repr(exc))
+
+          auth_text = auth_buf.getvalue()
+          result["auth_flags"] = {
+              "login_attempted": "KRX 로그인 시도" in auth_text,
+              "login_completed": "KRX 로그인 완료" in auth_text,
+              "login_failed": "KRX 로그인 실패" in auth_text,
+              "password_change_required": "비밀번호 변경이 필요" in auth_text,
+          }
+
+          if not index_tickers:
+              result["status"] = "LIMITED_INDEX_LIST_EMPTY"
+              write_outputs()
+              print("V864_UNMATCHED_SECTOR_EVIDENCE=LIMITED_INDEX_LIST_EMPTY")
+              raise SystemExit(0)
+
+          # Official index names + constituent memberships for all KOSPI indexes.
+          names = {}
+          members_by_index = {}
+          for idx in map(str, index_tickers):
+              try:
+                  with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                      names[idx] = stock.get_index_ticker_name(idx)
+              except Exception as exc:
+                  names[idx] = None
+                  result["errors"].append(f"NAME:{idx}:{exc!r}")
+
+              try:
+                  with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                      members = stock.get_index_portfolio_deposit_file(idx, date=basis) or []
+                  members_by_index[idx] = {str(x).zfill(6) for x in members}
+              except Exception as exc:
+                  members_by_index[idx] = set()
+                  result["errors"].append(f"CONSTITUENTS:{idx}:{exc!r}")
+              time.sleep(0.10)
+
+          def memberships(ticker, only_industry=False):
+              out = []
+              for idx, members in members_by_index.items():
+                  if ticker in members and (not only_industry or idx in INDUSTRY_INDEXES):
+                      out.append({"ticker": idx, "name": names.get(idx)})
+              return sorted(out, key=lambda x: x["ticker"])
+
+          def choose_industry(ms):
+              ids = [m["ticker"] for m in ms]
+              if not ids:
+                  return None, "UNMATCHED"
+              # Existing V8.6.2/8.6.3 shadow candidate:
+              # choose specific Securities/Insurance over parent Finance.
+              if "1021" in ids:
+                  children = [x for x in ("1024", "1025") if x in ids]
+                  if len(children) == 1:
+                      return children[0], "SELECTED_CHILD_OVER_FINANCE_PARENT"
+              if len(ids) == 1:
+                  return ids[0], "SELECTED_SINGLE_OFFICIAL_INDUSTRY"
+              return None, "AMBIGUOUS"
+
+          direct = {}
+          unmatched = []
+          for t, item in prod.items():
+              ims = memberships(t, only_industry=True)
+              selected, status = choose_industry(ims)
+              if selected:
+                  direct[t] = selected
+              else:
+                  unmatched.append(t)
+
+          result["direct_industry_mapped_count"] = len(direct)
+          result["unmatched_count"] = len(unmatched)
+
+          # Fetch official all-stock basic info.
+          try:
+              with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                  basic_df = 전종목기본정보().fetch(mktId="STK")
+          except Exception as exc:
+              result["status"] = "BASIC_INFO_FETCH_FAILED"
+              result["errors"].append("BASIC_INFO:" + repr(exc))
+              write_outputs()
+              print("V864_UNMATCHED_SECTOR_EVIDENCE=BASIC_INFO_FETCH_FAILED")
+              raise SystemExit(0)
+
+          basic_by_ticker = {}
+          for _, r in basic_df.iterrows():
+              ticker = str(r.get("ISU_SRT_CD") or "").zfill(6)
+              if not re.fullmatch(r"\d{6}", ticker):
+                  continue
+              basic_by_ticker[ticker] = {
+                  "ticker": ticker,
+                  "isu_cd": str(r.get("ISU_CD") or ""),
+                  "isu_nm": str(r.get("ISU_NM") or ""),
+                  "abbr": str(r.get("ISU_ABBRV") or ""),
+                  "eng_nm": str(r.get("ISU_ENG_NM") or ""),
+                  "security_type": str(r.get("KIND_STKCERT_TP_NM") or ""),
+                  "market": str(r.get("MKT_TP_NM") or ""),
+              }
+
+          # Deterministic normalization of official KRX issue full-name suffixes.
+          # This is EVIDENCE CANDIDATE generation only, not a production mapping rule.
+          suffix_patterns = [
+              r"보통주$",
+              r"\d+우선주$",
+              r"우선주$",
+          ]
+
+          def issuer_stem(isu_nm):
+              value = (isu_nm or "").strip()
+              for pattern in suffix_patterns:
+                  new = re.sub(pattern, "", value)
+                  if new != value:
+                      return new.strip()
+              return value
+
+          stem_to_common = {}
+          for t, info in basic_by_ticker.items():
+              if info["security_type"] == "보통주":
+                  stem_to_common.setdefault(issuer_stem(info["isu_nm"]), []).append(t)
+
+          rows = []
+          preferred_count = 0
+          nonpreferred_count = 0
+          preferred_unique = 0
+          preferred_industry_ready = 0
+
+          for t in unmatched:
+              prod_item = prod[t]
+              bi = basic_by_ticker.get(t)
+              rec = {
+                  "ticker": t,
+                  "name": prod_item["name"],
+                  "tables": prod_item["tables"],
+                  "krx_isu_nm": bi.get("isu_nm") if bi else None,
+                  "krx_abbr": bi.get("abbr") if bi else None,
+                  "security_type": bi.get("security_type") if bi else None,
+                  "all_index_memberships": memberships(t, only_industry=False),
+                  "direct_industry_memberships": memberships(t, only_industry=True),
+                  "issuer_stem_candidate": issuer_stem(bi.get("isu_nm")) if bi else None,
+                  "common_candidate": None,
+                  "evidence_status": None,
+              }
+
+              if not bi:
+                  nonpreferred_count += 1
+                  rec["evidence_status"] = "KRX_BASIC_INFO_MISSING"
+                  rows.append(rec)
+                  continue
+
+              is_preferred = "우선주" in bi["security_type"]
+              if is_preferred:
+                  preferred_count += 1
+                  stem = issuer_stem(bi["isu_nm"])
+                  candidates = sorted(stem_to_common.get(stem, []))
+
+                  rec["common_candidate_tickers"] = candidates
+
+                  if len(candidates) != 1:
+                      rec["evidence_status"] = (
+                          "PREFERRED_COMMON_CANDIDATE_NOT_UNIQUE"
+                          if candidates else
+                          "PREFERRED_COMMON_CANDIDATE_NOT_FOUND"
+                      )
+                      rows.append(rec)
+                      continue
+
+                  preferred_unique += 1
+                  c = candidates[0]
+                  cbi = basic_by_ticker[c]
+                  c_industry = memberships(c, only_industry=True)
+                  chosen, choose_status = choose_industry(c_industry)
+
+                  rec["common_candidate"] = {
+                      "ticker": c,
+                      "name": cbi["abbr"],
+                      "krx_isu_nm": cbi["isu_nm"],
+                      "security_type": cbi["security_type"],
+                      "issuer_stem_candidate": issuer_stem(cbi["isu_nm"]),
+                      "industry_memberships": c_industry,
+                      "selected_industry_ticker": chosen,
+                      "selected_industry_name": names.get(chosen) if chosen else None,
+                      "industry_selection_status": choose_status,
+                  }
+
+                  if chosen:
+                      preferred_industry_ready += 1
+                      rec["evidence_status"] = "PREFERRED_UNIQUE_COMMON_CANDIDATE_WITH_INDUSTRY_EVIDENCE"
+                  else:
+                      rec["evidence_status"] = "PREFERRED_COMMON_CANDIDATE_WITHOUT_UNIQUE_INDUSTRY"
+
+              else:
+                  nonpreferred_count += 1
+                  rec["evidence_status"] = "NONPREFERRED_NO_DIRECT_KRX_INDUSTRY_MEMBERSHIP"
+
+              rows.append(rec)
+
+          result["unmatched_preferred_count"] = preferred_count
+          result["unmatched_nonpreferred_count"] = nonpreferred_count
+          result["preferred_unique_common_candidate_count"] = preferred_unique
+          result["preferred_candidate_industry_ready_count"] = preferred_industry_ready
+          result["unmatched_rows"] = rows
+
+          # Do not call this production-ready. This probe only establishes evidence.
+          if preferred_count and preferred_industry_ready == preferred_count:
+              result["status"] = "READY_EVIDENCE_REVIEW_FOR_PREFERRED_POLICY"
+          else:
+              result["status"] = "LIMITED_EVIDENCE_REVIEW_REQUIRED"
+
+          write_outputs()
+
+          print("V864_UNMATCHED_SECTOR_EVIDENCE=" + result["status"])
+          print(f"UNMATCHED={len(unmatched)}")
+          print(f"PREFERRED={preferred_count}")
+          print(f"NONPREFERRED={nonpreferred_count}")
+          print(f"PREFERRED_UNIQUE_COMMON={preferred_unique}/{preferred_count}")
+          print(f"PREFERRED_COMMON_INDUSTRY_READY={preferred_industry_ready}/{preferred_count}")
+          print("RS_SECTOR_GENERATED=false")
+          print("PRODUCTION_MODIFIED=false")
+          print("RELEASE_GUARD_MODIFIED=false")
+          print("REPOSITORY_WRITE=false")
+          PY
+
+      - name: Safety check
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f /tmp/v864_probe/v864-unmatched-sector-mapping-evidence.json
+          test -f /tmp/v864_probe/v864-unmatched-sector-mapping-evidence.md
+          git diff --exit-code
+          git diff --cached --exit-code
+          echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
+          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
+          echo "PRODUCTION_UNCHANGED=PASS"
+          echo "RELEASE_GUARD_UNCHANGED=PASS"
+
+      - name: Upload V8.6.4 evidence artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: unmatched-sector-mapping-evidence-v864
+          path: |
+            /tmp/v864_probe/v864-unmatched-sector-mapping-evidence.json
+            /tmp/v864_probe/v864-unmatched-sector-mapping-evidence.md
+          if-no-files-found: error
+          retention-days: 14

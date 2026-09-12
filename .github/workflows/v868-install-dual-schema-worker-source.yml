@@ -1,0 +1,236 @@
+name: Install dual-schema Worker source v8.6.8
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v868-install-dual-schema-worker
+  cancel-in-progress: false
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dual-schema Worker source
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          worker = Path("worker/krx-live-price-worker.js")
+          text = worker.read_text(encoding="utf-8")
+
+          old_build = 'const BUILD_VERSION = "1.4.0-two-table-guarded-preview";'
+          new_build = 'const BUILD_VERSION = "1.4.1-two-table-dual-schema";'
+
+          already = (
+              new_build in text
+              and "const TWO_TABLE_COLUMNS_V1" in text
+              and "const TWO_TABLE_COLUMNS_V2" in text
+              and "function acceptedTwoTableColumns" in text
+          )
+
+          if already:
+              print("DUAL_SCHEMA_WORKER_ALREADY_INSTALLED=true")
+          else:
+              if old_build not in text:
+                  raise SystemExit("UNEXPECTED_WORKER_BUILD_VERSION")
+
+              pattern_columns = re.compile(
+                  r'const\s+TWO_TABLE_COLUMNS\s*=\s*\['
+                  r'\s*"name"\s*,\s*"ticker"\s*,\s*"official_close"\s*,\s*"run"\s*,\s*"streak"\s*,'
+                  r'\s*"range_3m"\s*,\s*"swing"\s*,\s*"ma"\s*,\s*"returns"\s*,\s*"rs_kospi_pp"\s*,'
+                  r'\s*"atr14"\s*,\s*"activity"\s*,\s*"analysis"\s*,\s*"sector_theme"\s*'
+                  r'\]\s*;',
+                  re.S,
+              )
+
+              replacement_columns = (
+                  'const TWO_TABLE_COLUMNS_V1 = ["name", "ticker", "official_close", "run", "streak",\n'
+                  '  "range_3m", "swing", "ma", "returns", "rs_kospi_pp", "atr14", "activity",\n'
+                  '  "analysis", "sector_theme"];\n'
+                  'const TWO_TABLE_COLUMNS_V2 = ["name", "ticker", "official_close", "run", "streak",\n'
+                  '  "range_3m", "swing", "ma", "returns", "rs_kospi_pp", "atr14", "activity",\n'
+                  '  "analysis", "rs_sector_pp", "sector_theme"];\n\n'
+                  'function acceptedTwoTableColumns(columns) {\n'
+                  '  const encoded = JSON.stringify(columns);\n'
+                  '  if (encoded === JSON.stringify(TWO_TABLE_COLUMNS_V1)) return TWO_TABLE_COLUMNS_V1;\n'
+                  '  if (encoded === JSON.stringify(TWO_TABLE_COLUMNS_V2)) return TWO_TABLE_COLUMNS_V2;\n'
+                  '  return null;\n'
+                  '}'
+              )
+
+              text, count = pattern_columns.subn(replacement_columns, text, count=1)
+              if count != 1:
+                  raise SystemExit(f"TWO_TABLE_COLUMNS_DEFINITION_PATCH_COUNT={count}")
+
+              pattern_validation = re.compile(
+                  r'twoTableRequire\('
+                  r'JSON\.stringify\(p\.columns\)\s*===\s*JSON\.stringify\(TWO_TABLE_COLUMNS\),'
+                  r'\s*"TWO_TABLE_COLUMNS_MISMATCH"\s*\);'
+                  r'\s*const\s+tickers\s*=\s*new\s+Set\(\);'
+                  r'\s*for\s*\(\s*const\s+row\s+of\s+p\.rows\s*\)\s*\{'
+                  r'\s*twoTableRequire\('
+                  r'Array\.isArray\(row\)\s*&&\s*row\.length\s*===\s*TWO_TABLE_COLUMNS\.length',
+                  re.S,
+              )
+
+              replacement_validation = (
+                  'const acceptedColumns = acceptedTwoTableColumns(p.columns);\n'
+                  '  twoTableRequire(Boolean(acceptedColumns), "TWO_TABLE_COLUMNS_MISMATCH");\n'
+                  '  const tickers = new Set();\n'
+                  '  for (const row of p.rows) {\n'
+                  '    twoTableRequire(Array.isArray(row) && row.length === acceptedColumns.length'
+              )
+
+              text, count = pattern_validation.subn(replacement_validation, text, count=1)
+              if count != 1:
+                  raise SystemExit(f"TWO_TABLE_COLUMNS_VALIDATION_PATCH_COUNT={count}")
+
+              text = text.replace(old_build, new_build, 1)
+              worker.write_text(text, encoding="utf-8")
+              print("DUAL_SCHEMA_WORKER_PATCHED=true")
+
+          # Keep regression expectations aligned with the installed Worker build.
+          for rel in (
+              "worker/validate_worker.mjs",
+              "worker/validate_two_table_proxy_v852.mjs",
+          ):
+              p = Path(rel)
+              v = p.read_text(encoding="utf-8")
+              v = v.replace(
+                  '"1.4.0-two-table-guarded-preview"',
+                  '"1.4.1-two-table-dual-schema"',
+              )
+              p.write_text(v, encoding="utf-8")
+
+          # Update operator-facing README version marker only.
+          readme = Path("worker/README.md")
+          r = readme.read_text(encoding="utf-8")
+          r = r.replace(
+              "`1.4.0-two-table-guarded-preview`",
+              "`1.4.1-two-table-dual-schema`",
+              1,
+          )
+          if "V1.4.1 이중 스키마 호환" not in r:
+              r += (
+                  "\n## V1.4.1 이중 스키마 호환\n\n"
+                  "- 기존 14열 compact 표와 `rs_sector_pp`가 추가된 15열 compact 표를 모두 허용합니다.\n"
+                  "- 허용된 두 스키마 외의 열 구성·순서 변경은 계속 차단합니다.\n"
+                  "- Worker는 업종RS 값을 계산하지 않고, 검증된 API 값을 그대로 전달합니다.\n"
+                  "- 업종RS production 승격 전에는 기존 14열 데이터가 그대로 동작합니다.\n"
+              )
+          readme.write_text(r, encoding="utf-8")
+          PY
+
+      - name: Validate installed Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check worker/krx-live-price-worker.js
+          node worker/validate_worker.mjs .
+          node worker/validate_two_table_proxy_v852.mjs .
+
+          grep -F 'const BUILD_VERSION = "1.4.1-two-table-dual-schema";' \
+            worker/krx-live-price-worker.js
+          grep -F 'const TWO_TABLE_COLUMNS_V1' worker/krx-live-price-worker.js
+          grep -F 'const TWO_TABLE_COLUMNS_V2' worker/krx-live-price-worker.js
+
+          echo "V868_CURRENT_14_COLUMN_REGRESSION=PASS"
+          echo "V868_DUAL_SCHEMA_SOURCE_INSTALLED=PASS"
+
+      - name: Review exact repository changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CHANGED_FILES_BEGIN"
+          git status --short
+          echo "CHANGED_FILES_END"
+
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "worker/krx-live-price-worker.js",
+              "worker/validate_worker.mjs",
+              "worker/validate_two_table_proxy_v852.mjs",
+              "worker/README.md",
+          }
+
+          out = subprocess.check_output(
+              ["git", "status", "--porcelain"],
+              text=True,
+          )
+
+          changed = set()
+          for line in out.splitlines():
+              if not line.strip():
+                  continue
+              path = line[3:]
+              if " -> " in path:
+                  path = path.split(" -> ", 1)[1]
+              changed.add(path)
+
+          unexpected = changed - allowed
+          if unexpected:
+              raise SystemExit("UNEXPECTED_CHANGED_FILES=" + repr(sorted(unexpected)))
+
+          if not changed:
+              print("NO_SOURCE_CHANGES_ALREADY_INSTALLED=true")
+          else:
+              print("SOURCE_CHANGE_SCOPE=PASS")
+              print("SOURCE_CHANGED_FILES=" + ",".join(sorted(changed)))
+          PY
+
+      - name: Commit and push Worker source
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            worker/krx-live-price-worker.js \
+            worker/validate_worker.mjs \
+            worker/validate_two_table_proxy_v852.mjs \
+            worker/README.md
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT=true"
+            echo "PUSH_SUCCESS=true"
+            exit 0
+          fi
+
+          git commit -m "Install dual-schema Worker for sector RS"
+
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          fi
+
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "WORKER_DEPLOYED=false"
+          echo "PRODUCTION_DATA_CHANGED=false"

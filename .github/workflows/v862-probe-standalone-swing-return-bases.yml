@@ -1,19 +1,19 @@
-name: Probe full standalone swing sector RS v8.7.4
+name: Build standalone swing sector RS source v8.7.5
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: v874-standalone-swing-sector-rs-probe
+  group: collect-krx-watchlist-latest
   cancel-in-progress: false
 
 jobs:
-  probe:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     env:
       TZ: Asia/Seoul
@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: main
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -38,410 +38,160 @@ jobs:
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-          echo "V874_DEPENDENCIES=PASS"
+          echo "V875_DEPENDENCIES=PASS"
 
-      - name: Probe full KOSPI standalone sector RS
+      - name: Capture base and protected hashes
         shell: bash
         run: |
           set -euo pipefail
+          echo "BASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          sha256sum stock_table_metrics_v850.py > /tmp/metric.sha
+          sha256sum worker/krx-live-price-worker.js > /tmp/worker.sha
+          find api/two_table_v1 -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/two_table.sha
 
+      - name: Restore V8.7.5 source files
+        shell: bash
+        env:
+          BUILDER_B64: "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwojIC0qLSBjb2Rpbmc6IHV0Zi04IC0qLQpmcm9tIF9fZnV0dXJlX18gaW1wb3J0IGFubm90YXRpb25zCgppbXBvcnQgY29udGV4dGxpYiwgY3N2LCBpbywganNvbiwgdGltZQpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKZnJvbSBweWtyeCBpbXBvcnQgc3RvY2sKaW1wb3J0IHNlY3Rvcl9yc19zb3VyY2Vfdjg3MCBhcyBzZWN0b3IKClNDUklQVF9WRVJTSU9OID0gInN0YW5kYWxvbmVfc3dpbmdfc2VjdG9yX3JzX3Y4NzUucHkgdjEuMC4wLXNvdXJjZS1vbmx5IgpDT05UUkFDVF9WRVJTSU9OID0gIjIwMjYtMDktMTItdjguNy41LXN0YW5kYWxvbmUtc3dpbmctc2VjdG9yLXJzLXNvdXJjZSIKClNXSU5HID0gUGF0aCgibGF0ZXN0L3N0YW5kYWxvbmVfc3dpbmdfc291cmNlX2xhdGVzdC5qc29uIikKR0xPU1NBUlkgPSBQYXRoKCJsYXRlc3Qvc3RvY2tfdGFibGVfbWV0cmljX2dsb3NzYXJ5X2xhdGVzdC5qc29uIikKVEFCTEVfRElSID0gUGF0aCgiYXBpL3R3b190YWJsZV92MSIpClRBQkxFUyA9ICgia29zcGkiLCAiZGVjbGluZXJzIiwgImRlY2xpbmVyczI0IikKCk9VVF9KU09OID0gUGF0aCgibGF0ZXN0L3N0YW5kYWxvbmVfc3dpbmdfc2VjdG9yX3JzX2xhdGVzdC5qc29uIikKT1VUX0NTViA9IFBhdGgoImxhdGVzdC9zdGFuZGFsb25lX3N3aW5nX3NlY3Rvcl9yc19sYXRlc3QuY3N2IikKT1VUX01FVEEgPSBQYXRoKCJsYXRlc3Qvc3RhbmRhbG9uZV9zd2luZ19zZWN0b3JfcnNfbWV0YV9sYXRlc3QuanNvbiIpCk9VVF9MT0cgPSBQYXRoKCJsYXRlc3Qvc3RhbmRhbG9uZV9zd2luZ19zZWN0b3JfcnNfcnVuX2xvZ19sYXRlc3QudHh0IikKCmRlZiByZWFkKHBhdGgpOgogICAgcmV0dXJuIGpzb24ubG9hZHMocGF0aC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04LXNpZyIpKQoKZGVmIHdyaXRlX2pzb24ocGF0aCwgb2JqKToKICAgIHBhdGgud3JpdGVfdGV4dChqc29uLmR1bXBzKG9iaiwgZW5zdXJlX2FzY2lpPUZhbHNlLCBpbmRlbnQ9MiwgYWxsb3dfbmFuPUZhbHNlKSArICJcbiIsIGVuY29kaW5nPSJ1dGYtOCIpCgpkZWYgbWFpbigpOgogICAgZm9yIHAgaW4gKFNXSU5HLCBHTE9TU0FSWSwgUGF0aCgic2VjdG9yX3JzX3NvdXJjZV92ODcwLnB5IikpOgogICAgICAgIGlmIG5vdCBwLmlzX2ZpbGUoKToKICAgICAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiTUlTU0lOR19SRVFVSVJFRF9TT1VSQ0U6IiArIHN0cihwKSkKCiAgICBzd2luZyA9IHJlYWQoU1dJTkcpCiAgICBnbG9zc2FyeSA9IHJlYWQoR0xPU1NBUlkpCiAgICBpZiBzd2luZy5nZXQoInN0YXR1cyIpICE9ICJSRUFEWV9TT1VSQ0VfT05MWSI6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiU1dJTkdfU09VUkNFX05PVF9SRUFEWSIpCiAgICBpZiBzd2luZy5nZXQoInN0YW5kYWxvbmVfc3dpbmdfdGFibGVfZW5hYmxlZCIpIGlzIG5vdCBGYWxzZToKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJTVEFOREFMT05FX1NXSU5HX0FMUkVBRFlfRU5BQkxFRCIpCgogICAgYmFzaXMgPSBzd2luZy5nZXQoImJhc2lzX2RhdGUiKQogICAgZm9vdGVyID0gZ2xvc3NhcnkuZ2V0KCJjb21wYWN0X2Zvb3Rlcl90ZXh0IikKICAgIGlmIG5vdCBiYXNpczoKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJTV0lOR19CQVNJU19NSVNTSU5HIikKICAgIGlmIG5vdCBmb290ZXI6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiR0xPU1NBUllfQ09NUEFDVF9GT09URVJfVEVYVF9NSVNTSU5HIikKCiAgICBzd2luZ19yb3dzID0ge3N0cihyWyJ0aWNrZXIiXSkuemZpbGwoNik6IHIgZm9yIHIgaW4gc3dpbmcuZ2V0KCJyb3dzIikgb3IgW119CiAgICBpZiBsZW4oc3dpbmdfcm93cykgIT0gaW50KHN3aW5nLmdldCgicm93X2NvdW50Iikgb3IgMCk6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiU1dJTkdfUk9XX0NPVU5UX01JU01BVENIIikKCiAgICBrb3NwaSA9IHNvcnRlZCh0IGZvciB0LHIgaW4gc3dpbmdfcm93cy5pdGVtcygpIGlmIHIuZ2V0KCJtYXJrZXQiKSA9PSAiS09TUEkiKQogICAga29zZGFxID0gc29ydGVkKHQgZm9yIHQsciBpbiBzd2luZ19yb3dzLml0ZW1zKCkgaWYgci5nZXQoIm1hcmtldCIpID09ICJLT1NEQVEiKQogICAgaWYgbGVuKGtvc3BpKSArIGxlbihrb3NkYXEpICE9IGxlbihzd2luZ19yb3dzKToKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJVTlNVUFBPUlRFRF9NQVJLRVRfUFJFU0VOVCIpCgogICAgcHJvZHVjdGlvbiA9IHt9CiAgICBmb3IgbmFtZSBpbiBUQUJMRVM6CiAgICAgICAgcCA9IFRBQkxFX0RJUiAvIGYie25hbWV9Lmpzb24iCiAgICAgICAgaWYgbm90IHAuaXNfZmlsZSgpOgogICAgICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJNSVNTSU5HX1BST0RVQ1RJT05fVEFCTEU6IiArIHN0cihwKSkKICAgICAgICBkYXRhID0gcmVhZChwKQogICAgICAgIGlmIGRhdGEuZ2V0KCJzdGF0dXMiKSAhPSAiUkVBRFkiIG9yIGRhdGEuZ2V0KCJiYXNpc19kYXRlIikgIT0gYmFzaXM6CiAgICAgICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIlBST0RVQ1RJT05fVEFCTEVfTk9UX0FMSUdORUQ6IiArIG5hbWUpCiAgICAgICAgZm9yIHJvdyBpbiBkYXRhLmdldCgicm93cyIpIG9yIFtdOgogICAgICAgICAgICB0aWNrZXIgPSBzdHIocm93LmdldCgidGlja2VyIikgb3IgIiIpLnpmaWxsKDYpCiAgICAgICAgICAgIG1ldHJpY3MgPSByb3cuZ2V0KCJtZXRyaWNzIikgb3Ige30KICAgICAgICAgICAgcnMgPSBtZXRyaWNzLmdldCgicnNfc2VjdG9yX3BwIikKICAgICAgICAgICAgYmVuY2ggPSBtZXRyaWNzLmdldCgic2VjdG9yX2JlbmNobWFyayIpCiAgICAgICAgICAgIGlmIG5vdCBpc2luc3RhbmNlKHJzLCBkaWN0KSBvciBycy5nZXQoIjEiKSBpcyBOb25lIG9yIHJzLmdldCgiMyIpIGlzIE5vbmU6CiAgICAgICAgICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJQUk9EVUNUSU9OX1JTX05PVF9SRUFEWToiICsgdGlja2VyKQogICAgICAgICAgICBzbmFwID0gewogICAgICAgICAgICAgICAgInJzX3NlY3Rvcl9wcCI6IHsiMSI6IHJzWyIxIl0sICIzIjogcnNbIjMiXX0sCiAgICAgICAgICAgICAgICAic2VjdG9yX2JlbmNobWFyayI6IGJlbmNoLAogICAgICAgICAgICAgICAgIm5hbWUiOiByb3cuZ2V0KCJuYW1lIiksCiAgICAgICAgICAgIH0KICAgICAgICAgICAgaWYgdGlja2VyIGluIHByb2R1Y3Rpb24gYW5kIHByb2R1Y3Rpb25bdGlja2VyXSAhPSBzbmFwOgogICAgICAgICAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiUFJPRFVDVElPTl9EVVBMSUNBVEVfTUlTTUFUQ0g6IiArIHRpY2tlcikKICAgICAgICAgICAgcHJvZHVjdGlvblt0aWNrZXJdID0gc25hcAoKICAgIGJhc2lzX2NvbXBhY3QsIG5hbWVzLCBtZW1iZXJzLCBiYXNpYyA9IHNlY3Rvci5mZXRjaF9vZmZpY2lhbF9zb3VyY2VzKGJhc2lzKQogICAgaWYgYmFzaXNfY29tcGFjdCAhPSBiYXNpcy5yZXBsYWNlKCItIiwgIiIpOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIk9GRklDSUFMX0JBU0lTX01JU01BVENIIikKCiAgICBtYXBwaW5nID0ge30KICAgIGVycm9ycyA9IHt9CiAgICBmb3IgdGlja2VyIGluIGtvc3BpOgogICAgICAgIHRyeToKICAgICAgICAgICAgbWFwcGluZ1t0aWNrZXJdID0gc2VjdG9yLmJ1aWxkX21hcHBpbmcoe3RpY2tlcn0sIG5hbWVzLCBtZW1iZXJzLCBiYXNpYylbdGlja2VyXQogICAgICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZXhjOgogICAgICAgICAgICBlcnJvcnNbdGlja2VyXSA9IHJlcHIoZXhjKQogICAgaWYgZXJyb3JzIG9yIGxlbihtYXBwaW5nKSAhPSBsZW4oa29zcGkpOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIktPU1BJX01BUFBJTkdfSU5DT01QTEVURToiICsganNvbi5kdW1wcyhlcnJvcnMsIGVuc3VyZV9hc2NpaT1GYWxzZSlbOjYwMDBdKQoKICAgIHN0YXJ0cyA9IFtdCiAgICBmb3IgdGlja2VyIGluIGtvc3BpOgogICAgICAgIHJldHVybnMgPSBzd2luZ19yb3dzW3RpY2tlcl0uZ2V0KCJyZXR1cm5zIikgb3Ige30KICAgICAgICBmb3IgcCBpbiAoIjEiLCAiMyIpOgogICAgICAgICAgICBpdGVtID0gcmV0dXJucy5nZXQocCkgb3Ige30KICAgICAgICAgICAgaWYgaXRlbS5nZXQoInN0YXR1cyIpICE9ICJPSyIgb3IgaXRlbS5nZXQoInN0YXJ0X2RhdGUiKSBpcyBOb25lIG9yIGl0ZW0uZ2V0KCJwY3QiKSBpcyBOb25lOgogICAgICAgICAgICAgICAgcmFpc2UgU3lzdGVtRXhpdChmIlNUT0NLX1JFVFVSTl9OT1RfUkVBRFk6e3RpY2tlcn06e3B9IikKICAgICAgICAgICAgc3RhcnRzLmFwcGVuZChpdGVtWyJzdGFydF9kYXRlIl0pCiAgICBlYXJsaWVzdCA9IG1pbihzdGFydHMpLnJlcGxhY2UoIi0iLCAiIikKCiAgICBpbmRleF9jbG9zZXMgPSB7fQogICAgZm9yIGlkeCBpbiBzb3J0ZWQoe21bImJlbmNobWFya190aWNrZXIiXSBmb3IgbSBpbiBtYXBwaW5nLnZhbHVlcygpfSk6CiAgICAgICAgd2l0aCBjb250ZXh0bGliLnJlZGlyZWN0X3N0ZG91dChpby5TdHJpbmdJTygpKSwgY29udGV4dGxpYi5yZWRpcmVjdF9zdGRlcnIoaW8uU3RyaW5nSU8oKSk6CiAgICAgICAgICAgIGRmID0gc3RvY2suZ2V0X2luZGV4X29obGN2X2J5X2RhdGUoZWFybGllc3QsIGJhc2lzLnJlcGxhY2UoIi0iLCAiIiksIGlkeCkKICAgICAgICBpZiBkZiBpcyBOb25lIG9yIGRmLmVtcHR5IG9yICLsooXqsIAiIG5vdCBpbiBkZi5jb2x1bW5zOgogICAgICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJJTkRFWF9PSExDVl9FTVBUWToiICsgaWR4KQogICAgICAgIGluZGV4X2Nsb3Nlc1tpZHhdID0gewogICAgICAgICAgICAoZHQuc3RyZnRpbWUoIiVZLSVtLSVkIikgaWYgaGFzYXR0cihkdCwgInN0cmZ0aW1lIikgZWxzZSBzdHIoZHQpWzoxMF0pOiBmbG9hdCh2YWx1ZSkKICAgICAgICAgICAgZm9yIGR0LCB2YWx1ZSBpbiBkZlsi7KKF6rCAIl0uaXRlbXMoKQogICAgICAgIH0KICAgICAgICB0aW1lLnNsZWVwKDAuMDgpCgogICAgcm93cyA9IFtdCiAgICBmb3IgdGlja2VyIGluIHNvcnRlZChzd2luZ19yb3dzKToKICAgICAgICBzID0gc3dpbmdfcm93c1t0aWNrZXJdCiAgICAgICAgaWYgcy5nZXQoIm1hcmtldCIpID09ICJLT1NEQVEiOgogICAgICAgICAgICByb3dzLmFwcGVuZCh7CiAgICAgICAgICAgICAgICAidGlja2VyIjogdGlja2VyLCAibmFtZSI6IHMuZ2V0KCJuYW1lIiksICJtYXJrZXQiOiAiS09TREFRIiwKICAgICAgICAgICAgICAgICJiYXNpc19kYXRlIjogYmFzaXMsICJzdGF0dXMiOiAiTk9UX1NVUFBPUlRFRF9DVVJSRU5UX0NPTlRSQUNUIiwKICAgICAgICAgICAgICAgICJzZWN0b3JfYmVuY2htYXJrIjogTm9uZSwKICAgICAgICAgICAgICAgICJyc19zZWN0b3JfcHAiOiB7IjEiOiBOb25lLCAiMyI6IE5vbmV9LAogICAgICAgICAgICAgICAgIm1pc3NpbmdfcmVhc29uIjogIkNVUlJFTlRfT0ZGSUNJQUxfU0VDVE9SX1JTX0NPTlRSQUNUX0lTX0tPU1BJX09OTFkiLAogICAgICAgICAgICB9KQogICAgICAgICAgICBjb250aW51ZQoKICAgICAgICBtID0gbWFwcGluZ1t0aWNrZXJdCiAgICAgICAgY2xvc2VzID0gaW5kZXhfY2xvc2VzW21bImJlbmNobWFya190aWNrZXIiXV0KICAgICAgICB2YWx1ZXMgPSB7fQogICAgICAgIGZvciBwIGluICgiMSIsICIzIik6CiAgICAgICAgICAgIHNyYyA9IChzLmdldCgicmV0dXJucyIpIG9yIHt9KVtwXQogICAgICAgICAgICBzdGFydCA9IHNyY1sic3RhcnRfZGF0ZSJdCiAgICAgICAgICAgIGlmIHN0YXJ0IG5vdCBpbiBjbG9zZXMgb3IgYmFzaXMgbm90IGluIGNsb3NlczoKICAgICAgICAgICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoZiJJTkRFWF9EQVRFX01JU1NJTkc6e3RpY2tlcn06e3B9OntzdGFydH0iKQogICAgICAgICAgICBzdGFydF9jbG9zZSA9IGNsb3Nlc1tzdGFydF0KICAgICAgICAgICAgaWYgc3RhcnRfY2xvc2UgPD0gMDoKICAgICAgICAgICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoZiJJTkRFWF9TVEFSVF9DTE9TRV9JTlZBTElEOnt0aWNrZXJ9OntwfSIpCiAgICAgICAgICAgIGlkeF9yZXQgPSAxMDAuMCAqIChjbG9zZXNbYmFzaXNdIC8gc3RhcnRfY2xvc2UgLSAxLjApCiAgICAgICAgICAgIHZhbHVlc1twXSA9IHJvdW5kKGZsb2F0KHNyY1sicGN0Il0pIC0gaWR4X3JldCwgNCkKCiAgICAgICAgcm93cy5hcHBlbmQoewogICAgICAgICAgICAidGlja2VyIjogdGlja2VyLCAibmFtZSI6IHMuZ2V0KCJuYW1lIiksICJtYXJrZXQiOiAiS09TUEkiLAogICAgICAgICAgICAiYmFzaXNfZGF0ZSI6IGJhc2lzLCAic3RhdHVzIjogIlJFQURZIiwKICAgICAgICAgICAgInNlY3Rvcl9iZW5jaG1hcmsiOiBtLCAicnNfc2VjdG9yX3BwIjogdmFsdWVzLAogICAgICAgICAgICAibWlzc2luZ19yZWFzb24iOiBOb25lLAogICAgICAgIH0pCgogICAgYnlfdGlja2VyID0ge3JbInRpY2tlciJdOiByIGZvciByIGluIHJvd3N9CiAgICBtYXRjaGVzLCBtaXNtYXRjaGVzID0gMCwgW10KICAgIGZvciB0aWNrZXIsIGV4cGVjdGVkIGluIHNvcnRlZChwcm9kdWN0aW9uLml0ZW1zKCkpOgogICAgICAgIGFjdHVhbCA9IGJ5X3RpY2tlci5nZXQodGlja2VyKQogICAgICAgIGlmIGFjdHVhbCBpcyBOb25lOgogICAgICAgICAgICBtaXNtYXRjaGVzLmFwcGVuZCh7InRpY2tlciI6IHRpY2tlciwgInJlYXNvbiI6ICJTT1VSQ0VfTUlTU0lORyJ9KQogICAgICAgICAgICBjb250aW51ZQogICAgICAgIGViID0gZXhwZWN0ZWQuZ2V0KCJzZWN0b3JfYmVuY2htYXJrIikgb3Ige30KICAgICAgICBhYiA9IGFjdHVhbC5nZXQoInNlY3Rvcl9iZW5jaG1hcmsiKSBvciB7fQogICAgICAgIG9rX2IgPSAoCiAgICAgICAgICAgIHN0cihlYi5nZXQoImJlbmNobWFya190aWNrZXIiKSkgPT0gc3RyKGFiLmdldCgiYmVuY2htYXJrX3RpY2tlciIpKQogICAgICAgICAgICBhbmQgZWIuZ2V0KCJiZW5jaG1hcmtfbmFtZSIpID09IGFiLmdldCgiYmVuY2htYXJrX25hbWUiKQogICAgICAgICkKICAgICAgICBva19ycyA9IGFjdHVhbC5nZXQoInJzX3NlY3Rvcl9wcCIpID09IGV4cGVjdGVkLmdldCgicnNfc2VjdG9yX3BwIikKICAgICAgICBpZiBva19iIGFuZCBva19yczoKICAgICAgICAgICAgbWF0Y2hlcyArPSAxCiAgICAgICAgZWxzZToKICAgICAgICAgICAgbWlzbWF0Y2hlcy5hcHBlbmQoewogICAgICAgICAgICAgICAgInRpY2tlciI6IHRpY2tlciwKICAgICAgICAgICAgICAgICJleHBlY3RlZF9ycyI6IGV4cGVjdGVkLmdldCgicnNfc2VjdG9yX3BwIiksCiAgICAgICAgICAgICAgICAiYWN0dWFsX3JzIjogYWN0dWFsLmdldCgicnNfc2VjdG9yX3BwIiksCiAgICAgICAgICAgICAgICAiZXhwZWN0ZWRfYmVuY2htYXJrIjogZWIsCiAgICAgICAgICAgICAgICAiYWN0dWFsX2JlbmNobWFyayI6IGFiLAogICAgICAgICAgICB9KQoKICAgIGlmIG1pc21hdGNoZXMgb3IgbWF0Y2hlcyAhPSBsZW4ocHJvZHVjdGlvbik6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiUFJPRFVDVElPTl9SRUdSRVNTSU9OX0ZBSUxFRDoiICsganNvbi5kdW1wcyhtaXNtYXRjaGVzLCBlbnN1cmVfYXNjaWk9RmFsc2UpWzo2MDAwXSkKCiAgICBrb3NwaV9yZWFkeSA9IHN1bSgxIGZvciByIGluIHJvd3MgaWYgclsibWFya2V0Il0gPT0gIktPU1BJIiBhbmQgclsic3RhdHVzIl0gPT0gIlJFQURZIikKICAgIGtvc2RhcV9udWxsID0gc3VtKAogICAgICAgIDEgZm9yIHIgaW4gcm93cwogICAgICAgIGlmIHJbIm1hcmtldCJdID09ICJLT1NEQVEiIGFuZCByWyJyc19zZWN0b3JfcHAiXSA9PSB7IjEiOiBOb25lLCAiMyI6IE5vbmV9CiAgICApCgogICAgc2FmZXR5ID0gewogICAgICAgICJuZXdfc2VjdG9yX2NvbnRyYWN0X2RlZmluZWQiOiBGYWxzZSwKICAgICAgICAia29zZGFxX3NlY3Rvcl9tYXBwaW5nX2ludmVudGVkIjogRmFsc2UsCiAgICAgICAgInByb2R1Y3Rpb25fdGFibGVfY2hhbmdlZCI6IEZhbHNlLAogICAgICAgICJ3b3JrZXJfY2hhbmdlZCI6IEZhbHNlLAogICAgICAgICJtZXRyaWNfZm9ybXVsYV9jaGFuZ2VkIjogRmFsc2UsCiAgICAgICAgInJlcXVlc3RfdGltZV9wcmljZV9zdWJzdGl0dXRpb24iOiBGYWxzZSwKICAgIH0KCiAgICBwYXlsb2FkID0gewogICAgICAgICJjb250cmFjdF92ZXJzaW9uIjogQ09OVFJBQ1RfVkVSU0lPTiwKICAgICAgICAic2NyaXB0X3ZlcnNpb24iOiBTQ1JJUFRfVkVSU0lPTiwKICAgICAgICAic3RhdHVzIjogIlJFQURZX1NPVVJDRV9PTkxZIiwKICAgICAgICAic291cmNlX29ubHkiOiBUcnVlLAogICAgICAgICJzdGFuZGFsb25lX3N3aW5nX3RhYmxlX2VuYWJsZWQiOiBGYWxzZSwKICAgICAgICAicmVxdWVzdF90aW1lX3ByaWNlX2VsaWdpYmxlIjogRmFsc2UsCiAgICAgICAgImJhc2lzX2RhdGUiOiBiYXNpcywKICAgICAgICAicm93X2NvdW50IjogbGVuKHJvd3MpLAogICAgICAgICJtYXJrZXRfY291bnRzIjogeyJLT1NQSSI6IGxlbihrb3NwaSksICJLT1NEQVEiOiBsZW4oa29zZGFxKX0sCiAgICAgICAgImtvc3BpX3NlY3Rvcl9yc19yZWFkeV9jb3VudCI6IGtvc3BpX3JlYWR5LAogICAgICAgICJrb3NkYXFfc2VjdG9yX3JzX251bGxfY291bnQiOiBrb3NkYXFfbnVsbCwKICAgICAgICAicHJvZHVjdGlvbl91bmlxdWVfdGlja2VyX2NvdW50IjogbGVuKHByb2R1Y3Rpb24pLAogICAgICAgICJwcm9kdWN0aW9uX3JlZ3Jlc3Npb25fZXhhY3RfbWF0Y2hlcyI6IG1hdGNoZXMsCiAgICAgICAgInByb2R1Y3Rpb25fcmVncmVzc2lvbl9taXNtYXRjaGVzIjogMCwKICAgICAgICAiZ2xvc3NhcnlfZm9vdGVyX3RleHQiOiBmb290ZXIsCiAgICAgICAgInJvd3MiOiByb3dzLAogICAgICAgICJzYWZldHkiOiBzYWZldHksCiAgICB9CiAgICB3cml0ZV9qc29uKE9VVF9KU09OLCBwYXlsb2FkKQoKICAgIHdpdGggT1VUX0NTVi5vcGVuKCJ3IiwgZW5jb2Rpbmc9InV0Zi04LXNpZyIsIG5ld2xpbmU9IiIpIGFzIGY6CiAgICAgICAgZmllbGRzID0gWwogICAgICAgICAgICAiYmFzaXNfZGF0ZSIsIm1hcmtldCIsInRpY2tlciIsIm5hbWUiLCJzdGF0dXMiLAogICAgICAgICAgICAiYmVuY2htYXJrX3RpY2tlciIsImJlbmNobWFya19uYW1lIiwKICAgICAgICAgICAgInJzX3NlY3Rvcl8xbV9wcCIsInJzX3NlY3Rvcl8zbV9wcCIsIm1pc3NpbmdfcmVhc29uIgogICAgICAgIF0KICAgICAgICB3ID0gY3N2LkRpY3RXcml0ZXIoZiwgZmllbGRuYW1lcz1maWVsZHMpCiAgICAgICAgdy53cml0ZWhlYWRlcigpCiAgICAgICAgZm9yIHIgaW4gcm93czoKICAgICAgICAgICAgYiA9IHIuZ2V0KCJzZWN0b3JfYmVuY2htYXJrIikgb3Ige30KICAgICAgICAgICAgcnMgPSByLmdldCgicnNfc2VjdG9yX3BwIikgb3Ige30KICAgICAgICAgICAgdy53cml0ZXJvdyh7CiAgICAgICAgICAgICAgICAiYmFzaXNfZGF0ZSI6IGJhc2lzLCAibWFya2V0IjogclsibWFya2V0Il0sICJ0aWNrZXIiOiByWyJ0aWNrZXIiXSwKICAgICAgICAgICAgICAgICJuYW1lIjogclsibmFtZSJdLCAic3RhdHVzIjogclsic3RhdHVzIl0sCiAgICAgICAgICAgICAgICAiYmVuY2htYXJrX3RpY2tlciI6IGIuZ2V0KCJiZW5jaG1hcmtfdGlja2VyIiksCiAgICAgICAgICAgICAgICAiYmVuY2htYXJrX25hbWUiOiBiLmdldCgiYmVuY2htYXJrX25hbWUiKSwKICAgICAgICAgICAgICAgICJyc19zZWN0b3JfMW1fcHAiOiBycy5nZXQoIjEiKSwKICAgICAgICAgICAgICAgICJyc19zZWN0b3JfM21fcHAiOiBycy5nZXQoIjMiKSwKICAgICAgICAgICAgICAgICJtaXNzaW5nX3JlYXNvbiI6IHIuZ2V0KCJtaXNzaW5nX3JlYXNvbiIpLAogICAgICAgICAgICB9KQoKICAgIG1ldGEgPSB7CiAgICAgICAgImNvbnRyYWN0X3ZlcnNpb24iOiBDT05UUkFDVF9WRVJTSU9OLAogICAgICAgICJzY3JpcHRfdmVyc2lvbiI6IFNDUklQVF9WRVJTSU9OLAogICAgICAgICJzdGF0dXMiOiAiUkVBRFlfU09VUkNFX09OTFkiLAogICAgICAgICJzb3VyY2Vfb25seSI6IFRydWUsCiAgICAgICAgInN0YW5kYWxvbmVfc3dpbmdfdGFibGVfZW5hYmxlZCI6IEZhbHNlLAogICAgICAgICJyZXF1ZXN0X3RpbWVfcHJpY2VfZWxpZ2libGUiOiBGYWxzZSwKICAgICAgICAiYmFzaXNfZGF0ZSI6IGJhc2lzLAogICAgICAgICJyb3dfY291bnQiOiBsZW4ocm93cyksCiAgICAgICAgImtvc3BpX3RpY2tlcl9jb3VudCI6IGxlbihrb3NwaSksCiAgICAgICAgImtvc2RhcV90aWNrZXJfY291bnQiOiBsZW4oa29zZGFxKSwKICAgICAgICAia29zcGlfc2VjdG9yX3JzX3JlYWR5X2NvdW50Ijoga29zcGlfcmVhZHksCiAgICAgICAgImtvc2RhcV9zZWN0b3JfcnNfbnVsbF9jb3VudCI6IGtvc2RhcV9udWxsLAogICAgICAgICJwcm9kdWN0aW9uX3VuaXF1ZV90aWNrZXJfY291bnQiOiBsZW4ocHJvZHVjdGlvbiksCiAgICAgICAgInByb2R1Y3Rpb25fcmVncmVzc2lvbl9leGFjdF9tYXRjaGVzIjogbWF0Y2hlcywKICAgICAgICAicHJvZHVjdGlvbl9yZWdyZXNzaW9uX21pc21hdGNoZXMiOiAwLAogICAgICAgICJnbG9zc2FyeV9mb290ZXJfa2V5IjogImNvbXBhY3RfZm9vdGVyX3RleHQiLAogICAgICAgICJzYWZldHkiOiBzYWZldHksCiAgICB9CiAgICB3cml0ZV9qc29uKE9VVF9NRVRBLCBtZXRhKQoKICAgIGxvZyA9IFsKICAgICAgICAiVjg3NV9TVEFOREFMT05FX1NFQ1RPUl9SU19TVEFUVVM9UkVBRFlfU09VUkNFX09OTFkiLAogICAgICAgIGYiQkFTSVNfREFURT17YmFzaXN9IiwKICAgICAgICBmIlNPVVJDRV9USUNLRVJTPXtsZW4ocm93cyl9IiwKICAgICAgICBmIktPU1BJX1RJQ0tFUlM9e2xlbihrb3NwaSl9IiwKICAgICAgICBmIktPU0RBUV9USUNLRVJTPXtsZW4oa29zZGFxKX0iLAogICAgICAgIGYiS09TUElfU0VDVE9SX1JTX1JFQURZPXtrb3NwaV9yZWFkeX0iLAogICAgICAgIGYiS09TREFRX1NFQ1RPUl9SU19OVUxMPXtrb3NkYXFfbnVsbH0iLAogICAgICAgIGYiUFJPRFVDVElPTl9VTklRVUVfVElDS0VSUz17bGVuKHByb2R1Y3Rpb24pfSIsCiAgICAgICAgZiJQUk9EVUNUSU9OX1JFR1JFU1NJT05fRVhBQ1RfTUFUQ0hFUz17bWF0Y2hlc30iLAogICAgICAgICJQUk9EVUNUSU9OX1JFR1JFU1NJT05fTUlTTUFUQ0hFUz0wIiwKICAgICAgICAiR0xPU1NBUllfRk9PVEVSX0tFWT1jb21wYWN0X2Zvb3Rlcl90ZXh0IiwKICAgICAgICAiR0xPU1NBUllfRk9PVEVSX1JFQURZPXRydWUiLAogICAgICAgICJLT1NEQVFfU0VDVE9SX01BUFBJTkdfSU5WRU5URUQ9ZmFsc2UiLAogICAgICAgICJTVEFOREFMT05FX1NXSU5HX1RBQkxFX0VOQUJMRUQ9ZmFsc2UiLAogICAgICAgICJQUk9EVUNUSU9OX1RBQkxFX0NIQU5HRUQ9ZmFsc2UiLAogICAgICAgICJXT1JLRVJfU09VUkNFX0NIQU5HRUQ9ZmFsc2UiLAogICAgICAgICJNRVRSSUNfRk9STVVMQV9DSEFOR0VEPWZhbHNlIiwKICAgICAgICAiUkVRVUVTVF9USU1FX1BSSUNFX1NVQlNUSVRVVElPTj1mYWxzZSIsCiAgICAgICAgIlY4NzVfU1RBTkRBTE9ORV9TRUNUT1JfUlNfVkFMSURBVElPTj1QQVNTIiwKICAgIF0KICAgIE9VVF9MT0cud3JpdGVfdGV4dCgiXG4iLmpvaW4obG9nKSArICJcbiIsIGVuY29kaW5nPSJ1dGYtOCIpCiAgICBwcmludCgiXG4iLmpvaW4obG9nKSkKCmlmIF9fbmFtZV9fID09ICJfX21haW5fXyI6CiAgICBtYWluKCkK"
+          CONTRACT_B64: "IyBWOC43LjUg64+F66a9IOyKpOycmSDsl4XsooVSUyBzb3VyY2Utb25seSDqs4Tslb0KCuuyhOyghDogYDIwMjYtMDktMTItdjguNy41LXN0YW5kYWxvbmUtc3dpbmctc2VjdG9yLXJzLXNvdXJjZWAKCuyDge2DnDogYFNPVVJDRV9PTkxZIC8gVEFCTEVfRElTQUJMRURgCgojIyDrqqnsoIEKVjguNy407JeQ7IScIOqygOymneuQnCDqs7Xsi50gS1JYIOyXheyihVJTIO2ZleyepSDqsrDqs7zrpbwg64+F66a9IOyKpOycmeu2hOyEneyaqSBzb3VyY2UgY2FjaGXroZwg7KCA7J6l7ZWc64ukLgoKIyMg6rKA7KadIOq3vOqxsAotIOyghOyytCDrj4Xrpr0g7Iqk7JyZIHNvdXJjZSAyMzXsooXrqqkKLSBLT1NQSSAyMTDsooXrqqkgLyBLT1NEQVEgMjXsooXrqqkKLSBLT1NQSSDqs7Xsi50g7JeF7KKFIOunpO2VkSAyMTAvMjEwCi0gS09TUEkg7JeF7KKFUlMgMU0vM00g6rOE7IKwIDIxMC8yMTAKLSDquLDsobQgcHJvZHVjdGlvbiDqs6DsnKDsooXrqqkgMTEyCi0gcHJvZHVjdGlvbiDsl4XsooVSUyDtmozqt4AgMTEyLzExMiDsoJXtmZUg7J287LmYCi0g7JeF7KKF7KeA7IiYIGhpc3Rvcnkg7Jik66WYIDAKCiMjIEtPU1BJCuq4sOyhtCBWOC43LjDqs7wg64+Z7J287ZWcIGBzZWN0b3JfcnNfc291cmNlX3Y4NzAucHlg7J2YIOqzteyLnSBLUlgg7IaM7Iqkwrfrp6TtlZEg66Gc7KeB66eMIOyerOyCrOyaqe2VnOuLpC4KCuyXheyihVJTID0g7KKF66qpIOq4sOqwhOyImOydteuloCAtIOqwmeydgCDquLDqsIQg6rO17IudIEtSWCDsl4XsooXsp4DsiJgg7IiY7J2166WgKCVwKQoK7JqU7LKt7Iuc7KCQIO2YhOyerOqwgOuhnCDsnqzqs4TsgrDtlZjsp4Ag7JWK64qU64ukLgoKIyMgS09TREFRCu2YhOyerCDqs4Tslb3snYAgS09TUEkg6rO17IudIOyXheyiheyngOyImCDqs4Tslb3snbTrr4DroZwgS09TREFRIDI17KKF66qp7JeQ64qUIOyDiCDqt5zsuZnsnYQg66eM65Ok7KeAIOyViuuKlOuLpC4KCi0gc3RhdHVzPWBOT1RfU1VQUE9SVEVEX0NVUlJFTlRfQ09OVFJBQ1RgCi0g7JeF7KKFUlMgMU0vM009bnVsbAotIG1pc3NpbmdfcmVhc29uPWBDVVJSRU5UX09GRklDSUFMX1NFQ1RPUl9SU19DT05UUkFDVF9JU19LT1NQSV9PTkxZYAoKIyMg7ZqM6reAIOqyjOydtO2KuArtmITsnqwgcHJvZHVjdGlvbiDsl4XsooVSU+ydmCBiZW5jaG1hcmsgdGlja2VyL25hbWXqs7wgMU0vM00g6rCS7J2EIOyghOu2gCDri6Tsi5wg6rOE7IKw7ZW0IOyZhOyghCDsnbzsuZjtlbTslbwgc291cmNlIGNhY2hl66W8IOqyjOyLnO2VnOuLpC4KCiMjIGdsb3NzYXJ5CuyLpOygnCDtgqQgYGNvbXBhY3RfZm9vdGVyX3RleHRg66W8IOyCrOyaqe2VnOuLpC4KCiMjIOyViOyghCDqt5zsuZkKLSBzb3VyY2Vfb25seT10cnVlCi0gc3RhbmRhbG9uZV9zd2luZ190YWJsZV9lbmFibGVkPWZhbHNlCi0gcmVxdWVzdF90aW1lX3ByaWNlX2VsaWdpYmxlPWZhbHNlCi0gS09TREFRIOyXheyihSDrp6TtlZEg7J6E7J2YIOyDneyEsSDquIjsp4AKLSBwcm9kdWN0aW9uIEpTT04g67OA6rK9IOq4iOyngAotIFdvcmtlciDrs4Dqsr0g6riI7KeACi0g6riw7KG0IOyngO2RnCDqs4TsgrDsi50g67OA6rK9IOq4iOyngAotIOygleyggSDsooXqsIDroZwg7JqU7LKt7ZiE7J6s6rCAIOuMgOyytCDquIjsp4AK"
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import base64, os
+          from pathlib import Path
+          Path("standalone_swing_sector_rs_v875.py").write_bytes(base64.b64decode(os.environ["BUILDER_B64"]))
+          Path("docs/standalone_swing_sector_rs_contract_v875.md").write_bytes(base64.b64decode(os.environ["CONTRACT_B64"]))
+          PY
+          python -m py_compile standalone_swing_sector_rs_v875.py
+          echo "V875_SOURCE_RESTORE=PASS"
+
+      - name: Build source-only cache
+        shell: bash
+        run: |
+          set -euo pipefail
           test -n "${KRX_ID:-}" || { echo "::error::KRX_ID secret missing"; exit 1; }
           test -n "${KRX_PW:-}" || { echo "::error::KRX_PW secret missing"; exit 1; }
 
-          python - <<'PY'
-          from __future__ import annotations
+          python standalone_swing_sector_rs_v875.py | tee /tmp/v875.log
 
-          import contextlib
-          import io
+          grep -q '^V875_STANDALONE_SECTOR_RS_STATUS=READY_SOURCE_ONLY$' /tmp/v875.log
+          grep -q '^PRODUCTION_REGRESSION_MISMATCHES=0$' /tmp/v875.log
+          grep -q '^GLOSSARY_FOOTER_READY=true$' /tmp/v875.log
+          grep -q '^KOSDAQ_SECTOR_MAPPING_INVENTED=false$' /tmp/v875.log
+          grep -q '^STANDALONE_SWING_TABLE_ENABLED=false$' /tmp/v875.log
+          grep -q '^V875_STANDALONE_SECTOR_RS_VALIDATION=PASS$' /tmp/v875.log
+
+      - name: Validate output contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' | tee /tmp/v875-validate.log
           import json
-          import time
-          from collections import Counter, defaultdict
           from pathlib import Path
 
-          from pykrx import stock
+          p = json.loads(Path("latest/standalone_swing_sector_rs_latest.json").read_text())
+          m = json.loads(Path("latest/standalone_swing_sector_rs_meta_latest.json").read_text())
 
-          import sector_rs_source_v870 as sector
+          assert p["status"] == "READY_SOURCE_ONLY"
+          assert m["status"] == "READY_SOURCE_ONLY"
+          assert p["source_only"] is True and m["source_only"] is True
+          assert p["standalone_swing_table_enabled"] is False
+          assert p["request_time_price_eligible"] is False
+          assert p["row_count"] == p["market_counts"]["KOSPI"] + p["market_counts"]["KOSDAQ"]
+          assert p["kospi_sector_rs_ready_count"] == p["market_counts"]["KOSPI"]
+          assert p["kosdaq_sector_rs_null_count"] == p["market_counts"]["KOSDAQ"]
+          assert p["production_regression_mismatches"] == 0
+          assert p["production_regression_exact_matches"] == p["production_unique_ticker_count"]
+          assert p["glossary_footer_text"].startswith("읽는 법:")
 
-          OUT = Path("/tmp/v874_standalone_sector_rs")
-          OUT.mkdir(parents=True, exist_ok=True)
-
-          SWING = Path("latest/standalone_swing_source_latest.json")
-          EXT = Path("latest/standalone_swing_extended_returns_latest.json")
-          GLOSSARY = Path("latest/stock_table_metric_glossary_latest.json")
-          TABLE_DIR = Path("api/two_table_v1")
-          TABLES = ("kospi", "decliners", "decliners24")
-
-          def read(path):
-              return json.loads(path.read_text(encoding="utf-8-sig"))
-
-          for p in (SWING, EXT, GLOSSARY, Path("sector_rs_source_v870.py")):
-              if not p.is_file():
-                  raise SystemExit("MISSING_REQUIRED_SOURCE:" + str(p))
-
-          swing = read(SWING)
-          ext = read(EXT)
-          glossary = read(GLOSSARY)
-
-          if swing.get("status") != "READY_SOURCE_ONLY":
-              raise SystemExit("SWING_SOURCE_NOT_READY")
-          if ext.get("status") != "READY_SOURCE_ONLY":
-              raise SystemExit("EXTENDED_RETURN_SOURCE_NOT_READY")
-          if swing.get("standalone_swing_table_enabled") is not False:
-              raise SystemExit("SWING_TABLE_ALREADY_ENABLED")
-          if ext.get("standalone_swing_table_enabled") is not False:
-              raise SystemExit("EXT_TABLE_ALREADY_ENABLED")
-
-          basis = swing.get("basis_date")
-          if not basis or ext.get("basis_date") != basis:
-              raise SystemExit("BASIS_MISMATCH")
-
-          swing_rows = {
-              str(r["ticker"]).zfill(6): r
-              for r in swing.get("rows") or []
-          }
-          if len(swing_rows) != int(swing.get("row_count") or 0):
-              raise SystemExit("SWING_ROW_COUNT_MISMATCH")
-
-          kospi_tickers = sorted(
-              ticker for ticker, row in swing_rows.items()
-              if row.get("market") == "KOSPI"
-          )
-          kosdaq_tickers = sorted(
-              ticker for ticker, row in swing_rows.items()
-              if row.get("market") == "KOSDAQ"
-          )
-          unknown_market = sorted(
-              ticker for ticker, row in swing_rows.items()
-              if row.get("market") not in ("KOSPI", "KOSDAQ")
-          )
-          if unknown_market:
-              raise SystemExit("UNKNOWN_MARKET:" + ",".join(unknown_market))
-
-          # Current production RS snapshot used as a strict regression gate.
-          prod = {}
-          for name in TABLES:
-              payload = read(TABLE_DIR / f"{name}.json")
-              if payload.get("status") != "READY":
-                  raise SystemExit("PRODUCTION_NOT_READY:" + name)
-              if payload.get("basis_date") != basis:
-                  raise SystemExit("PRODUCTION_BASIS_MISMATCH:" + name)
-              for row in payload.get("rows") or []:
-                  ticker = str(row.get("ticker") or "").zfill(6)
-                  metrics = row.get("metrics") or {}
-                  rs = metrics.get("rs_sector_pp")
-                  benchmark = metrics.get("sector_benchmark")
-                  if not isinstance(rs, dict) or rs.get("1") is None or rs.get("3") is None:
-                      raise SystemExit("PRODUCTION_RS_NOT_READY:" + ticker)
-                  snap = {
-                      "rs_sector_pp": {"1": rs["1"], "3": rs["3"]},
-                      "sector_benchmark": benchmark,
-                      "name": row.get("name"),
-                  }
-                  if ticker in prod and prod[ticker] != snap:
-                      raise SystemExit("PRODUCTION_DUPLICATE_MISMATCH:" + ticker)
-                  prod[ticker] = snap
-
-          if not prod:
-              raise SystemExit("PRODUCTION_RS_EMPTY")
-
-          # Official KRX source retrieval: exact same helper used by V8.7.0.
-          basis_compact, names, members, basic = sector.fetch_official_sources(basis)
-          if basis_compact != basis.replace("-", ""):
-              raise SystemExit("OFFICIAL_BASIS_MISMATCH")
-
-          mapping = {}
-          mapping_errors = {}
-
-          # Probe each ticker independently so one unmapped stock does not destroy
-          # the evidence artifact.
-          for ticker in kospi_tickers:
-              try:
-                  one = sector.build_mapping({ticker}, names, members, basic)
-                  mapping[ticker] = one[ticker]
-              except Exception as exc:
-                  mapping_errors[ticker] = repr(exc)
-
-          # Gather all required official industry-index close series.
-          starts = []
-          for ticker in mapping:
-              src = swing_rows[ticker].get("returns") or {}
-              for p in ("1", "3"):
-                  item = src.get(p) or {}
-                  if item.get("status") == "OK" and item.get("start_date"):
-                      starts.append(item["start_date"])
-          if not starts:
-              raise SystemExit("RETURN_STARTS_EMPTY")
-
-          earliest = min(starts).replace("-", "")
-          index_closes = {}
-          index_errors = {}
-          for idx in sorted({m["benchmark_ticker"] for m in mapping.values()}):
-              try:
-                  with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-                      df = stock.get_index_ohlcv_by_date(
-                          earliest, basis.replace("-", ""), idx
-                      )
-                  if df is None or df.empty or "종가" not in df.columns:
-                      raise ValueError("INDEX_OHLCV_EMPTY")
-                  index_closes[idx] = {
-                      (dt.strftime("%Y-%m-%d") if hasattr(dt, "strftime") else str(dt)[:10]): float(value)
-                      for dt, value in df["종가"].items()
-                  }
-              except Exception as exc:
-                  index_errors[idx] = repr(exc)
-              time.sleep(0.08)
-
-          rows = []
-          value_ready = 0
-          value_errors = {}
-
-          for ticker in kospi_tickers:
-              s = swing_rows[ticker]
-              m = mapping.get(ticker)
-              item = {
-                  "ticker": ticker,
-                  "name": s.get("name"),
-                  "market": "KOSPI",
-                  "mapping_status": "READY" if m else "UNMAPPED",
-                  "mapping": m,
-                  "rs_sector_pp": None,
-                  "error": mapping_errors.get(ticker),
-              }
-
-              if m:
-                  idx = m["benchmark_ticker"]
-                  closes = index_closes.get(idx)
-                  if not closes:
-                      item["mapping_status"] = "INDEX_HISTORY_FAILED"
-                      item["error"] = index_errors.get(idx, "INDEX_HISTORY_UNAVAILABLE")
-                  else:
-                      values = {}
-                      ok = True
-                      for p in ("1", "3"):
-                          src = (s.get("returns") or {}).get(p) or {}
-                          start = src.get("start_date")
-                          pct = src.get("pct")
-                          if src.get("status") != "OK" or start is None or pct is None:
-                              ok = False
-                              item["error"] = f"STOCK_RETURN_NOT_READY:{p}"
-                              break
-                          if start not in closes or basis not in closes:
-                              ok = False
-                              item["error"] = f"INDEX_DATE_MISSING:{p}:{start}"
-                              break
-                          start_close = closes[start]
-                          end_close = closes[basis]
-                          if start_close <= 0:
-                              ok = False
-                              item["error"] = f"INDEX_START_CLOSE_INVALID:{p}:{start}"
-                              break
-                          index_return = 100.0 * (end_close / start_close - 1.0)
-                          values[p] = round(float(pct) - index_return, 4)
-
-                      if ok:
-                          item["rs_sector_pp"] = values
-                          item["mapping_status"] = "READY_WITH_VALUES"
-                          value_ready += 1
-                      else:
-                          value_errors[ticker] = item["error"]
-
-              rows.append(item)
-
-          # Strict production regression: extended calculation must reproduce
-          # every currently published V8.7.0 production value and benchmark.
-          regression_matches = 0
-          regression_mismatches = []
-          by_ticker = {r["ticker"]: r for r in rows}
-
-          for ticker, expected in sorted(prod.items()):
-              actual = by_ticker.get(ticker)
-              if actual is None:
-                  regression_mismatches.append({
-                      "ticker": ticker,
-                      "reason": "NOT_IN_STANDALONE_KOSPI_SOURCE",
-                  })
-                  continue
-
-              expected_b = expected.get("sector_benchmark") or {}
-              actual_b = actual.get("mapping") or {}
-              actual_rs = actual.get("rs_sector_pp")
-
-              benchmark_ok = (
-                  str(expected_b.get("benchmark_ticker")) == str(actual_b.get("benchmark_ticker"))
-                  and expected_b.get("benchmark_name") == actual_b.get("benchmark_name")
-              )
-              rs_ok = actual_rs == expected["rs_sector_pp"]
-
-              if benchmark_ok and rs_ok:
-                  regression_matches += 1
+          for row in p["rows"]:
+              if row["market"] == "KOSPI":
+                  assert row["status"] == "READY"
+                  assert row["rs_sector_pp"]["1"] is not None
+                  assert row["rs_sector_pp"]["3"] is not None
+                  assert row["sector_benchmark"] is not None
               else:
-                  regression_mismatches.append({
-                      "ticker": ticker,
-                      "name": expected.get("name"),
-                      "expected_rs": expected["rs_sector_pp"],
-                      "actual_rs": actual_rs,
-                      "expected_benchmark": expected_b,
-                      "actual_benchmark": actual_b,
-                  })
+                  assert row["market"] == "KOSDAQ"
+                  assert row["status"] == "NOT_SUPPORTED_CURRENT_CONTRACT"
+                  assert row["rs_sector_pp"] == {"1": None, "3": None}
+                  assert row["sector_benchmark"] is None
 
-          footer = glossary.get("compact_footer_text")
-          if not footer:
-              raise SystemExit("GLOSSARY_COMPACT_FOOTER_TEXT_MISSING")
-
-          result = {
-              "version": "2026-09-12-v8.7.4-standalone-sector-rs-coverage-probe",
-              "status": "READY_EVIDENCE_ONLY",
-              "repository_write": False,
-              "production_change": False,
-              "standalone_swing_table_enabled": False,
-              "basis_date": basis,
-              "source_ticker_count": len(swing_rows),
-              "market_counts": {
-                  "KOSPI": len(kospi_tickers),
-                  "KOSDAQ": len(kosdaq_tickers),
-              },
-              "kospi_mapping_ready_count": len(mapping),
-              "kospi_mapping_missing_count": len(kospi_tickers) - len(mapping),
-              "kospi_rs_value_ready_count": value_ready,
-              "kospi_rs_value_missing_count": len(kospi_tickers) - value_ready,
-              "kosdaq_sector_rs_status": "NOT_PROBED_CURRENT_CONTRACT_KOSPI_ONLY",
-              "production_unique_ticker_count": len(prod),
-              "production_regression_exact_matches": regression_matches,
-              "production_regression_mismatch_count": len(regression_mismatches),
-              "production_regression_mismatches": regression_mismatches,
-              "index_history_error_count": len(index_errors),
-              "mapping_errors": mapping_errors,
-              "value_errors": value_errors,
-              "glossary_footer_text": footer,
-              "rows": rows,
-              "safety": {
-                  "new_sector_contract_defined": False,
-                  "kosdaq_sector_mapping_invented": False,
-                  "production_table_changed": False,
-                  "worker_changed": False,
-                  "metric_formula_changed": False,
-                  "request_time_price_substitution": False,
-              },
-          }
-
-          (OUT / "standalone-sector-rs-coverage-v874.json").write_text(
-              json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
-              encoding="utf-8",
-          )
-
-          md = [
-              "# V8.7.4 독립 스윙 업종RS 전체범위 Probe",
-              "",
-              f"- 기준일: {basis}",
-              f"- 전체 독립 스윙 source: {len(swing_rows)}",
-              f"- KOSPI: {len(kospi_tickers)}",
-              f"- KOSDAQ: {len(kosdaq_tickers)}",
-              f"- KOSPI 공식 업종 매핑 성공: {len(mapping)}/{len(kospi_tickers)}",
-              f"- KOSPI 업종RS 값 계산 성공: {value_ready}/{len(kospi_tickers)}",
-              f"- 기존 production 회귀 일치: {regression_matches}/{len(prod)}",
-              f"- 기존 production 회귀 불일치: {len(regression_mismatches)}",
-              f"- 업종지수 히스토리 오류: {len(index_errors)}",
-              "",
-              "## 원칙",
-              "",
-              "- 기존 V8.7.0 공식 KRX KOSPI 업종지수 매핑 로직만 재사용한다.",
-              "- KOSDAQ 25종목에는 새 업종 매핑 규칙을 만들지 않는다.",
-              "- repository·production·Worker를 수정하지 않는다.",
-              "- 요청시점 현재가로 업종RS를 재계산하지 않는다.",
-              "",
-              "## 핵심 용어 읽는 법",
-              "",
-              footer,
-          ]
-
-          if mapping_errors:
-              md += ["", "## KOSPI 미매핑 종목"]
-              for ticker, error in sorted(mapping_errors.items()):
-                  md.append(
-                      f"- {swing_rows[ticker].get('name')}({ticker}): `{error}`"
-                  )
-
-          if regression_mismatches:
-              md += ["", "## Production 회귀 불일치"]
-              for x in regression_mismatches[:20]:
-                  md.append("- " + json.dumps(x, ensure_ascii=False))
-
-          (OUT / "standalone-sector-rs-coverage-v874.md").write_text(
-              "\n".join(md) + "\n", encoding="utf-8"
-          )
-
-          print("V874_SECTOR_RS_PROBE=READY_EVIDENCE_ONLY")
-          print("SOURCE_TICKERS=" + str(len(swing_rows)))
-          print("KOSPI_TICKERS=" + str(len(kospi_tickers)))
-          print("KOSDAQ_TICKERS=" + str(len(kosdaq_tickers)))
-          print("KOSPI_MAPPING_READY=" + str(len(mapping)))
-          print("KOSPI_MAPPING_MISSING=" + str(len(kospi_tickers) - len(mapping)))
-          print("KOSPI_RS_VALUE_READY=" + str(value_ready))
-          print("KOSPI_RS_VALUE_MISSING=" + str(len(kospi_tickers) - value_ready))
-          print("PRODUCTION_UNIQUE_TICKERS=" + str(len(prod)))
-          print("PRODUCTION_REGRESSION_EXACT_MATCHES=" + str(regression_matches))
-          print("PRODUCTION_REGRESSION_MISMATCHES=" + str(len(regression_mismatches)))
-          print("INDEX_HISTORY_ERRORS=" + str(len(index_errors)))
-          print("GLOSSARY_FOOTER_KEY=compact_footer_text")
-          print("GLOSSARY_FOOTER_READY=true")
-          print("KOSDAQ_SECTOR_MAPPING_INVENTED=false")
-          print("REPOSITORY_WRITE=false")
-          print("PRODUCTION_CHANGE=false")
-          print("REQUEST_TIME_PRICE_SUBSTITUTION=false")
+          print("V875_SOURCE_ONLY_CONTRACT=PASS")
+          print("V875_KOSPI_FULL_COVERAGE=PASS")
+          print("V875_KOSDAQ_NULL_GUARD=PASS")
+          print("V875_PRODUCTION_REGRESSION=PASS")
+          print("V875_GLOSSARY_FOOTER=PASS")
           PY
 
-      - name: Validate probe safety
+      - name: Verify production protected
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum -c /tmp/metric.sha
+          sha256sum -c /tmp/worker.sha
+          find api/two_table_v1 -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/two_table.after.sha
+          diff -u /tmp/two_table.sha /tmp/two_table.after.sha
+          git diff --exit-code -- stock_table_metrics_v850.py worker/krx-live-price-worker.js api/two_table_v1
+          echo "PRODUCTION_TWO_TABLE_CHANGED=false"
+          echo "WORKER_SOURCE_CHANGED=false"
+          echo "METRIC_FORMULA_CHANGED=false"
+
+      - name: Commit V8.7.5 source cache
         shell: bash
         run: |
           set -euo pipefail
 
-          test -f /tmp/v874_standalone_sector_rs/standalone-sector-rs-coverage-v874.json
-          test -f /tmp/v874_standalone_sector_rs/standalone-sector-rs-coverage-v874.md
+          git fetch origin main
+          if [ "$(git rev-parse origin/main)" != "$BASE_SHA" ]; then
+            echo "::error::Remote main changed after checkout. Rerun V8.7.5."
+            exit 1
+          fi
 
-          python - <<'PY'
-          import json
-          from pathlib import Path
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          p = json.loads(
-              Path("/tmp/v874_standalone_sector_rs/standalone-sector-rs-coverage-v874.json")
-              .read_text(encoding="utf-8")
-          )
+          git add             standalone_swing_sector_rs_v875.py             docs/standalone_swing_sector_rs_contract_v875.md             latest/standalone_swing_sector_rs_latest.json             latest/standalone_swing_sector_rs_latest.csv             latest/standalone_swing_sector_rs_meta_latest.json             latest/standalone_swing_sector_rs_run_log_latest.txt
 
-          assert p["status"] == "READY_EVIDENCE_ONLY"
-          assert p["repository_write"] is False
-          assert p["production_change"] is False
-          assert p["standalone_swing_table_enabled"] is False
-          assert p["source_ticker_count"] == p["market_counts"]["KOSPI"] + p["market_counts"]["KOSDAQ"]
-          assert p["production_regression_mismatch_count"] == 0
-          assert p["production_regression_exact_matches"] == p["production_unique_ticker_count"]
-          assert p["glossary_footer_text"].startswith("읽는 법:")
-          assert p["kosdaq_sector_rs_status"] == "NOT_PROBED_CURRENT_CONTRACT_KOSPI_ONLY"
+          STAGED="$(git diff --cached --name-only || true)"
+          echo "V875_STAGED_FILES_BEGIN"
+          printf '%s\n' "$STAGED"
+          echo "V875_STAGED_FILES_END"
 
-          s = p["safety"]
-          assert s["new_sector_contract_defined"] is False
-          assert s["kosdaq_sector_mapping_invented"] is False
-          assert s["production_table_changed"] is False
-          assert s["worker_changed"] is False
-          assert s["metric_formula_changed"] is False
-          assert s["request_time_price_substitution"] is False
+          if printf '%s\n' "$STAGED" | grep -q '^\.github/workflows/'; then
+            echo "::error::Workflow staged unexpectedly"
+            exit 1
+          fi
 
-          print("V874_PRODUCTION_RS_REGRESSION=PASS")
-          print("V874_GLOSSARY_FOOTER_FIX=PASS")
-          print("V874_READ_ONLY_SAFETY=PASS")
-          PY
+          while IFS= read -r p; do
+            [ -z "$p" ] && continue
+            case "$p" in
+              standalone_swing_sector_rs_v875.py|              docs/standalone_swing_sector_rs_contract_v875.md|              latest/standalone_swing_sector_rs_latest.json|              latest/standalone_swing_sector_rs_latest.csv|              latest/standalone_swing_sector_rs_meta_latest.json|              latest/standalone_swing_sector_rs_run_log_latest.txt) ;;
+              *) echo "::error::Unexpected staged path: $p"; exit 1 ;;
+            esac
+          done <<< "$STAGED"
 
-          git diff --exit-code
-          git diff --cached --exit-code
+          echo "WORKFLOW_FILES_STAGED=false"
 
-          echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
-          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
+          if ! git diff --cached --quiet; then
+            git commit -m "Add V8.7.5 standalone swing sector RS source"
+            git push origin HEAD:main
+          fi
 
-      - name: Upload V8.7.4 evidence
-        uses: actions/upload-artifact@v6
-        with:
-          name: standalone-sector-rs-coverage-v874
-          path: |
-            /tmp/v874_standalone_sector_rs/standalone-sector-rs-coverage-v874.json
-            /tmp/v874_standalone_sector_rs/standalone-sector-rs-coverage-v874.md
-          if-no-files-found: error
-          retention-days: 14
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "V875_STANDALONE_SECTOR_RS_RELEASE=PASS"
+          echo "WORKFLOW_FILES_STAGED=false"
+          echo "STANDALONE_SWING_TABLE_ENABLED=false"
+          echo "KOSDAQ_SECTOR_MAPPING_INVENTED=false"
+          echo "PRODUCTION_TABLE_CHANGED=false"
+          echo "WORKER_SOURCE_CHANGED=false"
+          echo "METRIC_FORMULA_CHANGED=false"
+          echo "REQUEST_TIME_PRICE_SUBSTITUTION=false"
+
+      - name: Final report
+        if: always()
+        shell: bash
+        run: |
+          test -f /tmp/v875.log && cat /tmp/v875.log || true
+          test -f /tmp/v875-validate.log && cat /tmp/v875-validate.log || true
+          git status --short || true

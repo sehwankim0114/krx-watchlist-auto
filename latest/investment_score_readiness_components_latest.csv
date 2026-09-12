@@ -1,20 +1,20 @@
 ﻿area,item,max_points,source_basis,readiness_type,source_ready_count,universe_count,coverage_pct,status,score_threshold_defined,score_value_generated
-financial,매출 성장과 안정성,5,annual_revenue_y0/y1/y2,THREE_YEAR_RAW,33,112,29.46,SOURCE_PARTIAL_THRESHOLD_UNDEFINED,False,False
-financial,영업이익 성장과 흑자 여부,7,annual_operating_profit_y0/y1/y2,THREE_YEAR_RAW,33,112,29.46,SOURCE_PARTIAL_THRESHOLD_UNDEFINED,False,False
-financial,순이익 흐름,3,annual_net_income_y0/y1/y2,THREE_YEAR_RAW,33,112,29.46,SOURCE_PARTIAL_THRESHOLD_UNDEFINED,False,False
-financial,영업이익률,4,operating_margin_pct,FINANCIAL_CACHE,41,112,36.61,SOURCE_PARTIAL_THRESHOLD_UNDEFINED,False,False
-financial,ROE,4,roe_annualized_pct,FINANCIAL_CACHE,41,112,36.61,SOURCE_PARTIAL_THRESHOLD_UNDEFINED,False,False
-financial,부채비율,3,debt_ratio_pct,FINANCIAL_CACHE,41,112,36.61,SOURCE_PARTIAL_THRESHOLD_UNDEFINED,False,False
+financial,매출 성장과 안정성,5,annual_revenue_y0/y1/y2,THREE_YEAR_RAW,93,112,83.04,SOURCE_PARTIAL_THRESHOLD_UNDEFINED,False,False
+financial,영업이익 성장과 흑자 여부,7,annual_operating_profit_y0/y1/y2,THREE_YEAR_RAW,93,112,83.04,SOURCE_PARTIAL_THRESHOLD_UNDEFINED,False,False
+financial,순이익 흐름,3,annual_net_income_y0/y1/y2,THREE_YEAR_RAW,93,112,83.04,SOURCE_PARTIAL_THRESHOLD_UNDEFINED,False,False
+financial,영업이익률,4,operating_margin_pct,FINANCIAL_CACHE,112,112,100.0,SOURCE_READY_THRESHOLD_UNDEFINED,False,False
+financial,ROE,4,roe_annualized_pct,FINANCIAL_CACHE,112,112,100.0,SOURCE_READY_THRESHOLD_UNDEFINED,False,False
+financial,부채비율,3,debt_ratio_pct,FINANCIAL_CACHE,112,112,100.0,SOURCE_READY_THRESHOLD_UNDEFINED,False,False
 financial,영업현금흐름,4,운영 원천 없음,SOURCE_NOT_CONNECTED,0,112,0.0,SOURCE_NOT_CONNECTED,False,False
-valuation,PER,8,per_annualized,FINANCIAL_CACHE,41,112,36.61,SOURCE_PARTIAL_THRESHOLD_UNDEFINED,False,False
-valuation,PBR,5,pbr,FINANCIAL_CACHE,41,112,36.61,SOURCE_PARTIAL_THRESHOLD_UNDEFINED,False,False
+valuation,PER,8,per_annualized,FINANCIAL_CACHE,112,112,100.0,SOURCE_READY_THRESHOLD_UNDEFINED,False,False
+valuation,PBR,5,pbr,FINANCIAL_CACHE,112,112,100.0,SOURCE_READY_THRESHOLD_UNDEFINED,False,False
 valuation,EV/EBITDA,4,ev_ebitda_value,EV_EBITDA_POLICY_PENDING,0,112,0.0,SOURCE_NOT_READY_POLICY_UNDEFINED,False,False
-valuation,PSR 또는 대체 가치지표,3,market_cap+revenue는 있으나 공식 점수계약 없음,DERIVABLE_POLICY_UNDEFINED,37,112,33.04,SOURCE_INPUT_PRESENT_POLICY_UNDEFINED,False,False
-growth_value,최근 3년 매출 성장률,4,annual_revenue_y0/y1/y2,THREE_YEAR_RAW,33,112,29.46,SOURCE_PARTIAL_THRESHOLD_UNDEFINED,False,False
-growth_value,최근 3년 영업이익 성장률,4,annual_operating_profit_y0/y1/y2,THREE_YEAR_RAW,33,112,29.46,SOURCE_PARTIAL_THRESHOLD_UNDEFINED,False,False
-growth_value,최근 분기 실적 가속·둔화,3,q2_*_yoy_pct,QUARTER_CLASS_POLICY_PENDING,33,112,29.46,SOURCE_INPUT_PRESENT_POLICY_UNDEFINED,False,False
-growth_value,흑자 지속성과 이익 안정성,2,earnings_trend + 3년 이익 원자료,PROFIT_PERSISTENCE_RAW,33,112,29.46,SOURCE_PARTIAL_THRESHOLD_UNDEFINED,False,False
-growth_value,순현금·기업가치 상태,2,cash/debt candidates,NET_CASH_POLICY_PENDING,34,112,30.36,SOURCE_INPUT_PRESENT_POLICY_UNDEFINED,False,False
+valuation,PSR 또는 대체 가치지표,3,market_cap+revenue는 있으나 공식 점수계약 없음,DERIVABLE_POLICY_UNDEFINED,99,112,88.39,SOURCE_INPUT_PRESENT_POLICY_UNDEFINED,False,False
+growth_value,최근 3년 매출 성장률,4,annual_revenue_y0/y1/y2,THREE_YEAR_RAW,93,112,83.04,SOURCE_PARTIAL_THRESHOLD_UNDEFINED,False,False
+growth_value,최근 3년 영업이익 성장률,4,annual_operating_profit_y0/y1/y2,THREE_YEAR_RAW,93,112,83.04,SOURCE_PARTIAL_THRESHOLD_UNDEFINED,False,False
+growth_value,최근 분기 실적 가속·둔화,3,q2_*_yoy_pct,QUARTER_CLASS_POLICY_PENDING,92,112,82.14,SOURCE_INPUT_PRESENT_POLICY_UNDEFINED,False,False
+growth_value,흑자 지속성과 이익 안정성,2,earnings_trend + 3년 이익 원자료,PROFIT_PERSISTENCE_RAW,93,112,83.04,SOURCE_PARTIAL_THRESHOLD_UNDEFINED,False,False
+growth_value,순현금·기업가치 상태,2,cash/debt candidates,NET_CASH_POLICY_PENDING,95,112,84.82,SOURCE_INPUT_PRESENT_POLICY_UNDEFINED,False,False
 price_position,1개월 가격흐름,4,metrics.returns.1.pct,TWO_TABLE_METRIC,112,112,100.0,SOURCE_READY_THRESHOLD_UNDEFINED,False,False
 price_position,3개월 가격흐름,3,metrics.returns.3.pct,TWO_TABLE_METRIC,112,112,100.0,SOURCE_READY_THRESHOLD_UNDEFINED,False,False
 price_position,기간 저가·고가 대비 현재위치,5,metrics.range_3m.position_pct,TWO_TABLE_METRIC,112,112,100.0,SOURCE_READY_THRESHOLD_UNDEFINED,False,False

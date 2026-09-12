@@ -46,7 +46,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 
-SCRIPT_VERSION = "financial_valuation_enricher.py v1.2.0-duplicate-stock-code-fix"
+SCRIPT_VERSION = "financial_valuation_enricher.py v1.3.0-production-two-table-targets"
 CORP_IDENTITY_POLICY_VERSION = "corp-candidate-name-match-v2"
 POLICY_VERSION = "2026-07-01-v6.0-score-policy"
 KST = ZoneInfo("Asia/Seoul")
@@ -91,6 +91,15 @@ VARIANT_SUFFIXES = (
     "_current_basis",
     "_supplemented",
 )
+
+# V8.7.0 production two-table tickers are supplemental DART targets.
+# They do not replace the existing CSV target universe.
+PRODUCTION_TWO_TABLE_FILES = (
+    "api/two_table_v1/kospi.json",
+    "api/two_table_v1/decliners.json",
+    "api/two_table_v1/decliners24.json",
+)
+PRODUCTION_TWO_TABLE_VERSION = "2026-09-12-v8.7.0-sector-rs-production-release"
 
 REPORT_NAMES = {
     "11013": "1분기보고서",
@@ -1024,6 +1033,52 @@ def collect_target_metadata(
                 current["market"] = normalize_text(
                     row.get("market", "")
                 )
+    return metadata
+
+
+def collect_production_two_table_metadata(
+    repo_root: Path,
+) -> Dict[str, Dict[str, str]]:
+    # Read current production two-table rows as supplemental DART targets.
+    manifest_path = repo_root / "api" / "two_table_v1" / "manifest.json"
+    if not manifest_path.exists():
+        return {}
+
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+    if manifest.get("version") != PRODUCTION_TWO_TABLE_VERSION:
+        return {}
+    if manifest.get("release_stage") != "PRODUCTION":
+        return {}
+
+    metadata: Dict[str, Dict[str, str]] = {}
+    for relative in PRODUCTION_TWO_TABLE_FILES:
+        target_path = repo_root / relative
+        if not target_path.exists():
+            continue
+        try:
+            payload = json.loads(target_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+
+        for row in payload.get("rows") or []:
+            if not isinstance(row, dict):
+                continue
+            ticker = clean_ticker(row.get("ticker", ""))
+            if not ticker:
+                continue
+            current = metadata.setdefault(
+                ticker,
+                {"ticker": ticker, "name": "", "market": ""},
+            )
+            if not current["name"]:
+                current["name"] = normalize_text(row.get("name", ""))
+            if not current["market"]:
+                current["market"] = normalize_text(row.get("market", ""))
+
     return metadata
 
 
@@ -2079,7 +2134,23 @@ def main() -> int:
         output_dir,
         target_files,
     )
+    legacy_target_count = len(metadata)
+    production_metadata = collect_production_two_table_metadata(Path("."))
+    for ticker, value in production_metadata.items():
+        current = metadata.setdefault(
+            ticker,
+            {"ticker": ticker, "name": "", "market": ""},
+        )
+        if not current.get("name"):
+            current["name"] = value.get("name", "")
+        if not current.get("market"):
+            current["market"] = value.get("market", "")
+
     market_metrics = load_market_metrics(output_dir)
+    log_lines.append(f"LEGACY_TARGET_TICKERS={legacy_target_count}")
+    log_lines.append(
+        f"PRODUCTION_TWO_TABLE_TARGET_TICKERS={len(production_metadata)}"
+    )
     log_lines.append(f"TARGET_TICKERS={len(metadata)}")
     log_lines.append(
         f"MARKET_METRIC_TICKERS={len(market_metrics)}"

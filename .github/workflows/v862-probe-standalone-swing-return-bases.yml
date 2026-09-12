@@ -1,0 +1,373 @@
+name: Probe standalone swing return bases v8.6.2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v862-return-basis-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Probe candidate return-basis conventions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import csv
+          import json
+          from collections import defaultdict
+          from datetime import date, timedelta
+          from pathlib import Path
+
+          HISTORY = Path("latest/active_stock_long_history_260d_latest.csv")
+          META = Path("latest/active_stock_long_history_260d_meta_latest.json")
+          OUT = Path("/tmp/v862_return_basis_probe")
+          OUT.mkdir(parents=True, exist_ok=True)
+
+          if not HISTORY.is_file() or not META.is_file():
+              raise SystemExit("REQUIRED_LONG_HISTORY_SOURCE_MISSING")
+
+          meta = json.loads(META.read_text(encoding="utf-8-sig"))
+          if meta.get("status") != "READY":
+              raise SystemExit("LONG_HISTORY_NOT_READY")
+          if meta.get("source_only") is not True:
+              raise SystemExit("LONG_HISTORY_NOT_SOURCE_ONLY")
+
+          basis = str(meta["cache_max_date"])
+          target = [str(x).zfill(6) for x in meta["target_tickers"]]
+
+          with HISTORY.open(encoding="utf-8-sig", newline="") as f:
+              rows = list(csv.DictReader(f))
+
+          target_set = set(target)
+          by_ticker = defaultdict(list)
+          identity = {}
+          for row in rows:
+              ticker = str(row.get("ticker") or "").zfill(6)
+              if ticker in target_set:
+                  by_ticker[ticker].append(row)
+                  identity[ticker] = {
+                      "name": row.get("name"),
+                      "market": row.get("market"),
+                  }
+
+          if set(by_ticker) != target_set:
+              missing = sorted(target_set - set(by_ticker))
+              raise SystemExit("TARGET_HISTORY_MISSING:" + ",".join(missing[:20]))
+
+          def shift_months(day: str, count: int) -> str:
+              d = date.fromisoformat(day)
+              month_index = d.year * 12 + d.month - 1 - count
+              year, month0 = divmod(month_index, 12)
+              month = month0 + 1
+              if month == 12:
+                  next_month = date(year + 1, 1, 1)
+              else:
+                  next_month = date(year, month + 1, 1)
+              last_day = (next_month - timedelta(days=1)).day
+              return date(year, month, min(d.day, last_day)).isoformat()
+
+          def first_on_or_after(dates, cutoff):
+              for d in dates:
+                  if cutoff <= d <= basis:
+                      return d
+              return None
+
+          def prior_session(dates, steps_back):
+              if not dates or dates[-1] != basis or len(dates) <= steps_back:
+                  return None
+              return dates[-1 - steps_back]
+
+          candidate_definitions = {
+              "1w_calendar_7d_first_session_on_or_after": {
+                  "kind": "CALENDAR_CUTOFF_FIRST_SESSION_ON_OR_AFTER",
+                  "cutoff": (date.fromisoformat(basis) - timedelta(days=7)).isoformat(),
+                  "status": "CANDIDATE_ONLY_NOT_APPROVED",
+              },
+              "1w_5_sessions_prior": {
+                  "kind": "SESSION_OFFSET",
+                  "sessions_back": 5,
+                  "status": "CANDIDATE_ONLY_NOT_APPROVED",
+              },
+              "6m_calendar_months_first_session_on_or_after": {
+                  "kind": "CALENDAR_MONTHS_FIRST_SESSION_ON_OR_AFTER",
+                  "months_back": 6,
+                  "cutoff": shift_months(basis, 6),
+                  "status": "CANDIDATE_ONLY_NOT_APPROVED",
+              },
+              "ytd_first_session_on_or_after_jan1": {
+                  "kind": "CALENDAR_CUTOFF_FIRST_SESSION_ON_OR_AFTER",
+                  "cutoff": f"{date.fromisoformat(basis).year}-01-01",
+                  "status": "CANDIDATE_ONLY_NOT_APPROVED",
+              },
+              "52w_calendar_364d_first_session_on_or_after": {
+                  "kind": "CALENDAR_CUTOFF_FIRST_SESSION_ON_OR_AFTER",
+                  "cutoff": (date.fromisoformat(basis) - timedelta(days=364)).isoformat(),
+                  "status": "CANDIDATE_ONLY_NOT_APPROVED",
+              },
+              "52w_252_sessions_prior": {
+                  "kind": "SESSION_OFFSET",
+                  "sessions_back": 252,
+                  "status": "CANDIDATE_ONLY_NOT_APPROVED",
+              },
+          }
+
+          coverage = {
+              key: {
+                  "ready": 0,
+                  "history_short": 0,
+                  "basis_missing": 0,
+                  "start_dates": {},
+                  "examples_history_short": [],
+              }
+              for key in candidate_definitions
+          }
+
+          per_ticker = []
+          for ticker in sorted(target):
+              ticker_rows = sorted(by_ticker[ticker], key=lambda x: str(x["date"]))
+              dates = [str(r["date"]) for r in ticker_rows if str(r["date"]) <= basis]
+              has_basis = bool(dates and dates[-1] == basis)
+              entry = {
+                  "ticker": ticker,
+                  "name": identity[ticker]["name"],
+                  "market": identity[ticker]["market"],
+                  "history_rows": len(dates),
+                  "history_min_date": dates[0] if dates else None,
+                  "history_max_date": dates[-1] if dates else None,
+                  "candidate_start_dates": {},
+              }
+
+              for key, rule in candidate_definitions.items():
+                  start = None
+                  if has_basis:
+                      if rule["kind"] == "SESSION_OFFSET":
+                          start = prior_session(dates, int(rule["sessions_back"]))
+                      else:
+                          cutoff = str(rule["cutoff"])
+                          if dates and dates[0] <= cutoff:
+                              start = first_on_or_after(dates, cutoff)
+
+                  entry["candidate_start_dates"][key] = start
+
+                  if not has_basis:
+                      coverage[key]["basis_missing"] += 1
+                  elif start is None:
+                      coverage[key]["history_short"] += 1
+                      if len(coverage[key]["examples_history_short"]) < 10:
+                          coverage[key]["examples_history_short"].append({
+                              "ticker": ticker,
+                              "name": identity[ticker]["name"],
+                              "history_rows": len(dates),
+                              "history_min_date": dates[0] if dates else None,
+                          })
+                  else:
+                      coverage[key]["ready"] += 1
+                      coverage[key]["start_dates"][start] = (
+                          coverage[key]["start_dates"].get(start, 0) + 1
+                      )
+
+              per_ticker.append(entry)
+
+          one_week_mismatch = 0
+          fifty_two_week_mismatch = 0
+          one_week_comparable = 0
+          fifty_two_week_comparable = 0
+
+          for item in per_ticker:
+              starts = item["candidate_start_dates"]
+              a = starts["1w_calendar_7d_first_session_on_or_after"]
+              b = starts["1w_5_sessions_prior"]
+              if a and b:
+                  one_week_comparable += 1
+                  if a != b:
+                      one_week_mismatch += 1
+
+              a = starts["52w_calendar_364d_first_session_on_or_after"]
+              b = starts["52w_252_sessions_prior"]
+              if a and b:
+                  fifty_two_week_comparable += 1
+                  if a != b:
+                      fifty_two_week_mismatch += 1
+
+          for key in coverage:
+              starts = coverage[key]["start_dates"]
+              coverage[key]["distinct_start_dates"] = len(starts)
+              coverage[key]["most_common_start_dates"] = sorted(
+                  starts.items(), key=lambda kv: (-kv[1], kv[0])
+              )[:10]
+              del coverage[key]["start_dates"]
+
+          result = {
+              "probe_version": "2026-09-12-v8.6.2-standalone-swing-return-basis-probe",
+              "status": "READY_EVIDENCE_ONLY",
+              "repository_write": False,
+              "metric_values_generated": False,
+              "returns_calculated": False,
+              "production_table_changed": False,
+              "standalone_swing_table_enabled": False,
+              "basis_date": basis,
+              "source_contract_version": meta.get("contract_version"),
+              "target_ticker_count": len(target),
+              "history_min_date": meta.get("cache_min_date"),
+              "history_max_date": meta.get("cache_max_date"),
+              "candidate_definitions": candidate_definitions,
+              "coverage": coverage,
+              "candidate_comparison": {
+                  "one_week": {
+                      "comparable_tickers": one_week_comparable,
+                      "different_start_date_tickers": one_week_mismatch,
+                  },
+                  "fifty_two_week": {
+                      "comparable_tickers": fifty_two_week_comparable,
+                      "different_start_date_tickers": fifty_two_week_mismatch,
+                  },
+              },
+              "per_ticker": per_ticker,
+              "decision": {
+                  "formula_selected": False,
+                  "reason": (
+                      "Project sources specify 1W/6M/YTD/52W fields but do not "
+                      "define final basis-date formulas. This probe compares "
+                      "coverage only and does not generate return metrics."
+                  ),
+              },
+          }
+
+          json_path = OUT / "v862-return-basis-readiness.json"
+          json_path.write_text(
+              json.dumps(result, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+
+          md = []
+          md.append("# V8.6.2 독립 스윙 수익률 기준일 후보 점검")
+          md.append("")
+          md.append(f"- 기준일: {basis}")
+          md.append(f"- 활성 종목: {len(target)}")
+          md.append(f"- history 범위: {meta.get('cache_min_date')} ~ {meta.get('cache_max_date')}")
+          md.append("- 수익률 값 계산: 안 함")
+          md.append("- 최종 산식 선택: 안 함")
+          md.append("")
+          md.append("## 후보별 데이터 충족률")
+          for key, info in coverage.items():
+              md.append(
+                  f"- {key}: ready {info['ready']} / "
+                  f"history_short {info['history_short']} / "
+                  f"basis_missing {info['basis_missing']}"
+              )
+          md.append("")
+          md.append("## 후보간 시작일 차이")
+          md.append(
+              f"- 1W: 비교가능 {one_week_comparable}, "
+              f"시작일 다름 {one_week_mismatch}"
+          )
+          md.append(
+              f"- 52W: 비교가능 {fifty_two_week_comparable}, "
+              f"시작일 다름 {fifty_two_week_mismatch}"
+          )
+          md.append("")
+          md.append("## 안전 판정")
+          md.append("- 이 probe는 수익률을 생성하지 않습니다.")
+          md.append("- 1W/6M/YTD/52W 최종 기준을 임의로 선택하지 않습니다.")
+          md.append("- production JSON, Worker, 기존 지표 계산식을 수정하지 않습니다.")
+          md.append("- repository commit/push/deploy를 하지 않습니다.")
+
+          (OUT / "v862-return-basis-readiness.md").write_text(
+              "\n".join(md) + "\n", encoding="utf-8"
+          )
+
+          print("V862_RETURN_BASIS_PROBE=READY_EVIDENCE_ONLY")
+          print("BASIS_DATE=" + basis)
+          print("TARGET_TICKERS=" + str(len(target)))
+          for key, info in coverage.items():
+              print(
+                  "COVERAGE_" + key.upper()
+                  + f"=READY:{info['ready']},SHORT:{info['history_short']},"
+                  + f"BASIS_MISSING:{info['basis_missing']}"
+              )
+          print("ONE_WEEK_COMPARABLE=" + str(one_week_comparable))
+          print("ONE_WEEK_START_DATE_MISMATCH=" + str(one_week_mismatch))
+          print("FIFTY_TWO_WEEK_COMPARABLE=" + str(fifty_two_week_comparable))
+          print("FIFTY_TWO_WEEK_START_DATE_MISMATCH=" + str(fifty_two_week_mismatch))
+          print("RETURNS_CALCULATED=false")
+          print("FORMULA_SELECTED=false")
+          print("REPOSITORY_WRITE=false")
+          print("PRODUCTION_TABLE_CHANGED=false")
+          print("STANDALONE_SWING_TABLE_ENABLED=false")
+          PY
+
+      - name: Safety check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f /tmp/v862_return_basis_probe/v862-return-basis-readiness.json
+          test -f /tmp/v862_return_basis_probe/v862-return-basis-readiness.md
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = json.loads(
+              Path("/tmp/v862_return_basis_probe/v862-return-basis-readiness.json")
+              .read_text(encoding="utf-8")
+          )
+          assert p["status"] == "READY_EVIDENCE_ONLY"
+          assert p["repository_write"] is False
+          assert p["metric_values_generated"] is False
+          assert p["returns_calculated"] is False
+          assert p["production_table_changed"] is False
+          assert p["standalone_swing_table_enabled"] is False
+          assert p["decision"]["formula_selected"] is False
+
+          keys = set(p["candidate_definitions"])
+          assert keys == {
+              "1w_calendar_7d_first_session_on_or_after",
+              "1w_5_sessions_prior",
+              "6m_calendar_months_first_session_on_or_after",
+              "ytd_first_session_on_or_after_jan1",
+              "52w_calendar_364d_first_session_on_or_after",
+              "52w_252_sessions_prior",
+          }
+
+          print("V862_SAFETY_CONTRACT=PASS")
+          PY
+
+          git diff --exit-code
+          git diff --cached --exit-code
+
+          echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
+          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
+
+      - name: Upload V8.6.2 probe artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: standalone-swing-return-basis-readiness-v862
+          path: |
+            /tmp/v862_return_basis_probe/v862-return-basis-readiness.json
+            /tmp/v862_return_basis_probe/v862-return-basis-readiness.md
+          if-no-files-found: error
+          retention-days: 14

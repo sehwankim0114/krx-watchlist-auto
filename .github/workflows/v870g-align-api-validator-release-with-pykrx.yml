@@ -1,0 +1,150 @@
+name: Align API validator with V8.7.0 two-table release v8.7.0g
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v870g-align-api-validator-release
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install validator dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install "pykrx==1.2.8" "pandas<3.0,>=2.2.0" "PyYAML>=6.0,<7"
+          echo "V870_VALIDATOR_DEPENDENCIES=PASS"
+
+      - name: Patch validator release contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("validate_api_sync.py")
+          text = path.read_text(encoding="utf-8")
+
+          old_import = "    from two_table_release_v853 import DIRECTORY, validate_bundle"
+          new_import = "    from two_table_release_v870 import DIRECTORY, validate_bundle"
+
+          if old_import in text:
+              text = text.replace(old_import, new_import, 1)
+          elif new_import not in text:
+              raise SystemExit("V853_VALIDATOR_IMPORT_ANCHOR_NOT_FOUND")
+
+          old_log = '        print("V853_TWO_TABLE_RELEASE_CONTRACT=PASS")'
+          new_log = '        print("V870_TWO_TABLE_RELEASE_CONTRACT=PASS")'
+          if old_log in text:
+              text = text.replace(old_log, new_log, 1)
+          elif new_log not in text:
+              raise SystemExit("V853_VALIDATOR_LOG_ANCHOR_NOT_FOUND")
+
+          old_error = '        errors.append("two-table shadow contract: " + str(exc))'
+          new_error = '        errors.append("two-table V8.7.0 release contract: " + str(exc))'
+          if old_error in text:
+              text = text.replace(old_error, new_error, 1)
+          elif new_error not in text:
+              raise SystemExit("VALIDATOR_ERROR_LABEL_ANCHOR_NOT_FOUND")
+
+          old_version = 'SCRIPT_VERSION = "validate_api_sync.py v1.10_action_schema_712_dual_width"'
+          new_version = 'SCRIPT_VERSION = "validate_api_sync.py v1.11_v870_two_table_release"'
+          if old_version in text:
+              text = text.replace(old_version, new_version, 1)
+          elif new_version not in text:
+              raise SystemExit("VALIDATOR_SCRIPT_VERSION_ANCHOR_NOT_FOUND")
+
+          path.write_text(text, encoding="utf-8")
+          print("V870_VALIDATOR_RELEASE_PATCH=PASS")
+          PY
+
+      - name: Validate patched validator
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m py_compile validate_api_sync.py two_table_release_v870.py sector_rs_source_v870.py
+
+          grep -F 'from two_table_release_v870 import DIRECTORY, validate_bundle' validate_api_sync.py
+          grep -F 'V870_TWO_TABLE_RELEASE_CONTRACT=PASS' validate_api_sync.py
+
+          if grep -F 'from two_table_release_v853 import DIRECTORY, validate_bundle' validate_api_sync.py; then
+            echo "::error::Old V8.5.3 validator release import still present"
+            exit 1
+          fi
+
+          python validate_api_sync.py --api-dir api --check-only
+
+          echo "V870_VALIDATOR_CHECK_ONLY=PASS"
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "CHANGED_FILES_BEGIN"
+          git status --short
+          echo "CHANGED_FILES_END"
+
+          python - <<'PY'
+          import subprocess
+
+          allowed = {"validate_api_sync.py"}
+          out = subprocess.check_output(["git", "status", "--porcelain"], text=True)
+
+          changed = set()
+          for line in out.splitlines():
+              if not line.strip():
+                  continue
+              p = line[3:]
+              if " -> " in p:
+                  p = p.split(" -> ", 1)[1]
+              changed.add(p)
+
+          if changed != allowed:
+              raise SystemExit("UNEXPECTED_CHANGED_FILES=" + repr(sorted(changed)))
+
+          print("CHANGE_SCOPE=PASS")
+          PY
+
+      - name: Commit and push validator alignment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add validate_api_sync.py
+          git commit -m "Align API validator with V8.7.0 two-table release"
+
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          fi
+
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "PRODUCTION_DATA_CHANGED=false"

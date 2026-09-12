@@ -1,0 +1,25 @@
+{
+  "version": "2026-09-12-v8.7.4-audited-operating-cash-flow-source",
+  "generated_at_kst": "2026-09-12T18:29:13+09:00",
+  "status": "READY_SOURCE_ONLY",
+  "production_unique_tickers": 112,
+  "direct_exact_ifrs_ready": 99,
+  "preferred_candidates": 10,
+  "preferred_inherited_ready": 10,
+  "operating_cash_flow_ready": 109,
+  "operating_cash_flow_limited": 3,
+  "account_id_policy": "EXACT_ONLY:ifrs-full_CashFlowsFromUsedInOperatingActivities",
+  "preferred_inheritance_policy": "REUSE_V8.7.0_OFFICIAL_KRX_EXACT_COMMON_STEM_MAPPING_ONLY",
+  "price_elasticity_20d": {
+    "policy_basis": "최근 20거래일 하루평균 절대등락률",
+    "current_collect_universe_implementation": "3개월 g 전체 pct_change().abs().mean()",
+    "status": "BLOCKED_POLICY_IMPLEMENTATION_MISMATCH",
+    "value_generated": false
+  },
+  "hard_guards": {
+    "investment_score_100_calculated": false,
+    "score_thresholds_defined": false,
+    "nonpreferred_name_mismatch_overridden": false,
+    "production_api_changed": false
+  }
+}

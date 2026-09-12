@@ -1,0 +1,483 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import csv
+import json
+import os
+import re
+import time
+import urllib.parse
+import urllib.request
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+VERSION = "2026-09-12-v8.7.4-audited-operating-cash-flow-source"
+IFRS_OCF_ID = "ifrs-full_CashFlowsFromUsedInOperatingActivities"
+DART_URL = "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json"
+KST = ZoneInfo("Asia/Seoul")
+
+ROOT = Path(".")
+API_KEY = os.environ["DART_API_KEY"].strip()
+
+BLOCKERS = ROOT / "latest/investment_score_remaining_blockers_latest.json"
+PROBE = ROOT / "latest/investment_score_ocf_probe_latest.csv"
+SECTOR = ROOT / "latest/sector_rs_source_latest.json"
+CORP_MAP = ROOT / "latest/dart_corp_code_map_latest.csv"
+
+OUT_CSV = ROOT / "latest/investment_score_ocf_source_latest.csv"
+OUT_JSON = ROOT / "latest/investment_score_ocf_source_latest.json"
+OUT_LOG = ROOT / "latest/investment_score_ocf_source_run_log_latest.txt"
+OUT_DOC = ROOT / "docs/investment_score_ocf_source_contract_v874.md"
+
+def clean_ticker(value):
+    text = re.sub(r"[^0-9]", "", str(value or "").strip())
+    return text.zfill(6) if text else ""
+
+def clean_corp(value):
+    text = re.sub(r"[^0-9]", "", str(value or "").strip())
+    return text.zfill(8) if text else ""
+
+def norm(value):
+    return str(value or "").strip()
+
+def num(value):
+    text = norm(value).replace(",", "")
+    if text in {"", "-", "None", "null", "nan", "NaN"}:
+        return None
+    negative = text.startswith("(") and text.endswith(")")
+    if negative:
+        text = text[1:-1]
+    text = re.sub(r"[^0-9eE+\-.]", "", text)
+    if text in {"", "-", "+", ".", "-.", "+."}:
+        return None
+    try:
+        value = float(text)
+    except ValueError:
+        return None
+    return -abs(value) if negative else value
+
+def read_json(path):
+    return json.loads(path.read_text(encoding="utf-8-sig"))
+
+def read_csv(path):
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+def production_rows():
+    rows = {}
+    for table in ("kospi", "decliners", "decliners24"):
+        payload = read_json(ROOT / f"api/two_table_v1/{table}.json")
+        for row in payload.get("rows") or []:
+            ticker = clean_ticker(row.get("ticker"))
+            if ticker:
+                rows[ticker] = {
+                    "ticker": ticker,
+                    "name": norm(row.get("name")),
+                }
+    return rows
+
+def direct_probe_map():
+    result = {}
+    for row in read_csv(PROBE):
+        ticker = clean_ticker(row.get("ticker"))
+        if not ticker:
+            continue
+        if norm(row.get("account_id")) != IFRS_OCF_ID:
+            continue
+        if norm(row.get("exact_ifrs_operating_cashflow_id")).lower() not in {
+            "true", "1", "yes"
+        }:
+            continue
+        amount = num(row.get("amount"))
+        if amount is None:
+            continue
+        if ticker in result and result[ticker]["amount"] != amount:
+            raise RuntimeError(f"DUPLICATE_EXACT_OCF_MISMATCH:{ticker}")
+        result[ticker] = {
+            "amount": amount,
+            "corp_code": clean_corp(row.get("corp_code")),
+            "fs_div": norm(row.get("fs_div")),
+        }
+    return result
+
+def sector_mapping():
+    payload = read_json(SECTOR)
+    if payload.get("version") != "2026-09-12-v8.7.0-official-krx-sector-rs":
+        raise RuntimeError("SECTOR_RS_VERSION_MISMATCH")
+    return {
+        clean_ticker(row.get("ticker")): row
+        for row in payload.get("mapping") or []
+        if clean_ticker(row.get("ticker"))
+    }
+
+def corp_map():
+    out = {}
+    for row in read_csv(CORP_MAP):
+        ticker = clean_ticker(row.get("stock_code"))
+        corp_code = clean_corp(row.get("corp_code"))
+        if not ticker or not corp_code:
+            continue
+        out.setdefault(ticker, []).append({
+            "corp_code": corp_code,
+            "corp_name": norm(row.get("corp_name")),
+        })
+    return out
+
+def fetch_exact_ocf(corp_code):
+    last_message = ""
+    for fs_div in ("CFS", "OFS"):
+        query = urllib.parse.urlencode({
+            "crtfc_key": API_KEY,
+            "corp_code": corp_code,
+            "bsns_year": "2025",
+            "reprt_code": "11011",
+            "fs_div": fs_div,
+        })
+        req = urllib.request.Request(
+            f"{DART_URL}?{query}",
+            headers={
+                "User-Agent": "krx-watchlist-v874-ocf-source",
+                "Accept": "application/json",
+                "Cache-Control": "no-cache",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=45) as response:
+                payload = json.loads(response.read(12_000_000).decode("utf-8"))
+        except Exception as exc:
+            last_message = f"{type(exc).__name__}:{exc}"
+            continue
+
+        status = norm(payload.get("status"))
+        message = norm(payload.get("message"))
+        last_message = f"{status}:{message}"
+        items = payload.get("list")
+        if not isinstance(items, list):
+            items = []
+        if status != "000":
+            continue
+
+        matches = [
+            item for item in items
+            if norm(item.get("sj_div")) == "CF"
+            and norm(item.get("account_id")) == IFRS_OCF_ID
+            and num(item.get("thstrm_amount")) is not None
+        ]
+        if len(matches) == 1:
+            return {
+                "status": "OK",
+                "amount": num(matches[0].get("thstrm_amount")),
+                "fs_div": fs_div,
+                "account_nm": norm(matches[0].get("account_nm")),
+                "message": "",
+            }
+
+        if len(matches) > 1:
+            values = {num(item.get("thstrm_amount")) for item in matches}
+            if len(values) == 1:
+                item = matches[0]
+                return {
+                    "status": "OK",
+                    "amount": next(iter(values)),
+                    "fs_div": fs_div,
+                    "account_nm": norm(item.get("account_nm")),
+                    "message": "DUPLICATE_SAME_VALUE",
+                }
+            return {
+                "status": "AMBIGUOUS",
+                "amount": None,
+                "fs_div": fs_div,
+                "account_nm": "",
+                "message": "MULTIPLE_EXACT_IFRS_OCF_VALUES",
+            }
+
+        time.sleep(0.05)
+
+    return {
+        "status": "LIMITED",
+        "amount": None,
+        "fs_div": "",
+        "account_nm": "",
+        "message": last_message,
+    }
+
+def main():
+    blockers = read_json(BLOCKERS)
+    if blockers.get("status") != "AUDIT_ONLY":
+        raise RuntimeError("V873_BLOCKER_AUDIT_NOT_READY")
+
+    prod = production_rows()
+    direct = direct_probe_map()
+    mapping = sector_mapping()
+    corp = corp_map()
+
+    expected_direct = int(
+        blockers["operating_cash_flow_probe"][
+            "tickers_with_exact_ifrs_account_id"
+        ]
+    )
+    if len(direct) != expected_direct:
+        raise RuntimeError(
+            f"DIRECT_OCF_COUNT_MISMATCH:{len(direct)}!={expected_direct}"
+        )
+
+    rows = []
+    preferred_candidates = []
+
+    for ticker in sorted(prod):
+        meta = prod[ticker]
+
+        if ticker in direct:
+            d = direct[ticker]
+            rows.append({
+                "ticker": ticker,
+                "name": meta["name"],
+                "source_mode": "DIRECT_EXACT_IFRS",
+                "source_ticker": ticker,
+                "source_corp_code": d["corp_code"],
+                "source_fs_div": d["fs_div"],
+                "account_id": IFRS_OCF_ID,
+                "account_nm": "영업활동현금흐름",
+                "operating_cash_flow_annual": d["amount"],
+                "source_status": "READY",
+                "inheritance_evidence": "",
+                "note": "",
+            })
+            continue
+
+        m = mapping.get(ticker) or {}
+        if str(m.get("selection_mode") or "").startswith("PREFERRED_INHERIT_"):
+            common = clean_ticker(m.get("common_ticker"))
+            if common:
+                preferred_candidates.append((ticker, common, meta["name"]))
+                continue
+
+        rows.append({
+            "ticker": ticker,
+            "name": meta["name"],
+            "source_mode": "UNAVAILABLE",
+            "source_ticker": "",
+            "source_corp_code": "",
+            "source_fs_div": "",
+            "account_id": IFRS_OCF_ID,
+            "account_nm": "",
+            "operating_cash_flow_annual": "",
+            "source_status": "LIMITED",
+            "inheritance_evidence": "",
+            "note": "NO_AUDITED_DIRECT_OR_PREFERRED_COMMON_SOURCE",
+        })
+
+    preferred_ready = 0
+
+    for ticker, common, name in preferred_candidates:
+        candidates = corp.get(common) or []
+        unique_codes = sorted({row["corp_code"] for row in candidates})
+
+        if len(unique_codes) != 1:
+            rows.append({
+                "ticker": ticker,
+                "name": name,
+                "source_mode": "PREFERRED_COMMON_NOT_UNIQUE",
+                "source_ticker": common,
+                "source_corp_code": "",
+                "source_fs_div": "",
+                "account_id": IFRS_OCF_ID,
+                "account_nm": "",
+                "operating_cash_flow_annual": "",
+                "source_status": "LIMITED",
+                "inheritance_evidence": (
+                    "V8.7.0 official KRX preferred-common mapping"
+                ),
+                "note": "DART_COMMON_CORP_CODE_NOT_UNIQUE",
+            })
+            continue
+
+        corp_code = unique_codes[0]
+        fetched = fetch_exact_ocf(corp_code)
+
+        if fetched["status"] == "OK":
+            preferred_ready += 1
+            rows.append({
+                "ticker": ticker,
+                "name": name,
+                "source_mode": "PREFERRED_INHERIT_EXACT_COMMON",
+                "source_ticker": common,
+                "source_corp_code": corp_code,
+                "source_fs_div": fetched["fs_div"],
+                "account_id": IFRS_OCF_ID,
+                "account_nm": fetched["account_nm"],
+                "operating_cash_flow_annual": fetched["amount"],
+                "source_status": "READY",
+                "inheritance_evidence": (
+                    "V8.7.0 UNIQUE_COMMON_SHARE_BY_EXACT_NORMALIZED_OFFICIAL_KRX_ISU_NM_STEM"
+                ),
+                "note": "",
+            })
+        else:
+            rows.append({
+                "ticker": ticker,
+                "name": name,
+                "source_mode": "PREFERRED_COMMON_DART_LIMITED",
+                "source_ticker": common,
+                "source_corp_code": corp_code,
+                "source_fs_div": fetched["fs_div"],
+                "account_id": IFRS_OCF_ID,
+                "account_nm": "",
+                "operating_cash_flow_annual": "",
+                "source_status": "LIMITED",
+                "inheritance_evidence": (
+                    "V8.7.0 official KRX preferred-common mapping"
+                ),
+                "note": fetched["message"],
+            })
+
+    rows.sort(key=lambda row: row["ticker"])
+
+    if len(rows) != len(prod):
+        raise RuntimeError(
+            f"ROW_COUNT_MISMATCH:{len(rows)}!={len(prod)}"
+        )
+
+    ready = sum(
+        1 for row in rows if row["source_status"] == "READY"
+    )
+    limited = len(rows) - ready
+
+    OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+
+    fields = [
+        "ticker",
+        "name",
+        "source_mode",
+        "source_ticker",
+        "source_corp_code",
+        "source_fs_div",
+        "account_id",
+        "account_nm",
+        "operating_cash_flow_annual",
+        "source_status",
+        "inheritance_evidence",
+        "note",
+    ]
+
+    with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    payload = {
+        "version": VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+        "status": "READY_SOURCE_ONLY",
+        "production_unique_tickers": len(prod),
+        "direct_exact_ifrs_ready": len(direct),
+        "preferred_candidates": len(preferred_candidates),
+        "preferred_inherited_ready": preferred_ready,
+        "operating_cash_flow_ready": ready,
+        "operating_cash_flow_limited": limited,
+        "account_id_policy": (
+            "EXACT_ONLY:ifrs-full_CashFlowsFromUsedInOperatingActivities"
+        ),
+        "preferred_inheritance_policy": (
+            "REUSE_V8.7.0_OFFICIAL_KRX_EXACT_COMMON_STEM_MAPPING_ONLY"
+        ),
+        "price_elasticity_20d": {
+            "policy_basis": "최근 20거래일 하루평균 절대등락률",
+            "current_collect_universe_implementation": (
+                "3개월 g 전체 pct_change().abs().mean()"
+            ),
+            "status": "BLOCKED_POLICY_IMPLEMENTATION_MISMATCH",
+            "value_generated": False,
+        },
+        "hard_guards": {
+            "investment_score_100_calculated": False,
+            "score_thresholds_defined": False,
+            "nonpreferred_name_mismatch_overridden": False,
+            "production_api_changed": False,
+        },
+    }
+
+    OUT_JSON.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    log = [
+        f"VERSION={VERSION}",
+        f"PRODUCTION_UNIQUE_TICKERS={len(prod)}",
+        f"DIRECT_EXACT_IFRS_READY={len(direct)}",
+        f"PREFERRED_CANDIDATES={len(preferred_candidates)}",
+        f"PREFERRED_INHERITED_READY={preferred_ready}",
+        f"OPERATING_CASH_FLOW_READY={ready}",
+        f"OPERATING_CASH_FLOW_LIMITED={limited}",
+        (
+            "PRICE_ELASTICITY_20D_STATUS="
+            "BLOCKED_POLICY_IMPLEMENTATION_MISMATCH"
+        ),
+        "INVESTMENT_SCORE_100_CALCULATED=false",
+        "SCORE_THRESHOLDS_DEFINED=false",
+        "PRODUCTION_DATA_CHANGED=false",
+        "STATUS=OK",
+    ]
+
+    OUT_LOG.write_text(
+        "\n".join(log) + "\n",
+        encoding="utf-8",
+    )
+
+    doc_lines = [
+        "# V8.7.4 영업현금흐름 공식 원천 계약",
+        "",
+        f"버전: `{VERSION}`",
+        "",
+        "## 목적",
+        "",
+        "투자종합점수의 영업현금흐름 4점 항목에 사용할 공식 원천만 준비한다.",
+        "이 단계에서는 점수를 계산하지 않는다.",
+        "",
+        "## 직접 종목",
+        "",
+        "V8.7.3 감사에서 확인된 OpenDART 전체 재무제표의",
+        f"`{IFRS_OCF_ID}` 정확 일치값만 사용한다.",
+        "",
+        "## 우선주",
+        "",
+        "V8.7.0 업종RS에서 이미 검증된",
+        "`UNIQUE_COMMON_SHARE_BY_EXACT_NORMALIZED_OFFICIAL_KRX_ISU_NM_STEM`",
+        "대응관계가 존재하는 경우에만 대응 보통주 발행회사의 동일 IFRS 계정을 상속한다.",
+        "",
+        "종목명 유사성, ticker prefix, 임의 fuzzy mapping은 사용하지 않는다.",
+        "",
+        "## 제외",
+        "",
+        "DI동일·KCC처럼 기존 재무수집기에서 회사명 불일치로 제한된 종목은",
+        "이번 단계에서 강제 매칭하지 않는다.",
+        "",
+        "OpenDART에서 재무제표 원천이 없는 종목도 강제 보완하지 않는다.",
+        "",
+        "## 가격탄력",
+        "",
+        "정책은 `최근 20거래일 하루평균 절대등락률`이지만",
+        "현재 `collect_universe.py`는 최근 3개월 구간 전체의 절대 일간수익률 평균을 계산한다.",
+        "두 계약이 일치할 때까지 투자점수 원천으로 사용하지 않는다.",
+        "",
+        "## 안전장치",
+        "",
+        "- investment_score_100 미계산",
+        "- 점수구간 미정 유지",
+        "- production API 미변경",
+        "",
+    ]
+
+    OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+    OUT_DOC.write_text(
+        "\n".join(doc_lines),
+        encoding="utf-8",
+    )
+
+    print("\n".join(log))
+    return 0
+
+if __name__ == "__main__":
+    raise SystemExit(main())

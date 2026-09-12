@@ -1,0 +1,206 @@
+name: Preserve V8.7.0 glossary from V8.5.9 swing refresh
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v870e-preserve-glossary
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Patch swing anchor glossary compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("swing_anchor_source_v859.py")
+          text = path.read_text(encoding="utf-8")
+
+          old_write = "\n".join([
+              "    atomic_csv(OUT_CSV, out_rows)",
+              "    atomic_json(OUT_GLOSSARY, GLOSSARY)",
+          ])
+          new_write = "\n".join([
+              "    atomic_csv(OUT_CSV, out_rows)",
+              "",
+              "    # V8.7.0+ may extend the shared stock-table glossary (for example rs_sector).",
+              "    # This V8.5.9 source builder owns swing evidence, not later glossary terms.",
+              "    glossary_payload = GLOSSARY",
+              "    if OUT_GLOSSARY.exists():",
+              "        current_glossary = read_json(OUT_GLOSSARY)",
+              "        current_terms = current_glossary.get(\"terms\") or {}",
+              "        required_base_terms = {\"swing\", \"ma\", \"atr14\", \"rs_kospi\", \"streak\"}",
+              "        if (",
+              "            isinstance(current_terms, dict)",
+              "            and required_base_terms.issubset(set(current_terms))",
+              "            and \"rs_sector\" in current_terms",
+              "            and current_glossary.get(\"display_policy\", {}).get(\"attach_to_stock_tables\") is True",
+              "        ):",
+              "            glossary_payload = current_glossary",
+              "    atomic_json(OUT_GLOSSARY, glossary_payload)",
+          ])
+
+          if old_write in text:
+              text = text.replace(old_write, new_write, 1)
+          elif "glossary_payload = GLOSSARY" not in text:
+              raise SystemExit("GLOSSARY_WRITE_ANCHOR_NOT_FOUND")
+
+          old_log = '        "GLOSSARY_TERMS=5",'
+          new_log = '        f"GLOSSARY_TERMS={len((glossary_payload.get(\'terms\') or {}))}",'
+          if old_log in text:
+              text = text.replace(old_log, new_log, 1)
+          elif "glossary_payload.get('terms')" not in text:
+              raise SystemExit("GLOSSARY_LOG_ANCHOR_NOT_FOUND")
+
+          old_validate = "\n".join([
+              '    if len(glossary.get("terms") or {}) != 5:',
+              '        raise RuntimeError("GLOSSARY_TERM_COUNT_INVALID")',
+          ])
+          new_validate = "\n".join([
+              '    glossary_terms = glossary.get("terms") or {}',
+              '    required_glossary_terms = {"swing", "ma", "atr14", "rs_kospi", "streak"}',
+              '    if not isinstance(glossary_terms, dict) or not required_glossary_terms.issubset(set(glossary_terms)):',
+              '        raise RuntimeError("GLOSSARY_REQUIRED_TERMS_INVALID")',
+          ])
+
+          if old_validate in text:
+              text = text.replace(old_validate, new_validate, 1)
+          elif "GLOSSARY_REQUIRED_TERMS_INVALID" not in text:
+              raise SystemExit("GLOSSARY_VALIDATE_ANCHOR_NOT_FOUND")
+
+          old_validate_print = '    print("GLOSSARY_TERMS=5")'
+          new_validate_print = '    print(f"GLOSSARY_TERMS={len(glossary_terms)}")'
+          if old_validate_print in text:
+              text = text.replace(old_validate_print, new_validate_print, 1)
+          elif new_validate_print not in text:
+              raise SystemExit("GLOSSARY_VALIDATE_PRINT_ANCHOR_NOT_FOUND")
+
+          old_version = 'SCRIPT_VERSION = "swing_anchor_source_v859.py v1.0.0-source-evidence-only"'
+          new_version = 'SCRIPT_VERSION = "swing_anchor_source_v859.py v1.1.0-preserve-extended-glossary"'
+          if old_version in text:
+              text = text.replace(old_version, new_version, 1)
+          elif new_version not in text:
+              raise SystemExit("SCRIPT_VERSION_ANCHOR_NOT_FOUND")
+
+          path.write_text(text, encoding="utf-8")
+          print("V859_EXTENDED_GLOSSARY_PRESERVATION_PATCH=PASS")
+          PY
+
+      - name: Restore V8.7.0 glossary
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show f063397c6150be8e3eefb9e22614ef2617da34bb:latest/stock_table_metric_glossary_latest.json > latest/stock_table_metric_glossary_latest.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("latest/stock_table_metric_glossary_latest.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+          expected = {"swing", "ma", "atr14", "rs_kospi", "rs_sector", "streak"}
+
+          assert data["version"] == "2026-09-12-v8.7.0-sector-rs-production"
+          assert set(data["terms"]) == expected
+          assert "업종RS" in data["compact_footer_text"]
+
+          print("V870_GLOSSARY_RESTORE=PASS")
+          print("GLOSSARY_TERMS=6")
+          PY
+
+      - name: Validate compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile swing_anchor_source_v859.py
+          python swing_anchor_source_v859.py --self-test
+          python swing_anchor_source_v859.py --validate-only
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          glossary = json.loads(Path("latest/stock_table_metric_glossary_latest.json").read_text(encoding="utf-8"))
+          assert set(glossary["terms"]) == {
+              "swing", "ma", "atr14", "rs_kospi", "rs_sector", "streak"
+          }
+          print("V870_GLOSSARY_COMPATIBILITY_VALIDATION=PASS")
+          PY
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CHANGED_FILES_BEGIN"
+          git status --short
+          echo "CHANGED_FILES_END"
+
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "swing_anchor_source_v859.py",
+              "latest/stock_table_metric_glossary_latest.json",
+          }
+
+          out = subprocess.check_output(["git", "status", "--porcelain"], text=True)
+          changed = set()
+          for line in out.splitlines():
+              if not line.strip():
+                  continue
+              path = line[3:]
+              if " -> " in path:
+                  path = path.split(" -> ", 1)[1]
+              changed.add(path)
+
+          unexpected = changed - allowed
+          if unexpected:
+              raise SystemExit("UNEXPECTED_CHANGED_FILES=" + repr(sorted(unexpected)))
+          if changed != allowed:
+              raise SystemExit("EXPECTED_GLOSSARY_PATCH_FILES_MISSING=" + repr(sorted(allowed - changed)))
+
+          print("CHANGE_SCOPE=PASS")
+          PY
+
+      - name: Commit and push glossary compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add swing_anchor_source_v859.py latest/stock_table_metric_glossary_latest.json
+          git commit -m "Preserve V8.7.0 glossary during swing refresh"
+
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          fi
+
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "PRODUCTION_DATA_CHANGED=false"
+          echo "GLOSSARY_REGRESSION_GUARD=true"

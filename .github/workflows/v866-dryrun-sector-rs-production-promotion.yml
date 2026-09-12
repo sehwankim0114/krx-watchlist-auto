@@ -1,0 +1,622 @@
+name: Dry-run sector RS production promotion v8.6.6
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v866-sector-rs-production-dryrun
+  cancel-in-progress: false
+
+jobs:
+  dryrun:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      KRX_ID: ${{ secrets.KRX_ID }}
+      KRX_PW: ${{ secrets.KRX_PW }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependency
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "pykrx==1.2.8"
+
+      - name: Build production candidate in temp only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import contextlib
+          import copy
+          import hashlib
+          import io
+          import json
+          import os
+          import re
+          import shutil
+          import time
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          from pykrx import stock
+          from pykrx.website.krx.market.core import 전종목기본정보
+
+          OUT = Path("/tmp/v866")
+          CANDIDATE = OUT / "two_table_v1"
+          OUT.mkdir(parents=True, exist_ok=True)
+          CANDIDATE.mkdir(parents=True, exist_ok=True)
+
+          REPORT_JSON = OUT / "v866-sector-rs-production-dryrun.json"
+          REPORT_MD = OUT / "v866-sector-rs-production-dryrun.md"
+          WORKER_CANDIDATE = OUT / "krx-live-price-worker-v141-candidate.js"
+
+          TABLES = ("kospi", "decliners", "decliners24")
+          NARROW = {f"{x:04d}" for x in range(1005, 1027)} | {"1045", "1046", "1047"}
+          MANUFACTURING = "1027"
+          OLD_COLUMNS = [
+              "name", "ticker", "official_close", "run", "streak",
+              "range_3m", "swing", "ma", "returns", "rs_kospi_pp",
+              "atr14", "activity", "analysis", "sector_theme",
+          ]
+          NEW_COLUMNS = [
+              "name", "ticker", "official_close", "run", "streak",
+              "range_3m", "swing", "ma", "returns", "rs_kospi_pp",
+              "atr14", "activity", "analysis", "rs_sector_pp", "sector_theme",
+          ]
+          NEW_MISSING = [
+              "investment_score_100",
+              "earnings_outlook_change",
+              "confirmed_swing_low_stop",
+          ]
+
+          report = {
+              "probe_version": "2026-09-12-v8.6.6-sector-rs-production-dryrun",
+              "run_at_kst": datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds"),
+              "repository_write": False,
+              "production_modified": False,
+              "worker_deployed": False,
+              "shadow_only": True,
+              "status": "STARTED",
+              "errors": [],
+          }
+
+          def sha(raw: bytes) -> str:
+              return hashlib.sha256(raw).hexdigest()
+
+          def encode(obj) -> bytes:
+              return json.dumps(
+                  obj, ensure_ascii=False, allow_nan=False, separators=(",", ":")
+              ).encode("utf-8")
+
+          def write_report():
+              REPORT_JSON.write_text(
+                  json.dumps(report, ensure_ascii=False, indent=2),
+                  encoding="utf-8",
+              )
+              lines = [
+                  "# V8.6.6 업종RS production 승격 Dry-run",
+                  "",
+                  f"- 기준일: {report.get('basis_date', '-')}",
+                  f"- source_build_id: {report.get('source_build_id', '-')}",
+                  f"- 고유 종목: {report.get('unique_ticker_count', 0)}",
+                  f"- 업종RS 준비: {report.get('rs_values_ready', 0)}/{report.get('rs_values_expected', 0)}",
+                  f"- candidate compact 열수: {report.get('candidate_column_count', 0)}",
+                  f"- 최대 compact bytes: {report.get('max_compact_bytes', 0)}",
+                  f"- 30,000 bytes 초과 페이지: {report.get('oversize_pages', [])}",
+                  f"- canonical 누락 rs_sector: {report.get('canonical_missing_rs_sector_count', 0)}",
+                  f"- compact 누락 rs_sector: {report.get('compact_missing_rs_sector_count', 0)}",
+                  f"- 새 explicit_missing: {report.get('candidate_explicit_missing', [])}",
+                  f"- Worker schema patch: {report.get('worker_schema_patch_status', '-')}",
+                  f"- 판정: {report.get('status')}",
+                  "",
+                  "## 안전",
+                  "- 저장소 파일을 수정하지 않습니다.",
+                  "- Git commit/push/deploy를 하지 않습니다.",
+                  "- Cloudflare Worker를 배포하지 않습니다.",
+                  "- 실제 production 응답을 바꾸지 않습니다.",
+                  "",
+                  "## 표별 결과",
+              ]
+              for table, s in (report.get("table_summary") or {}).items():
+                  lines.append(
+                      f"- {table}: rows={s.get('rows')} "
+                      f"canonical_rs={s.get('canonical_rs_ready')}/{s.get('rows')} "
+                      f"compact_rs={s.get('compact_rs_ready')}/{s.get('rows')} "
+                      f"pages={s.get('pages')} max_bytes={s.get('max_bytes')}"
+                  )
+              if report.get("errors"):
+                  lines += ["", "## 오류"]
+                  for e in report["errors"][:100]:
+                      lines.append("- " + e)
+              REPORT_MD.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+          if not (os.getenv("KRX_ID") and os.getenv("KRX_PW")):
+              report["status"] = "SECRET_MISSING"
+              report["errors"].append("KRX_ID and/or KRX_PW missing")
+              write_report()
+              raise SystemExit(0)
+
+          # Load current production bundle.
+          source_dir = Path("api/two_table_v1")
+          manifest_path = source_dir / "manifest.json"
+          if not manifest_path.is_file():
+              report["status"] = "MANIFEST_MISSING"
+              report["errors"].append(str(manifest_path))
+              write_report()
+              raise SystemExit(0)
+
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          payloads = {
+              t: json.loads((source_dir / f"{t}.json").read_text(encoding="utf-8"))
+              for t in TABLES
+          }
+
+          bases = {str(p.get("basis_date") or "") for p in payloads.values()}
+          builds = {str(p.get("source_build_id") or "") for p in payloads.values()}
+          if len(bases) != 1 or "" in bases:
+              report["status"] = "TABLE_BASIS_MISMATCH"
+              report["errors"].append(repr(sorted(bases)))
+              write_report()
+              raise SystemExit(0)
+          if len(builds) != 1 or "" in builds:
+              report["status"] = "TABLE_BUILD_ID_MISMATCH"
+              report["errors"].append(repr(sorted(builds)))
+              write_report()
+              raise SystemExit(0)
+
+          basis_iso = next(iter(bases))
+          basis = basis_iso.replace("-", "")
+          report["basis_date"] = basis_iso
+          report["source_build_id"] = next(iter(builds))
+
+          # Consolidate row return evidence.
+          tickers = {}
+          dup_errors = []
+          for table, payload in payloads.items():
+              for row in payload.get("rows") or []:
+                  t = str(row.get("ticker") or "").zfill(6)
+                  m = row.get("metrics") or {}
+                  sig = {
+                      p: {
+                          "pct": ((m.get("returns") or {}).get(p) or {}).get("pct"),
+                          "start_date": ((m.get("returns") or {}).get(p) or {}).get("start_date"),
+                          "status": ((m.get("returns") or {}).get(p) or {}).get("status"),
+                      }
+                      for p in ("1", "3")
+                  }
+                  if t in tickers and tickers[t]["signature"] != sig:
+                      dup_errors.append(t)
+                  else:
+                      tickers.setdefault(t, {
+                          "ticker": t,
+                          "name": row.get("name"),
+                          "signature": sig,
+                      })
+
+          report["unique_ticker_count"] = len(tickers)
+          report["duplicate_consistency_error_count"] = len(dup_errors)
+          if dup_errors:
+              report["status"] = "BLOCKED_DUPLICATE_RETURN_EVIDENCE"
+              report["errors"].append("duplicate metric mismatch: " + repr(dup_errors[:20]))
+              write_report()
+              raise SystemExit(0)
+
+          # Official KRX index memberships.
+          try:
+              with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                  index_tickers = list(map(str, stock.get_index_ticker_list(basis, market="KOSPI") or []))
+          except Exception as exc:
+              index_tickers = []
+              report["errors"].append("INDEX_LIST:" + repr(exc))
+
+          if not index_tickers:
+              report["status"] = "INDEX_LIST_EMPTY"
+              write_report()
+              raise SystemExit(0)
+
+          index_names = {}
+          members = {}
+          for idx in index_tickers:
+              try:
+                  with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                      index_names[idx] = stock.get_index_ticker_name(idx)
+              except Exception as exc:
+                  index_names[idx] = None
+                  report["errors"].append(f"NAME:{idx}:{exc!r}")
+              try:
+                  with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                      xs = stock.get_index_portfolio_deposit_file(idx, date=basis) or []
+                  members[idx] = {str(x).zfill(6) for x in xs}
+              except Exception as exc:
+                  members[idx] = set()
+                  report["errors"].append(f"MEMBERS:{idx}:{exc!r}")
+              time.sleep(0.08)
+
+          def choose_direct(ticker):
+              candidates = sorted(idx for idx in NARROW if ticker in members.get(idx, set()))
+              if "1021" in candidates:
+                  child = [x for x in ("1024", "1025") if x in candidates]
+                  if len(child) == 1:
+                      return child[0], "CHILD_OVER_FINANCE"
+              if len(candidates) == 1:
+                  return candidates[0], "DIRECT_NARROW"
+              if len(candidates) > 1:
+                  return None, "AMBIGUOUS"
+              if ticker in members.get(MANUFACTURING, set()):
+                  return MANUFACTURING, "MANUFACTURING_FALLBACK"
+              return None, "UNMATCHED"
+
+          # Official KRX basic info for preferred-share inheritance.
+          try:
+              with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                  basic_df = 전종목기본정보().fetch(mktId="STK")
+          except Exception as exc:
+              report["status"] = "BASIC_INFO_FAILED"
+              report["errors"].append("BASIC_INFO:" + repr(exc))
+              write_report()
+              raise SystemExit(0)
+
+          basic = {}
+          for _, r in basic_df.iterrows():
+              t = str(r.get("ISU_SRT_CD") or "").zfill(6)
+              if re.fullmatch(r"\d{6}", t):
+                  basic[t] = {
+                      "isu_nm": str(r.get("ISU_NM") or "").strip(),
+                      "security_type": str(r.get("KIND_STKCERT_TP_NM") or "").strip(),
+                  }
+
+          def issuer_stem(name):
+              v = (name or "").strip()
+              for p in (
+                  r"\s*보통주$",
+                  r"\s*\d+우선주\(신형\)$",
+                  r"\s*\d+우선주$",
+                  r"\s*우선주\(신형\)$",
+                  r"\s*우선주$",
+              ):
+                  n = re.sub(p, "", v)
+                  if n != v:
+                      return n.strip()
+              return v
+
+          common_by_stem = {}
+          for t, bi in basic.items():
+              if bi["security_type"] == "보통주":
+                  common_by_stem.setdefault(issuer_stem(bi["isu_nm"]), []).append(t)
+
+          for t, rec in tickers.items():
+              idx, mode = choose_direct(t)
+              common = None
+              if idx is None:
+                  bi = basic.get(t)
+                  if bi and "우선주" in bi["security_type"]:
+                      commons = sorted(common_by_stem.get(issuer_stem(bi["isu_nm"]), []))
+                      if len(commons) == 1:
+                          common = commons[0]
+                          idx, inherited_mode = choose_direct(common)
+                          if idx:
+                              mode = "PREFERRED_INHERIT_" + inherited_mode
+              rec["benchmark_ticker"] = idx
+              rec["benchmark_name"] = index_names.get(idx) if idx else None
+              rec["selection_mode"] = mode
+              rec["common_ticker"] = common
+
+          unresolved = [t for t, r in tickers.items() if not r["benchmark_ticker"]]
+          if unresolved:
+              report["status"] = "MAPPING_INCOMPLETE"
+              report["errors"].append("unresolved=" + repr(unresolved))
+              write_report()
+              raise SystemExit(0)
+
+          # Fetch benchmark histories using exact production start dates.
+          starts = [
+              rec["signature"][p]["start_date"]
+              for rec in tickers.values()
+              for p in ("1", "3")
+              if rec["signature"][p].get("start_date")
+          ]
+          earliest_iso = min(starts)
+          earliest = earliest_iso.replace("-", "")
+          index_close = {}
+
+          for idx in sorted({r["benchmark_ticker"] for r in tickers.values()}):
+              try:
+                  with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                      df = stock.get_index_ohlcv_by_date(earliest, basis, idx)
+                  if df is None or df.empty or "종가" not in df.columns:
+                      raise RuntimeError("INDEX_OHLCV_INVALID")
+                  index_close[idx] = {
+                      (dt.strftime("%Y-%m-%d") if hasattr(dt, "strftime") else str(dt)[:10]): float(v)
+                      for dt, v in df["종가"].items()
+                  }
+              except Exception as exc:
+                  index_close[idx] = {}
+                  report["errors"].append(f"INDEX_OHLCV:{idx}:{exc!r}")
+              time.sleep(0.12)
+
+          def pct(end, start):
+              return 100.0 * (end / start - 1.0)
+
+          ready = 0
+          for rec in tickers.values():
+              rec["rs_sector_pp"] = {}
+              idx = rec["benchmark_ticker"]
+              closes = index_close.get(idx) or {}
+              for p in ("1", "3"):
+                  src = rec["signature"][p]
+                  start = src.get("start_date")
+                  if (
+                      src.get("status") == "OK"
+                      and src.get("pct") is not None
+                      and start in closes
+                      and basis_iso in closes
+                  ):
+                      sector_r = pct(closes[basis_iso], closes[start])
+                      rec["rs_sector_pp"][p] = round(float(src["pct"]) - sector_r, 4)
+                      ready += 1
+                  else:
+                      rec["rs_sector_pp"][p] = None
+
+          report["rs_values_ready"] = ready
+          report["rs_values_expected"] = len(tickers) * 2
+          if ready != report["rs_values_expected"]:
+              report["status"] = "RS_INCOMPLETE"
+              write_report()
+              raise SystemExit(0)
+
+          # Candidate canonical payloads.
+          candidate_payloads = {}
+          canonical_missing = 0
+          for table, payload in payloads.items():
+              cp = copy.deepcopy(payload)
+              cp["version"] = "2026-09-12-v8.6.6-sector-rs-promotion-candidate"
+              cp["explicit_missing"] = list(NEW_MISSING)
+              cp["disclosure"] = (
+                  "업종RS는 KRX 공식 업종지수 기준 1M·3M 상대수익률 차이(%p). "
+                  "100점 점수·실적전망·확정 스윙손절은 아직 미제공. 현재가는 별도 조회."
+              )
+              contract = dict(cp.get("contract") or {})
+              contract["sector_relative_strength"] = (
+                  "OFFICIAL_KRX_INDUSTRY_INDEX_1M_3M_PERCENTAGE_POINTS_SHADOW_VALIDATED"
+              )
+              cp["contract"] = contract
+
+              for row in cp.get("rows") or []:
+                  t = str(row.get("ticker") or "").zfill(6)
+                  metric = row.get("metrics") or {}
+                  values = tickers[t]["rs_sector_pp"]
+                  metric["rs_sector_pp"] = {"1": values["1"], "3": values["3"]}
+                  missing = dict(metric.get("missing") or {})
+                  missing.pop("rs_sector", None)
+                  metric["missing"] = missing
+                  metric["sector_benchmark"] = {
+                      "ticker": tickers[t]["benchmark_ticker"],
+                      "name": tickers[t]["benchmark_name"],
+                      "selection_mode": tickers[t]["selection_mode"],
+                      "common_ticker": tickers[t]["common_ticker"],
+                  }
+                  if metric["rs_sector_pp"]["1"] is None or metric["rs_sector_pp"]["3"] is None:
+                      canonical_missing += 1
+
+              candidate_payloads[table] = cp
+              (CANDIDATE / f"{table}.json").write_bytes(encode(cp))
+
+          # Candidate compact pages with one new rs_sector_pp column.
+          table_summary = {}
+          compact_missing = 0
+          max_compact = 0
+          oversize = []
+          candidate_files = {}
+
+          for table, cp in candidate_payloads.items():
+              rows = cp["rows"]
+              pages = [rows[i:i+30] for i in range(0, len(rows), 30)] or [[]]
+              ready_rows = 0
+              table_max = 0
+
+              for page_no, page in enumerate(pages, 1):
+                  old_path = source_dir / f"{table}.compact.{page_no}.json"
+                  old = json.loads(old_path.read_text(encoding="utf-8"))
+                  if old.get("columns") != OLD_COLUMNS:
+                      raise ValueError(f"OLD_COLUMNS_MISMATCH:{old_path}")
+
+                  # Preserve every existing compact value and insert rs_sector before sector_theme.
+                  new_rows = []
+                  for old_row in old.get("rows") or []:
+                      t = str(old_row[1]).zfill(6)
+                      rs = tickers[t]["rs_sector_pp"]
+                      pair = [rs["1"], rs["3"]]
+                      if None in pair:
+                          compact_missing += 1
+                      else:
+                          ready_rows += 1
+                      new_rows.append(old_row[:-1] + [pair, old_row[-1]])
+
+                  np = copy.deepcopy(old)
+                  np["version"] = "2026-09-12-v8.6.6-sector-rs-promotion-candidate"
+                  np["columns"] = list(NEW_COLUMNS)
+                  np["rows"] = new_rows
+                  np["explicit_missing"] = list(NEW_MISSING)
+                  np["disclosure"] = candidate_payloads[table]["disclosure"]
+                  contract = dict(np.get("contract") or {})
+                  contract["sector_relative_strength"] = (
+                      "OFFICIAL_KRX_INDUSTRY_INDEX_1M_3M_PERCENTAGE_POINTS_SHADOW_VALIDATED"
+                  )
+                  np["contract"] = contract
+
+                  raw = encode(np)
+                  name = f"{table}.compact.{page_no}.json"
+                  (CANDIDATE / name).write_bytes(raw)
+                  candidate_files[name] = {"sha256": sha(raw), "bytes": len(raw)}
+                  table_max = max(table_max, len(raw))
+                  max_compact = max(max_compact, len(raw))
+                  if len(raw) > 30000:
+                      oversize.append({"file": name, "bytes": len(raw)})
+
+                  if len(new_rows) != old.get("row_count"):
+                      raise ValueError(f"COMPACT_ROW_COUNT_MISMATCH:{name}")
+                  if any(len(r) != len(NEW_COLUMNS) for r in new_rows):
+                      raise ValueError(f"COMPACT_WIDTH_MISMATCH:{name}")
+
+              table_summary[table] = {
+                  "rows": len(rows),
+                  "canonical_rs_ready": sum(
+                      1 for r in rows
+                      if None not in [
+                          r["metrics"]["rs_sector_pp"]["1"],
+                          r["metrics"]["rs_sector_pp"]["3"],
+                      ]
+                  ),
+                  "compact_rs_ready": ready_rows,
+                  "pages": len(pages),
+                  "max_bytes": table_max,
+              }
+
+              canonical_raw = (CANDIDATE / f"{table}.json").read_bytes()
+              candidate_files[f"{table}.json"] = {
+                  "sha256": sha(canonical_raw),
+                  "bytes": len(canonical_raw),
+              }
+
+          # Candidate manifest.
+          cm = copy.deepcopy(manifest)
+          cm["version"] = "2026-09-12-v8.6.6-sector-rs-promotion-candidate"
+          cm["files"] = candidate_files
+          cm["pending"] = [
+              x for x in (cm.get("pending") or [])
+              if x != "rs_sector"
+          ]
+          dc = dict(cm.get("display_contract") or {})
+          dc["version"] = cm["version"]
+          dc["unavailable_fields"] = list(NEW_MISSING)
+          dc["sector_relative_strength"] = "AVAILABLE_OFFICIAL_KRX_1M_3M_PP"
+          cm["display_contract"] = dc
+          cm["disclosure"] = (
+              "업종RS는 KRX 공식 업종지수 기준 1M·3M 상대수익률 차이(%p). "
+              "100점 점수·실적전망·확정 스윙손절은 아직 미제공. 현재가는 별도 조회."
+          )
+          (CANDIDATE / "manifest.json").write_bytes(encode(cm))
+
+          # Worker schema candidate: temp only.
+          worker_text = Path("worker/krx-live-price-worker.js").read_text(encoding="utf-8")
+          old_literal = (
+              'const TWO_TABLE_COLUMNS = ["name", "ticker", "official_close", "run", "streak",\n'
+              '  "range_3m", "swing", "ma", "returns", "rs_kospi_pp", "atr14", "activity",\n'
+              '  "analysis", "sector_theme"];'
+          )
+          new_literal = (
+              'const TWO_TABLE_COLUMNS = ["name", "ticker", "official_close", "run", "streak",\n'
+              '  "range_3m", "swing", "ma", "returns", "rs_kospi_pp", "atr14", "activity",\n'
+              '  "analysis", "rs_sector_pp", "sector_theme"];'
+          )
+          if old_literal not in worker_text:
+              report["status"] = "WORKER_SCHEMA_LITERAL_NOT_FOUND"
+              report["errors"].append("TWO_TABLE_COLUMNS source literal mismatch")
+              write_report()
+              raise SystemExit(0)
+
+          worker_candidate = worker_text.replace(old_literal, new_literal, 1)
+          worker_candidate = worker_candidate.replace(
+              'const BUILD_VERSION = "1.4.0-two-table-guarded-preview";',
+              'const BUILD_VERSION = "1.4.1-sector-rs-schema-candidate";',
+              1,
+          )
+          WORKER_CANDIDATE.write_text(worker_candidate, encoding="utf-8")
+
+          # Final independent checks.
+          report["candidate_column_count"] = len(NEW_COLUMNS)
+          report["candidate_columns"] = NEW_COLUMNS
+          report["candidate_explicit_missing"] = NEW_MISSING
+          report["canonical_missing_rs_sector_count"] = canonical_missing
+          report["compact_missing_rs_sector_count"] = compact_missing
+          report["max_compact_bytes"] = max_compact
+          report["oversize_pages"] = oversize
+          report["table_summary"] = table_summary
+
+          if canonical_missing or compact_missing or oversize:
+              report["status"] = "CANDIDATE_VALIDATION_FAILED"
+          else:
+              report["status"] = "READY_PRODUCTION_PROMOTION_DRYRUN"
+
+          write_report()
+          print("V866_SECTOR_RS_DRYRUN=" + report["status"])
+          print(f"RS_VALUES_READY={ready}/{report['rs_values_expected']}")
+          print(f"CANDIDATE_COLUMNS={len(NEW_COLUMNS)}")
+          print(f"MAX_COMPACT_BYTES={max_compact}")
+          print(f"OVERSIZE_PAGES={len(oversize)}")
+          print(f"CANONICAL_MISSING_RS={canonical_missing}")
+          print(f"COMPACT_MISSING_RS={compact_missing}")
+          print("PRODUCTION_MODIFIED=false")
+          print("WORKER_DEPLOYED=false")
+          print("REPOSITORY_WRITE=false")
+          PY
+
+      - name: Check candidate Worker syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check /tmp/v866/krx-live-price-worker-v141-candidate.js
+          grep -F '"analysis", "rs_sector_pp", "sector_theme"' \
+            /tmp/v866/krx-live-price-worker-v141-candidate.js
+          echo "WORKER_CANDIDATE_SYNTAX=PASS"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("/tmp/v866/v866-sector-rs-production-dryrun.json")
+          d = json.loads(p.read_text(encoding="utf-8"))
+          d["worker_schema_patch_status"] = "PASS_15_COLUMNS_NODE_SYNTAX"
+          p.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+
+          md = Path("/tmp/v866/v866-sector-rs-production-dryrun.md")
+          text = md.read_text(encoding="utf-8")
+          text = text.replace("- Worker schema patch: -", "- Worker schema patch: PASS_15_COLUMNS_NODE_SYNTAX")
+          md.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Safety check
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f /tmp/v866/v866-sector-rs-production-dryrun.json
+          test -f /tmp/v866/v866-sector-rs-production-dryrun.md
+          test -f /tmp/v866/krx-live-price-worker-v141-candidate.js
+          git diff --exit-code
+          git diff --cached --exit-code
+          echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
+          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
+          echo "PRODUCTION_UNCHANGED=PASS"
+
+      - name: Upload V8.6.6 dry-run artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: sector-rs-production-dryrun-v866
+          path: |
+            /tmp/v866/v866-sector-rs-production-dryrun.json
+            /tmp/v866/v866-sector-rs-production-dryrun.md
+            /tmp/v866/krx-live-price-worker-v141-candidate.js
+            /tmp/v866/two_table_v1/
+          if-no-files-found: error
+          retention-days: 14

@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
-SCRIPT_VERSION = "validate_api_sync.py v1.9_single_recommendation_icon_v833"
+SCRIPT_VERSION = "validate_api_sync.py v1.10_action_schema_712_dual_width"
 
 
 def read_json(path: Path) -> Dict[str, Any]:
@@ -407,7 +407,7 @@ def main() -> int:
             encoding="utf-8"
         )
         required_tokens = (
-            "version: 7.1.1",
+            "version: 7.1.2",
             "https://krx-live-price-ksh.diaconos.workers.dev",
             "operationId: getRequestTimePriceHealth",
             "operationId: getRequestTimePrices",
@@ -415,6 +415,8 @@ def main() -> int:
             "operationId: getStockReferenceShard",
             "name: ticker",
             "name: market",
+            "minItems: 14",
+            "maxItems: 15",
         )
         for token in required_tokens:
             if token not in schema_text:

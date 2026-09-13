@@ -1,8 +1,8 @@
 {
-  "version": "2026-09-12-v8.7.1-investment-score-readiness-audit",
-  "generated_at_kst": "2026-09-12T17:50:20+09:00",
+  "version": "2026-09-12-v8.7.6-readiness-with-ocf-and-20d-elasticity",
+  "generated_at_kst": "2026-09-13T14:32:37+09:00",
   "status": "READY_AUDIT_ONLY",
-  "source_build_id": "20260912T165505+0900-ba1504773a",
+  "source_build_id": "20260912T200915+0900-8403d73393",
   "basis_date": "2026-09-11",
   "score_policy_version": "2026-07-01-v6.0-score-policy",
   "source_contract_version": "2026-09-10-v8.5.4-investment-score-source-contract",
@@ -105,12 +105,12 @@
       "area": "financial",
       "item": "영업현금흐름",
       "max_points": 4,
-      "source_basis": "운영 원천 없음",
-      "readiness_type": "SOURCE_NOT_CONNECTED",
-      "source_ready_count": 0,
+      "source_basis": "OpenDART exact IFRS operating cash flow; V8.7.0 exact preferred-common inheritance only",
+      "readiness_type": "OCF_EXACT_IFRS_SOURCE",
+      "source_ready_count": 109,
       "universe_count": 112,
-      "coverage_pct": 0.0,
-      "status": "SOURCE_NOT_CONNECTED",
+      "coverage_pct": 97.32,
+      "status": "SOURCE_PARTIAL_THRESHOLD_UNDEFINED",
       "score_threshold_defined": false,
       "score_value_generated": false
     },
@@ -300,12 +300,12 @@
       "area": "liquidity_elasticity",
       "item": "하루평균 절대등락률",
       "max_points": 4,
-      "source_basis": "avg_daily_range_20_pct는 고저폭이라 동일 지표 아님",
-      "readiness_type": "SOURCE_NOT_CONNECTED",
-      "source_ready_count": 0,
+      "source_basis": "official KRX latest 21 closes -> 20 absolute daily returns",
+      "readiness_type": "PRICE_ELASTICITY_20D_SOURCE",
+      "source_ready_count": 112,
       "universe_count": 112,
-      "coverage_pct": 0.0,
-      "status": "SOURCE_NOT_CONNECTED",
+      "coverage_pct": 100.0,
+      "status": "SOURCE_READY_THRESHOLD_UNDEFINED",
       "score_threshold_defined": false,
       "score_value_generated": false
     },
@@ -336,10 +336,25 @@
     "ready_for_100_point_calculation": false,
     "blocker_statuses": [
       "SOURCE_INPUT_PRESENT_POLICY_UNDEFINED",
-      "SOURCE_NOT_CONNECTED",
       "SOURCE_NOT_READY_POLICY_UNDEFINED",
       "SOURCE_PARTIAL_THRESHOLD_UNDEFINED",
       "SOURCE_PRESENT_RANGE_POLICY_ONLY"
-    ]
+    ],
+    "source_not_connected_component_count": 0
+  },
+  "source_extensions": {
+    "operating_cash_flow": {
+      "version": "2026-09-12-v8.7.4-audited-operating-cash-flow-source",
+      "ready_count": 109,
+      "universe_count": 112,
+      "coverage_pct": 97.32
+    },
+    "price_elasticity_20d": {
+      "version": "2026-09-12-v8.7.5-price-elasticity-20-session-source",
+      "ready_count": 112,
+      "universe_count": 112,
+      "coverage_pct": 100.0,
+      "basis_date": "2026-09-11"
+    }
   }
 }

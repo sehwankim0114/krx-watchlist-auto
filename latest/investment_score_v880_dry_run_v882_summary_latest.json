@@ -1,0 +1,134 @@
+{
+  "version": "2026-09-13-v8.8.2-investment-score-dry-run-gate-reconciliation",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "generated_at_kst": "2026-09-13T17:33:01+09:00",
+  "status": "DRY_RUN_ONLY",
+  "production_unique_tickers": 112,
+  "ready_count": 13,
+  "limited_count": 99,
+  "ready_pct": 11.61,
+  "score_summary_ready_only": {
+    "count": 13,
+    "min": 60.0,
+    "median": 66.0,
+    "mean": 66.8076923076923,
+    "max": 79.5
+  },
+  "score_band_counts_ready_only": {
+    "관찰 후보": 8,
+    "대기·중립": 4,
+    "추천 후보": 1
+  },
+  "top_missing_reasons": [
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
+      63
+    ],
+    [
+      "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
+      33
+    ],
+    [
+      "PER:MISSING_PER",
+      22
+    ],
+    [
+      "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
+      20
+    ],
+    [
+      "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+      19
+    ],
+    [
+      "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+      17
+    ],
+    [
+      "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+      16
+    ],
+    [
+      "과열·급락 위험:MISSING_RISK_INPUT",
+      15
+    ],
+    [
+      "기간 저가·고가 대비 현재위치:MISSING_POSITION",
+      14
+    ],
+    [
+      "영업이익 성장과 흑자 여부:MISSING_OP_PROFIT",
+      13
+    ],
+    [
+      "순이익 흐름:MISSING_EARNINGS_TREND",
+      13
+    ],
+    [
+      "영업이익률:MISSING_MARGIN",
+      13
+    ],
+    [
+      "ROE:MISSING_ROE",
+      13
+    ],
+    [
+      "PBR:MISSING_PBR_OR_ROE",
+      13
+    ],
+    [
+      "흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND",
+      13
+    ],
+    [
+      "PSR 또는 대체 가치지표:MISSING_PSR_INPUT",
+      12
+    ],
+    [
+      "부채비율:MISSING_DEBT_RATIO",
+      11
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:EMPTY_AS_ZERO:NO_EXACT_CANDIDATE",
+      11
+    ],
+    [
+      "최근 3년 영업이익 성장률:MISSING_3Y_OP",
+      10
+    ],
+    [
+      "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+      9
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:NO_EXACT_CANDIDATE:NO_EXACT_CANDIDATE",
+      8
+    ],
+    [
+      "순현금·기업가치 상태:NETCASH_INPUT:NO_EXACT_CANDIDATE",
+      8
+    ],
+    [
+      "순현금·기업가치 상태:NETCASH_INPUT:OK",
+      3
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:OK:OK",
+      1
+    ]
+  ],
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "legacy_score_rescaled": false,
+    "limited_score_total_is_null": true
+  },
+  "scorer_reconciliation": {
+    "per_loss_trend_checked_before_missing_per": true,
+    "supply_limited_positive_evidence_scored": true,
+    "supply_limited_no_positive_evidence_remains_limited": true,
+    "ev_ebitda_exact_da_policy_unchanged": true,
+    "no_new_score_thresholds": true
+  },
+  "next_step": "REVIEW_V882_REMAINING_BLOCKERS_THEN_CONNECT_EXACT_DA_SOURCE"
+}

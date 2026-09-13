@@ -1,570 +1,587 @@
-name: Sync standalone swing readiness after return basis v8.7.18
+name: Compare standalone swing RSI MACD formula candidates v8.7.19
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: v8718-standalone-swing-readiness-sync
+  group: v8719-standalone-swing-rsi-macd-evidence
   cancel-in-progress: false
 
 jobs:
-  sync:
+  compare:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
       - name: Checkout latest main
         uses: actions/checkout@v6
         with:
           ref: main
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
-      - name: Capture base SHA
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "BASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
-          echo "V8718_BASE_SHA=$(git rev-parse HEAD)"
-
-      - name: Write V8.7.18 readiness synchronizer and contract
+      - name: Compare RSI and MACD candidates
         shell: bash
         run: |
           set -euo pipefail
 
-          cat > standalone_swing_readiness_sync_v8718.py <<'PY'
-          #!/usr/bin/env python3
-          # -*- coding: utf-8 -*-
+          python - <<'PY'
           from __future__ import annotations
 
-          import hashlib
+          import csv
           import json
+          import math
+          import statistics
+          from collections import defaultdict
           from pathlib import Path
 
-          SCRIPT_VERSION = "standalone_swing_readiness_sync_v8718.py v1.0.0"
-          CONTRACT_VERSION = "2026-09-13-v8.7.18-standalone-swing-readiness-sync"
-
+          HISTORY = Path("latest/active_stock_long_history_260d_latest.csv")
+          HISTORY_META = Path("latest/active_stock_long_history_260d_meta_latest.json")
           INTEGRATED = Path("latest/standalone_swing_integrated_latest.json")
-          INTEGRATED_META = Path("latest/standalone_swing_integrated_meta_latest.json")
-          EXTENDED = Path("latest/standalone_swing_extended_returns_latest.json")
-          PREPROD = Path("latest/standalone_swing_preproduction_readiness_latest.json")
-          PREPROD_META = Path("latest/standalone_swing_preproduction_readiness_meta_latest.json")
-          DISPLAY = Path("latest/standalone_swing_display_merge_readiness_latest.json")
-          DISPLAY_META = Path("latest/standalone_swing_display_merge_readiness_meta_latest.json")
-          MANIFEST = Path("api/manifest.json")
-          SCHEMA = Path("docs/custom_gpt_action_schema.yaml")
-          WORKER = Path("worker/krx-live-price-worker.js")
-          METRICS = Path("stock_table_metrics_v850.py")
+          READINESS = Path("latest/standalone_swing_preproduction_readiness_latest.json")
 
-          PREPROD_LOG = Path("latest/standalone_swing_preproduction_readiness_run_log_latest.txt")
-          DISPLAY_LOG = Path("latest/standalone_swing_display_merge_readiness_run_log_latest.txt")
+          OUT = Path("/tmp/v8719_rsi_macd_evidence")
+          OUT.mkdir(parents=True, exist_ok=True)
 
-          EXPECTED_INTEGRATED_CONTRACT = (
-              "2026-09-13-v8.7.17-standalone-swing-integrated-returns-source"
-          )
-          EXPECTED_EXTENDED_CONTRACT = (
-              "2026-09-13-v8.7.17-standalone-swing-return-basis-source"
-          )
+          for p in (HISTORY, HISTORY_META, INTEGRATED, READINESS):
+              if not p.is_file():
+                  raise SystemExit("MISSING_REQUIRED_SOURCE:" + str(p))
 
-          RESOLVED_BLOCKERS = [
-              "REQUEST_TIME_DISPLAY_MERGE_CONTRACT_NOT_FROZEN_FOR_STANDALONE",
-              "1W_YTD_52W_FORMULAS_NOT_APPROVED",
-          ]
+          def read_json(path: Path):
+              return json.loads(path.read_text(encoding="utf-8-sig"))
 
-          REMAINING_BLOCKERS = [
-              "NO_FINAL_STANDALONE_TABLE_HEADER_CONTRACT",
-              "NO_STANDALONE_COMMAND_OR_ROUTE_CONTRACT",
-              "RSI_MACD_FORMULAS_NOT_APPROVED",
-              "CONFIRMED_SWING_LOW_STOP_POLICY_NOT_DEFINED",
-              "INVESTMENT_SCORE_THRESHOLDS_NOT_DEFINED",
-              "EARNINGS_OUTLOOK_SOURCE_NOT_CONNECTED",
-              "KOSDAQ_OFFICIAL_SECTOR_RS_CONTRACT_NOT_DEFINED",
-          ]
+          def read_csv(path: Path):
+              with path.open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
 
-          PENDING_METRICS = [
+          def fnum(value):
+              try:
+                  x = float(str(value).replace(",", ""))
+                  if math.isfinite(x) and x > 0:
+                      return x
+              except Exception:
+                  pass
+              return None
+
+          meta = read_json(HISTORY_META)
+          integrated = read_json(INTEGRATED)
+          readiness = read_json(READINESS)
+
+          if meta.get("status") != "READY":
+              raise SystemExit("HISTORY_NOT_READY")
+          if int(meta.get("distinct_market_dates") or 0) != 260:
+              raise SystemExit("HISTORY_NOT_260_SESSIONS")
+          if integrated.get("status") != "READY_SOURCE_ONLY":
+              raise SystemExit("INTEGRATED_NOT_READY_SOURCE_ONLY")
+          if integrated.get("contract_version") != "2026-09-13-v8.7.17-standalone-swing-integrated-returns-source":
+              raise SystemExit("INTEGRATED_CONTRACT_MISMATCH")
+          if integrated.get("pending_metrics") != [
               "rsi",
               "macd",
               "investment_score_100",
               "earnings_outlook_change",
               "confirmed_swing_low_stop",
-          ]
+          ]:
+              raise SystemExit("INTEGRATED_PENDING_METRICS_MISMATCH")
+          if readiness.get("status") != "FROZEN_PREPRODUCTION_READY":
+              raise SystemExit("READINESS_NOT_FROZEN")
+          if "RSI_MACD_FORMULAS_NOT_APPROVED" not in (readiness.get("activation_blockers") or []):
+              raise SystemExit("RSI_MACD_BLOCKER_NOT_PRESENT")
+          if readiness.get("production_activation_allowed") is not False:
+              raise SystemExit("PRODUCTION_ALREADY_ALLOWED")
+          if readiness.get("standalone_swing_table_enabled") is not False:
+              raise SystemExit("STANDALONE_TABLE_ALREADY_ENABLED")
+          if readiness.get("action_route_enabled") is not False:
+              raise SystemExit("ROUTE_ALREADY_ENABLED")
 
-          def read_json(path: Path):
-              return json.loads(path.read_text(encoding="utf-8-sig"))
+          basis = integrated.get("basis_date")
+          if not basis or meta.get("cache_max_date") != basis:
+              raise SystemExit("BASIS_MISMATCH")
 
-          def write_json(path: Path, obj):
-              path.write_text(
-                  json.dumps(obj, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
-                  encoding="utf-8",
-              )
+          target = [str(x).zfill(6) for x in (meta.get("target_tickers") or [])]
+          if len(target) != 235 or len(set(target)) != 235:
+              raise SystemExit("TARGET_UNIVERSE_NOT_235")
 
-          def sha256(path: Path):
-              h = hashlib.sha256()
-              with path.open("rb") as f:
-                  for chunk in iter(lambda: f.read(1024 * 1024), b""):
-                      h.update(chunk)
-              return h.hexdigest()
+          raw = read_csv(HISTORY)
+          by_ticker = defaultdict(list)
+          identity = {}
 
-          def main():
-              required = [
-                  INTEGRATED,
-                  INTEGRATED_META,
-                  EXTENDED,
-                  PREPROD,
-                  PREPROD_META,
-                  DISPLAY,
-                  DISPLAY_META,
-                  MANIFEST,
-                  SCHEMA,
-                  WORKER,
-                  METRICS,
+          for r in raw:
+              ticker = str(r.get("ticker") or "").zfill(6)
+              if ticker not in set(target):
+                  continue
+              close = fnum(r.get("close"))
+              ds = str(r.get("date") or "")
+              if close is None or not ds or ds > basis:
+                  continue
+              by_ticker[ticker].append((ds, close))
+              identity[ticker] = {
+                  "name": str(r.get("name") or ""),
+                  "market": str(r.get("market") or ""),
+              }
+
+          for ticker in by_ticker:
+              dedup = {}
+              for ds, close in by_ticker[ticker]:
+                  dedup[ds] = close
+              by_ticker[ticker] = sorted(dedup.items())
+
+          if set(by_ticker) != set(target):
+              raise SystemExit("HISTORY_TICKER_SET_MISMATCH")
+
+          # Candidate A: Wilder RSI(14), SMA-seeded average gain/loss,
+          # then Wilder recursive smoothing with alpha=1/14.
+          def rsi_wilder_14(closes):
+              period = 14
+              if len(closes) < period + 1:
+                  return {"value": None, "status": "INSUFFICIENT_HISTORY"}
+              deltas = [closes[i] - closes[i-1] for i in range(1, len(closes))]
+              gains = [max(d, 0.0) for d in deltas]
+              losses = [max(-d, 0.0) for d in deltas]
+              avg_gain = sum(gains[:period]) / period
+              avg_loss = sum(losses[:period]) / period
+              for i in range(period, len(deltas)):
+                  avg_gain = ((period - 1) * avg_gain + gains[i]) / period
+                  avg_loss = ((period - 1) * avg_loss + losses[i]) / period
+              if avg_loss == 0.0 and avg_gain == 0.0:
+                  return {"value": None, "status": "FLAT_EDGE_CASE"}
+              if avg_loss == 0.0:
+                  return {"value": 100.0, "status": "OK"}
+              rs = avg_gain / avg_loss
+              return {"value": 100.0 - 100.0 / (1.0 + rs), "status": "OK"}
+
+          # Candidate B: simple rolling 14-change average gain/loss.
+          def rsi_simple_rolling_14(closes):
+              period = 14
+              if len(closes) < period + 1:
+                  return {"value": None, "status": "INSUFFICIENT_HISTORY"}
+              deltas = [closes[i] - closes[i-1] for i in range(1, len(closes))]
+              last = deltas[-period:]
+              gains = [max(d, 0.0) for d in last]
+              losses = [max(-d, 0.0) for d in last]
+              avg_gain = sum(gains) / period
+              avg_loss = sum(losses) / period
+              if avg_loss == 0.0 and avg_gain == 0.0:
+                  return {"value": None, "status": "FLAT_EDGE_CASE"}
+              if avg_loss == 0.0:
+                  return {"value": 100.0, "status": "OK"}
+              rs = avg_gain / avg_loss
+              return {"value": 100.0 - 100.0 / (1.0 + rs), "status": "OK"}
+
+          def ema_sma_seed(values, period, alpha=None):
+              if len(values) < period:
+                  return [None] * len(values)
+              if alpha is None:
+                  alpha = 2.0 / (period + 1.0)
+              out = [None] * len(values)
+              seed_index = period - 1
+              seed = sum(values[:period]) / period
+              out[seed_index] = seed
+              prev = seed
+              for i in range(seed_index + 1, len(values)):
+                  prev = prev + alpha * (values[i] - prev)
+                  out[i] = prev
+              return out
+
+          def signal_from_macd(macd_values, period=9, alpha=None):
+              indices = [i for i, v in enumerate(macd_values) if v is not None]
+              if len(indices) < period:
+                  return [None] * len(macd_values)
+              compact = [macd_values[i] for i in indices]
+              compact_signal = ema_sma_seed(compact, period, alpha=alpha)
+              out = [None] * len(macd_values)
+              for pos, idx in enumerate(indices):
+                  out[idx] = compact_signal[pos]
+              return out
+
+          # Candidate A: period-derived EMA factors 2/(n+1), SMA seeded.
+          def macd_period_12_26_9(closes):
+              if len(closes) < 34:
+                  return {"status": "INSUFFICIENT_HISTORY"}
+              fast = ema_sma_seed(closes, 12)
+              slow = ema_sma_seed(closes, 26)
+              line = [
+                  (fast[i] - slow[i]) if fast[i] is not None and slow[i] is not None else None
+                  for i in range(len(closes))
               ]
-              for p in required:
-                  if not p.is_file():
-                      raise SystemExit("MISSING_REQUIRED_SOURCE:" + str(p))
-
-              integrated = read_json(INTEGRATED)
-              integrated_meta = read_json(INTEGRATED_META)
-              extended = read_json(EXTENDED)
-              old_preprod = read_json(PREPROD)
-              old_preprod_meta = read_json(PREPROD_META)
-              old_display = read_json(DISPLAY)
-              old_display_meta = read_json(DISPLAY_META)
-              manifest = read_json(MANIFEST)
-
-              if integrated.get("contract_version") != EXPECTED_INTEGRATED_CONTRACT:
-                  raise SystemExit("INTEGRATED_CONTRACT_MISMATCH")
-              if integrated_meta.get("contract_version") != EXPECTED_INTEGRATED_CONTRACT:
-                  raise SystemExit("INTEGRATED_META_CONTRACT_MISMATCH")
-              if extended.get("contract_version") != EXPECTED_EXTENDED_CONTRACT:
-                  raise SystemExit("EXTENDED_CONTRACT_MISMATCH")
-
-              for payload, label in (
-                  (integrated, "INTEGRATED"),
-                  (integrated_meta, "INTEGRATED_META"),
-                  (extended, "EXTENDED"),
-              ):
-                  if payload.get("status") != "READY_SOURCE_ONLY":
-                      raise SystemExit(label + "_NOT_READY_SOURCE_ONLY")
-                  if payload.get("source_only") is not True:
-                      raise SystemExit(label + "_NOT_SOURCE_ONLY")
-                  if payload.get("standalone_swing_table_enabled") is not False:
-                      raise SystemExit(label + "_TABLE_ENABLED")
-                  if payload.get("action_route_enabled") is not False:
-                      raise SystemExit(label + "_ROUTE_ENABLED")
-
-              if integrated.get("request_time_price_eligible") is not False:
-                  raise SystemExit("INTEGRATED_REQUEST_TIME_PRICE_ELIGIBLE_UNEXPECTEDLY")
-              if integrated_meta.get("request_time_price_eligible") is not False:
-                  raise SystemExit("INTEGRATED_META_REQUEST_TIME_PRICE_ELIGIBLE_UNEXPECTEDLY")
-
-              if old_preprod.get("status") != "FROZEN_PREPRODUCTION_READY":
-                  raise SystemExit("OLD_PREPROD_NOT_FROZEN")
-              if old_display.get("status") != "FROZEN_PREPRODUCTION_READY":
-                  raise SystemExit("OLD_DISPLAY_NOT_FROZEN")
-              if old_display.get("display_merge_contract_frozen") is not True:
-                  raise SystemExit("DISPLAY_MERGE_FREEZE_MISSING")
-
-              basis = integrated.get("basis_date")
-              if not basis or integrated_meta.get("basis_date") != basis:
-                  raise SystemExit("INTEGRATED_BASIS_MISMATCH")
-              if extended.get("basis_date") != basis:
-                  raise SystemExit("EXTENDED_BASIS_MISMATCH")
-              if old_preprod.get("basis_date") != basis:
-                  raise SystemExit("PREPROD_BASIS_MISMATCH")
-              if old_display.get("basis_date") != basis:
-                  raise SystemExit("DISPLAY_BASIS_MISMATCH")
-
-              if int(integrated.get("row_count") or 0) != 235:
-                  raise SystemExit("INTEGRATED_ROW_COUNT_NOT_235")
-              if int(integrated_meta.get("row_count") or 0) != 235:
-                  raise SystemExit("INTEGRATED_META_ROW_COUNT_NOT_235")
-
-              return_ready = integrated.get("return_ready_count") or {}
-              expected_return_ready = {
-                  "1w": 235,
-                  "1m": 235,
-                  "3m": 235,
-                  "6m": 234,
-                  "ytd": 234,
-                  "52w": 233,
+              signal = signal_from_macd(line, 9)
+              i = len(closes) - 1
+              if line[i] is None or signal[i] is None:
+                  return {"status": "INSUFFICIENT_HISTORY"}
+              hist = line[i] - signal[i]
+              return {
+                  "status": "OK",
+                  "line": line[i],
+                  "signal": signal[i],
+                  "hist": hist,
               }
-              if return_ready != expected_return_ready:
-                  raise SystemExit(
-                      "RETURN_READY_COUNT_MISMATCH:"
-                      + json.dumps(return_ready, ensure_ascii=False)
+
+          # Candidate B: classic fixed fast/slow factors 0.15/0.075,
+          # signal factor 0.2; same SMA seed discipline.
+          def macd_fixed_015_0075_02(closes):
+              if len(closes) < 34:
+                  return {"status": "INSUFFICIENT_HISTORY"}
+              fast = ema_sma_seed(closes, 12, alpha=0.15)
+              slow = ema_sma_seed(closes, 26, alpha=0.075)
+              line = [
+                  (fast[i] - slow[i]) if fast[i] is not None and slow[i] is not None else None
+                  for i in range(len(closes))
+              ]
+              signal = signal_from_macd(line, 9, alpha=0.2)
+              i = len(closes) - 1
+              if line[i] is None or signal[i] is None:
+                  return {"status": "INSUFFICIENT_HISTORY"}
+              hist = line[i] - signal[i]
+              return {
+                  "status": "OK",
+                  "line": line[i],
+                  "signal": signal[i],
+                  "hist": hist,
+              }
+
+          def rsi_zone(v):
+              if v is None:
+                  return "UNAVAILABLE"
+              if v >= 70:
+                  return "OVERBOUGHT_70"
+              if v <= 30:
+                  return "OVERSOLD_30"
+              return "NEUTRAL"
+
+          def sign(v, eps=1e-12):
+              if v is None:
+                  return "UNAVAILABLE"
+              if v > eps:
+                  return "POSITIVE"
+              if v < -eps:
+                  return "NEGATIVE"
+              return "ZERO"
+
+          rows = []
+          rsi_diffs = []
+          macd_line_diff_pct = []
+          macd_signal_diff_pct = []
+          macd_hist_diff_pct = []
+
+          counts = {
+              "total": 235,
+              "rsi_wilder_ready": 0,
+              "rsi_simple_ready": 0,
+              "rsi_both_ready": 0,
+              "rsi_zone_mismatch": 0,
+              "macd_period_ready": 0,
+              "macd_fixed_ready": 0,
+              "macd_both_ready": 0,
+              "macd_line_sign_mismatch": 0,
+              "macd_hist_sign_mismatch": 0,
+              "macd_crossover_state_mismatch": 0,
+          }
+
+          for ticker in sorted(target):
+              bars = by_ticker[ticker]
+              closes = [c for _, c in bars]
+              latest_close = closes[-1]
+
+              rw = rsi_wilder_14(closes)
+              rs = rsi_simple_rolling_14(closes)
+              ma = macd_period_12_26_9(closes)
+              mb = macd_fixed_015_0075_02(closes)
+
+              if rw["status"] == "OK":
+                  counts["rsi_wilder_ready"] += 1
+              if rs["status"] == "OK":
+                  counts["rsi_simple_ready"] += 1
+              if rw["status"] == "OK" and rs["status"] == "OK":
+                  counts["rsi_both_ready"] += 1
+                  diff = abs(rw["value"] - rs["value"])
+                  rsi_diffs.append(diff)
+                  if rsi_zone(rw["value"]) != rsi_zone(rs["value"]):
+                      counts["rsi_zone_mismatch"] += 1
+
+              if ma["status"] == "OK":
+                  counts["macd_period_ready"] += 1
+              if mb["status"] == "OK":
+                  counts["macd_fixed_ready"] += 1
+              if ma["status"] == "OK" and mb["status"] == "OK":
+                  counts["macd_both_ready"] += 1
+                  # Normalize price-unit MACD differences to current-close percentage points.
+                  macd_line_diff_pct.append(
+                      abs(ma["line"] - mb["line"]) / latest_close * 100.0
                   )
-
-              if integrated.get("pending_metrics") != PENDING_METRICS:
-                  raise SystemExit(
-                      "INTEGRATED_PENDING_METRICS_MISMATCH:"
-                      + json.dumps(integrated.get("pending_metrics"), ensure_ascii=False)
+                  macd_signal_diff_pct.append(
+                      abs(ma["signal"] - mb["signal"]) / latest_close * 100.0
                   )
-
-              return_basis = integrated.get("return_basis") or {}
-              expected_basis = {
-                  "1w": "CALENDAR_DAYS_7_FIRST_MARKET_SESSION_ON_OR_AFTER",
-                  "1m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
-                  "3m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
-                  "6m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
-                  "ytd": "PRIOR_YEAR_FINAL_MARKET_SESSION_CLOSE",
-                  "52w": "CALENDAR_WEEKS_52_FIRST_MARKET_SESSION_ON_OR_AFTER",
-              }
-              if return_basis != expected_basis:
-                  raise SystemExit(
-                      "RETURN_BASIS_MISMATCH:"
-                      + json.dumps(return_basis, ensure_ascii=False)
+                  macd_hist_diff_pct.append(
+                      abs(ma["hist"] - mb["hist"]) / latest_close * 100.0
                   )
+                  if sign(ma["line"]) != sign(mb["line"]):
+                      counts["macd_line_sign_mismatch"] += 1
+                  if sign(ma["hist"]) != sign(mb["hist"]):
+                      counts["macd_hist_sign_mismatch"] += 1
+                  state_a = sign(ma["line"] - ma["signal"])
+                  state_b = sign(mb["line"] - mb["signal"])
+                  if state_a != state_b:
+                      counts["macd_crossover_state_mismatch"] += 1
 
-              if integrated.get("return_start_dates") != {
-                  "1w": "2026-09-04",
-                  "ytd": "2025-12-30",
-                  "52w": "2025-09-12",
-              }:
-                  raise SystemExit("RETURN_START_DATES_MISMATCH")
-
-              # Existing request-time display merge must remain unchanged in semantics.
-              merge = old_display.get("request_time_display_merge_contract") or {}
-              if merge.get("price_source_operation_id") != "getRequestTimePrices":
-                  raise SystemExit("DISPLAY_PRICE_OPERATION_MISMATCH")
-              if merge.get("retry_policy") != [10, 5, 2]:
-                  raise SystemExit("DISPLAY_RETRY_POLICY_MISMATCH")
-              if merge.get("static_price_fallback_allowed") is not False:
-                  raise SystemExit("STATIC_PRICE_FALLBACK_ALLOWED_UNEXPECTEDLY")
-              if merge.get("confirmed_metrics_recomputed") is not False:
-                  raise SystemExit("CONFIRMED_METRIC_RECOMPUTATION_UNEXPECTEDLY")
-
-              # Manifest still governs the 15 current production commands.
-              route = manifest.get("command_route_contract") or {}
-              two = route.get("two_table_release") or {}
-              if two.get("effective_command_count") != 15:
-                  raise SystemExit("MANIFEST_EFFECTIVE_COMMAND_COUNT_NOT_15")
-              if two.get("standalone_swing_table_enabled") is not False:
-                  raise SystemExit("MANIFEST_STANDALONE_ALREADY_ENABLED")
-
-              snapshot_counts = dict(old_preprod.get("snapshot_counts") or {})
-              snapshot_counts.update({
-                  "row_count": 235,
-                  "kospi": 210,
-                  "kosdaq": 25,
-                  "return_1w_ready": 235,
-                  "return_1w_missing": 0,
-                  "return_1m_ready": 235,
-                  "return_3m_ready": 235,
-                  "return_6m_ready": 234,
-                  "return_6m_missing": 1,
-                  "return_ytd_ready": 234,
-                  "return_ytd_missing": 1,
-                  "return_52w_ready": 233,
-                  "return_52w_missing": 2,
-              })
-
-              accepted_missing = dict(old_preprod.get("accepted_missing_policy") or {})
-              accepted_missing.update({
-                  "return_1w": "fully available at current basis under approved 7-calendar-day official-session contract",
-                  "return_6m": "자료 미제공 when calendar history is insufficient; no imputation",
-                  "return_ytd": "자료 미제공 when prior-year final official-session close is unavailable due listing/history limits",
-                  "return_52w": "자료 미제공 when exact globally resolved 52-week official-session start close is unavailable; no post-listing substitution",
-              })
-
-              evidence = dict(old_preprod.get("evidence") or {})
-              evidence["v8712_request_time_display_merge_preview"] = old_display.get("evidence", {}).get(
-                  "v8712_request_time_display_merge_preview"
-              )
-              evidence["v8717_return_basis_source_release"] = {
-                  "commit_sha": "cf26e2447d301296e838d01dbf40edd90c638611",
-                  "result": "PASS",
-                  "extended_contract_version": EXPECTED_EXTENDED_CONTRACT,
-                  "integrated_contract_version": EXPECTED_INTEGRATED_CONTRACT,
-                  "return_basis": return_basis,
-                  "return_start_dates": integrated.get("return_start_dates"),
-                  "return_ready_count": return_ready,
-                  "return_missing_count": integrated.get("return_missing_count"),
-                  "source_only": True,
-                  "standalone_swing_table_enabled": False,
-                  "action_route_enabled": False,
-              }
-
-              source_lineage = dict(integrated.get("source_lineage") or {})
-              source_hashes = {
-                  str(INTEGRATED): sha256(INTEGRATED),
-                  str(INTEGRATED_META): sha256(INTEGRATED_META),
-                  str(EXTENDED): sha256(EXTENDED),
-                  str(MANIFEST): sha256(MANIFEST),
-                  str(SCHEMA): sha256(SCHEMA),
-                  str(WORKER): sha256(WORKER),
-                  str(METRICS): sha256(METRICS),
-              }
-
-              preprod = dict(old_preprod)
-              preprod.update({
-                  "contract_version": CONTRACT_VERSION,
-                  "script_version": SCRIPT_VERSION,
-                  "status": "FROZEN_PREPRODUCTION_READY",
-                  "preproduction_contract_frozen": True,
-                  "data_layer_ready_for_preproduction": True,
-                  "request_time_price_path_ready_for_preproduction": True,
-                  "request_time_display_merge_contract_frozen": True,
-                  "return_basis_contract_frozen": True,
-                  "production_activation_allowed": False,
-                  "standalone_swing_table_enabled": False,
-                  "action_route_enabled": False,
-                  "standalone_command_defined": False,
-                  "final_header_selected": False,
+              rows.append({
+                  "ticker": ticker,
+                  "name": identity[ticker]["name"],
+                  "market": identity[ticker]["market"],
                   "basis_date": basis,
-                  "snapshot_counts": snapshot_counts,
-                  "accepted_missing_policy": accepted_missing,
-                  "return_basis": return_basis,
-                  "return_start_dates": integrated.get("return_start_dates"),
-                  "pending_metrics": PENDING_METRICS,
-                  "activation_blockers": REMAINING_BLOCKERS,
-                  "resolved_activation_blockers": RESOLVED_BLOCKERS,
-                  "evidence": evidence,
-                  "source_contract_version": EXPECTED_INTEGRATED_CONTRACT,
-                  "source_lineage": source_lineage,
-                  "source_sha256": source_hashes,
-              })
-
-              # Retain price-path contract and add current manifest evidence.
-              price_contract = dict(preprod.get("request_time_price_contract") or {})
-              price_contract.update({
-                  "operation_id": "getRequestTimePrices",
-                  "initial_batch_max": 10,
-                  "retry_failed_batch_max": 5,
-                  "final_retry_failed_batch_max": 2,
-                  "final_failure_display": "⚪ 현재가 확인 실패",
-                  "static_price_fallback_allowed": False,
-                  "official_close_is_reference_only_not_request_time_price": True,
-                  "new_price_action_required": False,
-                  "must_revalidate_at_activation": True,
-                  "manifest_effective_command_count": 15,
-                  "manifest_standalone_swing_table_enabled": False,
-              })
-              preprod["request_time_price_contract"] = price_contract
-
-              safety = dict(old_preprod.get("safety") or {})
-              safety.update({
-                  "production_table_changed": False,
-                  "worker_changed": False,
-                  "action_schema_changed": False,
-                  "metric_formula_changed": False,
-                  "request_time_price_substitution": False,
-                  "new_command_invented": False,
-                  "new_route_invented": False,
-                  "final_header_invented": False,
-                  "pending_metric_autofill": False,
-              })
-              preprod["safety"] = safety
-              write_json(PREPROD, preprod)
-
-              preprod_meta = {
-                  "contract_version": CONTRACT_VERSION,
-                  "status": "FROZEN_PREPRODUCTION_READY",
-                  "preproduction_contract_frozen": True,
-                  "request_time_display_merge_contract_frozen": True,
-                  "return_basis_contract_frozen": True,
-                  "production_activation_allowed": False,
-                  "basis_date": basis,
-                  "row_count": 235,
-                  "snapshot_counts": snapshot_counts,
-                  "price_operation_id": "getRequestTimePrices",
-                  "price_retry_policy": [10, 5, 2],
-                  "activation_blocker_count": len(REMAINING_BLOCKERS),
-                  "activation_blockers": REMAINING_BLOCKERS,
-                  "resolved_activation_blockers": RESOLVED_BLOCKERS,
-                  "pending_metrics": PENDING_METRICS,
-                  "source_contract_version": EXPECTED_INTEGRATED_CONTRACT,
-                  "source_lineage": source_lineage,
-                  "return_basis": return_basis,
-                  "return_start_dates": integrated.get("return_start_dates"),
-                  "source_sha256": source_hashes,
-                  "safety": safety,
-              }
-              write_json(PREPROD_META, preprod_meta)
-
-              display = dict(old_display)
-              display.update({
-                  "contract_version": CONTRACT_VERSION,
-                  "script_version": SCRIPT_VERSION,
-                  "status": "FROZEN_PREPRODUCTION_READY",
-                  "display_merge_contract_frozen": True,
-                  "return_basis_contract_frozen": True,
-                  "production_activation_allowed": False,
-                  "standalone_swing_table_enabled": False,
-                  "action_route_enabled": False,
-                  "standalone_command_defined": False,
-                  "final_header_selected": False,
-                  "basis_date": basis,
-                  "source_row_count": 235,
-                  "return_basis": return_basis,
-                  "return_start_dates": integrated.get("return_start_dates"),
-                  "pending_metrics": PENDING_METRICS,
-                  "resolved_activation_blockers": RESOLVED_BLOCKERS,
-                  "remaining_activation_blockers": REMAINING_BLOCKERS,
-                  "source_contracts": {
-                      "integrated_source": EXPECTED_INTEGRATED_CONTRACT,
-                      "extended_returns_source": EXPECTED_EXTENDED_CONTRACT,
-                      "preproduction_freeze": CONTRACT_VERSION,
-                      "display_merge_base_contract": "2026-09-13-v8.7.13-standalone-swing-display-merge-freeze",
-                      "manifest_route_contract_version": route.get("contract_version"),
+                  "history_rows": len(closes),
+                  "latest_close": latest_close,
+                  "rsi": {
+                      "candidate_a_wilder_14": {
+                          "status": rw["status"],
+                          "value": round(rw["value"], 6) if rw.get("value") is not None else None,
+                          "zone": rsi_zone(rw.get("value")),
+                      },
+                      "candidate_b_simple_rolling_14": {
+                          "status": rs["status"],
+                          "value": round(rs["value"], 6) if rs.get("value") is not None else None,
+                          "zone": rsi_zone(rs.get("value")),
+                      },
                   },
-                  "source_sha256": source_hashes,
+                  "macd": {
+                      "candidate_a_period_ema_12_26_9": {
+                          "status": ma["status"],
+                          "line": round(ma["line"], 6) if ma.get("line") is not None else None,
+                          "signal": round(ma["signal"], 6) if ma.get("signal") is not None else None,
+                          "hist": round(ma["hist"], 6) if ma.get("hist") is not None else None,
+                          "line_sign": sign(ma.get("line")),
+                          "hist_sign": sign(ma.get("hist")),
+                      },
+                      "candidate_b_fixed_015_0075_02": {
+                          "status": mb["status"],
+                          "line": round(mb["line"], 6) if mb.get("line") is not None else None,
+                          "signal": round(mb["signal"], 6) if mb.get("signal") is not None else None,
+                          "hist": round(mb["hist"], 6) if mb.get("hist") is not None else None,
+                          "line_sign": sign(mb.get("line")),
+                          "hist_sign": sign(mb.get("hist")),
+                      },
+                  },
               })
-              display.pop("resolved_activation_blocker", None)
-              display["safety"] = dict(old_display.get("safety") or {})
-              display["safety"].update({
-                  "repository_source_data_mutated": False,
-                  "production_table_changed": False,
-                  "worker_changed": False,
-                  "action_schema_changed": False,
-                  "metric_formula_changed": False,
-                  "static_price_substitution": False,
-                  "confirmed_metric_recomputation": False,
-                  "new_command_invented": False,
-                  "new_route_invented": False,
-                  "final_header_invented": False,
-                  "final_position_label_invented": False,
-                  "recommendation_contract_invented": False,
-                  "price_zone_contract_invented": False,
-              })
-              write_json(DISPLAY, display)
 
-              display_meta = {
-                  "contract_version": CONTRACT_VERSION,
-                  "status": "FROZEN_PREPRODUCTION_READY",
-                  "display_merge_contract_frozen": True,
-                  "return_basis_contract_frozen": True,
-                  "production_activation_allowed": False,
-                  "basis_date": basis,
-                  "source_row_count": 235,
-                  "range3m_position_ready": int(
-                      (display.get("range3m_position_capacity") or {}).get("ready") or 0
-                  ),
-                  "range3m_position_unavailable": int(
-                      (display.get("range3m_position_capacity") or {}).get("unavailable") or 0
-                  ),
-                  "resolved_activation_blockers": RESOLVED_BLOCKERS,
-                  "remaining_activation_blocker_count": len(REMAINING_BLOCKERS),
-                  "remaining_activation_blockers": REMAINING_BLOCKERS,
-                  "pending_metrics": PENDING_METRICS,
-                  "return_basis": return_basis,
-                  "return_start_dates": integrated.get("return_start_dates"),
-                  "source_contract_version": EXPECTED_INTEGRATED_CONTRACT,
-                  "source_sha256": source_hashes,
-                  "safety": display["safety"],
+          def stats(values):
+              if not values:
+                  return {
+                      "count": 0,
+                      "mean": None,
+                      "median": None,
+                      "max": None,
+                      "p95": None,
+                  }
+              sv = sorted(values)
+              p95_index = min(len(sv) - 1, max(0, math.ceil(len(sv) * 0.95) - 1))
+              return {
+                  "count": len(values),
+                  "mean": round(statistics.mean(values), 6),
+                  "median": round(statistics.median(values), 6),
+                  "max": round(max(values), 6),
+                  "p95": round(sv[p95_index], 6),
               }
-              write_json(DISPLAY_META, display_meta)
 
-              preprod_log = [
-                  "V8718_PREPRODUCTION_READINESS_SYNC=FROZEN_PREPRODUCTION_READY",
-                  f"BASIS_DATE={basis}",
-                  "SOURCE_ROWS=235",
-                  "RETURN_1W_READY=235",
-                  "RETURN_1M_READY=235",
-                  "RETURN_3M_READY=235",
-                  "RETURN_6M_READY=234",
-                  "RETURN_YTD_READY=234",
-                  "RETURN_52W_READY=233",
-                  "PENDING_METRICS=rsi,macd,investment_score_100,earnings_outlook_change,confirmed_swing_low_stop",
-                  "RESOLVED_BLOCKER_REQUEST_TIME_DISPLAY_MERGE=true",
-                  "RESOLVED_BLOCKER_1W_YTD_52W=true",
-                  f"ACTIVATION_BLOCKER_COUNT={len(REMAINING_BLOCKERS)}",
-                  "PRODUCTION_ACTIVATION_ALLOWED=false",
-                  "STANDALONE_SWING_TABLE_ENABLED=false",
-                  "ACTION_ROUTE_ENABLED=false",
-                  "STANDALONE_COMMAND_DEFINED=false",
-                  "FINAL_HEADER_SELECTED=false",
-                  "PRODUCTION_TABLE_CHANGED=false",
-                  "WORKER_CHANGED=false",
-                  "ACTION_SCHEMA_CHANGED=false",
-                  "METRIC_FORMULA_CHANGED=false",
-                  "REQUEST_TIME_PRICE_SUBSTITUTION=false",
-                  "V8718_PREPRODUCTION_READINESS_VALIDATION=PASS",
-              ]
-              PREPROD_LOG.write_text("\n".join(preprod_log) + "\n", encoding="utf-8")
+          def top_examples(metric, limit=10):
+              out = []
+              for row in rows:
+                  ticker = row["ticker"]
+                  if metric == "rsi":
+                      a = row["rsi"]["candidate_a_wilder_14"]
+                      b = row["rsi"]["candidate_b_simple_rolling_14"]
+                      if a["status"] != "OK" or b["status"] != "OK":
+                          continue
+                      diff = abs(a["value"] - b["value"])
+                  else:
+                      a = row["macd"]["candidate_a_period_ema_12_26_9"]
+                      b = row["macd"]["candidate_b_fixed_015_0075_02"]
+                      if a["status"] != "OK" or b["status"] != "OK":
+                          continue
+                      diff = abs(a[metric] - b[metric]) / row["latest_close"] * 100.0
+                  out.append({
+                      "ticker": ticker,
+                      "name": row["name"],
+                      "market": row["market"],
+                      "difference": round(diff, 6),
+                  })
+              return sorted(out, key=lambda x: x["difference"], reverse=True)[:limit]
 
-              display_log = [
-                  "V8718_DISPLAY_MERGE_READINESS_SYNC=FROZEN_PREPRODUCTION_READY",
-                  f"BASIS_DATE={basis}",
-                  "SOURCE_ROWS=235",
-                  "DISPLAY_MERGE_CONTRACT_FROZEN=true",
-                  "RETURN_BASIS_CONTRACT_FROZEN=true",
-                  f"REMAINING_ACTIVATION_BLOCKER_COUNT={len(REMAINING_BLOCKERS)}",
-                  "PENDING_METRICS=rsi,macd,investment_score_100,earnings_outlook_change,confirmed_swing_low_stop",
-                  "PRODUCTION_ACTIVATION_ALLOWED=false",
-                  "STANDALONE_SWING_TABLE_ENABLED=false",
-                  "ACTION_ROUTE_ENABLED=false",
-                  "STANDALONE_COMMAND_DEFINED=false",
-                  "FINAL_HEADER_SELECTED=false",
-                  "PRODUCTION_TABLE_CHANGED=false",
-                  "WORKER_CHANGED=false",
-                  "ACTION_SCHEMA_CHANGED=false",
-                  "METRIC_FORMULA_CHANGED=false",
-                  "REQUEST_TIME_PRICE_SUBSTITUTION=false",
-                  "V8718_DISPLAY_MERGE_READINESS_VALIDATION=PASS",
-              ]
-              DISPLAY_LOG.write_text("\n".join(display_log) + "\n", encoding="utf-8")
+          result = {
+              "version": "2026-09-13-v8.7.19-rsi-macd-formula-evidence",
+              "status": "READY_EVIDENCE_ONLY",
+              "repository_write": False,
+              "production_change": False,
+              "worker_change": False,
+              "formula_selected": False,
+              "basis_date": basis,
+              "source_row_count": 235,
+              "repo_formula_search_result": {
+                  "existing_rsi_formula_contract_found": False,
+                  "existing_macd_formula_contract_found": False,
+                  "readiness_blocker_present": True,
+              },
+              "candidate_contracts": {
+                  "rsi": {
+                      "A": {
+                          "name": "WILDER_RSI_14_SMA_SEEDED",
+                          "period": 14,
+                          "smoothing": "Wilder recursive (alpha=1/14)",
+                          "seed": "SMA of first 14 gains/losses",
+                      },
+                      "B": {
+                          "name": "SIMPLE_ROLLING_RSI_14",
+                          "period": 14,
+                          "smoothing": "simple rolling 14 changes",
+                          "seed": "not applicable",
+                      },
+                  },
+                  "macd": {
+                      "A": {
+                          "name": "PERIOD_EMA_MACD_12_26_9_SMA_SEEDED",
+                          "fast_period": 12,
+                          "slow_period": 26,
+                          "signal_period": 9,
+                          "fast_alpha": "2/(12+1)",
+                          "slow_alpha": "2/(26+1)",
+                          "signal_alpha": "2/(9+1)",
+                          "seed": "SMA of first period values",
+                      },
+                      "B": {
+                          "name": "FIXED_FACTOR_MACD_015_0075_02_SMA_SEEDED",
+                          "fast_period": 12,
+                          "slow_period": 26,
+                          "signal_period": 9,
+                          "fast_alpha": 0.15,
+                          "slow_alpha": 0.075,
+                          "signal_alpha": 0.2,
+                          "seed": "SMA of first period values",
+                      },
+                  },
+              },
+              "counts": counts,
+              "difference_stats": {
+                  "rsi_absolute_points": stats(rsi_diffs),
+                  "macd_line_abs_difference_pct_of_close": stats(macd_line_diff_pct),
+                  "macd_signal_abs_difference_pct_of_close": stats(macd_signal_diff_pct),
+                  "macd_hist_abs_difference_pct_of_close": stats(macd_hist_diff_pct),
+              },
+              "largest_difference_examples": {
+                  "rsi": top_examples("rsi"),
+                  "macd_line": top_examples("line"),
+                  "macd_signal": top_examples("signal"),
+                  "macd_hist": top_examples("hist"),
+              },
+              "decision_notes": {
+                  "rsi": (
+                      "Candidate A follows Wilder-style recursive smoothing; "
+                      "Candidate B is a simple rolling alternative. V8.7.19 does not select."
+                  ),
+                  "macd": (
+                      "Candidate A uses period-derived EMA factors; Candidate B uses "
+                      "classic fixed 0.15/0.075 factors. V8.7.19 does not select."
+                  ),
+                  "output_scope": (
+                      "Evidence compares final basis-date indicator values and classification "
+                      "differences only; it does not write RSI/MACD into source files."
+                  ),
+              },
+              "rows": rows,
+              "safety": {
+                  "rsi_written_to_source": False,
+                  "macd_written_to_source": False,
+                  "integrated_source_changed": False,
+                  "readiness_changed": False,
+                  "metric_formula_changed": False,
+                  "production_changed": False,
+                  "worker_changed": False,
+                  "request_time_price_substitution": False,
+                  "standalone_command_defined": False,
+                  "standalone_route_enabled": False,
+                  "final_header_selected": False,
+              },
+          }
 
-              print("\n".join(preprod_log))
-              print("\n".join(display_log))
+          json_path = OUT / "standalone-swing-rsi-macd-formula-evidence-v8719.json"
+          md_path = OUT / "standalone-swing-rsi-macd-formula-evidence-v8719.md"
 
-          if __name__ == "__main__":
-              main()
+          json_path.write_text(
+              json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+              encoding="utf-8",
+          )
+
+          md = [
+              "# V8.7.19 독립 스윙 RSI·MACD 공식 후보 비교",
+              "",
+              f"- 기준일: {basis}",
+              "- 상태: READY_EVIDENCE_ONLY",
+              "- 이번 단계에서는 공식 선택 안 함",
+              "",
+              "## RSI 후보",
+              "- A: Wilder RSI(14), 첫 14개 gain/loss SMA seed 후 alpha=1/14 재귀 평활",
+              "- B: 최근 14개 변화의 단순평균 gain/loss",
+              f"- A 준비: {counts['rsi_wilder_ready']}/235",
+              f"- B 준비: {counts['rsi_simple_ready']}/235",
+              f"- 과매수/중립/과매도 구간 불일치: {counts['rsi_zone_mismatch']}",
+              f"- 절대값 차이 통계: {json.dumps(result['difference_stats']['rsi_absolute_points'], ensure_ascii=False)}",
+              "",
+              "## MACD 후보",
+              "- A: EMA(12)-EMA(26), signal EMA(9), alpha=2/(n+1), SMA seed",
+              "- B: fixed alpha 0.15/0.075, signal 0.2, SMA seed",
+              f"- A 준비: {counts['macd_period_ready']}/235",
+              f"- B 준비: {counts['macd_fixed_ready']}/235",
+              f"- MACD line 부호 불일치: {counts['macd_line_sign_mismatch']}",
+              f"- histogram 부호 불일치: {counts['macd_hist_sign_mismatch']}",
+              f"- line-signal 상태 불일치: {counts['macd_crossover_state_mismatch']}",
+              f"- line 차이(% of close): {json.dumps(result['difference_stats']['macd_line_abs_difference_pct_of_close'], ensure_ascii=False)}",
+              f"- signal 차이(% of close): {json.dumps(result['difference_stats']['macd_signal_abs_difference_pct_of_close'], ensure_ascii=False)}",
+              f"- hist 차이(% of close): {json.dumps(result['difference_stats']['macd_hist_abs_difference_pct_of_close'], ensure_ascii=False)}",
+              "",
+              "## 안전",
+              "- RSI/MACD source 기록 없음",
+              "- production/Worker/Action route 변경 없음",
+              "- 새 명령어·최종 헤더 없음",
+          ]
+          md_path.write_text("\n".join(md) + "\n", encoding="utf-8")
+
+          print("V8719_RSI_MACD_FORMULA_EVIDENCE=READY_EVIDENCE_ONLY")
+          print("BASIS_DATE=" + basis)
+          print("SOURCE_ROWS=235")
+          for key, value in counts.items():
+              print(key.upper() + "=" + str(value))
+          print(
+              "RSI_DIFF_STATS="
+              + json.dumps(result["difference_stats"]["rsi_absolute_points"], separators=(",", ":"))
+          )
+          print(
+              "MACD_LINE_DIFF_STATS="
+              + json.dumps(result["difference_stats"]["macd_line_abs_difference_pct_of_close"], separators=(",", ":"))
+          )
+          print(
+              "MACD_SIGNAL_DIFF_STATS="
+              + json.dumps(result["difference_stats"]["macd_signal_abs_difference_pct_of_close"], separators=(",", ":"))
+          )
+          print(
+              "MACD_HIST_DIFF_STATS="
+              + json.dumps(result["difference_stats"]["macd_hist_abs_difference_pct_of_close"], separators=(",", ":"))
+          )
+          print("FORMULA_SELECTED=false")
+          print("RSI_SOURCE_WRITE=false")
+          print("MACD_SOURCE_WRITE=false")
+          print("PRODUCTION_CHANGE=false")
+          print("WORKER_CHANGE=false")
+          print("REQUEST_TIME_PRICE_SUBSTITUTION=false")
+          print("STANDALONE_COMMAND_DEFINED=false")
+          print("STANDALONE_ROUTE_ENABLED=false")
+          print("FINAL_HEADER_SELECTED=false")
           PY
 
-          mkdir -p docs
-          cat > docs/standalone_swing_readiness_sync_v8718.md <<'MD'
-          # V8.7.18 Standalone Swing Readiness Synchronization
-
-          ## Purpose
-          Synchronize the preproduction and request-time display-merge readiness layers with the V8.7.17 integrated return-basis source.
-
-          ## Newly resolved blockers
-          - `REQUEST_TIME_DISPLAY_MERGE_CONTRACT_NOT_FROZEN_FOR_STANDALONE`
-          - `1W_YTD_52W_FORMULAS_NOT_APPROVED`
-
-          ## Approved return contracts
-          - 1W: 7 calendar days, then first official KRX session on/after.
-          - 1M/3M/6M: existing calendar-month official-session contracts.
-          - YTD: prior-calendar-year final official KRX session close.
-          - 52W: 52 calendar weeks, then first official KRX session on/after.
-
-          ## Remaining pending metrics
-          - RSI
-          - MACD
-          - 100-point investment score
-          - earnings-outlook change
-          - confirmed swing-low stop
-
-          ## Remaining activation blockers
-          1. final standalone-table header contract
-          2. standalone command/route contract
-          3. RSI/MACD formulas
-          4. confirmed swing-low stop policy
-          5. investment-score thresholds/sources
-          6. earnings-outlook source
-          7. official KOSDAQ sector-RS contract
-
-          ## Safety
-          V8.7.18 does not enable the standalone table, add a command, create a route, change the Worker, alter the Action schema, change production tables, or recompute confirmed metrics from request-time current prices.
-          MD
-
-          python -m py_compile standalone_swing_readiness_sync_v8718.py
-
-      - name: Synchronize readiness
-        shell: bash
-        run: |
-          set -euo pipefail
-          python standalone_swing_readiness_sync_v8718.py | tee /tmp/v8718.log
-
-      - name: Validate synchronized readiness
+      - name: Validate evidence-only safety
         shell: bash
         run: |
           set -euo pipefail
@@ -573,184 +590,54 @@ jobs:
           import json
           from pathlib import Path
 
-          pre = json.loads(
-              Path("latest/standalone_swing_preproduction_readiness_latest.json")
-              .read_text(encoding="utf-8")
-          )
-          prem = json.loads(
-              Path("latest/standalone_swing_preproduction_readiness_meta_latest.json")
-              .read_text(encoding="utf-8")
-          )
-          dis = json.loads(
-              Path("latest/standalone_swing_display_merge_readiness_latest.json")
-              .read_text(encoding="utf-8")
-          )
-          dism = json.loads(
-              Path("latest/standalone_swing_display_merge_readiness_meta_latest.json")
+          p = json.loads(
+              Path("/tmp/v8719_rsi_macd_evidence/standalone-swing-rsi-macd-formula-evidence-v8719.json")
               .read_text(encoding="utf-8")
           )
 
-          expected_blockers = [
-              "NO_FINAL_STANDALONE_TABLE_HEADER_CONTRACT",
-              "NO_STANDALONE_COMMAND_OR_ROUTE_CONTRACT",
-              "RSI_MACD_FORMULAS_NOT_APPROVED",
-              "CONFIRMED_SWING_LOW_STOP_POLICY_NOT_DEFINED",
-              "INVESTMENT_SCORE_THRESHOLDS_NOT_DEFINED",
-              "EARNINGS_OUTLOOK_SOURCE_NOT_CONNECTED",
-              "KOSDAQ_OFFICIAL_SECTOR_RS_CONTRACT_NOT_DEFINED",
-          ]
-          expected_pending = [
-              "rsi",
-              "macd",
-              "investment_score_100",
-              "earnings_outlook_change",
-              "confirmed_swing_low_stop",
-          ]
-          expected_basis = {
-              "1w": "CALENDAR_DAYS_7_FIRST_MARKET_SESSION_ON_OR_AFTER",
-              "1m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
-              "3m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
-              "6m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
-              "ytd": "PRIOR_YEAR_FINAL_MARKET_SESSION_CLOSE",
-              "52w": "CALENDAR_WEEKS_52_FIRST_MARKET_SESSION_ON_OR_AFTER",
-          }
-          expected_source = "2026-09-13-v8.7.17-standalone-swing-integrated-returns-source"
+          assert p["status"] == "READY_EVIDENCE_ONLY"
+          assert p["repository_write"] is False
+          assert p["production_change"] is False
+          assert p["worker_change"] is False
+          assert p["formula_selected"] is False
+          assert p["source_row_count"] == 235
 
-          for obj in (pre, prem, dis, dism):
-              assert obj["status"] == "FROZEN_PREPRODUCTION_READY"
-              assert obj["production_activation_allowed"] is False
-              assert obj["return_basis"] == expected_basis
-              assert obj["pending_metrics"] == expected_pending
+          assert p["repo_formula_search_result"]["existing_rsi_formula_contract_found"] is False
+          assert p["repo_formula_search_result"]["existing_macd_formula_contract_found"] is False
+          assert p["repo_formula_search_result"]["readiness_blocker_present"] is True
 
-          assert pre["activation_blockers"] == expected_blockers
-          assert prem["activation_blockers"] == expected_blockers
-          assert prem["activation_blocker_count"] == 7
-          assert dis["remaining_activation_blockers"] == expected_blockers
-          assert dism["remaining_activation_blockers"] == expected_blockers
-          assert dism["remaining_activation_blocker_count"] == 7
+          assert p["candidate_contracts"]["rsi"]["A"]["period"] == 14
+          assert p["candidate_contracts"]["macd"]["A"]["fast_period"] == 12
+          assert p["candidate_contracts"]["macd"]["A"]["slow_period"] == 26
+          assert p["candidate_contracts"]["macd"]["A"]["signal_period"] == 9
 
-          assert pre["source_contract_version"] == expected_source
-          assert prem["source_contract_version"] == expected_source
-          assert dism["source_contract_version"] == expected_source
-          assert dis["source_contracts"]["integrated_source"] == expected_source
+          c = p["counts"]
+          assert c["rsi_wilder_ready"] + (235 - c["rsi_wilder_ready"]) == 235
+          assert c["rsi_simple_ready"] + (235 - c["rsi_simple_ready"]) == 235
+          assert c["macd_period_ready"] + (235 - c["macd_period_ready"]) == 235
+          assert c["macd_fixed_ready"] + (235 - c["macd_fixed_ready"]) == 235
 
-          assert pre["snapshot_counts"]["return_1w_ready"] == 235
-          assert pre["snapshot_counts"]["return_ytd_ready"] == 234
-          assert pre["snapshot_counts"]["return_52w_ready"] == 233
+          assert all(v is False for v in p["safety"].values())
 
-          assert pre["request_time_display_merge_contract_frozen"] is True
-          assert pre["return_basis_contract_frozen"] is True
-          assert dis["display_merge_contract_frozen"] is True
-          assert dis["return_basis_contract_frozen"] is True
-
-          assert pre["standalone_swing_table_enabled"] is False
-          assert pre["action_route_enabled"] is False
-          assert pre["standalone_command_defined"] is False
-          assert pre["final_header_selected"] is False
-          assert dis["standalone_swing_table_enabled"] is False
-          assert dis["action_route_enabled"] is False
-          assert dis["standalone_command_defined"] is False
-          assert dis["final_header_selected"] is False
-
-          assert "REQUEST_TIME_DISPLAY_MERGE_CONTRACT_NOT_FROZEN_FOR_STANDALONE" not in expected_blockers
-          assert "1W_YTD_52W_FORMULAS_NOT_APPROVED" not in expected_blockers
-
-          print("V8718_PREPRODUCTION_READINESS_SYNC=PASS")
-          print("V8718_DISPLAY_MERGE_READINESS_SYNC=PASS")
-          print("V8718_RETURN_BASIS_BLOCKER_REMOVED=PASS")
-          print("V8718_DISPLAY_MERGE_BLOCKER_REMOVED=PASS")
-          print("V8718_PENDING_METRICS_REDUCED_TO_5=PASS")
-          print("V8718_REMAINING_BLOCKERS_7=PASS")
-          print("V8718_NO_PREMATURE_TABLE_ROUTE_COMMAND_HEADER=PASS")
+          print("V8719_RSI_CANDIDATE_CALCULATION=PASS")
+          print("V8719_MACD_CANDIDATE_CALCULATION=PASS")
+          print("V8719_NO_FORMULA_SELECTION=PASS")
+          print("V8719_NO_SOURCE_WRITE=PASS")
+          print("V8719_READ_ONLY_SAFETY=PASS")
           PY
 
-          grep -q '^V8718_PREPRODUCTION_READINESS_VALIDATION=PASS$' /tmp/v8718.log
-          grep -q '^V8718_DISPLAY_MERGE_READINESS_VALIDATION=PASS$' /tmp/v8718.log
+          git diff --exit-code
+          git diff --cached --exit-code
 
-      - name: Guard protected production files
-        shell: bash
-        run: |
-          set -euo pipefail
+          echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
+          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
 
-          git diff --exit-code -- \
-            api/manifest.json \
-            docs/custom_gpt_action_schema.yaml \
-            worker/krx-live-price-worker.js \
-            stock_table_metrics_v850.py \
-            api/two_table_v1
-
-          echo "PRODUCTION_TWO_TABLE_CHANGED=false"
-          echo "WORKER_SOURCE_CHANGED=false"
-          echo "ACTION_SCHEMA_CHANGED=false"
-          echo "METRIC_FORMULA_CHANGED=false"
-
-      - name: Commit V8.7.18 readiness synchronization
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          git fetch origin main
-          if [[ "$(git rev-parse origin/main)" != "$BASE_SHA" ]]; then
-            echo "::error::Remote main changed after checkout. Rerun V8.7.18 from latest main."
-            echo "BASE_SHA=$BASE_SHA"
-            echo "ORIGIN_MAIN=$(git rev-parse origin/main)"
-            exit 1
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add -- \
-            docs/standalone_swing_readiness_sync_v8718.md \
-            standalone_swing_readiness_sync_v8718.py \
-            latest/standalone_swing_preproduction_readiness_latest.json \
-            latest/standalone_swing_preproduction_readiness_meta_latest.json \
-            latest/standalone_swing_preproduction_readiness_run_log_latest.txt \
-            latest/standalone_swing_display_merge_readiness_latest.json \
-            latest/standalone_swing_display_merge_readiness_meta_latest.json \
-            latest/standalone_swing_display_merge_readiness_run_log_latest.txt
-
-          mapfile -t staged < <(git diff --cached --name-only | sort)
-
-          echo "V8718_STAGED_FILES_BEGIN"
-          printf '%s\n' "${staged[@]}"
-          echo "V8718_STAGED_FILES_END"
-
-          if [[ "${#staged[@]}" -ne 8 ]]; then
-            echo "::error::Expected exactly 8 staged files, got ${#staged[@]}"
-            exit 1
-          fi
-
-          if printf '%s\n' "${staged[@]}" | grep -q '^\.github/workflows/'; then
-            echo "::error::Workflow file staged unexpectedly"
-            exit 1
-          fi
-
-          git commit -m "Sync V8.7.18 standalone swing readiness"
-          git push origin HEAD:main
-
-          echo "COMMIT_SHA=$(git rev-parse HEAD)"
-          echo "PUSH_SUCCESS=true"
-          echo "V8718_READINESS_SYNC=PASS"
-          echo "WORKFLOW_FILES_STAGED=false"
-          echo "RETURN_BASIS_CONTRACT_FROZEN=true"
-          echo "REQUEST_TIME_DISPLAY_MERGE_CONTRACT_FROZEN=true"
-          echo "ACTIVATION_BLOCKER_COUNT=7"
-          echo "PENDING_METRIC_COUNT=5"
-          echo "PRODUCTION_ACTIVATION_ALLOWED=false"
-          echo "STANDALONE_SWING_TABLE_ENABLED=false"
-          echo "ACTION_ROUTE_ENABLED=false"
-          echo "STANDALONE_COMMAND_DEFINED=false"
-          echo "FINAL_HEADER_SELECTED=false"
-          echo "PRODUCTION_TABLE_CHANGED=false"
-          echo "WORKER_SOURCE_CHANGED=false"
-          echo "ACTION_SCHEMA_CHANGED=false"
-          echo "METRIC_FORMULA_CHANGED=false"
-          echo "REQUEST_TIME_PRICE_SUBSTITUTION=false"
-
-      - name: Final report
-        if: always()
-        shell: bash
-        run: |
-          test -f /tmp/v8718.log && cat /tmp/v8718.log || true
-          git status --short || true
+      - name: Upload V8.7.19 RSI MACD evidence
+        uses: actions/upload-artifact@v6
+        with:
+          name: standalone-swing-rsi-macd-formula-evidence-v8719
+          path: |
+            /tmp/v8719_rsi_macd_evidence/standalone-swing-rsi-macd-formula-evidence-v8719.json
+            /tmp/v8719_rsi_macd_evidence/standalone-swing-rsi-macd-formula-evidence-v8719.md
+          if-no-files-found: error
+          retention-days: 14

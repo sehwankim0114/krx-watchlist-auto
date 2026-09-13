@@ -7,7 +7,7 @@ V8.8.0 승인 계약을 production에 쓰지 않고 현재 production 112종목�
 ## 안전장치
 
 - LIMITED 종목은 score_total=null
-- supply_status가 OK가 아니면 수급점수 확정 금지
+- supply_status=OK는 기존 등급을 사용하고, LIMITED라도 주의·경계·위험의 실제 부담 증거가 있으면 그 등급을 사용한다. LIMITED+없음은 완전 무부담으로 단정하지 않고 LIMITED를 유지한다.
 - EV/EBITDA·순현금은 정확한 원천만 사용
 - legacy_market_score 재환산 금지
 - api/two_table_v1 변경 금지

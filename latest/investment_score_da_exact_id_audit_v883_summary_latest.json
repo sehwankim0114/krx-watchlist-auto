@@ -1,0 +1,187 @@
+{
+  "version": "2026-09-13-v8.8.3-da-exact-id-audit",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "generated_at_kst": "2026-09-13T17:40:07+09:00",
+  "status": "AUDIT_ONLY",
+  "production_unique_tickers": 112,
+  "financial_sector_neutral_count": 15,
+  "nonfinancial_applicable_count": 97,
+  "status_counts": {
+    "FINANCIAL_SECTOR_NEUTRAL": 15,
+    "APPROVED_EXACT_READY": 14,
+    "NO_DA_CANDIDATE": 72,
+    "RAW_SOURCE_UNAVAILABLE": 10,
+    "UNAPPROVED_CANDIDATE_IDS_PRESENT": 1
+  },
+  "raw_source_mode_counts": {
+    "DIRECT": 92,
+    "UNAVAILABLE": 17,
+    "PREFERRED_COMMON:003490": 1,
+    "PREFERRED_COMMON:066570": 1,
+    "PREFERRED_COMMON:097950": 1
+  },
+  "approved_da_ids": [
+    "ifrs-full_AdjustmentsForAmortisationExpense",
+    "ifrs-full_AdjustmentsForDepreciationExpense"
+  ],
+  "approved_exact_ready_count": 14,
+  "unapproved_candidate_ids_present_count": 1,
+  "no_da_candidate_count": 72,
+  "raw_source_unavailable_count": 10,
+  "approved_exact_conflict_count": 0,
+  "candidate_id_frequency": [
+    {
+      "account_id": "ifrs-full_AdjustmentsForDepreciationExpense",
+      "classification": "APPROVED_V880",
+      "production_ticker_count": 18,
+      "raw_occurrence_count": 18,
+      "account_names": [
+        "감가상각비",
+        "감가상각비에 대한 조정",
+        "유형자산감가상각비"
+      ],
+      "sample_tickers": [
+        "000650",
+        "001420",
+        "002420",
+        "003490",
+        "003495",
+        "003550",
+        "005490",
+        "005820",
+        "008770",
+        "008930",
+        "012280",
+        "029780",
+        "036570",
+        "058730",
+        "072130",
+        "128940",
+        "278470",
+        "357250"
+      ]
+    },
+    {
+      "account_id": "ifrs-full_AdjustmentsForAmortisationExpense",
+      "classification": "APPROVED_V880",
+      "production_ticker_count": 13,
+      "raw_occurrence_count": 13,
+      "account_names": [
+        "무형자산상각비"
+      ],
+      "sample_tickers": [
+        "003490",
+        "003495",
+        "003550",
+        "005490",
+        "008770",
+        "008930",
+        "029780",
+        "036570",
+        "058730",
+        "072130",
+        "128940",
+        "138930",
+        "278470"
+      ]
+    },
+    {
+      "account_id": "dart_AdjustmentsForDepreciationRightofuseAssets",
+      "classification": "DART_STANDARD_UNAPPROVED",
+      "production_ticker_count": 3,
+      "raw_occurrence_count": 3,
+      "account_names": [
+        "사용권자산감가상각비",
+        "사용권자산상각비"
+      ],
+      "sample_tickers": [
+        "008770",
+        "029780",
+        "278470"
+      ]
+    },
+    {
+      "account_id": "dart_AdjustmentsForDepreciationInvestmentProperty",
+      "classification": "DART_STANDARD_UNAPPROVED",
+      "production_ticker_count": 2,
+      "raw_occurrence_count": 2,
+      "account_names": [
+        "투자부동산감가상각비"
+      ],
+      "sample_tickers": [
+        "005820",
+        "058730"
+      ]
+    },
+    {
+      "account_id": "ifrs-full_AdjustmentsForDepreciationAndAmortisationExpense",
+      "classification": "IFRS_STANDARD_UNAPPROVED",
+      "production_ticker_count": 2,
+      "raw_occurrence_count": 2,
+      "account_names": [
+        "감가상각비",
+        "감가상각비 및 상각비"
+      ],
+      "sample_tickers": [
+        "105560",
+        "138930"
+      ]
+    },
+    {
+      "account_id": "-표준계정코드 미사용-",
+      "classification": "CUSTOM_OR_UNSTANDARDIZED",
+      "production_ticker_count": 1,
+      "raw_occurrence_count": 1,
+      "account_names": [
+        "사용권자산감가상각비"
+      ],
+      "sample_tickers": [
+        "000650"
+      ]
+    },
+    {
+      "account_id": "dart_AdjustmentsForDepreciationLeasedAssets",
+      "classification": "DART_STANDARD_UNAPPROVED",
+      "production_ticker_count": 1,
+      "raw_occurrence_count": 1,
+      "account_names": [
+        "운용리스자산 감가상각비"
+      ],
+      "sample_tickers": [
+        "029780"
+      ]
+    },
+    {
+      "account_id": "ifrs-full_DepreciationAndAmortisationExpense",
+      "classification": "IFRS_STANDARD_UNAPPROVED",
+      "production_ticker_count": 1,
+      "raw_occurrence_count": 1,
+      "account_names": [
+        "감가상각비"
+      ],
+      "sample_tickers": [
+        "402340"
+      ]
+    },
+    {
+      "account_id": "ifrs-full_DepreciationExpense",
+      "classification": "IFRS_STANDARD_UNAPPROVED",
+      "production_ticker_count": 1,
+      "raw_occurrence_count": 1,
+      "account_names": [
+        "감가상각비"
+      ],
+      "sample_tickers": [
+        "017670"
+      ]
+    }
+  ],
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "policy_changed": false,
+    "new_da_id_approved": false,
+    "legacy_score_rescaled": false
+  },
+  "next_step": "REVIEW_DA_ID_EVIDENCE_BEFORE_ANY_POLICY_CHANGE"
+}

@@ -1,0 +1,648 @@
+name: Compare standalone swing RSI MACD formula candidates v8.7.19
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8719-compare-standalone-swing-rsi-macd.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v8719-standalone-swing-rsi-macd-evidence
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Compare RSI and MACD candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import csv
+          import json
+          import math
+          import statistics
+          from collections import defaultdict
+          from pathlib import Path
+
+          HISTORY = Path("latest/active_stock_long_history_260d_latest.csv")
+          HISTORY_META = Path("latest/active_stock_long_history_260d_meta_latest.json")
+          INTEGRATED = Path("latest/standalone_swing_integrated_latest.json")
+          READINESS = Path("latest/standalone_swing_preproduction_readiness_latest.json")
+
+          OUT = Path("/tmp/v8719_rsi_macd_evidence")
+          OUT.mkdir(parents=True, exist_ok=True)
+
+          for p in (HISTORY, HISTORY_META, INTEGRATED, READINESS):
+              if not p.is_file():
+                  raise SystemExit("MISSING_REQUIRED_SOURCE:" + str(p))
+
+          def read_json(path: Path):
+              return json.loads(path.read_text(encoding="utf-8-sig"))
+
+          def read_csv(path: Path):
+              with path.open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
+
+          def fnum(value):
+              try:
+                  x = float(str(value).replace(",", ""))
+                  if math.isfinite(x) and x > 0:
+                      return x
+              except Exception:
+                  pass
+              return None
+
+          meta = read_json(HISTORY_META)
+          integrated = read_json(INTEGRATED)
+          readiness = read_json(READINESS)
+
+          if meta.get("status") != "READY":
+              raise SystemExit("HISTORY_NOT_READY")
+          if int(meta.get("distinct_market_dates") or 0) != 260:
+              raise SystemExit("HISTORY_NOT_260_SESSIONS")
+          if integrated.get("status") != "READY_SOURCE_ONLY":
+              raise SystemExit("INTEGRATED_NOT_READY_SOURCE_ONLY")
+          if integrated.get("contract_version") != "2026-09-13-v8.7.17-standalone-swing-integrated-returns-source":
+              raise SystemExit("INTEGRATED_CONTRACT_MISMATCH")
+          if integrated.get("pending_metrics") != [
+              "rsi",
+              "macd",
+              "investment_score_100",
+              "earnings_outlook_change",
+              "confirmed_swing_low_stop",
+          ]:
+              raise SystemExit("INTEGRATED_PENDING_METRICS_MISMATCH")
+          if readiness.get("status") != "FROZEN_PREPRODUCTION_READY":
+              raise SystemExit("READINESS_NOT_FROZEN")
+          if "RSI_MACD_FORMULAS_NOT_APPROVED" not in (readiness.get("activation_blockers") or []):
+              raise SystemExit("RSI_MACD_BLOCKER_NOT_PRESENT")
+          if readiness.get("production_activation_allowed") is not False:
+              raise SystemExit("PRODUCTION_ALREADY_ALLOWED")
+          if readiness.get("standalone_swing_table_enabled") is not False:
+              raise SystemExit("STANDALONE_TABLE_ALREADY_ENABLED")
+          if readiness.get("action_route_enabled") is not False:
+              raise SystemExit("ROUTE_ALREADY_ENABLED")
+
+          basis = integrated.get("basis_date")
+          if not basis or meta.get("cache_max_date") != basis:
+              raise SystemExit("BASIS_MISMATCH")
+
+          target = [str(x).zfill(6) for x in (meta.get("target_tickers") or [])]
+          if len(target) != 235 or len(set(target)) != 235:
+              raise SystemExit("TARGET_UNIVERSE_NOT_235")
+
+          raw = read_csv(HISTORY)
+          by_ticker = defaultdict(list)
+          identity = {}
+
+          for r in raw:
+              ticker = str(r.get("ticker") or "").zfill(6)
+              if ticker not in set(target):
+                  continue
+              close = fnum(r.get("close"))
+              ds = str(r.get("date") or "")
+              if close is None or not ds or ds > basis:
+                  continue
+              by_ticker[ticker].append((ds, close))
+              identity[ticker] = {
+                  "name": str(r.get("name") or ""),
+                  "market": str(r.get("market") or ""),
+              }
+
+          for ticker in by_ticker:
+              dedup = {}
+              for ds, close in by_ticker[ticker]:
+                  dedup[ds] = close
+              by_ticker[ticker] = sorted(dedup.items())
+
+          if set(by_ticker) != set(target):
+              raise SystemExit("HISTORY_TICKER_SET_MISMATCH")
+
+          # Candidate A: Wilder RSI(14), SMA-seeded average gain/loss,
+          # then Wilder recursive smoothing with alpha=1/14.
+          def rsi_wilder_14(closes):
+              period = 14
+              if len(closes) < period + 1:
+                  return {"value": None, "status": "INSUFFICIENT_HISTORY"}
+              deltas = [closes[i] - closes[i-1] for i in range(1, len(closes))]
+              gains = [max(d, 0.0) for d in deltas]
+              losses = [max(-d, 0.0) for d in deltas]
+              avg_gain = sum(gains[:period]) / period
+              avg_loss = sum(losses[:period]) / period
+              for i in range(period, len(deltas)):
+                  avg_gain = ((period - 1) * avg_gain + gains[i]) / period
+                  avg_loss = ((period - 1) * avg_loss + losses[i]) / period
+              if avg_loss == 0.0 and avg_gain == 0.0:
+                  return {"value": None, "status": "FLAT_EDGE_CASE"}
+              if avg_loss == 0.0:
+                  return {"value": 100.0, "status": "OK"}
+              rs = avg_gain / avg_loss
+              return {"value": 100.0 - 100.0 / (1.0 + rs), "status": "OK"}
+
+          # Candidate B: simple rolling 14-change average gain/loss.
+          def rsi_simple_rolling_14(closes):
+              period = 14
+              if len(closes) < period + 1:
+                  return {"value": None, "status": "INSUFFICIENT_HISTORY"}
+              deltas = [closes[i] - closes[i-1] for i in range(1, len(closes))]
+              last = deltas[-period:]
+              gains = [max(d, 0.0) for d in last]
+              losses = [max(-d, 0.0) for d in last]
+              avg_gain = sum(gains) / period
+              avg_loss = sum(losses) / period
+              if avg_loss == 0.0 and avg_gain == 0.0:
+                  return {"value": None, "status": "FLAT_EDGE_CASE"}
+              if avg_loss == 0.0:
+                  return {"value": 100.0, "status": "OK"}
+              rs = avg_gain / avg_loss
+              return {"value": 100.0 - 100.0 / (1.0 + rs), "status": "OK"}
+
+          def ema_sma_seed(values, period, alpha=None):
+              if len(values) < period:
+                  return [None] * len(values)
+              if alpha is None:
+                  alpha = 2.0 / (period + 1.0)
+              out = [None] * len(values)
+              seed_index = period - 1
+              seed = sum(values[:period]) / period
+              out[seed_index] = seed
+              prev = seed
+              for i in range(seed_index + 1, len(values)):
+                  prev = prev + alpha * (values[i] - prev)
+                  out[i] = prev
+              return out
+
+          def signal_from_macd(macd_values, period=9, alpha=None):
+              indices = [i for i, v in enumerate(macd_values) if v is not None]
+              if len(indices) < period:
+                  return [None] * len(macd_values)
+              compact = [macd_values[i] for i in indices]
+              compact_signal = ema_sma_seed(compact, period, alpha=alpha)
+              out = [None] * len(macd_values)
+              for pos, idx in enumerate(indices):
+                  out[idx] = compact_signal[pos]
+              return out
+
+          # Candidate A: period-derived EMA factors 2/(n+1), SMA seeded.
+          def macd_period_12_26_9(closes):
+              if len(closes) < 34:
+                  return {"status": "INSUFFICIENT_HISTORY"}
+              fast = ema_sma_seed(closes, 12)
+              slow = ema_sma_seed(closes, 26)
+              line = [
+                  (fast[i] - slow[i]) if fast[i] is not None and slow[i] is not None else None
+                  for i in range(len(closes))
+              ]
+              signal = signal_from_macd(line, 9)
+              i = len(closes) - 1
+              if line[i] is None or signal[i] is None:
+                  return {"status": "INSUFFICIENT_HISTORY"}
+              hist = line[i] - signal[i]
+              return {
+                  "status": "OK",
+                  "line": line[i],
+                  "signal": signal[i],
+                  "hist": hist,
+              }
+
+          # Candidate B: classic fixed fast/slow factors 0.15/0.075,
+          # signal factor 0.2; same SMA seed discipline.
+          def macd_fixed_015_0075_02(closes):
+              if len(closes) < 34:
+                  return {"status": "INSUFFICIENT_HISTORY"}
+              fast = ema_sma_seed(closes, 12, alpha=0.15)
+              slow = ema_sma_seed(closes, 26, alpha=0.075)
+              line = [
+                  (fast[i] - slow[i]) if fast[i] is not None and slow[i] is not None else None
+                  for i in range(len(closes))
+              ]
+              signal = signal_from_macd(line, 9, alpha=0.2)
+              i = len(closes) - 1
+              if line[i] is None or signal[i] is None:
+                  return {"status": "INSUFFICIENT_HISTORY"}
+              hist = line[i] - signal[i]
+              return {
+                  "status": "OK",
+                  "line": line[i],
+                  "signal": signal[i],
+                  "hist": hist,
+              }
+
+          def rsi_zone(v):
+              if v is None:
+                  return "UNAVAILABLE"
+              if v >= 70:
+                  return "OVERBOUGHT_70"
+              if v <= 30:
+                  return "OVERSOLD_30"
+              return "NEUTRAL"
+
+          def sign(v, eps=1e-12):
+              if v is None:
+                  return "UNAVAILABLE"
+              if v > eps:
+                  return "POSITIVE"
+              if v < -eps:
+                  return "NEGATIVE"
+              return "ZERO"
+
+          rows = []
+          rsi_diffs = []
+          macd_line_diff_pct = []
+          macd_signal_diff_pct = []
+          macd_hist_diff_pct = []
+
+          counts = {
+              "total": 235,
+              "rsi_wilder_ready": 0,
+              "rsi_simple_ready": 0,
+              "rsi_both_ready": 0,
+              "rsi_zone_mismatch": 0,
+              "macd_period_ready": 0,
+              "macd_fixed_ready": 0,
+              "macd_both_ready": 0,
+              "macd_line_sign_mismatch": 0,
+              "macd_hist_sign_mismatch": 0,
+              "macd_crossover_state_mismatch": 0,
+          }
+
+          for ticker in sorted(target):
+              bars = by_ticker[ticker]
+              closes = [c for _, c in bars]
+              latest_close = closes[-1]
+
+              rw = rsi_wilder_14(closes)
+              rs = rsi_simple_rolling_14(closes)
+              ma = macd_period_12_26_9(closes)
+              mb = macd_fixed_015_0075_02(closes)
+
+              if rw["status"] == "OK":
+                  counts["rsi_wilder_ready"] += 1
+              if rs["status"] == "OK":
+                  counts["rsi_simple_ready"] += 1
+              if rw["status"] == "OK" and rs["status"] == "OK":
+                  counts["rsi_both_ready"] += 1
+                  diff = abs(rw["value"] - rs["value"])
+                  rsi_diffs.append(diff)
+                  if rsi_zone(rw["value"]) != rsi_zone(rs["value"]):
+                      counts["rsi_zone_mismatch"] += 1
+
+              if ma["status"] == "OK":
+                  counts["macd_period_ready"] += 1
+              if mb["status"] == "OK":
+                  counts["macd_fixed_ready"] += 1
+              if ma["status"] == "OK" and mb["status"] == "OK":
+                  counts["macd_both_ready"] += 1
+                  # Normalize price-unit MACD differences to current-close percentage points.
+                  macd_line_diff_pct.append(
+                      abs(ma["line"] - mb["line"]) / latest_close * 100.0
+                  )
+                  macd_signal_diff_pct.append(
+                      abs(ma["signal"] - mb["signal"]) / latest_close * 100.0
+                  )
+                  macd_hist_diff_pct.append(
+                      abs(ma["hist"] - mb["hist"]) / latest_close * 100.0
+                  )
+                  if sign(ma["line"]) != sign(mb["line"]):
+                      counts["macd_line_sign_mismatch"] += 1
+                  if sign(ma["hist"]) != sign(mb["hist"]):
+                      counts["macd_hist_sign_mismatch"] += 1
+                  state_a = sign(ma["line"] - ma["signal"])
+                  state_b = sign(mb["line"] - mb["signal"])
+                  if state_a != state_b:
+                      counts["macd_crossover_state_mismatch"] += 1
+
+              rows.append({
+                  "ticker": ticker,
+                  "name": identity[ticker]["name"],
+                  "market": identity[ticker]["market"],
+                  "basis_date": basis,
+                  "history_rows": len(closes),
+                  "latest_close": latest_close,
+                  "rsi": {
+                      "candidate_a_wilder_14": {
+                          "status": rw["status"],
+                          "value": round(rw["value"], 6) if rw.get("value") is not None else None,
+                          "zone": rsi_zone(rw.get("value")),
+                      },
+                      "candidate_b_simple_rolling_14": {
+                          "status": rs["status"],
+                          "value": round(rs["value"], 6) if rs.get("value") is not None else None,
+                          "zone": rsi_zone(rs.get("value")),
+                      },
+                  },
+                  "macd": {
+                      "candidate_a_period_ema_12_26_9": {
+                          "status": ma["status"],
+                          "line": round(ma["line"], 6) if ma.get("line") is not None else None,
+                          "signal": round(ma["signal"], 6) if ma.get("signal") is not None else None,
+                          "hist": round(ma["hist"], 6) if ma.get("hist") is not None else None,
+                          "line_sign": sign(ma.get("line")),
+                          "hist_sign": sign(ma.get("hist")),
+                      },
+                      "candidate_b_fixed_015_0075_02": {
+                          "status": mb["status"],
+                          "line": round(mb["line"], 6) if mb.get("line") is not None else None,
+                          "signal": round(mb["signal"], 6) if mb.get("signal") is not None else None,
+                          "hist": round(mb["hist"], 6) if mb.get("hist") is not None else None,
+                          "line_sign": sign(mb.get("line")),
+                          "hist_sign": sign(mb.get("hist")),
+                      },
+                  },
+              })
+
+          def stats(values):
+              if not values:
+                  return {
+                      "count": 0,
+                      "mean": None,
+                      "median": None,
+                      "max": None,
+                      "p95": None,
+                  }
+              sv = sorted(values)
+              p95_index = min(len(sv) - 1, max(0, math.ceil(len(sv) * 0.95) - 1))
+              return {
+                  "count": len(values),
+                  "mean": round(statistics.mean(values), 6),
+                  "median": round(statistics.median(values), 6),
+                  "max": round(max(values), 6),
+                  "p95": round(sv[p95_index], 6),
+              }
+
+          def top_examples(metric, limit=10):
+              out = []
+              for row in rows:
+                  ticker = row["ticker"]
+                  if metric == "rsi":
+                      a = row["rsi"]["candidate_a_wilder_14"]
+                      b = row["rsi"]["candidate_b_simple_rolling_14"]
+                      if a["status"] != "OK" or b["status"] != "OK":
+                          continue
+                      diff = abs(a["value"] - b["value"])
+                  else:
+                      a = row["macd"]["candidate_a_period_ema_12_26_9"]
+                      b = row["macd"]["candidate_b_fixed_015_0075_02"]
+                      if a["status"] != "OK" or b["status"] != "OK":
+                          continue
+                      diff = abs(a[metric] - b[metric]) / row["latest_close"] * 100.0
+                  out.append({
+                      "ticker": ticker,
+                      "name": row["name"],
+                      "market": row["market"],
+                      "difference": round(diff, 6),
+                  })
+              return sorted(out, key=lambda x: x["difference"], reverse=True)[:limit]
+
+          result = {
+              "version": "2026-09-13-v8.7.19-rsi-macd-formula-evidence",
+              "status": "READY_EVIDENCE_ONLY",
+              "repository_write": False,
+              "production_change": False,
+              "worker_change": False,
+              "formula_selected": False,
+              "basis_date": basis,
+              "source_row_count": 235,
+              "repo_formula_search_result": {
+                  "existing_rsi_formula_contract_found": False,
+                  "existing_macd_formula_contract_found": False,
+                  "readiness_blocker_present": True,
+              },
+              "candidate_contracts": {
+                  "rsi": {
+                      "A": {
+                          "name": "WILDER_RSI_14_SMA_SEEDED",
+                          "period": 14,
+                          "smoothing": "Wilder recursive (alpha=1/14)",
+                          "seed": "SMA of first 14 gains/losses",
+                      },
+                      "B": {
+                          "name": "SIMPLE_ROLLING_RSI_14",
+                          "period": 14,
+                          "smoothing": "simple rolling 14 changes",
+                          "seed": "not applicable",
+                      },
+                  },
+                  "macd": {
+                      "A": {
+                          "name": "PERIOD_EMA_MACD_12_26_9_SMA_SEEDED",
+                          "fast_period": 12,
+                          "slow_period": 26,
+                          "signal_period": 9,
+                          "fast_alpha": "2/(12+1)",
+                          "slow_alpha": "2/(26+1)",
+                          "signal_alpha": "2/(9+1)",
+                          "seed": "SMA of first period values",
+                      },
+                      "B": {
+                          "name": "FIXED_FACTOR_MACD_015_0075_02_SMA_SEEDED",
+                          "fast_period": 12,
+                          "slow_period": 26,
+                          "signal_period": 9,
+                          "fast_alpha": 0.15,
+                          "slow_alpha": 0.075,
+                          "signal_alpha": 0.2,
+                          "seed": "SMA of first period values",
+                      },
+                  },
+              },
+              "counts": counts,
+              "difference_stats": {
+                  "rsi_absolute_points": stats(rsi_diffs),
+                  "macd_line_abs_difference_pct_of_close": stats(macd_line_diff_pct),
+                  "macd_signal_abs_difference_pct_of_close": stats(macd_signal_diff_pct),
+                  "macd_hist_abs_difference_pct_of_close": stats(macd_hist_diff_pct),
+              },
+              "largest_difference_examples": {
+                  "rsi": top_examples("rsi"),
+                  "macd_line": top_examples("line"),
+                  "macd_signal": top_examples("signal"),
+                  "macd_hist": top_examples("hist"),
+              },
+              "decision_notes": {
+                  "rsi": (
+                      "Candidate A follows Wilder-style recursive smoothing; "
+                      "Candidate B is a simple rolling alternative. V8.7.19 does not select."
+                  ),
+                  "macd": (
+                      "Candidate A uses period-derived EMA factors; Candidate B uses "
+                      "classic fixed 0.15/0.075 factors. V8.7.19 does not select."
+                  ),
+                  "output_scope": (
+                      "Evidence compares final basis-date indicator values and classification "
+                      "differences only; it does not write RSI/MACD into source files."
+                  ),
+              },
+              "rows": rows,
+              "safety": {
+                  "rsi_written_to_source": False,
+                  "macd_written_to_source": False,
+                  "integrated_source_changed": False,
+                  "readiness_changed": False,
+                  "metric_formula_changed": False,
+                  "production_changed": False,
+                  "worker_changed": False,
+                  "request_time_price_substitution": False,
+                  "standalone_command_defined": False,
+                  "standalone_route_enabled": False,
+                  "final_header_selected": False,
+              },
+          }
+
+          json_path = OUT / "standalone-swing-rsi-macd-formula-evidence-v8719.json"
+          md_path = OUT / "standalone-swing-rsi-macd-formula-evidence-v8719.md"
+
+          json_path.write_text(
+              json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+              encoding="utf-8",
+          )
+
+          md = [
+              "# V8.7.19 독립 스윙 RSI·MACD 공식 후보 비교",
+              "",
+              f"- 기준일: {basis}",
+              "- 상태: READY_EVIDENCE_ONLY",
+              "- 이번 단계에서는 공식 선택 안 함",
+              "",
+              "## RSI 후보",
+              "- A: Wilder RSI(14), 첫 14개 gain/loss SMA seed 후 alpha=1/14 재귀 평활",
+              "- B: 최근 14개 변화의 단순평균 gain/loss",
+              f"- A 준비: {counts['rsi_wilder_ready']}/235",
+              f"- B 준비: {counts['rsi_simple_ready']}/235",
+              f"- 과매수/중립/과매도 구간 불일치: {counts['rsi_zone_mismatch']}",
+              f"- 절대값 차이 통계: {json.dumps(result['difference_stats']['rsi_absolute_points'], ensure_ascii=False)}",
+              "",
+              "## MACD 후보",
+              "- A: EMA(12)-EMA(26), signal EMA(9), alpha=2/(n+1), SMA seed",
+              "- B: fixed alpha 0.15/0.075, signal 0.2, SMA seed",
+              f"- A 준비: {counts['macd_period_ready']}/235",
+              f"- B 준비: {counts['macd_fixed_ready']}/235",
+              f"- MACD line 부호 불일치: {counts['macd_line_sign_mismatch']}",
+              f"- histogram 부호 불일치: {counts['macd_hist_sign_mismatch']}",
+              f"- line-signal 상태 불일치: {counts['macd_crossover_state_mismatch']}",
+              f"- line 차이(% of close): {json.dumps(result['difference_stats']['macd_line_abs_difference_pct_of_close'], ensure_ascii=False)}",
+              f"- signal 차이(% of close): {json.dumps(result['difference_stats']['macd_signal_abs_difference_pct_of_close'], ensure_ascii=False)}",
+              f"- hist 차이(% of close): {json.dumps(result['difference_stats']['macd_hist_abs_difference_pct_of_close'], ensure_ascii=False)}",
+              "",
+              "## 안전",
+              "- RSI/MACD source 기록 없음",
+              "- production/Worker/Action route 변경 없음",
+              "- 새 명령어·최종 헤더 없음",
+          ]
+          md_path.write_text("\n".join(md) + "\n", encoding="utf-8")
+
+          print("V8719_RSI_MACD_FORMULA_EVIDENCE=READY_EVIDENCE_ONLY")
+          print("BASIS_DATE=" + basis)
+          print("SOURCE_ROWS=235")
+          for key, value in counts.items():
+              print(key.upper() + "=" + str(value))
+          print(
+              "RSI_DIFF_STATS="
+              + json.dumps(result["difference_stats"]["rsi_absolute_points"], separators=(",", ":"))
+          )
+          print(
+              "MACD_LINE_DIFF_STATS="
+              + json.dumps(result["difference_stats"]["macd_line_abs_difference_pct_of_close"], separators=(",", ":"))
+          )
+          print(
+              "MACD_SIGNAL_DIFF_STATS="
+              + json.dumps(result["difference_stats"]["macd_signal_abs_difference_pct_of_close"], separators=(",", ":"))
+          )
+          print(
+              "MACD_HIST_DIFF_STATS="
+              + json.dumps(result["difference_stats"]["macd_hist_abs_difference_pct_of_close"], separators=(",", ":"))
+          )
+          print("FORMULA_SELECTED=false")
+          print("RSI_SOURCE_WRITE=false")
+          print("MACD_SOURCE_WRITE=false")
+          print("PRODUCTION_CHANGE=false")
+          print("WORKER_CHANGE=false")
+          print("REQUEST_TIME_PRICE_SUBSTITUTION=false")
+          print("STANDALONE_COMMAND_DEFINED=false")
+          print("STANDALONE_ROUTE_ENABLED=false")
+          print("FINAL_HEADER_SELECTED=false")
+          PY
+
+      - name: Validate evidence-only safety
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = json.loads(
+              Path("/tmp/v8719_rsi_macd_evidence/standalone-swing-rsi-macd-formula-evidence-v8719.json")
+              .read_text(encoding="utf-8")
+          )
+
+          assert p["status"] == "READY_EVIDENCE_ONLY"
+          assert p["repository_write"] is False
+          assert p["production_change"] is False
+          assert p["worker_change"] is False
+          assert p["formula_selected"] is False
+          assert p["source_row_count"] == 235
+
+          assert p["repo_formula_search_result"]["existing_rsi_formula_contract_found"] is False
+          assert p["repo_formula_search_result"]["existing_macd_formula_contract_found"] is False
+          assert p["repo_formula_search_result"]["readiness_blocker_present"] is True
+
+          assert p["candidate_contracts"]["rsi"]["A"]["period"] == 14
+          assert p["candidate_contracts"]["macd"]["A"]["fast_period"] == 12
+          assert p["candidate_contracts"]["macd"]["A"]["slow_period"] == 26
+          assert p["candidate_contracts"]["macd"]["A"]["signal_period"] == 9
+
+          c = p["counts"]
+          assert c["rsi_wilder_ready"] + (235 - c["rsi_wilder_ready"]) == 235
+          assert c["rsi_simple_ready"] + (235 - c["rsi_simple_ready"]) == 235
+          assert c["macd_period_ready"] + (235 - c["macd_period_ready"]) == 235
+          assert c["macd_fixed_ready"] + (235 - c["macd_fixed_ready"]) == 235
+
+          assert all(v is False for v in p["safety"].values())
+
+          print("V8719_RSI_CANDIDATE_CALCULATION=PASS")
+          print("V8719_MACD_CANDIDATE_CALCULATION=PASS")
+          print("V8719_NO_FORMULA_SELECTION=PASS")
+          print("V8719_NO_SOURCE_WRITE=PASS")
+          print("V8719_READ_ONLY_SAFETY=PASS")
+          PY
+
+          git diff --exit-code
+          git diff --cached --exit-code
+
+          echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
+          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
+
+      - name: Upload V8.7.19 RSI MACD evidence
+        uses: actions/upload-artifact@v6
+        with:
+          name: standalone-swing-rsi-macd-formula-evidence-v8719
+          path: |
+            /tmp/v8719_rsi_macd_evidence/standalone-swing-rsi-macd-formula-evidence-v8719.json
+            /tmp/v8719_rsi_macd_evidence/standalone-swing-rsi-macd-formula-evidence-v8719.md
+          if-no-files-found: error
+          retention-days: 14

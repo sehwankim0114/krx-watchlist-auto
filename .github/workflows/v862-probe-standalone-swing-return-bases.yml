@@ -1,70 +1,79 @@
-name: Correct standalone swing return-basis evidence v8.7.16
+name: Release standalone swing return basis source v8.7.17
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: v8716-standalone-swing-return-basis-corrected-evidence
+  group: v8717-standalone-swing-return-basis-source-release
   cancel-in-progress: false
 
 jobs:
-  evidence:
+  release:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout latest main
         uses: actions/checkout@v6
         with:
           ref: main
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
-      - name: Build corrected return-basis evidence from official KRX 260-session cache
+      - name: Write V8.7.17 source builders and contract
         shell: bash
         run: |
           set -euo pipefail
 
-          python - <<'PY'
+          cat > standalone_swing_extended_returns_v8717.py <<'PY'
+          #!/usr/bin/env python3
+          # -*- coding: utf-8 -*-
           from __future__ import annotations
 
           import csv
+          import hashlib
           import json
-          import statistics
           from collections import defaultdict
           from datetime import date, timedelta
           from pathlib import Path
 
-          from stock_table_metrics_v850 import normalize_bars, period_return
+          from stock_table_metrics_v850 import (
+              VERSION as METRIC_VERSION,
+              normalize_bars,
+              period_return,
+          )
 
-          HISTORY = Path("latest/active_stock_long_history_260d_latest.csv")
+          SCRIPT_VERSION = "standalone_swing_extended_returns_v8717.py v1.0.0-source-only"
+          CONTRACT_VERSION = "2026-09-13-v8.7.17-standalone-swing-return-basis-source"
+
+          HISTORY_CSV = Path("latest/active_stock_long_history_260d_latest.csv")
           HISTORY_META = Path("latest/active_stock_long_history_260d_meta_latest.json")
-          HISTORY_LOG = Path("latest/active_stock_long_history_260d_run_log_latest.txt")
           HISTORY_BUILDER = Path("active_stock_long_history_builder_v857.py")
-          INDEX = Path("latest/official_index_history_latest.csv")
-          EXTENDED = Path("latest/standalone_swing_extended_returns_latest.json")
+          INDEX_CSV = Path("latest/official_index_history_latest.csv")
+          KOSPI_PROD = Path("api/two_table_v1/kospi.json")
+          SWING_META = Path("latest/standalone_swing_source_meta_latest.json")
+          OLD_EXTENDED = Path("latest/standalone_swing_extended_returns_latest.json")
 
-          OUT = Path("/tmp/v8716_return_basis_corrected_evidence")
-          OUT.mkdir(parents=True, exist_ok=True)
+          OUT_JSON = Path("latest/standalone_swing_extended_returns_latest.json")
+          OUT_CSV = Path("latest/standalone_swing_extended_returns_latest.csv")
+          OUT_META = Path("latest/standalone_swing_extended_returns_meta_latest.json")
+          OUT_LOG = Path("latest/standalone_swing_extended_returns_run_log_latest.txt")
 
-          for p in (
-              HISTORY,
-              HISTORY_META,
-              HISTORY_LOG,
-              HISTORY_BUILDER,
-              INDEX,
-              EXTENDED,
-              Path("stock_table_metrics_v850.py"),
-          ):
-              if not p.is_file():
-                  raise SystemExit("MISSING_REQUIRED_SOURCE:" + str(p))
+          RETURN_BASIS = {
+              "1w": "CALENDAR_DAYS_7_FIRST_MARKET_SESSION_ON_OR_AFTER",
+              "1m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
+              "3m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
+              "6m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
+              "ytd": "PRIOR_YEAR_FINAL_MARKET_SESSION_CLOSE",
+              "52w": "CALENDAR_WEEKS_52_FIRST_MARKET_SESSION_ON_OR_AFTER",
+          }
 
           def read_json(path: Path):
               return json.loads(path.read_text(encoding="utf-8-sig"))
@@ -73,220 +82,20 @@ jobs:
               with path.open(encoding="utf-8-sig", newline="") as f:
                   return list(csv.DictReader(f))
 
-          meta = read_json(HISTORY_META)
-          extended = read_json(EXTENDED)
+          def sha256(path: Path):
+              h = hashlib.sha256()
+              with path.open("rb") as f:
+                  for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                      h.update(chunk)
+              return h.hexdigest()
 
-          if meta.get("status") != "READY":
-              raise SystemExit("LONG_HISTORY_NOT_READY")
-          if meta.get("source_only") is not True:
-              raise SystemExit("LONG_HISTORY_NOT_SOURCE_ONLY")
-          if meta.get("request_time_price_eligible") is not False:
-              raise SystemExit("LONG_HISTORY_REQUEST_TIME_GUARD_FAILED")
-          if meta.get("contract_version") != "2026-09-11-v8.5.7-compact-active-stock-260-session-history":
-              raise SystemExit("LONG_HISTORY_CONTRACT_MISMATCH")
-          if int(meta.get("distinct_market_dates") or 0) != 260:
-              raise SystemExit("LONG_HISTORY_NOT_260_SESSIONS")
-
-          builder_text = HISTORY_BUILDER.read_text(encoding="utf-8")
-          required_builder_markers = [
-              "data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
-              "data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd",
-              "fetch_official_day",
-              "Initial bootstrap or repair: walk backward",
-              "until the cache contains 260 distinct official market sessions",
-          ]
-          missing_builder_markers = [
-              x for x in required_builder_markers if x not in builder_text
-          ]
-          if missing_builder_markers:
-              raise SystemExit(
-                  "OFFICIAL_KRX_BUILDER_PROVENANCE_MISSING:"
-                  + json.dumps(missing_builder_markers, ensure_ascii=False)
+          def write_json(path: Path, value):
+              path.write_text(
+                  json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+                  encoding="utf-8",
               )
 
-          if extended.get("status") != "READY_SOURCE_ONLY":
-              raise SystemExit("EXTENDED_RETURN_SOURCE_NOT_READY")
-          if extended.get("source_only") is not True:
-              raise SystemExit("EXTENDED_RETURN_NOT_SOURCE_ONLY")
-          if extended.get("standalone_swing_table_enabled") is not False:
-              raise SystemExit("STANDALONE_TABLE_ALREADY_ENABLED_UNEXPECTEDLY")
-          if extended.get("request_time_price_eligible") is not False:
-              raise SystemExit("EXTENDED_RETURN_REQUEST_TIME_GUARD_FAILED")
-
-          basis = str(extended.get("basis_date") or "")
-          if not basis:
-              raise SystemExit("BASIS_DATE_EMPTY")
-          if str(meta.get("cache_max_date") or "") != basis:
-              raise SystemExit("BASIS_DATE_MISMATCH")
-
-          approved_basis = extended.get("return_basis") or {}
-          if approved_basis.get("6m") != "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER":
-              raise SystemExit("APPROVED_6M_CONTRACT_MISMATCH")
-          if any(approved_basis.get(k) is not None for k in ("1w", "ytd", "52w")):
-              raise SystemExit("PENDING_RETURN_ALREADY_SELECTED_UNEXPECTEDLY")
-
-          target = [str(x).zfill(6) for x in (meta.get("target_tickers") or [])]
-          target_set = set(target)
-          if len(target) != int(meta.get("target_ticker_count") or 0):
-              raise SystemExit("TARGET_META_COUNT_MISMATCH")
-          if len(target) != 235 or len(target_set) != 235:
-              raise SystemExit("TARGET_UNIVERSE_NOT_235")
-
-          history = read_csv(HISTORY)
-          by_ticker = defaultdict(list)
-          identity = {}
-
-          for row in history:
-              ticker = str(row.get("ticker") or "").zfill(6)
-              if ticker in target_set:
-                  by_ticker[ticker].append(row)
-                  identity[ticker] = {
-                      "name": str(row.get("name") or ""),
-                      "market": str(row.get("market") or ""),
-                  }
-
-          if set(by_ticker) != target_set:
-              missing = sorted(target_set - set(by_ticker))
-              raise SystemExit(
-                  "TARGET_HISTORY_MISSING:" + ",".join(missing[:30])
-              )
-
-          # The compact history builder defines this cache as the latest
-          # 260 distinct official KRX market sessions. Use the shared date set,
-          # never a ticker's first available post-listing date, as the resolver.
-          sessions = sorted({
-              str(row.get("date") or "")
-              for row in history
-              if str(row.get("date") or "")
-          })
-
-          if len(sessions) != 260:
-              raise SystemExit(f"CACHE_SESSION_COUNT_MISMATCH:{len(sessions)}")
-          if sessions[0] != str(meta.get("cache_min_date") or ""):
-              raise SystemExit("CACHE_MIN_DATE_META_MISMATCH")
-          if sessions[-1] != basis:
-              raise SystemExit("CACHE_MAX_DATE_MISMATCH")
-
-          # Cross-check the recent part of the 260-session set against the
-          # independent official index-history cache. KOSPI and KOSDAQ must
-          # have the same session dates, and those dates must exactly equal
-          # the stock-history sessions over the index cache's available span.
-          index_rows = read_csv(INDEX)
-          index_dates_by_market = {}
-          for market in ("KOSPI", "KOSDAQ"):
-              ds = sorted({
-                  str(r.get("date") or "")
-                  for r in index_rows
-                  if str(r.get("market") or "") == market
-                  and str(r.get("date") or "") <= basis
-              })
-              if not ds:
-                  raise SystemExit(f"INDEX_HISTORY_EMPTY:{market}")
-              index_dates_by_market[market] = ds
-
-          if index_dates_by_market["KOSPI"] != index_dates_by_market["KOSDAQ"]:
-              raise SystemExit("INDEX_MARKET_SESSION_CALENDARS_DIFFER")
-
-          index_sessions = index_dates_by_market["KOSPI"]
-          index_min = index_sessions[0]
-          index_max = index_sessions[-1]
-          if index_max != basis:
-              raise SystemExit("INDEX_HISTORY_NOT_CURRENT_TO_BASIS")
-
-          cache_overlap = [s for s in sessions if index_min <= s <= index_max]
-          if cache_overlap != index_sessions:
-              missing_in_cache = sorted(set(index_sessions) - set(cache_overlap))
-              extra_in_cache = sorted(set(cache_overlap) - set(index_sessions))
-              raise SystemExit(
-                  "OFFICIAL_INDEX_OVERLAP_MISMATCH:"
-                  + json.dumps(
-                      {
-                          "missing_in_cache": missing_in_cache[:20],
-                          "extra_in_cache": extra_in_cache[:20],
-                      },
-                      ensure_ascii=False,
-                  )
-              )
-
-          # Regression gate: the same official 260-session resolver must
-          # exactly reproduce the already-approved/stored 6M result for all
-          # 235 standalone-source rows.
-          stored_6m = {
-              str(r.get("ticker") or "").zfill(6): r.get("return_6m")
-              for r in (extended.get("rows") or [])
-          }
-          if set(stored_6m) != target_set:
-              raise SystemExit("STORED_6M_TICKER_SET_MISMATCH")
-
-          sixm_exact = 0
-          sixm_mismatches = []
-
-          normalized = {}
-          for ticker in sorted(target):
-              bars = normalize_bars(by_ticker[ticker], basis)
-              normalized[ticker] = bars
-              actual = period_return(bars, basis, 6, sessions)
-              expected = stored_6m[ticker]
-              if actual == expected:
-                  sixm_exact += 1
-              else:
-                  sixm_mismatches.append({
-                      "ticker": ticker,
-                      "name": identity[ticker]["name"],
-                      "expected": expected,
-                      "actual": actual,
-                  })
-
-          if sixm_exact != 235 or sixm_mismatches:
-              raise SystemExit(
-                  "APPROVED_6M_REGRESSION_FAILED:"
-                  + json.dumps(sixm_mismatches, ensure_ascii=False)[:7000]
-              )
-
-          basis_d = date.fromisoformat(basis)
-          basis_index = sessions.index(basis)
-
-          def first_session_on_or_after(target_day: date):
-              target_iso = target_day.isoformat()
-              eligible = [s for s in sessions if target_iso <= s <= basis]
-              return eligible[0] if eligible else None
-
-          def n_sessions_before_basis(n: int):
-              i = basis_index - n
-              return sessions[i] if i >= 0 else None
-
-          current_year_sessions = [
-              s for s in sessions if date.fromisoformat(s).year == basis_d.year
-          ]
-          prior_year_sessions = [
-              s for s in sessions if date.fromisoformat(s).year == basis_d.year - 1
-          ]
-
-          if not current_year_sessions:
-              raise SystemExit("CURRENT_YEAR_SESSIONS_EMPTY")
-          if not prior_year_sessions:
-              raise SystemExit("PRIOR_YEAR_SESSIONS_EMPTY")
-
-          start_dates = {
-              "1w_calendar_7d": first_session_on_or_after(
-                  basis_d - timedelta(days=7)
-              ),
-              "1w_5_prior_sessions": n_sessions_before_basis(5),
-              "ytd_first_current_year_session": current_year_sessions[0],
-              "ytd_prior_year_final_session": prior_year_sessions[-1],
-              "52w_calendar": first_session_on_or_after(
-                  basis_d - timedelta(weeks=52)
-              ),
-              "52w_252_prior_sessions": n_sessions_before_basis(252),
-          }
-
-          if any(v is None for v in start_dates.values()):
-              raise SystemExit(
-                  "START_SESSION_RESOLUTION_FAILED:"
-                  + json.dumps(start_dates, ensure_ascii=False)
-              )
-
-          def stock_return_at_exact_start(bars, start_date):
+          def exact_return(bars, basis, start_date):
               prices = {b["date"]: b["close"] for b in bars}
               if basis not in prices:
                   return {
@@ -308,382 +117,850 @@ jobs:
                   "status": "OK",
               }
 
-          specs = {
-              "1w_calendar": start_dates["1w_calendar_7d"],
-              "1w_5session": start_dates["1w_5_prior_sessions"],
-              "ytd_first_session": start_dates["ytd_first_current_year_session"],
-              "ytd_prior_year_close": start_dates["ytd_prior_year_final_session"],
-              "52w_calendar": start_dates["52w_calendar"],
-              "52w_252session": start_dates["52w_252_prior_sessions"],
-          }
+          def main():
+              required = [
+                  HISTORY_CSV,
+                  HISTORY_META,
+                  HISTORY_BUILDER,
+                  INDEX_CSV,
+                  KOSPI_PROD,
+                  SWING_META,
+                  OLD_EXTENDED,
+                  Path("stock_table_metrics_v850.py"),
+              ]
+              for p in required:
+                  if not p.is_file():
+                      raise SystemExit("MISSING_REQUIRED_SOURCE:" + str(p))
 
-          counts = {key: 0 for key in specs}
-          missing = {key: [] for key in specs}
-          rows = []
+              hist_meta = read_json(HISTORY_META)
+              swing_meta = read_json(SWING_META)
+              prod = read_json(KOSPI_PROD)
+              old_extended = read_json(OLD_EXTENDED)
 
-          diff_1w = []
-          diff_ytd = []
-          diff_52w = []
+              if hist_meta.get("status") != "READY":
+                  raise SystemExit("LONG_HISTORY_NOT_READY")
+              if hist_meta.get("source_only") is not True:
+                  raise SystemExit("LONG_HISTORY_NOT_SOURCE_ONLY")
+              if hist_meta.get("request_time_price_eligible") is not False:
+                  raise SystemExit("LONG_HISTORY_REQUEST_TIME_GUARD_FAILED")
+              if hist_meta.get("contract_version") != "2026-09-11-v8.5.7-compact-active-stock-260-session-history":
+                  raise SystemExit("LONG_HISTORY_CONTRACT_MISMATCH")
+              if int(hist_meta.get("distinct_market_dates") or 0) != 260:
+                  raise SystemExit("LONG_HISTORY_NOT_260_SESSIONS")
 
-          for ticker in sorted(target):
-              bars = normalized[ticker]
-              res = {
-                  key: stock_return_at_exact_start(bars, start)
-                  for key, start in specs.items()
+              if swing_meta.get("status") != "READY_SOURCE_ONLY":
+                  raise SystemExit("SWING_SOURCE_NOT_READY")
+              if swing_meta.get("standalone_swing_table_enabled") is not False:
+                  raise SystemExit("SWING_TABLE_ALREADY_ENABLED_UNEXPECTEDLY")
+
+              if old_extended.get("status") != "READY_SOURCE_ONLY":
+                  raise SystemExit("OLD_EXTENDED_SOURCE_NOT_READY")
+              if old_extended.get("return_basis", {}).get("6m") != "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER":
+                  raise SystemExit("OLD_6M_CONTRACT_MISMATCH")
+
+              builder_text = HISTORY_BUILDER.read_text(encoding="utf-8")
+              for marker in (
+                  "data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
+                  "data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd",
+                  "until the cache contains 260 distinct official market sessions",
+              ):
+                  if marker not in builder_text:
+                      raise SystemExit("OFFICIAL_KRX_HISTORY_PROVENANCE_MISSING:" + marker)
+
+              basis = str(hist_meta.get("cache_max_date") or "")
+              if not basis:
+                  raise SystemExit("BASIS_EMPTY")
+              if swing_meta.get("basis_date") != basis:
+                  raise SystemExit("SWING_SOURCE_BASIS_MISMATCH")
+              if prod.get("basis_date") != basis:
+                  raise SystemExit("PRODUCTION_BASIS_MISMATCH")
+              if prod.get("status") != "READY":
+                  raise SystemExit("PRODUCTION_NOT_READY")
+              if old_extended.get("basis_date") != basis:
+                  raise SystemExit("OLD_EXTENDED_BASIS_MISMATCH")
+
+              target = [str(x).zfill(6) for x in hist_meta.get("target_tickers", [])]
+              target_set = set(target)
+              if len(target) != 235 or len(target_set) != 235:
+                  raise SystemExit("TARGET_UNIVERSE_NOT_235")
+
+              history = read_csv(HISTORY_CSV)
+              by_ticker = defaultdict(list)
+              identity = {}
+              for row in history:
+                  ticker = str(row.get("ticker") or "").zfill(6)
+                  if ticker in target_set:
+                      by_ticker[ticker].append(row)
+                      identity[ticker] = {
+                          "name": str(row.get("name") or ""),
+                          "market": str(row.get("market") or ""),
+                      }
+
+              if set(by_ticker) != target_set:
+                  raise SystemExit(
+                      "TARGET_HISTORY_MISSING:"
+                      + ",".join(sorted(target_set - set(by_ticker))[:30])
+                  )
+
+              sessions = sorted({
+                  str(row.get("date") or "")
+                  for row in history
+                  if str(row.get("date") or "")
+              })
+              if len(sessions) != 260:
+                  raise SystemExit(f"CACHE_SESSION_COUNT_MISMATCH:{len(sessions)}")
+              if sessions[0] != str(hist_meta.get("cache_min_date") or ""):
+                  raise SystemExit("CACHE_MIN_DATE_META_MISMATCH")
+              if sessions[-1] != basis:
+                  raise SystemExit("CACHE_MAX_DATE_MISMATCH")
+
+              # Independent recent-calendar cross-check against official KOSPI/KOSDAQ index cache.
+              index_rows = read_csv(INDEX_CSV)
+              index_dates = {}
+              for market in ("KOSPI", "KOSDAQ"):
+                  ds = sorted({
+                      str(r.get("date") or "")
+                      for r in index_rows
+                      if str(r.get("market") or "") == market
+                      and str(r.get("date") or "") <= basis
+                  })
+                  if not ds:
+                      raise SystemExit("INDEX_HISTORY_EMPTY:" + market)
+                  index_dates[market] = ds
+
+              if index_dates["KOSPI"] != index_dates["KOSDAQ"]:
+                  raise SystemExit("INDEX_MARKET_SESSION_CALENDARS_DIFFER")
+              if index_dates["KOSPI"][-1] != basis:
+                  raise SystemExit("INDEX_HISTORY_NOT_CURRENT_TO_BASIS")
+
+              idx_min = index_dates["KOSPI"][0]
+              overlap = [s for s in sessions if idx_min <= s <= basis]
+              if overlap != index_dates["KOSPI"]:
+                  raise SystemExit("OFFICIAL_INDEX_OVERLAP_MISMATCH")
+
+              normalized = {
+                  ticker: normalize_bars(by_ticker[ticker], basis)
+                  for ticker in sorted(target)
               }
 
-              for key, value in res.items():
-                  if value["status"] == "OK":
-                      counts[key] += 1
+              # Production 1M/3M regression remains exact.
+              prod_rows = prod.get("rows") or []
+              if len(prod_rows) != 30:
+                  raise SystemExit("PRODUCTION_KOSPI_NOT_30")
+              regression_matches = 0
+              regression_mismatches = []
+              for row in prod_rows:
+                  ticker = str(row.get("ticker") or "").zfill(6)
+                  expected = (row.get("metrics") or {}).get("returns") or {}
+                  actual = {
+                      "1": period_return(normalized[ticker], basis, 1, sessions),
+                      "3": period_return(normalized[ticker], basis, 3, sessions),
+                  }
+                  if actual == {"1": expected.get("1"), "3": expected.get("3")}:
+                      regression_matches += 1
                   else:
-                      missing[key].append({
+                      regression_mismatches.append({
                           "ticker": ticker,
-                          "name": identity[ticker]["name"],
-                          "market": identity[ticker]["market"],
-                          "history_rows": len(bars),
-                          "history_min_date": (
-                              bars[0]["date"] if bars else None
-                          ),
-                          "intended_start_date": value["start_date"],
-                          "status": value["status"],
+                          "expected": {"1": expected.get("1"), "3": expected.get("3")},
+                          "actual": actual,
+                      })
+              if regression_matches != 30 or regression_mismatches:
+                  raise SystemExit(
+                      "PRODUCTION_1M_3M_REGRESSION_FAILED:"
+                      + json.dumps(regression_mismatches, ensure_ascii=False)[:6000]
+                  )
+
+              # Existing approved 6M source must be reproduced exactly for all 235.
+              old_6m = {
+                  str(r.get("ticker") or "").zfill(6): r.get("return_6m")
+                  for r in (old_extended.get("rows") or [])
+              }
+              if set(old_6m) != target_set:
+                  raise SystemExit("OLD_6M_TICKER_SET_MISMATCH")
+
+              old_6m_exact = 0
+              for ticker in sorted(target):
+                  actual = period_return(normalized[ticker], basis, 6, sessions)
+                  if actual == old_6m[ticker]:
+                      old_6m_exact += 1
+              if old_6m_exact != 235:
+                  raise SystemExit(f"OLD_6M_REGRESSION_FAILED:{old_6m_exact}/235")
+
+              basis_d = date.fromisoformat(basis)
+
+              def first_session_on_or_after(target_day: date):
+                  target_iso = target_day.isoformat()
+                  eligible = [s for s in sessions if target_iso <= s <= basis]
+                  return eligible[0] if eligible else None
+
+              prior_year_sessions = [
+                  s for s in sessions if date.fromisoformat(s).year == basis_d.year - 1
+              ]
+              if not prior_year_sessions:
+                  raise SystemExit("PRIOR_YEAR_SESSIONS_EMPTY")
+
+              start_1w = first_session_on_or_after(basis_d - timedelta(days=7))
+              start_ytd = prior_year_sessions[-1]
+              start_52w = first_session_on_or_after(basis_d - timedelta(weeks=52))
+              if not all((start_1w, start_ytd, start_52w)):
+                  raise SystemExit("RETURN_START_DATE_RESOLUTION_FAILED")
+
+              rows = []
+              counts = {"1w": 0, "6m": 0, "ytd": 0, "52w": 0}
+              missing = {"1w": [], "6m": [], "ytd": [], "52w": []}
+
+              for ticker in sorted(target):
+                  bars = normalized[ticker]
+                  ret1w = exact_return(bars, basis, start_1w)
+                  ret6m = period_return(bars, basis, 6, sessions)
+                  retytd = exact_return(bars, basis, start_ytd)
+                  ret52w = exact_return(bars, basis, start_52w)
+
+                  values = {
+                      "1w": ret1w,
+                      "6m": ret6m,
+                      "ytd": retytd,
+                      "52w": ret52w,
+                  }
+                  for key, value in values.items():
+                      if value.get("status") == "OK":
+                          counts[key] += 1
+                      else:
+                          missing[key].append({
+                              "ticker": ticker,
+                              "name": identity[ticker]["name"],
+                              "market": identity[ticker]["market"],
+                              "history_rows": len(bars),
+                              "history_min_date": bars[0]["date"] if bars else None,
+                              "start_date": value.get("start_date"),
+                              "status": value.get("status"),
+                          })
+
+                  rows.append({
+                      "ticker": ticker,
+                      "name": identity[ticker]["name"],
+                      "market": identity[ticker]["market"],
+                      "basis_date": basis,
+                      "return_1w": ret1w,
+                      "return_6m": ret6m,
+                      "return_ytd": retytd,
+                      "return_52w": ret52w,
+                      "pending_reason": {
+                          "return_1w": None if ret1w.get("status") == "OK" else ret1w.get("status"),
+                          "return_ytd": None if retytd.get("status") == "OK" else retytd.get("status"),
+                          "return_52w": None if ret52w.get("status") == "OK" else ret52w.get("status"),
+                      },
+                  })
+
+              if counts != {"1w": 235, "6m": 234, "ytd": 234, "52w": 233}:
+                  raise SystemExit("UNEXPECTED_RETURN_READY_COUNTS:" + json.dumps(counts))
+
+              expected_missing = {
+                  "1w": [],
+                  "6m": ["439960"],
+                  "ytd": ["439960"],
+                  "52w": ["217590", "439960"],
+              }
+              actual_missing = {
+                  key: sorted(x["ticker"] for x in items)
+                  for key, items in missing.items()
+              }
+              if actual_missing != expected_missing:
+                  raise SystemExit(
+                      "UNEXPECTED_RETURN_MISSING_SETS:"
+                      + json.dumps(actual_missing, ensure_ascii=False)
+                  )
+
+              payload = {
+                  "contract_version": CONTRACT_VERSION,
+                  "script_version": SCRIPT_VERSION,
+                  "status": "READY_SOURCE_ONLY",
+                  "source_only": True,
+                  "standalone_swing_table_enabled": False,
+                  "action_route_enabled": False,
+                  "request_time_price_eligible": False,
+                  "basis_date": basis,
+                  "metric_contract_version": METRIC_VERSION,
+                  "return_basis": RETURN_BASIS,
+                  "return_start_dates": {
+                      "1w": start_1w,
+                      "ytd": start_ytd,
+                      "52w": start_52w,
+                  },
+                  "row_count": len(rows),
+                  "return_ready_count": counts,
+                  "return_missing_count": {
+                      key: len(items) for key, items in missing.items()
+                  },
+                  "return_missing": missing,
+                  "production_1m_3m_regression_exact_matches": regression_matches,
+                  "previous_approved_6m_regression_exact_matches": old_6m_exact,
+                  "official_session_contract": {
+                      "source": str(HISTORY_CSV),
+                      "session_count": len(sessions),
+                      "min_date": sessions[0],
+                      "max_date": sessions[-1],
+                      "recent_index_crosscheck_min_date": idx_min,
+                      "recent_index_crosscheck_exact": True,
+                      "post_listing_start_substitution": False,
+                  },
+                  "rows": rows,
+                  "safety": {
+                      "return_1w_calculated": True,
+                      "return_6m_calculated": True,
+                      "return_ytd_calculated": True,
+                      "return_52w_calculated": True,
+                      "rsi_calculated": False,
+                      "macd_calculated": False,
+                      "investment_score_100_calculated": False,
+                      "earnings_outlook_change_calculated": False,
+                      "confirmed_swing_low_stop_calculated": False,
+                      "core_metric_formula_changed": False,
+                      "production_table_changed": False,
+                      "worker_changed": False,
+                      "request_time_price_substitution": False,
+                      "new_command_defined": False,
+                      "route_enabled": False,
+                  },
+                  "source_sha256": {str(p): sha256(p) for p in required},
+              }
+              write_json(OUT_JSON, payload)
+
+              flat_fields = [
+                  "basis_date", "market", "ticker", "name",
+                  "return_1w_pct", "return_1w_start_date", "return_1w_status",
+                  "return_6m_pct", "return_6m_start_date", "return_6m_status",
+                  "return_ytd_pct", "return_ytd_start_date", "return_ytd_status",
+                  "return_52w_pct", "return_52w_start_date", "return_52w_status",
+              ]
+              with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+                  w = csv.DictWriter(f, fieldnames=flat_fields)
+                  w.writeheader()
+                  for r in rows:
+                      w.writerow({
+                          "basis_date": basis,
+                          "market": r["market"],
+                          "ticker": r["ticker"],
+                          "name": r["name"],
+                          "return_1w_pct": r["return_1w"].get("pct"),
+                          "return_1w_start_date": r["return_1w"].get("start_date"),
+                          "return_1w_status": r["return_1w"].get("status"),
+                          "return_6m_pct": r["return_6m"].get("pct"),
+                          "return_6m_start_date": r["return_6m"].get("start_date"),
+                          "return_6m_status": r["return_6m"].get("status"),
+                          "return_ytd_pct": r["return_ytd"].get("pct"),
+                          "return_ytd_start_date": r["return_ytd"].get("start_date"),
+                          "return_ytd_status": r["return_ytd"].get("status"),
+                          "return_52w_pct": r["return_52w"].get("pct"),
+                          "return_52w_start_date": r["return_52w"].get("start_date"),
+                          "return_52w_status": r["return_52w"].get("status"),
                       })
 
-              if (
-                  res["1w_calendar"]["status"] == "OK"
-                  and res["1w_5session"]["status"] == "OK"
-              ):
-                  diff_1w.append(
-                      abs(
-                          res["1w_calendar"]["pct"]
-                          - res["1w_5session"]["pct"]
-                      )
-                  )
-
-              if (
-                  res["ytd_first_session"]["status"] == "OK"
-                  and res["ytd_prior_year_close"]["status"] == "OK"
-              ):
-                  diff_ytd.append(
-                      abs(
-                          res["ytd_first_session"]["pct"]
-                          - res["ytd_prior_year_close"]["pct"]
-                      )
-                  )
-
-              if (
-                  res["52w_calendar"]["status"] == "OK"
-                  and res["52w_252session"]["status"] == "OK"
-              ):
-                  diff_52w.append(
-                      abs(
-                          res["52w_calendar"]["pct"]
-                          - res["52w_252session"]["pct"]
-                      )
-                  )
-
-              rows.append({
-                  "ticker": ticker,
-                  "name": identity[ticker]["name"],
-                  "market": identity[ticker]["market"],
+              meta = {
+                  "contract_version": CONTRACT_VERSION,
+                  "script_version": SCRIPT_VERSION,
+                  "status": "READY_SOURCE_ONLY",
+                  "source_only": True,
+                  "standalone_swing_table_enabled": False,
+                  "action_route_enabled": False,
+                  "request_time_price_eligible": False,
                   "basis_date": basis,
-                  "candidates": res,
-              })
-
-          def diff_stats(values):
-              if not values:
-                  return {
-                      "count": 0,
-                      "mean_abs_pp": None,
-                      "median_abs_pp": None,
-                      "max_abs_pp": None,
-                  }
-              return {
-                  "count": len(values),
-                  "mean_abs_pp": round(statistics.mean(values), 4),
-                  "median_abs_pp": round(statistics.median(values), 4),
-                  "max_abs_pp": round(max(values), 4),
+                  "target_ticker_count": len(target),
+                  "return_basis": RETURN_BASIS,
+                  "return_start_dates": payload["return_start_dates"],
+                  "return_ready_count": counts,
+                  "return_missing_count": payload["return_missing_count"],
+                  "return_missing": missing,
+                  "production_1m_3m_regression_exact_matches": regression_matches,
+                  "previous_approved_6m_regression_exact_matches": old_6m_exact,
+                  "pending_returns": [],
+                  "safety": payload["safety"],
+                  "source_sha256": payload["source_sha256"],
               }
+              write_json(OUT_META, meta)
 
-          # Add largest-difference examples for diagnosis, but do not select.
-          def largest_examples(a_key, b_key, limit=10):
-              examples = []
-              for row in rows:
-                  a = row["candidates"][a_key]
-                  b = row["candidates"][b_key]
-                  if a["status"] != "OK" or b["status"] != "OK":
-                      continue
-                  examples.append({
-                      "ticker": row["ticker"],
-                      "name": row["name"],
-                      "market": row["market"],
-                      "a_pct": a["pct"],
-                      "b_pct": b["pct"],
-                      "abs_diff_pp": round(abs(a["pct"] - b["pct"]), 4),
-                  })
-              return sorted(
-                  examples,
-                  key=lambda x: x["abs_diff_pp"],
-                  reverse=True,
-              )[:limit]
-
-          result = {
-              "version": "2026-09-13-v8.7.16-corrected-return-basis-evidence",
-              "status": "READY_EVIDENCE_ONLY",
-              "source_only": True,
-              "formula_selected": False,
-              "repository_write": False,
-              "production_change": False,
-              "worker_change": False,
-              "action_route_enabled": False,
-              "standalone_command_defined": False,
-              "final_header_selected": False,
-              "basis_date": basis,
-              "official_krx_session_source": {
-                  "cache": str(HISTORY),
-                  "builder": str(HISTORY_BUILDER),
-                  "builder_contract": meta.get("contract_version"),
-                  "session_count": len(sessions),
-                  "min_date": sessions[0],
-                  "max_date": sessions[-1],
-                  "provenance": (
-                      "V8.5.7 compact history: recent official normalized "
-                      "universe history plus KRX OpenAPI date-by-date "
-                      "official backfill to 260 distinct market sessions"
-                  ),
-                  "recent_index_crosscheck": {
-                      "source": str(INDEX),
-                      "min_date": index_min,
-                      "max_date": index_max,
-                      "session_count": len(index_sessions),
-                      "kospi_kosdaq_calendar_equal": True,
-                      "cache_overlap_exact_match": True,
-                  },
-              },
-              "approved_6m_regression_exact_matches": sixm_exact,
-              "start_dates": start_dates,
-              "candidate_ready_counts": counts,
-              "candidate_missing": missing,
-              "difference_stats": {
-                  "1w_abs_return_difference_pp": diff_stats(diff_1w),
-                  "ytd_abs_return_difference_pp": diff_stats(diff_ytd),
-                  "52w_abs_return_difference_pp": diff_stats(diff_52w),
-              },
-              "largest_difference_examples": {
-                  "1w": largest_examples("1w_calendar", "1w_5session"),
-                  "ytd": largest_examples(
-                      "ytd_first_session", "ytd_prior_year_close"
-                  ),
-                  "52w": largest_examples(
-                      "52w_calendar", "52w_252session"
-                  ),
-              },
-              "candidate_semantics": {
-                  "1w_calendar": (
-                      "basis_date minus 7 calendar days, then first official "
-                      "KRX market session on/after"
-                  ),
-                  "1w_5session": (
-                      "close exactly 5 official KRX sessions before basis"
-                  ),
-                  "ytd_first_session": (
-                      "close on first official KRX market session of basis year"
-                  ),
-                  "ytd_prior_year_close": (
-                      "close on final official KRX market session of prior year"
-                  ),
-                  "52w_calendar": (
-                      "basis_date minus 52 calendar weeks, then first official "
-                      "KRX market session on/after"
-                  ),
-                  "52w_252session": (
-                      "close exactly 252 official KRX sessions before basis"
-                  ),
-              },
-              "v8714_v8715_correction": {
-                  "v8714_52w_calendar_235_coverage_usable": False,
-                  "reason_v8714": (
-                      "per-ticker first-available bar could substitute an IPO "
-                      "date for the intended global start session"
-                  ),
-                  "v8715_completed": False,
-                  "reason_v8715": (
-                      "official_index_history_latest.csv begins too late for "
-                      "YTD/prior-year and 52W start resolution"
-                  ),
-                  "v8716_resolver": (
-                      "shared official KRX 260-session cache date set; exact "
-                      "start date required per ticker; no post-listing fallback"
-                  ),
-              },
-              "rows": rows,
-              "safety": {
-                  "return_1w_written": False,
-                  "return_ytd_written": False,
-                  "return_52w_written": False,
-                  "extended_return_source_changed": False,
-                  "integrated_source_changed": False,
-                  "metric_formula_changed": False,
-                  "production_changed": False,
-                  "worker_changed": False,
-                  "request_time_price_substitution": False,
-                  "new_command_defined": False,
-                  "route_enabled": False,
-              },
-          }
-
-          out_json = OUT / "standalone-swing-return-basis-corrected-evidence-v8716.json"
-          out_md = OUT / "standalone-swing-return-basis-corrected-evidence-v8716.md"
-
-          out_json.write_text(
-              json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False)
-              + "\n",
-              encoding="utf-8",
-          )
-
-          md = [
-              "# V8.7.16 독립 스윙 수익률 기준 교정 증거",
-              "",
-              f"- 기준일: {basis}",
-              "- 상태: READY_EVIDENCE_ONLY",
-              "- 공식 선택: 아직 하지 않음",
-              "",
-              "## 공식 거래일 출처",
-              (
-                  f"- V8.5.7 KRX 공식 260-session 캐시: "
-                  f"{sessions[0]} ~ {sessions[-1]} / {len(sessions)}거래일"
-              ),
-              (
-                  f"- 공식 지수 캐시 교차검증: {index_min} ~ {index_max} / "
-                  f"{len(index_sessions)}거래일 / 날짜집합 정확히 일치"
-              ),
-              f"- 기존 승인 6M 회귀 일치: {sixm_exact}/235",
-              "",
-              "## 후보 시작일",
-          ]
-
-          for key, value in start_dates.items():
-              md.append(f"- {key}: {value}")
-
-          md += [
-              "",
-              "## 후보별 계산 가능 종목",
-          ]
-          for key, value in counts.items():
-              md.append(f"- {key}: {value}/235")
-
-          md += [
-              "",
-              "## 후보 간 절대 수익률 차이(%p)",
-              (
-                  "- 1W: "
-                  + json.dumps(
-                      result["difference_stats"]["1w_abs_return_difference_pp"],
-                      ensure_ascii=False,
-                  )
-              ),
-              (
-                  "- YTD: "
-                  + json.dumps(
-                      result["difference_stats"]["ytd_abs_return_difference_pp"],
-                      ensure_ascii=False,
-                  )
-              ),
-              (
-                  "- 52W: "
-                  + json.dumps(
-                      result["difference_stats"]["52w_abs_return_difference_pp"],
-                      ensure_ascii=False,
-                  )
-              ),
-              "",
-              "## 자료부족",
-          ]
-
-          for key in specs:
-              ids = [
-                  f"{r['name']}({r['ticker']})"
-                  for r in missing[key]
+              log = [
+                  "V8717_EXTENDED_RETURN_SOURCE_STATUS=READY_SOURCE_ONLY",
+                  f"BASIS_DATE={basis}",
+                  f"TARGET_TICKERS={len(target)}",
+                  f"RETURN_1W_START_DATE={start_1w}",
+                  f"RETURN_YTD_START_DATE={start_ytd}",
+                  f"RETURN_52W_START_DATE={start_52w}",
+                  f"RETURN_1W_READY={counts['1w']}",
+                  f"RETURN_6M_READY={counts['6m']}",
+                  f"RETURN_YTD_READY={counts['ytd']}",
+                  f"RETURN_52W_READY={counts['52w']}",
+                  "RETURN_1W_MISSING=NONE",
+                  "RETURN_6M_MISSING=439960",
+                  "RETURN_YTD_MISSING=439960",
+                  "RETURN_52W_MISSING=217590,439960",
+                  f"PRODUCTION_1M_3M_REGRESSION_EXACT_MATCHES={regression_matches}",
+                  f"PREVIOUS_APPROVED_6M_REGRESSION_EXACT_MATCHES={old_6m_exact}",
+                  "RETURN_1W_CONTRACT=CALENDAR_DAYS_7_FIRST_MARKET_SESSION_ON_OR_AFTER",
+                  "RETURN_YTD_CONTRACT=PRIOR_YEAR_FINAL_MARKET_SESSION_CLOSE",
+                  "RETURN_52W_CONTRACT=CALENDAR_WEEKS_52_FIRST_MARKET_SESSION_ON_OR_AFTER",
+                  "POST_LISTING_START_SUBSTITUTION=false",
+                  "STANDALONE_SWING_TABLE_ENABLED=false",
+                  "ACTION_ROUTE_ENABLED=false",
+                  "PRODUCTION_TABLE_CHANGED=false",
+                  "WORKER_CHANGED=false",
+                  "REQUEST_TIME_PRICE_SUBSTITUTION=false",
+                  "NEW_COMMAND_DEFINED=false",
+                  "V8717_EXTENDED_RETURN_SOURCE_VALIDATION=PASS",
               ]
-              md.append(
-                  f"- {key}: "
-                  + (", ".join(ids) if ids else "없음")
-              )
+              OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+              print("\n".join(log))
 
-          md += [
-              "",
-              "## 안전",
-              "- 1W·YTD·52W 공식을 아직 선택하지 않음.",
-              "- 결과를 source/production/Worker에 기록하지 않음.",
-              "- 신규 명령어·route·최종 헤더를 만들지 않음.",
-              "- 요청시점 현재가를 공식 종가 대신 사용하지 않음.",
-          ]
-
-          out_md.write_text("\n".join(md) + "\n", encoding="utf-8")
-
-          print("V8716_CORRECTED_RETURN_BASIS_EVIDENCE=READY_EVIDENCE_ONLY")
-          print("BASIS_DATE=" + basis)
-          print("OFFICIAL_KRX_CACHE_SESSIONS=" + str(len(sessions)))
-          print("OFFICIAL_KRX_CACHE_MIN_DATE=" + sessions[0])
-          print("OFFICIAL_KRX_CACHE_MAX_DATE=" + sessions[-1])
-          print("INDEX_OVERLAP_MIN_DATE=" + index_min)
-          print("INDEX_OVERLAP_MAX_DATE=" + index_max)
-          print("INDEX_OVERLAP_SESSIONS=" + str(len(index_sessions)))
-          print("INDEX_OVERLAP_EXACT_MATCH=true")
-          print("APPROVED_6M_REGRESSION_EXACT_MATCHES=" + str(sixm_exact))
-
-          for key, value in start_dates.items():
-              print("START_" + key.upper() + "=" + value)
-
-          for key, value in counts.items():
-              print("READY_" + key.upper() + "=" + str(value))
-              missing_tickers = ",".join(
-                  sorted(r["ticker"] for r in missing[key])
-              )
-              print(
-                  "MISSING_" + key.upper() + "="
-                  + (missing_tickers if missing_tickers else "NONE")
-              )
-
-          print(
-              "DIFF_1W="
-              + json.dumps(
-                  result["difference_stats"]["1w_abs_return_difference_pp"],
-                  ensure_ascii=False,
-                  separators=(",", ":"),
-              )
-          )
-          print(
-              "DIFF_YTD="
-              + json.dumps(
-                  result["difference_stats"]["ytd_abs_return_difference_pp"],
-                  ensure_ascii=False,
-                  separators=(",", ":"),
-              )
-          )
-          print(
-              "DIFF_52W="
-              + json.dumps(
-                  result["difference_stats"]["52w_abs_return_difference_pp"],
-                  ensure_ascii=False,
-                  separators=(",", ":"),
-              )
-          )
-
-          print("V8714_52W_COVERAGE_EVIDENCE_USABLE=false")
-          print("V8715_FAILURE_CLASSIFIED=INDEX_CACHE_RANGE_TOO_SHORT")
-          print("FORMULA_SELECTED=false")
-          print("RETURN_1W_SOURCE_WRITE=false")
-          print("RETURN_YTD_SOURCE_WRITE=false")
-          print("RETURN_52W_SOURCE_WRITE=false")
-          print("PRODUCTION_CHANGE=false")
-          print("WORKER_CHANGE=false")
-          print("REQUEST_TIME_PRICE_SUBSTITUTION=false")
-          print("STANDALONE_COMMAND_DEFINED=false")
-          print("STANDALONE_ROUTE_ENABLED=false")
-          print("FINAL_HEADER_SELECTED=false")
+          if __name__ == "__main__":
+              main()
           PY
 
-      - name: Validate corrected evidence safety
+          cat > standalone_swing_integrated_v8717.py <<'PY'
+          #!/usr/bin/env python3
+          # -*- coding: utf-8 -*-
+          from __future__ import annotations
+
+          import csv
+          import hashlib
+          import json
+          from pathlib import Path
+
+          SCRIPT_VERSION = "standalone_swing_integrated_v8717.py v1.0.0-source-only"
+          CONTRACT_VERSION = "2026-09-13-v8.7.17-standalone-swing-integrated-returns-source"
+          EXTENDED_CONTRACT = "2026-09-13-v8.7.17-standalone-swing-return-basis-source"
+
+          SWING = Path("latest/standalone_swing_source_latest.json")
+          EXTENDED = Path("latest/standalone_swing_extended_returns_latest.json")
+          SECTOR_RS = Path("latest/standalone_swing_sector_rs_latest.json")
+          GLOSSARY = Path("latest/stock_table_metric_glossary_latest.json")
+
+          OUT_JSON = Path("latest/standalone_swing_integrated_latest.json")
+          OUT_CSV = Path("latest/standalone_swing_integrated_latest.csv")
+          OUT_META = Path("latest/standalone_swing_integrated_meta_latest.json")
+          OUT_LOG = Path("latest/standalone_swing_integrated_run_log_latest.txt")
+
+          PENDING_KEYS = [
+              "rsi",
+              "macd",
+              "investment_score_100",
+              "earnings_outlook_change",
+              "confirmed_swing_low_stop",
+          ]
+
+          def read_json(path: Path):
+              return json.loads(path.read_text(encoding="utf-8-sig"))
+
+          def write_json(path: Path, value):
+              path.write_text(
+                  json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+                  encoding="utf-8",
+              )
+
+          def sha256(path: Path):
+              h = hashlib.sha256()
+              with path.open("rb") as f:
+                  for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                      h.update(chunk)
+              return h.hexdigest()
+
+          def main():
+              for p in (SWING, EXTENDED, SECTOR_RS, GLOSSARY):
+                  if not p.is_file():
+                      raise SystemExit("MISSING_REQUIRED_SOURCE:" + str(p))
+
+              swing = read_json(SWING)
+              extended = read_json(EXTENDED)
+              sector = read_json(SECTOR_RS)
+              glossary = read_json(GLOSSARY)
+
+              for label, payload in (
+                  ("SWING", swing),
+                  ("EXTENDED", extended),
+                  ("SECTOR_RS", sector),
+              ):
+                  if payload.get("status") != "READY_SOURCE_ONLY":
+                      raise SystemExit(f"{label}_SOURCE_NOT_READY")
+                  if payload.get("source_only") is not True:
+                      raise SystemExit(f"{label}_NOT_SOURCE_ONLY")
+                  if payload.get("standalone_swing_table_enabled") is not False:
+                      raise SystemExit(f"{label}_TABLE_ALREADY_ENABLED")
+
+              if extended.get("contract_version") != EXTENDED_CONTRACT:
+                  raise SystemExit("EXTENDED_CONTRACT_MISMATCH")
+              if extended.get("action_route_enabled") is not False:
+                  raise SystemExit("EXTENDED_ROUTE_ENABLED_UNEXPECTEDLY")
+              if extended.get("request_time_price_eligible") is not False:
+                  raise SystemExit("EXTENDED_REQUEST_PRICE_GUARD_FAILED")
+
+              basis = swing.get("basis_date")
+              if not basis:
+                  raise SystemExit("BASIS_MISSING")
+              if extended.get("basis_date") != basis or sector.get("basis_date") != basis:
+                  raise SystemExit("SOURCE_BASIS_MISMATCH")
+
+              footer = glossary.get("compact_footer_text")
+              if not footer or not footer.startswith("읽는 법:"):
+                  raise SystemExit("GLOSSARY_FOOTER_NOT_READY")
+
+              swing_rows = {
+                  str(r["ticker"]).zfill(6): r
+                  for r in swing.get("rows") or []
+              }
+              ext_rows = {
+                  str(r["ticker"]).zfill(6): r
+                  for r in extended.get("rows") or []
+              }
+              sector_rows = {
+                  str(r["ticker"]).zfill(6): r
+                  for r in sector.get("rows") or []
+              }
+
+              if not swing_rows:
+                  raise SystemExit("SWING_ROWS_EMPTY")
+              if set(swing_rows) != set(ext_rows):
+                  raise SystemExit("SWING_EXTENDED_TICKER_SET_MISMATCH")
+              if set(swing_rows) != set(sector_rows):
+                  raise SystemExit("SWING_SECTOR_TICKER_SET_MISMATCH")
+              if len(swing_rows) != 235:
+                  raise SystemExit("INTEGRATED_TARGET_NOT_235")
+
+              integrated_rows = []
+              ready = {"1w": 0, "1m": 0, "3m": 0, "6m": 0, "ytd": 0, "52w": 0}
+              kospi_sector_ready = 0
+              kosdaq_sector_null = 0
+
+              for ticker in sorted(swing_rows):
+                  s = swing_rows[ticker]
+                  e = ext_rows[ticker]
+                  r = sector_rows[ticker]
+
+                  if s.get("name") != e.get("name") or s.get("name") != r.get("name"):
+                      raise SystemExit("NAME_MISMATCH:" + ticker)
+                  if s.get("market") != e.get("market") or s.get("market") != r.get("market"):
+                      raise SystemExit("MARKET_MISMATCH:" + ticker)
+                  if e.get("basis_date") != basis or r.get("basis_date") != basis:
+                      raise SystemExit("ROW_BASIS_MISMATCH:" + ticker)
+
+                  market = s.get("market")
+                  returns = s.get("returns") or {}
+                  one_m = returns.get("1") or {}
+                  three_m = returns.get("3") or {}
+                  if one_m.get("status") != "OK" or three_m.get("status") != "OK":
+                      raise SystemExit("CORE_RETURN_NOT_READY:" + ticker)
+
+                  perf = {
+                      "1w": e.get("return_1w") or {},
+                      "1m": one_m,
+                      "3m": three_m,
+                      "6m": e.get("return_6m") or {},
+                      "ytd": e.get("return_ytd") or {},
+                      "52w": e.get("return_52w") or {},
+                  }
+                  for key, value in perf.items():
+                      if value.get("status") == "OK":
+                          ready[key] += 1
+
+                  rs_sector = r.get("rs_sector_pp") or {"1": None, "3": None}
+                  sector_benchmark = r.get("sector_benchmark")
+                  if market == "KOSPI":
+                      if r.get("status") != "READY":
+                          raise SystemExit("KOSPI_SECTOR_STATUS_NOT_READY:" + ticker)
+                      if rs_sector.get("1") is None or rs_sector.get("3") is None:
+                          raise SystemExit("KOSPI_SECTOR_VALUE_MISSING:" + ticker)
+                      if not sector_benchmark:
+                          raise SystemExit("KOSPI_SECTOR_BENCHMARK_MISSING:" + ticker)
+                      kospi_sector_ready += 1
+                  elif market == "KOSDAQ":
+                      if r.get("status") != "NOT_SUPPORTED_CURRENT_CONTRACT":
+                          raise SystemExit("KOSDAQ_SECTOR_STATUS_UNEXPECTED:" + ticker)
+                      if rs_sector != {"1": None, "3": None}:
+                          raise SystemExit("KOSDAQ_SECTOR_VALUE_NOT_NULL:" + ticker)
+                      if sector_benchmark is not None:
+                          raise SystemExit("KOSDAQ_SECTOR_BENCHMARK_NOT_NULL:" + ticker)
+                      kosdaq_sector_null += 1
+                  else:
+                      raise SystemExit("UNKNOWN_MARKET:" + str(market))
+
+                  trailing = s.get("trailing_reference") or {}
+                  if trailing.get("confirmed_swing_low_stop") is not None:
+                      raise SystemExit("CONFIRMED_SWING_STOP_POPULATED:" + ticker)
+
+                  row = {
+                      "ticker": ticker,
+                      "name": s.get("name"),
+                      "market": market,
+                      "basis_date": basis,
+                      "official_close": s.get("official_close"),
+                      "metric_status": s.get("metric_status"),
+                      "price_performance": perf,
+                      "swing": s.get("swing"),
+                      "ma": s.get("ma"),
+                      "run": s.get("run"),
+                      "streak": s.get("streak"),
+                      "rs_kospi_pp": s.get("rs_kospi_pp"),
+                      "sector_benchmark": sector_benchmark,
+                      "rs_sector_pp": rs_sector,
+                      "atr14": s.get("atr14"),
+                      "avg_daily_range_20_pct": s.get("avg_daily_range_20_pct"),
+                      "range_3m": s.get("range_3m"),
+                      "trailing_reference": {
+                          "ma20_close_level": trailing.get("ma20_close_level"),
+                          "below_ma20_at_official_close": trailing.get("below_ma20_at_official_close"),
+                          "confirmed_swing_low_stop": None,
+                          "status": trailing.get("status"),
+                      },
+                      "matches_decliners_24": s.get("matches_decliners_24"),
+                      "pending_metrics": {key: None for key in PENDING_KEYS},
+                  }
+                  integrated_rows.append(row)
+
+              expected_ready = {
+                  "1w": 235,
+                  "1m": 235,
+                  "3m": 235,
+                  "6m": 234,
+                  "ytd": 234,
+                  "52w": 233,
+              }
+              if ready != expected_ready:
+                  raise SystemExit(
+                      "INTEGRATED_RETURN_READY_COUNT_MISMATCH:"
+                      + json.dumps(ready, ensure_ascii=False)
+                  )
+              if kospi_sector_ready != 210:
+                  raise SystemExit(f"KOSPI_SECTOR_READY_COUNT_MISMATCH:{kospi_sector_ready}")
+              if kosdaq_sector_null != 25:
+                  raise SystemExit(f"KOSDAQ_SECTOR_NULL_COUNT_MISMATCH:{kosdaq_sector_null}")
+
+              safety = {
+                  "standalone_swing_table_enabled": False,
+                  "action_route_enabled": False,
+                  "production_table_changed": False,
+                  "worker_changed": False,
+                  "core_metric_formula_changed": False,
+                  "request_time_price_substitution": False,
+                  "return_1w_calculated": True,
+                  "return_ytd_calculated": True,
+                  "return_52w_calculated": True,
+                  "rsi_calculated": False,
+                  "macd_calculated": False,
+                  "investment_score_100_calculated": False,
+                  "earnings_outlook_change_calculated": False,
+                  "confirmed_swing_low_stop_calculated": False,
+                  "kosdaq_sector_mapping_invented": False,
+                  "new_command_defined": False,
+              }
+
+              payload = {
+                  "contract_version": CONTRACT_VERSION,
+                  "script_version": SCRIPT_VERSION,
+                  "status": "READY_SOURCE_ONLY",
+                  "source_only": True,
+                  "standalone_swing_table_enabled": False,
+                  "action_route_enabled": False,
+                  "request_time_price_eligible": False,
+                  "basis_date": basis,
+                  "row_count": len(integrated_rows),
+                  "market_counts": sector.get("market_counts"),
+                  "return_basis": extended.get("return_basis"),
+                  "return_start_dates": extended.get("return_start_dates"),
+                  "return_ready_count": ready,
+                  "return_missing_count": extended.get("return_missing_count"),
+                  "kospi_sector_rs_ready_count": kospi_sector_ready,
+                  "kosdaq_sector_rs_null_count": kosdaq_sector_null,
+                  "pending_metrics": PENDING_KEYS,
+                  "metric_glossary_version": glossary.get("version"),
+                  "metric_glossary_footer": footer,
+                  "source_lineage": {
+                      "swing_contract_version": swing.get("contract_version"),
+                      "extended_returns_contract_version": extended.get("contract_version"),
+                      "sector_rs_contract_version": sector.get("contract_version"),
+                  },
+                  "source_sha256": {
+                      str(SWING): sha256(SWING),
+                      str(EXTENDED): sha256(EXTENDED),
+                      str(SECTOR_RS): sha256(SECTOR_RS),
+                      str(GLOSSARY): sha256(GLOSSARY),
+                  },
+                  "rows": integrated_rows,
+                  "safety": safety,
+              }
+              write_json(OUT_JSON, payload)
+
+              csv_fields = [
+                  "basis_date", "market", "ticker", "name", "official_close",
+                  "return_1w_pct", "return_1m_pct", "return_3m_pct", "return_6m_pct",
+                  "return_ytd_pct", "return_52w_pct",
+                  "swing_phase", "swing_phase_ko", "swing_trough_date", "swing_peak_date",
+                  "from_trough_pct", "from_peak_pct", "momentum_5d_pct",
+                  "ma5_direction", "ma20_direction", "ma60_direction", "ma120_direction",
+                  "mean_run_days", "streak_direction", "streak_days", "streak_change_pct",
+                  "rs_kospi_1m_pp", "rs_kospi_3m_pp",
+                  "sector_benchmark_ticker", "sector_benchmark_name",
+                  "rs_sector_1m_pp", "rs_sector_3m_pp",
+                  "atr14_pct", "avg_daily_range_20_pct",
+                  "ma20_reference", "confirmed_swing_low_stop",
+                  "rsi", "macd", "investment_score_100", "earnings_outlook_change",
+              ]
+
+              with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+                  w = csv.DictWriter(f, fieldnames=csv_fields)
+                  w.writeheader()
+                  for row in integrated_rows:
+                      perf = row["price_performance"]
+                      swing_info = row.get("swing") or {}
+                      ma = row.get("ma") or {}
+                      run = row.get("run") or {}
+                      streak = row.get("streak") or {}
+                      rsk = row.get("rs_kospi_pp") or {}
+                      rss = row.get("rs_sector_pp") or {}
+                      bench = row.get("sector_benchmark") or {}
+                      atr = row.get("atr14") or {}
+                      trailing = row.get("trailing_reference") or {}
+
+                      def ma_dir(period):
+                          return (ma.get(str(period)) or {}).get("direction")
+
+                      w.writerow({
+                          "basis_date": basis,
+                          "market": row["market"],
+                          "ticker": row["ticker"],
+                          "name": row["name"],
+                          "official_close": row["official_close"],
+                          "return_1w_pct": (perf["1w"] or {}).get("pct"),
+                          "return_1m_pct": (perf["1m"] or {}).get("pct"),
+                          "return_3m_pct": (perf["3m"] or {}).get("pct"),
+                          "return_6m_pct": (perf["6m"] or {}).get("pct"),
+                          "return_ytd_pct": (perf["ytd"] or {}).get("pct"),
+                          "return_52w_pct": (perf["52w"] or {}).get("pct"),
+                          "swing_phase": swing_info.get("phase"),
+                          "swing_phase_ko": swing_info.get("phase_ko"),
+                          "swing_trough_date": swing_info.get("trough_date"),
+                          "swing_peak_date": swing_info.get("peak_date"),
+                          "from_trough_pct": swing_info.get("from_trough_pct"),
+                          "from_peak_pct": swing_info.get("from_peak_pct"),
+                          "momentum_5d_pct": swing_info.get("momentum_5d_pct"),
+                          "ma5_direction": ma_dir(5),
+                          "ma20_direction": ma_dir(20),
+                          "ma60_direction": ma_dir(60),
+                          "ma120_direction": ma_dir(120),
+                          "mean_run_days": run.get("average"),
+                          "streak_direction": streak.get("direction"),
+                          "streak_days": streak.get("days"),
+                          "streak_change_pct": streak.get("change_pct"),
+                          "rs_kospi_1m_pp": rsk.get("1"),
+                          "rs_kospi_3m_pp": rsk.get("3"),
+                          "sector_benchmark_ticker": bench.get("benchmark_ticker"),
+                          "sector_benchmark_name": bench.get("benchmark_name"),
+                          "rs_sector_1m_pp": rss.get("1"),
+                          "rs_sector_3m_pp": rss.get("3"),
+                          "atr14_pct": atr.get("pct"),
+                          "avg_daily_range_20_pct": row.get("avg_daily_range_20_pct"),
+                          "ma20_reference": trailing.get("ma20_close_level"),
+                          "confirmed_swing_low_stop": None,
+                          "rsi": None,
+                          "macd": None,
+                          "investment_score_100": None,
+                          "earnings_outlook_change": None,
+                      })
+
+              meta = {
+                  "contract_version": CONTRACT_VERSION,
+                  "script_version": SCRIPT_VERSION,
+                  "status": "READY_SOURCE_ONLY",
+                  "source_only": True,
+                  "standalone_swing_table_enabled": False,
+                  "action_route_enabled": False,
+                  "request_time_price_eligible": False,
+                  "basis_date": basis,
+                  "row_count": len(integrated_rows),
+                  "market_counts": sector.get("market_counts"),
+                  "return_basis": extended.get("return_basis"),
+                  "return_start_dates": extended.get("return_start_dates"),
+                  "return_ready_count": ready,
+                  "return_missing_count": extended.get("return_missing_count"),
+                  "kospi_sector_rs_ready_count": kospi_sector_ready,
+                  "kosdaq_sector_rs_null_count": kosdaq_sector_null,
+                  "pending_metrics": PENDING_KEYS,
+                  "metric_glossary_version": glossary.get("version"),
+                  "source_lineage": payload["source_lineage"],
+                  "source_sha256": payload["source_sha256"],
+                  "safety": safety,
+              }
+              write_json(OUT_META, meta)
+
+              log = [
+                  "V8717_INTEGRATED_SWING_SOURCE_STATUS=READY_SOURCE_ONLY",
+                  f"BASIS_DATE={basis}",
+                  f"INTEGRATED_ROWS={len(integrated_rows)}",
+                  f"RETURN_1W_READY={ready['1w']}",
+                  f"RETURN_1M_READY={ready['1m']}",
+                  f"RETURN_3M_READY={ready['3m']}",
+                  f"RETURN_6M_READY={ready['6m']}",
+                  f"RETURN_YTD_READY={ready['ytd']}",
+                  f"RETURN_52W_READY={ready['52w']}",
+                  f"KOSPI_SECTOR_RS_READY={kospi_sector_ready}",
+                  f"KOSDAQ_SECTOR_RS_NULL={kosdaq_sector_null}",
+                  "PENDING_METRICS=rsi,macd,investment_score_100,earnings_outlook_change,confirmed_swing_low_stop",
+                  "STANDALONE_SWING_TABLE_ENABLED=false",
+                  "ACTION_ROUTE_ENABLED=false",
+                  "PRODUCTION_TABLE_CHANGED=false",
+                  "WORKER_CHANGED=false",
+                  "REQUEST_TIME_PRICE_SUBSTITUTION=false",
+                  "NEW_COMMAND_DEFINED=false",
+                  "V8717_INTEGRATED_SWING_SOURCE_VALIDATION=PASS",
+              ]
+              OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+              print("\n".join(log))
+
+          if __name__ == "__main__":
+              main()
+          PY
+
+          mkdir -p docs
+          cat > docs/standalone_swing_return_basis_contract_v8717.md <<'MD'
+          # Standalone Swing Return Basis Contract V8.7.17
+
+          ## Status
+          - Source-only contract.
+          - Standalone swing table remains disabled.
+          - No Action route or new user command is enabled.
+          - No production table or Worker is changed.
+
+          ## Approved return bases
+          - 1W: basis date minus 7 calendar days, then the first official KRX market session on or after that date.
+          - 1M: existing approved calendar-month contract.
+          - 3M: existing approved calendar-month contract.
+          - 6M: existing approved calendar-month contract.
+          - YTD: final official KRX market-session close of the prior calendar year to the basis-date close.
+          - 52W: basis date minus 52 calendar weeks, then the first official KRX market session on or after that date.
+
+          ## Official-session source
+          - `latest/active_stock_long_history_260d_latest.csv`
+          - The V8.5.7 builder backfills this cache through official KRX KOSPI/KOSDAQ daily OpenAPI until 260 distinct official market sessions are present.
+          - The recent overlap must exactly match KOSPI and KOSDAQ dates in `latest/official_index_history_latest.csv`.
+
+          ## No IPO-date substitution
+          A stock must have a close on the globally resolved start session. If it was not yet listed or otherwise has no bar for that session, the return remains missing with `HISTORY_SHORT_OR_DATE_MISSING`. The first available post-listing bar must never be substituted.
+
+          ## Expected basis-date coverage (2026-09-11)
+          - 1W: 235/235
+          - 6M: 234/235; missing `439960`
+          - YTD: 234/235; missing `439960`
+          - 52W: 233/235; missing `217590`, `439960`
+
+          ## Safety
+          RSI, MACD, investment score, earnings-outlook change, confirmed swing-low stop, KOSDAQ sector RS, request-time current-price composition, user-facing route activation, and final display header are outside this contract.
+          MD
+
+      - name: Build V8.7.17 extended and integrated sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          python standalone_swing_extended_returns_v8717.py
+          python standalone_swing_integrated_v8717.py
+
+      - name: Validate V8.7.17 release outputs
         shell: bash
         run: |
           set -euo pipefail
@@ -692,79 +969,273 @@ jobs:
           import json
           from pathlib import Path
 
-          p = json.loads(
-              Path(
-                  "/tmp/v8716_return_basis_corrected_evidence/"
-                  "standalone-swing-return-basis-corrected-evidence-v8716.json"
-              ).read_text(encoding="utf-8")
+          ext = json.loads(
+              Path("latest/standalone_swing_extended_returns_latest.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          integ = json.loads(
+              Path("latest/standalone_swing_integrated_latest.json").read_text(
+                  encoding="utf-8"
+              )
           )
 
-          assert p["status"] == "READY_EVIDENCE_ONLY"
-          assert p["source_only"] is True
-          assert p["formula_selected"] is False
-          assert p["repository_write"] is False
-          assert p["production_change"] is False
-          assert p["worker_change"] is False
-          assert p["action_route_enabled"] is False
-          assert p["standalone_command_defined"] is False
-          assert p["final_header_selected"] is False
+          assert ext["contract_version"] == "2026-09-13-v8.7.17-standalone-swing-return-basis-source"
+          assert ext["status"] == "READY_SOURCE_ONLY"
+          assert ext["source_only"] is True
+          assert ext["standalone_swing_table_enabled"] is False
+          assert ext["action_route_enabled"] is False
+          assert ext["request_time_price_eligible"] is False
+          assert ext["row_count"] == 235
+          assert ext["return_ready_count"] == {
+              "1w": 235,
+              "6m": 234,
+              "ytd": 234,
+              "52w": 233,
+          }
+          assert ext["return_basis"]["1w"] == "CALENDAR_DAYS_7_FIRST_MARKET_SESSION_ON_OR_AFTER"
+          assert ext["return_basis"]["ytd"] == "PRIOR_YEAR_FINAL_MARKET_SESSION_CLOSE"
+          assert ext["return_basis"]["52w"] == "CALENDAR_WEEKS_52_FIRST_MARKET_SESSION_ON_OR_AFTER"
+          assert ext["production_1m_3m_regression_exact_matches"] == 30
+          assert ext["previous_approved_6m_regression_exact_matches"] == 235
+          assert ext["official_session_contract"]["post_listing_start_substitution"] is False
 
-          source = p["official_krx_session_source"]
-          assert source["session_count"] == 260
-          assert source["max_date"] == p["basis_date"]
-          assert source["recent_index_crosscheck"]["kospi_kosdaq_calendar_equal"] is True
-          assert source["recent_index_crosscheck"]["cache_overlap_exact_match"] is True
-
-          assert p["approved_6m_regression_exact_matches"] == 235
-          assert p["v8714_v8715_correction"]["v8714_52w_calendar_235_coverage_usable"] is False
-          assert p["v8714_v8715_correction"]["v8715_completed"] is False
-
-          # Every candidate must use one global official-session start date.
-          starts = p["start_dates"]
-          assert len(starts) == 6
-          assert all(starts.values())
-
-          # No post-listing first-available fallback: all successful rows must
-          # use exactly the globally resolved candidate start date.
-          map_key = {
-              "1w_calendar": "1w_calendar_7d",
-              "1w_5session": "1w_5_prior_sessions",
-              "ytd_first_session": "ytd_first_current_year_session",
-              "ytd_prior_year_close": "ytd_prior_year_final_session",
-              "52w_calendar": "52w_calendar",
-              "52w_252session": "52w_252_prior_sessions",
+          missing = {
+              key: sorted(x["ticker"] for x in value)
+              for key, value in ext["return_missing"].items()
+          }
+          assert missing == {
+              "1w": [],
+              "6m": ["439960"],
+              "ytd": ["439960"],
+              "52w": ["217590", "439960"],
           }
 
-          for row in p["rows"]:
-              for candidate, global_key in map_key.items():
-                  res = row["candidates"][candidate]
-                  assert res["start_date"] == starts[global_key]
+          assert integ["contract_version"] == "2026-09-13-v8.7.17-standalone-swing-integrated-returns-source"
+          assert integ["status"] == "READY_SOURCE_ONLY"
+          assert integ["source_only"] is True
+          assert integ["standalone_swing_table_enabled"] is False
+          assert integ["action_route_enabled"] is False
+          assert integ["request_time_price_eligible"] is False
+          assert integ["row_count"] == 235
+          assert integ["return_ready_count"] == {
+              "1w": 235,
+              "1m": 235,
+              "3m": 235,
+              "6m": 234,
+              "ytd": 234,
+              "52w": 233,
+          }
+          assert integ["pending_metrics"] == [
+              "rsi",
+              "macd",
+              "investment_score_100",
+              "earnings_outlook_change",
+              "confirmed_swing_low_stop",
+          ]
+          assert integ["kospi_sector_rs_ready_count"] == 210
+          assert integ["kosdaq_sector_rs_null_count"] == 25
 
-          safety = p["safety"]
-          assert all(value is False for value in safety.values())
+          for row in integ["rows"]:
+              ticker = row["ticker"]
+              perf = row["price_performance"]
+              if ticker == "439960":
+                  assert perf["ytd"]["status"] == "HISTORY_SHORT_OR_DATE_MISSING"
+                  assert perf["52w"]["status"] == "HISTORY_SHORT_OR_DATE_MISSING"
+              if ticker == "217590":
+                  assert perf["52w"]["status"] == "HISTORY_SHORT_OR_DATE_MISSING"
 
-          print("V8716_OFFICIAL_KRX_260_SESSION_PROVENANCE=PASS")
-          print("V8716_RECENT_INDEX_CALENDAR_CROSSCHECK=PASS")
-          print("V8716_APPROVED_6M_REGRESSION=PASS")
-          print("V8716_GLOBAL_START_DATE_GUARD=PASS")
-          print("V8716_NO_IPO_DATE_SUBSTITUTION=PASS")
-          print("V8716_NO_FORMULA_SELECTION=PASS")
-          print("V8716_NO_SOURCE_WRITE=PASS")
-          print("V8716_READ_ONLY_SAFETY=PASS")
+          assert integ["safety"]["standalone_swing_table_enabled"] is False
+          assert integ["safety"]["action_route_enabled"] is False
+          assert integ["safety"]["production_table_changed"] is False
+          assert integ["safety"]["worker_changed"] is False
+          assert integ["safety"]["request_time_price_substitution"] is False
+          assert integ["safety"]["new_command_defined"] is False
+
+          print("V8717_EXTENDED_RETURN_CONTRACT=PASS")
+          print("V8717_PRODUCTION_1M_3M_REGRESSION=PASS")
+          print("V8717_PREVIOUS_6M_REGRESSION=PASS")
+          print("V8717_NO_IPO_DATE_SUBSTITUTION=PASS")
+          print("V8717_INTEGRATED_RETURN_WIRING=PASS")
+          print("V8717_PENDING_METRICS_GUARD=PASS")
+          print("V8717_TABLE_ROUTE_WORKER_SAFETY=PASS")
           PY
 
-          git diff --exit-code
-          git diff --cached --exit-code
+          allowed=(
+            "docs/standalone_swing_return_basis_contract_v8717.md"
+            "standalone_swing_extended_returns_v8717.py"
+            "standalone_swing_integrated_v8717.py"
+            "latest/standalone_swing_extended_returns_latest.csv"
+            "latest/standalone_swing_extended_returns_latest.json"
+            "latest/standalone_swing_extended_returns_meta_latest.json"
+            "latest/standalone_swing_extended_returns_run_log_latest.txt"
+            "latest/standalone_swing_integrated_latest.csv"
+            "latest/standalone_swing_integrated_latest.json"
+            "latest/standalone_swing_integrated_meta_latest.json"
+            "latest/standalone_swing_integrated_run_log_latest.txt"
+          )
 
-          echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
-          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
+          mapfile -t changed < <(git status --porcelain | sed 's/^...//' | sort)
 
-      - name: Upload V8.7.16 corrected return-basis evidence
+          printf 'CHANGED_FILES=%s\n' "${#changed[@]}"
+          printf '%s\n' "${changed[@]}"
+
+          for f in "${changed[@]}"; do
+            ok=false
+            for a in "${allowed[@]}"; do
+              if [[ "$f" == "$a" ]]; then
+                ok=true
+                break
+              fi
+            done
+            if [[ "$ok" != true ]]; then
+              echo "UNEXPECTED_CHANGED_FILE=$f"
+              exit 1
+            fi
+            if [[ "$f" == .github/workflows/* ]]; then
+              echo "WORKFLOW_FILE_STAGED_UNEXPECTEDLY=$f"
+              exit 1
+            fi
+          done
+
+          for a in "${allowed[@]}"; do
+            if [[ ! -e "$a" ]]; then
+              echo "EXPECTED_RELEASE_FILE_MISSING=$a"
+              exit 1
+            fi
+          done
+
+          echo "V8717_CHANGESET_GUARD=PASS"
+
+      - name: Create release evidence artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/v8717_release_evidence
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          ext = json.loads(
+              Path("latest/standalone_swing_extended_returns_latest.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          integ = json.loads(
+              Path("latest/standalone_swing_integrated_latest.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          evidence = {
+              "version": "2026-09-13-v8.7.17-release-evidence",
+              "status": "READY_SOURCE_ONLY",
+              "basis_date": ext["basis_date"],
+              "return_basis": ext["return_basis"],
+              "return_start_dates": ext["return_start_dates"],
+              "extended_return_ready_count": ext["return_ready_count"],
+              "integrated_return_ready_count": integ["return_ready_count"],
+              "return_missing_count": ext["return_missing_count"],
+              "production_1m_3m_regression_exact_matches": ext[
+                  "production_1m_3m_regression_exact_matches"
+              ],
+              "previous_approved_6m_regression_exact_matches": ext[
+                  "previous_approved_6m_regression_exact_matches"
+              ],
+              "post_listing_start_substitution": ext[
+                  "official_session_contract"
+              ]["post_listing_start_substitution"],
+              "pending_metrics": integ["pending_metrics"],
+              "standalone_swing_table_enabled": False,
+              "action_route_enabled": False,
+              "production_change": False,
+              "worker_change": False,
+              "request_time_price_substitution": False,
+              "new_command_defined": False,
+          }
+
+          out = Path("/tmp/v8717_release_evidence/v8717-release-evidence.json")
+          out.write_text(
+              json.dumps(evidence, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+
+          md = [
+              "# V8.7.17 release evidence",
+              "",
+              f"- basis: {evidence['basis_date']}",
+              f"- 1W: {evidence['return_basis']['1w']}",
+              f"- YTD: {evidence['return_basis']['ytd']}",
+              f"- 52W: {evidence['return_basis']['52w']}",
+              f"- extended ready: {evidence['extended_return_ready_count']}",
+              f"- integrated ready: {evidence['integrated_return_ready_count']}",
+              f"- pending: {', '.join(evidence['pending_metrics'])}",
+              "- standalone table: disabled",
+              "- action route: disabled",
+              "- production/Worker: unchanged",
+              "- new command: none",
+          ]
+          Path("/tmp/v8717_release_evidence/v8717-release-evidence.md").write_text(
+              "\n".join(md) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Commit V8.7.17 source release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -- \
+            docs/standalone_swing_return_basis_contract_v8717.md \
+            standalone_swing_extended_returns_v8717.py \
+            standalone_swing_integrated_v8717.py \
+            latest/standalone_swing_extended_returns_latest.csv \
+            latest/standalone_swing_extended_returns_latest.json \
+            latest/standalone_swing_extended_returns_meta_latest.json \
+            latest/standalone_swing_extended_returns_run_log_latest.txt \
+            latest/standalone_swing_integrated_latest.csv \
+            latest/standalone_swing_integrated_latest.json \
+            latest/standalone_swing_integrated_meta_latest.json \
+            latest/standalone_swing_integrated_run_log_latest.txt
+
+          mapfile -t staged < <(git diff --cached --name-only | sort)
+
+          echo "STAGED_FILES=${#staged[@]}"
+          printf '%s\n' "${staged[@]}"
+
+          if [[ "${#staged[@]}" -ne 11 ]]; then
+            echo "UNEXPECTED_STAGED_FILE_COUNT=${#staged[@]}"
+            exit 1
+          fi
+
+          if printf '%s\n' "${staged[@]}" | grep -q '^\.github/workflows/'; then
+            echo "WORKFLOW_FILE_STAGED_UNEXPECTEDLY=true"
+            exit 1
+          fi
+
+          git commit -m "Add V8.7.17 standalone swing return basis source"
+          git push origin HEAD:main
+
+          echo "V8717_SOURCE_RELEASE_COMMIT=$(git rev-parse HEAD)"
+          echo "V8717_SOURCE_RELEASE=PASS"
+          echo "STANDALONE_SWING_TABLE_ENABLED=false"
+          echo "ACTION_ROUTE_ENABLED=false"
+          echo "PRODUCTION_CHANGE=false"
+          echo "WORKER_CHANGE=false"
+          echo "REQUEST_TIME_PRICE_SUBSTITUTION=false"
+          echo "NEW_COMMAND_DEFINED=false"
+
+      - name: Upload V8.7.17 release evidence
         uses: actions/upload-artifact@v6
         with:
-          name: standalone-swing-return-basis-corrected-evidence-v8716
+          name: standalone-swing-return-basis-source-v8717
           path: |
-            /tmp/v8716_return_basis_corrected_evidence/standalone-swing-return-basis-corrected-evidence-v8716.json
-            /tmp/v8716_return_basis_corrected_evidence/standalone-swing-return-basis-corrected-evidence-v8716.md
+            /tmp/v8717_release_evidence/v8717-release-evidence.json
+            /tmp/v8717_release_evidence/v8717-release-evidence.md
           if-no-files-found: error
           retention-days: 14

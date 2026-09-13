@@ -1,0 +1,313 @@
+name: Reconcile investment-score dry-run gates v8.8.2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v882-investment-score-gate-reconciliation
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Patch and run reconciled dry-run scorer
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cp investment_score_dry_run_v881.py investment_score_dry_run_v882.py
+
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path("investment_score_dry_run_v882.py")
+          t = p.read_text(encoding="utf-8")
+
+          pairs = [
+              (
+                  'VERSION = "2026-09-13-v8.8.1-investment-score-dry-run"',
+                  'VERSION = "2026-09-13-v8.8.2-investment-score-dry-run-gate-reconciliation"',
+              ),
+              (
+                  'OUT_CSV = ROOT / "latest/investment_score_v880_dry_run_latest.csv"',
+                  'OUT_CSV = ROOT / "latest/investment_score_v880_dry_run_v882_latest.csv"',
+              ),
+              (
+                  'OUT_JSON = ROOT / "latest/investment_score_v880_dry_run_summary_latest.json"',
+                  'OUT_JSON = ROOT / "latest/investment_score_v880_dry_run_v882_summary_latest.json"',
+              ),
+              (
+                  'OUT_LOG = ROOT / "latest/investment_score_v880_dry_run_run_log_latest.txt"',
+                  'OUT_LOG = ROOT / "latest/investment_score_v880_dry_run_v882_run_log_latest.txt"',
+              ),
+              (
+                  'OUT_DOC = ROOT / "docs/investment_score_v880_dry_run_v881.md"',
+                  'OUT_DOC = ROOT / "docs/investment_score_v880_dry_run_gate_reconciliation_v882.md"',
+              ),
+          ]
+
+          for old, new in pairs:
+              if old not in t:
+                  raise SystemExit("PATCH_ANCHOR_NOT_FOUND:" + old)
+              t = t.replace(old, new, 1)
+
+          old_per = """def s_per(fin):
+              per=num(fin.get("per_annualized")); trend=str(fin.get("earnings_trend") or ""); yoy=num(fin.get("net_income_yoy_pct"))
+              if per is None:return None,"MISSING_PER"
+              if per<=0 or trend in {"적자지속","적자전환"}:return 0,""
+          """
+          new_per = """def s_per(fin):
+              per=num(fin.get("per_annualized")); trend=str(fin.get("earnings_trend") or ""); yoy=num(fin.get("net_income_yoy_pct"))
+              # V8.8.0 contract: loss companies receive 0 PER points even when PER itself is absent.
+              if trend in {"적자지속","적자전환"}:return 0,"LOSS_TREND_PER_ZERO"
+              if per is None:return None,"MISSING_PER"
+              if per<=0:return 0,""
+          """
+          if old_per not in t:
+              raise SystemExit("PER_PATCH_ANCHOR_NOT_FOUND")
+          t = t.replace(old_per, new_per, 1)
+
+          old_supply = """def s_supply(analysis):
+              status=str(analysis.get("supply_status") or "")
+              level=str(analysis.get("supply_level") or "")
+              if status != "OK":
+                  return None, f"SUPPLY_STATUS_{status or 'MISSING'}"
+              m={"없음":10,"주의":7,"경계":4,"위험":1}
+              return (m.get(level), "") if level in m else (None,"MISSING_SUPPLY_LEVEL")
+          """
+          new_supply = """def s_supply(analysis):
+              status=str(analysis.get("supply_status") or "")
+              level=str(analysis.get("supply_level") or "")
+              m={"없음":10,"주의":7,"경계":4,"위험":1}
+
+              # Check completeness and detected burden are separate source concepts.
+              if status == "OK":
+                  return (m.get(level), "") if level in m else (None,"MISSING_SUPPLY_LEVEL")
+              if status == "LIMITED" and level in {"주의","경계","위험"}:
+                  return m[level], "LIMITED_POSITIVE_EVIDENCE_ACCEPTED"
+              if status == "LIMITED" and level == "없음":
+                  return None, "SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+              return None, f"SUPPLY_STATUS_{status or 'MISSING'}"
+          """
+          if old_supply not in t:
+              raise SystemExit("SUPPLY_PATCH_ANCHOR_NOT_FOUND")
+          t = t.replace(old_supply, new_supply, 1)
+
+          old_next = """        "next_step":"REVIEW_DRY_RUN_READY_LIMITED_DISTRIBUTION_AND_BLOCKERS_BEFORE_PRODUCTION",
+              }"""
+          new_next = """        "scorer_reconciliation":{
+                      "per_loss_trend_checked_before_missing_per":True,
+                      "supply_limited_positive_evidence_scored":True,
+                      "supply_limited_no_positive_evidence_remains_limited":True,
+                      "ev_ebitda_exact_da_policy_unchanged":True,
+                      "no_new_score_thresholds":True,
+                  },
+                  "next_step":"REVIEW_V882_REMAINING_BLOCKERS_THEN_CONNECT_EXACT_DA_SOURCE",
+              }"""
+          if old_next not in t:
+              raise SystemExit("SUMMARY_PATCH_ANCHOR_NOT_FOUND")
+          t = t.replace(old_next, new_next, 1)
+
+          old_title = "# V8.8.1 투자종합점수 dry-run"
+          if old_title not in t:
+              raise SystemExit("DOC_TITLE_ANCHOR_NOT_FOUND")
+          t = t.replace(
+              old_title,
+              "# V8.8.2 투자종합점수 dry-run 게이트 정합성 보정",
+              1,
+          )
+
+          p.write_text(t, encoding="utf-8")
+          print("V882_SCORER_PATCH=PASS")
+          PY
+
+          python -m py_compile investment_score_dry_run_v882.py
+          python investment_score_dry_run_v882.py
+
+          grep -q '^STATUS=OK$' latest/investment_score_v880_dry_run_v882_run_log_latest.txt
+
+          echo "V882_RECONCILED_DRY_RUN_BUILD=PASS"
+
+
+      - name: Validate reconciled dry-run
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv
+          import json
+          from collections import Counter
+          from pathlib import Path
+
+          summary = json.loads(
+              Path("latest/investment_score_v880_dry_run_v882_summary_latest.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          with Path("latest/investment_score_v880_dry_run_v882_latest.csv").open(
+              encoding="utf-8-sig",
+              newline="",
+          ) as f:
+              rows = list(csv.DictReader(f))
+
+          assert summary["status"] == "DRY_RUN_ONLY"
+          assert summary["production_unique_tickers"] == 112
+          assert len(rows) == 112
+          assert summary["ready_count"] + summary["limited_count"] == 112
+
+          recon = summary["scorer_reconciliation"]
+          assert recon["per_loss_trend_checked_before_missing_per"] is True
+          assert recon["supply_limited_positive_evidence_scored"] is True
+          assert recon["supply_limited_no_positive_evidence_remains_limited"] is True
+          assert recon["ev_ebitda_exact_da_policy_unchanged"] is True
+          assert recon["no_new_score_thresholds"] is True
+
+          guards = summary["hard_guards"]
+          assert guards["production_api_changed"] is False
+          assert guards["production_investment_score_written"] is False
+          assert guards["legacy_score_rescaled"] is False
+          assert guards["limited_score_total_is_null"] is True
+
+          missing = Counter()
+          for row in rows:
+              if row["score_status"] == "LIMITED":
+                  assert row["score_total"] == ""
+                  for item in filter(None, row["missing_components"].split(";")):
+                      missing[item] += 1
+              else:
+                  score = float(row["score_total"])
+                  assert 0 <= score <= 100
+
+          print("V882_RECONCILED_DRY_RUN_VALIDATION=PASS")
+          print("DRY_RUN_READY=" + str(summary["ready_count"]))
+          print("DRY_RUN_LIMITED=" + str(summary["limited_count"]))
+          print("DRY_RUN_READY_PCT=" + str(summary["ready_pct"]))
+          print(
+              "OLD_SUPPLY_STATUS_LIMITED_BLOCKERS="
+              + str(missing.get("수급·공시부담:SUPPLY_STATUS_LIMITED", 0))
+          )
+          print(
+              "CONSERVATIVE_SUPPLY_NO_EVIDENCE_BLOCKERS="
+              + str(missing.get("수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE", 0))
+          )
+          print(
+              "PER_MISSING_AFTER_CONTRACT_ORDER_FIX="
+              + str(missing.get("PER:MISSING_PER", 0))
+          )
+
+          for reason, count in missing.most_common(12):
+              print("TOP_BLOCKER=" + reason + "|" + str(count))
+          PY
+
+
+      - name: Verify production unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git status --porcelain -- api/two_table_v1 config/two_table_release.json | grep -q .; then
+            echo "::error::Production files changed"
+            exit 1
+          fi
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          for table in ("kospi", "decliners", "decliners24"):
+              data = json.loads(
+                  Path(f"api/two_table_v1/{table}.json").read_text(encoding="utf-8")
+              )
+              for row in data.get("rows") or []:
+                  assert (row.get("metrics") or {}).get("investment_score_100") is None
+
+          print("V882_PRODUCTION_SCORE_STILL_NULL=PASS")
+          PY
+
+          echo "V882_PRODUCTION_UNCHANGED=PASS"
+
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "investment_score_dry_run_v882.py",
+              "docs/investment_score_v880_dry_run_gate_reconciliation_v882.md",
+              "latest/investment_score_v880_dry_run_v882_latest.csv",
+              "latest/investment_score_v880_dry_run_v882_summary_latest.json",
+              "latest/investment_score_v880_dry_run_v882_run_log_latest.txt",
+          }
+
+          out = subprocess.check_output(["git", "status", "--porcelain"], text=True)
+          changed = set()
+
+          for line in out.splitlines():
+              if not line.strip():
+                  continue
+              path = line[3:]
+              if " -> " in path:
+                  path = path.split(" -> ", 1)[1]
+              changed.add(path)
+
+          if changed != allowed:
+              raise SystemExit("CHANGE_SCOPE_MISMATCH=" + repr(sorted(changed)))
+
+          print("CHANGE_SCOPE=PASS")
+          PY
+
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_dry_run_v882.py \
+            docs/investment_score_v880_dry_run_gate_reconciliation_v882.md \
+            latest/investment_score_v880_dry_run_v882_latest.csv \
+            latest/investment_score_v880_dry_run_v882_summary_latest.json \
+            latest/investment_score_v880_dry_run_v882_run_log_latest.txt
+
+          git commit -m "Reconcile V8.8.0 dry run scoring gates"
+
+          git fetch origin main
+
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          fi
+
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "PRODUCTION_DATA_CHANGED=false"
+          echo "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false"
+          echo "NEXT_STEP=CONNECT_EXACT_DA_SOURCE_AND_REVIEW_REMAINING_LIMITED_INPUTS"
+

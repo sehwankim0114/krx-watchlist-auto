@@ -174,7 +174,8 @@ jobs:
                   raise RuntimeError("POLICY_EVIDENCE_VERSION_MISMATCH")
               if policy.get("status") != "AUDIT_ONLY":
                   raise RuntimeError("POLICY_EVIDENCE_NOT_READY")
-              if int(policy.get("raw_to_point_candidate_component_count") or -1) != 0:
+              raw_candidate_count = policy.get("raw_to_point_candidate_component_count")
+              if raw_candidate_count is None or int(raw_candidate_count) != 0:
                   raise RuntimeError("EXISTING_RAW_TO_POINT_RULE_REQUIRES_REVIEW")
               if policy.get("hard_guards", {}).get("new_thresholds_created") is not False:
                   raise RuntimeError("POLICY_GUARD_BROKEN")

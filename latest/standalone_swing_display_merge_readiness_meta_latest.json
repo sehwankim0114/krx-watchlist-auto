@@ -1,30 +1,52 @@
 {
-  "contract_version": "2026-09-13-v8.7.13-standalone-swing-display-merge-freeze",
+  "contract_version": "2026-09-13-v8.7.18-standalone-swing-readiness-sync",
   "status": "FROZEN_PREPRODUCTION_READY",
   "display_merge_contract_frozen": true,
+  "return_basis_contract_frozen": true,
   "production_activation_allowed": false,
   "basis_date": "2026-09-11",
   "source_row_count": 235,
   "range3m_position_ready": 213,
   "range3m_position_unavailable": 22,
-  "resolved_activation_blocker": "REQUEST_TIME_DISPLAY_MERGE_CONTRACT_NOT_FROZEN_FOR_STANDALONE",
-  "remaining_activation_blocker_count": 8,
+  "resolved_activation_blockers": [
+    "REQUEST_TIME_DISPLAY_MERGE_CONTRACT_NOT_FROZEN_FOR_STANDALONE",
+    "1W_YTD_52W_FORMULAS_NOT_APPROVED"
+  ],
+  "remaining_activation_blocker_count": 7,
   "remaining_activation_blockers": [
     "NO_FINAL_STANDALONE_TABLE_HEADER_CONTRACT",
     "NO_STANDALONE_COMMAND_OR_ROUTE_CONTRACT",
-    "1W_YTD_52W_FORMULAS_NOT_APPROVED",
     "RSI_MACD_FORMULAS_NOT_APPROVED",
     "CONFIRMED_SWING_LOW_STOP_POLICY_NOT_DEFINED",
     "INVESTMENT_SCORE_THRESHOLDS_NOT_DEFINED",
     "EARNINGS_OUTLOOK_SOURCE_NOT_CONNECTED",
     "KOSDAQ_OFFICIAL_SECTOR_RS_CONTRACT_NOT_DEFINED"
   ],
-  "v8712_run_id": 34741483044,
-  "v8712_artifact_id": 10312955901,
-  "v8712_artifact_sha256": "ac6667c33c41bba84f90b692ce371cada7841bd63f6fd175294919139c16e597",
+  "pending_metrics": [
+    "rsi",
+    "macd",
+    "investment_score_100",
+    "earnings_outlook_change",
+    "confirmed_swing_low_stop"
+  ],
+  "return_basis": {
+    "1w": "CALENDAR_DAYS_7_FIRST_MARKET_SESSION_ON_OR_AFTER",
+    "1m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
+    "3m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
+    "6m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
+    "ytd": "PRIOR_YEAR_FINAL_MARKET_SESSION_CLOSE",
+    "52w": "CALENDAR_WEEKS_52_FIRST_MARKET_SESSION_ON_OR_AFTER"
+  },
+  "return_start_dates": {
+    "1w": "2026-09-04",
+    "ytd": "2025-12-30",
+    "52w": "2025-09-12"
+  },
+  "source_contract_version": "2026-09-13-v8.7.17-standalone-swing-integrated-returns-source",
   "source_sha256": {
-    "latest/standalone_swing_integrated_latest.json": "328d4ba2eac85b4cfc096cd897251baed12915d9ed7c3c23970b20ceb3f2b83f",
-    "latest/standalone_swing_preproduction_readiness_latest.json": "48ea9e93dfd7b43d50343f7569742ad3e8db7bec932b785f9d0700e2ae91313a",
+    "latest/standalone_swing_integrated_latest.json": "f746b3b603b2a58411dbdd1078d8516ea950d24326bdacfb2ac53b73526986d5",
+    "latest/standalone_swing_integrated_meta_latest.json": "cfc9c0951238d0a596e9f3b29392e561fd19bf7e2ebdc57f735c22176fb6b11f",
+    "latest/standalone_swing_extended_returns_latest.json": "0ffa1c3bab0b4cf63f33df0a26b0791198b345875bf8043f85704c1f6b1d5a07",
     "api/manifest.json": "660ec12e477de9601c9fee9eb4361a636004fcdc731e8b9357633ea6a62e39e7",
     "docs/custom_gpt_action_schema.yaml": "0b38065ef9b5c9a5db3404f9d30ca6e37c1ca0632f87a8176c27210fa1343581",
     "worker/krx-live-price-worker.js": "4a7580d78920ebd98b4e21f1e7a20838e5d0aa8af4cd3e7e22a4c38b4a13239a",

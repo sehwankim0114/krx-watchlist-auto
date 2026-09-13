@@ -1,6 +1,6 @@
 {
-  "contract_version": "2026-09-13-v8.7.13-standalone-swing-display-merge-freeze",
-  "script_version": "standalone_swing_display_merge_freeze_v8713.py v1.0.0",
+  "contract_version": "2026-09-13-v8.7.18-standalone-swing-readiness-sync",
+  "script_version": "standalone_swing_readiness_sync_v8718.py v1.0.0",
   "status": "FROZEN_PREPRODUCTION_READY",
   "display_merge_contract_frozen": true,
   "production_activation_allowed": false,
@@ -254,11 +254,9 @@
     "standalone_command_name",
     "standalone_route"
   ],
-  "resolved_activation_blocker": "REQUEST_TIME_DISPLAY_MERGE_CONTRACT_NOT_FROZEN_FOR_STANDALONE",
   "remaining_activation_blockers": [
     "NO_FINAL_STANDALONE_TABLE_HEADER_CONTRACT",
     "NO_STANDALONE_COMMAND_OR_ROUTE_CONTRACT",
-    "1W_YTD_52W_FORMULAS_NOT_APPROVED",
     "RSI_MACD_FORMULAS_NOT_APPROVED",
     "CONFIRMED_SWING_LOW_STOP_POLICY_NOT_DEFINED",
     "INVESTMENT_SCORE_THRESHOLDS_NOT_DEFINED",
@@ -290,14 +288,16 @@
     }
   },
   "source_contracts": {
-    "integrated_source": "2026-09-12-v8.7.6-standalone-swing-integrated-source",
-    "preproduction_freeze": "2026-09-13-v8.7.11-standalone-swing-preproduction-freeze",
-    "manifest_build_id": "20260912T200915+0900-8403d73393",
+    "integrated_source": "2026-09-13-v8.7.17-standalone-swing-integrated-returns-source",
+    "extended_returns_source": "2026-09-13-v8.7.17-standalone-swing-return-basis-source",
+    "preproduction_freeze": "2026-09-13-v8.7.18-standalone-swing-readiness-sync",
+    "display_merge_base_contract": "2026-09-13-v8.7.13-standalone-swing-display-merge-freeze",
     "manifest_route_contract_version": "2026-07-15-v8.2-command-route-contract"
   },
   "source_sha256": {
-    "latest/standalone_swing_integrated_latest.json": "328d4ba2eac85b4cfc096cd897251baed12915d9ed7c3c23970b20ceb3f2b83f",
-    "latest/standalone_swing_preproduction_readiness_latest.json": "48ea9e93dfd7b43d50343f7569742ad3e8db7bec932b785f9d0700e2ae91313a",
+    "latest/standalone_swing_integrated_latest.json": "f746b3b603b2a58411dbdd1078d8516ea950d24326bdacfb2ac53b73526986d5",
+    "latest/standalone_swing_integrated_meta_latest.json": "cfc9c0951238d0a596e9f3b29392e561fd19bf7e2ebdc57f735c22176fb6b11f",
+    "latest/standalone_swing_extended_returns_latest.json": "0ffa1c3bab0b4cf63f33df0a26b0791198b345875bf8043f85704c1f6b1d5a07",
     "api/manifest.json": "660ec12e477de9601c9fee9eb4361a636004fcdc731e8b9357633ea6a62e39e7",
     "docs/custom_gpt_action_schema.yaml": "0b38065ef9b5c9a5db3404f9d30ca6e37c1ca0632f87a8176c27210fa1343581",
     "worker/krx-live-price-worker.js": "4a7580d78920ebd98b4e21f1e7a20838e5d0aa8af4cd3e7e22a4c38b4a13239a",
@@ -317,5 +317,30 @@
     "final_position_label_invented": false,
     "recommendation_contract_invented": false,
     "price_zone_contract_invented": false
-  }
+  },
+  "return_basis_contract_frozen": true,
+  "return_basis": {
+    "1w": "CALENDAR_DAYS_7_FIRST_MARKET_SESSION_ON_OR_AFTER",
+    "1m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
+    "3m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
+    "6m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
+    "ytd": "PRIOR_YEAR_FINAL_MARKET_SESSION_CLOSE",
+    "52w": "CALENDAR_WEEKS_52_FIRST_MARKET_SESSION_ON_OR_AFTER"
+  },
+  "return_start_dates": {
+    "1w": "2026-09-04",
+    "ytd": "2025-12-30",
+    "52w": "2025-09-12"
+  },
+  "pending_metrics": [
+    "rsi",
+    "macd",
+    "investment_score_100",
+    "earnings_outlook_change",
+    "confirmed_swing_low_stop"
+  ],
+  "resolved_activation_blockers": [
+    "REQUEST_TIME_DISPLAY_MERGE_CONTRACT_NOT_FROZEN_FOR_STANDALONE",
+    "1W_YTD_52W_FORMULAS_NOT_APPROVED"
+  ]
 }

@@ -1,0 +1,134 @@
+{
+  "contract_version": "2026-09-13-v8.7.11-standalone-swing-preproduction-freeze",
+  "script_version": "standalone_swing_preproduction_freeze_v8711.py v1.0.2-manifest-structural-guard",
+  "status": "FROZEN_PREPRODUCTION_READY",
+  "preproduction_contract_frozen": true,
+  "data_layer_ready_for_preproduction": true,
+  "request_time_price_path_ready_for_preproduction": true,
+  "production_activation_allowed": false,
+  "standalone_swing_table_enabled": false,
+  "action_route_enabled": false,
+  "standalone_command_defined": false,
+  "final_header_selected": false,
+  "basis_date": "2026-09-11",
+  "snapshot_counts": {
+    "row_count": 235,
+    "kospi": 210,
+    "kosdaq": 25,
+    "return_1m_ready": 235,
+    "return_3m_ready": 235,
+    "return_6m_ready": 234,
+    "return_6m_missing": 1,
+    "swing_ready": 235,
+    "ma_full_ready": 234,
+    "ma_gap": 1,
+    "atr14_ready": 209,
+    "atr14_gap": 26,
+    "range20_ready": 225,
+    "range20_gap": 10,
+    "rs_kospi_ready": 235,
+    "rs_sector_ready": 210,
+    "rs_sector_null": 25,
+    "confirmed_stop_ready": 0,
+    "pending_nonnull_violations": 0
+  },
+  "accepted_missing_policy": {
+    "return_6m": "자료 미제공 when calendar history is insufficient; no imputation",
+    "ma": "자료 미제공 when required history is insufficient; no fabricated MA",
+    "atr14": "자료 미제공 when official lookback contains zero/no-trade OHLC rows; no imputation",
+    "avg_daily_range_20_pct": "자료 미제공 when recent official OHLC contains zero/no-trade rows",
+    "kosdaq_sector_rs": "자료 미제공 under current KOSPI-only official sector-RS contract",
+    "pending_metrics": "자료 미제공 until separately approved contracts exist"
+  },
+  "request_time_price_contract": {
+    "worker_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
+    "operation_id": "getRequestTimePrices",
+    "initial_batch_max": 10,
+    "retry_failed_batch_max": 5,
+    "final_retry_failed_batch_max": 2,
+    "final_failure_display": "⚪ 현재가 확인 실패",
+    "static_price_fallback_allowed": false,
+    "official_close_is_reference_only_not_request_time_price": true,
+    "new_price_action_required": false,
+    "must_revalidate_at_activation": true,
+    "manifest_build_id": "20260912T200915+0900-8403d73393",
+    "manifest_route_contract_version": "2026-07-15-v8.2-command-route-contract",
+    "manifest_effective_command_count": 15,
+    "manifest_standalone_swing_table_enabled": false
+  },
+  "pending_metrics": [
+    "return_1w",
+    "return_ytd",
+    "return_52w",
+    "rsi",
+    "macd",
+    "investment_score_100",
+    "earnings_outlook_change",
+    "confirmed_swing_low_stop"
+  ],
+  "activation_blockers": [
+    "NO_FINAL_STANDALONE_TABLE_HEADER_CONTRACT",
+    "NO_STANDALONE_COMMAND_OR_ROUTE_CONTRACT",
+    "REQUEST_TIME_DISPLAY_MERGE_CONTRACT_NOT_FROZEN_FOR_STANDALONE",
+    "1W_YTD_52W_FORMULAS_NOT_APPROVED",
+    "RSI_MACD_FORMULAS_NOT_APPROVED",
+    "CONFIRMED_SWING_LOW_STOP_POLICY_NOT_DEFINED",
+    "INVESTMENT_SCORE_THRESHOLDS_NOT_DEFINED",
+    "EARNINGS_OUTLOOK_SOURCE_NOT_CONNECTED",
+    "KOSDAQ_OFFICIAL_SECTOR_RS_CONTRACT_NOT_DEFINED"
+  ],
+  "evidence": {
+    "v879_data_quality_gate": {
+      "run_id": 34686320783,
+      "artifact_id": 10295129036,
+      "artifact_sha256": "c520f51ab28a5d06e9453b53b1b6020215d6983d0bde07495d9e5ccaaaaa8ad3",
+      "result": "PASS",
+      "key_findings": {
+        "unexplained_ma_gap_count": 0,
+        "unexpected_return_6m_gap_count": 0,
+        "unexplained_atr_gap_count": 0,
+        "positive_ohlc_relation_error_day_count": 0,
+        "other_invalid_ohlc_day_count": 0,
+        "zero_no_trade_invalid_rows": 532
+      }
+    },
+    "v8710_request_time_price_path": {
+      "run_id": 34718370007,
+      "artifact_id": 10305686277,
+      "artifact_sha256": "4dd845a83686430496aac4c07bccef29e7574428537efaa39796435c22c006c4",
+      "result": "PASS",
+      "source_rows": 235,
+      "success_count": 235,
+      "failed_count": 0,
+      "coverage_pct": 100.0,
+      "static_price_substitution_count": 0,
+      "invalid_success_count": 0,
+      "worker_build": "1.4.1-two-table-dual-schema"
+    }
+  },
+  "source_contract_version": "2026-09-12-v8.7.6-standalone-swing-integrated-source",
+  "source_lineage": {
+    "swing_contract_version": "2026-09-11-v8.6.1-standalone-swing-source-cache",
+    "extended_returns_contract_version": "2026-09-12-v8.7.2-standalone-swing-6m-return-source",
+    "sector_rs_contract_version": "2026-09-12-v8.7.5-standalone-swing-sector-rs-source"
+  },
+  "source_sha256": {
+    "latest/standalone_swing_integrated_latest.json": "328d4ba2eac85b4cfc096cd897251baed12915d9ed7c3c23970b20ceb3f2b83f",
+    "latest/standalone_swing_integrated_meta_latest.json": "59d7076ec6133d25e42b0ce02937b8989bace992810e9cbe0f5a57eb4e3db422",
+    "api/manifest.json": "660ec12e477de9601c9fee9eb4361a636004fcdc731e8b9357633ea6a62e39e7",
+    "docs/custom_gpt_action_schema.yaml": "0b38065ef9b5c9a5db3404f9d30ca6e37c1ca0632f87a8176c27210fa1343581",
+    "worker/krx-live-price-worker.js": "4a7580d78920ebd98b4e21f1e7a20838e5d0aa8af4cd3e7e22a4c38b4a13239a",
+    "stock_table_metrics_v850.py": "957063e69ddb68c815245fcedf3f090b41a4d992396b1dc579f42952c6829fc9"
+  },
+  "safety": {
+    "production_table_changed": false,
+    "worker_changed": false,
+    "action_schema_changed": false,
+    "metric_formula_changed": false,
+    "request_time_price_substitution": false,
+    "new_command_invented": false,
+    "new_route_invented": false,
+    "final_header_invented": false,
+    "pending_metric_autofill": false
+  }
+}

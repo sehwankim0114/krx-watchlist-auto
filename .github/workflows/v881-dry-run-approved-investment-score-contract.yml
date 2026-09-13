@@ -1,0 +1,757 @@
+name: Dry-run approved investment score contract v8.8.1
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v881-investment-score-dry-run
+  cancel-in-progress: false
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Build dry-run scores
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > investment_score_dry_run_v881.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import csv
+          import json
+          import math
+          from collections import Counter, defaultdict
+          from datetime import datetime
+          from pathlib import Path
+          from statistics import mean, median
+          from zoneinfo import ZoneInfo
+
+          VERSION = "2026-09-13-v8.8.1-investment-score-dry-run"
+          POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          KST = ZoneInfo("Asia/Seoul")
+          ROOT = Path(".")
+
+          POLICY = ROOT / "config/investment_score_policy_v880.json"
+          FIN = ROOT / "latest/financial_valuation_cache_latest.csv"
+          RAW = ROOT / "latest/investment_score_source_cache_latest.csv"
+          OCF = ROOT / "latest/investment_score_ocf_source_latest.csv"
+          ELASTICITY = ROOT / "latest/investment_score_price_elasticity_20d_latest.csv"
+
+          OUT_CSV = ROOT / "latest/investment_score_v880_dry_run_latest.csv"
+          OUT_JSON = ROOT / "latest/investment_score_v880_dry_run_summary_latest.json"
+          OUT_LOG = ROOT / "latest/investment_score_v880_dry_run_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_v880_dry_run_v881.md"
+
+          CORE_DEBT_IDS = {
+              "ifrs-full_ShorttermBorrowings",
+              "ifrs-full_CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings",
+              "ifrs-full_CurrentPortionOfLongtermBorrowings",
+              "ifrs-full_CurrentPortionOfNoncurrentBondsIssued",
+              "dart_CurrentPortionOfBonds",
+              "ifrs-full_NoncurrentPortionOfNoncurrentBondsIssued",
+              "ifrs-full_NoncurrentPortionOfNoncurrentLoansReceived",
+              "ifrs-full_LongtermBorrowings",
+          }
+          DA_IDS = {
+              "ifrs-full_AdjustmentsForDepreciationExpense",
+              "ifrs-full_AdjustmentsForAmortisationExpense",
+          }
+          FINANCIAL_BENCHMARKS = {"1021", "1024", "1025"}
+
+          def num(v):
+              if v is None or isinstance(v, bool):
+                  return None
+              s = str(v).strip().replace(",", "")
+              if s in {"", "-", "None", "null", "nan", "NaN"}:
+                  return None
+              try:
+                  x = float(s)
+              except ValueError:
+                  return None
+              return x if math.isfinite(x) else None
+
+          def ticker(v):
+              s = "".join(ch for ch in str(v or "") if ch.isdigit())
+              return s.zfill(6) if s else ""
+
+          def read_json(path):
+              return json.loads(path.read_text(encoding="utf-8-sig"))
+
+          def read_csv_map(path):
+              with path.open(encoding="utf-8-sig", newline="") as f:
+                  rows = list(csv.DictReader(f))
+              return {ticker(r.get("ticker")): r for r in rows if ticker(r.get("ticker"))}
+
+          def production_rows():
+              out = {}
+              for table in ("kospi", "decliners", "decliners24"):
+                  payload = read_json(ROOT / f"api/two_table_v1/{table}.json")
+                  for row in payload.get("rows") or []:
+                      code = ticker(row.get("ticker"))
+                      if code:
+                          out[code] = row
+              return out
+
+          def clamp(x, lo, hi):
+              return max(lo, min(hi, x))
+
+          def score_band(x):
+              if x >= 85: return "핵심추천 후보"
+              if x >= 75: return "추천 후보"
+              if x >= 65: return "관찰 후보"
+              if x >= 55: return "대기·중립"
+              return "주의"
+
+          def trading_label(x):
+              if x is None or x < 0: return ""
+              if x >= 100_000_000_000: return "매우활발"
+              if x >= 30_000_000_000: return "활발"
+              if x >= 5_000_000_000: return "보통"
+              if x >= 1_000_000_000: return "부족"
+              return "매우부족"
+
+          def position_label(x):
+              if x is None: return ""
+              if x <= 20: return "저점권"
+              if x <= 35: return "저점권반등초입"
+              if x <= 65: return "중간권"
+              if x <= 80: return "중상단권"
+              if x <= 92: return "상단권부담"
+              return "고점권과열"
+
+          def parse_json_list(text):
+              try:
+                  data = json.loads(str(text or ""))
+              except Exception:
+                  return []
+              return data if isinstance(data, list) else []
+
+          def exact_candidate_sum(text, allowed_ids, allow_empty_zero=False):
+              rows = parse_json_list(text)
+              values = defaultdict(set)
+              for row in rows:
+                  aid = str(row.get("account_id") or "").strip()
+                  if aid not in allowed_ids:
+                      continue
+                  amount = num(row.get("amount"))
+                  if amount is not None:
+                      values[aid].add(amount)
+              if not values:
+                  return (0.0, "EMPTY_AS_ZERO") if allow_empty_zero else (None, "NO_EXACT_CANDIDATE")
+              for aid, vals in values.items():
+                  if len(vals) != 1:
+                      return None, f"CONFLICTING_DUPLICATE:{aid}"
+              return sum(next(iter(vals)) for vals in values.values()), "OK"
+
+          def get_common_raw(code, raw_map, prod_row):
+              direct = raw_map.get(code)
+              if direct and direct.get("source_cache_status") == "READY_RAW_SOURCE":
+                  return direct, "DIRECT"
+              metrics = prod_row.get("metrics") or {}
+              bench = metrics.get("sector_benchmark") or {}
+              mode = str(bench.get("selection_mode") or "")
+              common = ticker(bench.get("common_ticker"))
+              if mode.startswith("PREFERRED_INHERIT_") and common:
+                  inherited = raw_map.get(common)
+                  if inherited and inherited.get("source_cache_status") == "READY_RAW_SOURCE":
+                      return inherited, f"PREFERRED_COMMON:{common}"
+              return direct or {}, "UNAVAILABLE"
+
+          def s_revenue_growth(fin, raw):
+              x = num(fin.get("revenue_yoy_pct"))
+              y0, y1, y2 = [num(raw.get(k)) for k in ("annual_revenue_y0","annual_revenue_y1","annual_revenue_y2")]
+              if None in (x,y0,y1,y2) or y1 <= 0 or y2 <= 0:
+                  return None, "MISSING_REVENUE_GROWTH_INPUT"
+              if x < -20: p = 0
+              elif x < -5: p = 1
+              elif x < 5: p = 2.5
+              elif x < 15: p = 4
+              elif x < 30: p = 5
+              else: p = 4.5
+              a = (y0/y1-1)*100
+              b = (y1/y2-1)*100
+              if a >= 0 and b >= 0: p += 0.5
+              if a <= -15 or b <= -15: p -= 1
+              if a < 0 and b < 0: p -= 1.5
+              return clamp(p,0,5), ""
+
+          def s_op_growth(fin):
+              cur=num(fin.get("operating_profit")); prev=num(fin.get("previous_operating_profit")); yoy=num(fin.get("operating_profit_yoy_pct"))
+              if cur is None or prev is None: return None,"MISSING_OP_PROFIT"
+              if cur<=0 and prev<=0:return 0,""
+              if cur<=0 and prev>0:return .5,""
+              if cur>0 and prev<=0:return 5.5,""
+              if yoy is None:return None,"MISSING_OP_YOY"
+              if yoy<-30:return 2,""
+              if yoy<-10:return 3,""
+              if yoy<10:return 4,""
+              if yoy<30:return 5,""
+              if yoy<80:return 6,""
+              return 7,""
+
+          def s_net_income(fin):
+              trend=str(fin.get("earnings_trend") or "").strip(); yoy=num(fin.get("net_income_yoy_pct"))
+              if trend=="적자지속":return 0,""
+              if trend=="적자전환":return .5,""
+              if trend=="흑자전환":return 2,""
+              if trend!="흑자지속":return None,"MISSING_EARNINGS_TREND"
+              if yoy is None:return None,"MISSING_NET_INCOME_YOY"
+              if yoy<-30:return 1.5,""
+              if yoy<0:return 2,""
+              if yoy<20:return 2.5,""
+              return 3,""
+
+          def s_margin(fin):
+              x=num(fin.get("operating_margin_pct"))
+              if x is None:return None,"MISSING_MARGIN"
+              if x<=0:return 0,""
+              if x<3:return 1,""
+              if x<7:return 2,""
+              if x<15:return 3,""
+              if x<25:return 3.5,""
+              return 4,""
+
+          def s_roe(fin):
+              x=num(fin.get("roe_annualized_pct"))
+              if x is None:return None,"MISSING_ROE"
+              if x<=0:return 0,""
+              if x<5:return 1,""
+              if x<10:return 2,""
+              if x<15:return 3,""
+              if x<=25:return 4,""
+              if x<=40:return 3.5,""
+              return 3,""
+
+          def s_debt(fin, is_fin):
+              if is_fin:return 1.5,"FINANCIAL_SECTOR_NEUTRAL"
+              x=num(fin.get("debt_ratio_pct"))
+              if x is None:return None,"MISSING_DEBT_RATIO"
+              if x<=50:return 3,""
+              if x<=100:return 2.5,""
+              if x<=200:return 2,""
+              if x<=300:return 1,""
+              if x<=500:return .5,""
+              return 0,""
+
+          def s_ocf(raw, ocf, is_fin):
+              if is_fin:return 2,"FINANCIAL_SECTOR_NEUTRAL"
+              rev=num(raw.get("annual_revenue_y0")); flow=num(ocf.get("operating_cash_flow_annual"))
+              if rev is None or rev<=0 or flow is None:return None,"MISSING_OCF_MARGIN_INPUT"
+              x=flow/rev*100
+              if x<=0:return 0,""
+              if x<5:return 1.5,""
+              if x<10:return 2.5,""
+              if x<20:return 3.5,""
+              return 4,""
+
+          def s_per(fin):
+              per=num(fin.get("per_annualized")); trend=str(fin.get("earnings_trend") or ""); yoy=num(fin.get("net_income_yoy_pct"))
+              if per is None:return None,"MISSING_PER"
+              if per<=0 or trend in {"적자지속","적자전환"}:return 0,""
+              if per<=6:p=8
+              elif per<=10:p=7.5
+              elif per<=15:p=6.5
+              elif per<=20:p=5.5
+              elif per<=30:p=4
+              elif per<=50:p=2
+              else:p=1
+              if yoy is None:return None,"MISSING_NET_INCOME_YOY_FOR_PER_CAP"
+              if yoy < -30:p=min(p,5)
+              return p,""
+
+          def s_pbr(fin):
+              pbr=num(fin.get("pbr")); roe=num(fin.get("roe_annualized_pct"))
+              if pbr is None or roe is None:return None,"MISSING_PBR_OR_ROE"
+              if pbr<=0:p=0
+              elif pbr<=.7:p=5
+              elif pbr<=1.2:p=4.5
+              elif pbr<=2:p=3.5
+              elif pbr<=4:p=2
+              elif pbr<=8:p=1
+              else:p=.5
+              if roe<=5:p=min(p,3)
+              return p,""
+
+          def derived_debt_da(raw):
+              deep_ok = str(raw.get("deep_source_status") or "") == "OK"
+              debt, ds = exact_candidate_sum(raw.get("core_debt_candidates_json"), CORE_DEBT_IDS, allow_empty_zero=deep_ok)
+              da, das = exact_candidate_sum(raw.get("depreciation_amortization_candidates_json"), DA_IDS, allow_empty_zero=False)
+              return debt, ds, da, das
+
+          def s_ev_ebitda(fin, raw, is_fin):
+              if is_fin:return 2,"FINANCIAL_SECTOR_NEUTRAL"
+              cap=num(fin.get("market_cap")); cash=num(raw.get("cash_and_cash_equivalents")); op=num(raw.get("annual_operating_profit_y0"))
+              debt, ds, da, das = derived_debt_da(raw)
+              if None in (cap,cash,op,debt,da):return None,f"EV_EBITDA_INPUT:{ds}:{das}"
+              ebitda=op+da
+              if ebitda<=0:return 0,""
+              x=(cap+debt-cash)/ebitda
+              if x<=5:return 4,""
+              if x<=8:return 3.5,""
+              if x<=12:return 2.5,""
+              if x<=18:return 1.5,""
+              if x<=25:return .5,""
+              return 0,""
+
+          def s_psr(fin, raw, is_fin):
+              if is_fin:return 1.5,"FINANCIAL_SECTOR_NEUTRAL"
+              cap=num(fin.get("market_cap")); rev=num(raw.get("annual_revenue_y0"))
+              if cap is None or rev is None or rev<=0:return None,"MISSING_PSR_INPUT"
+              x=cap/rev
+              if x<=.75:return 3,""
+              if x<=1.5:return 2.5,""
+              if x<=3:return 1.5,""
+              if x<=5:return .5,""
+              return 0,""
+
+          def s_3y_rev(raw):
+              y0,y1,y2=[num(raw.get(k)) for k in ("annual_revenue_y0","annual_revenue_y1","annual_revenue_y2")]
+              if None in (y0,y1,y2) or min(y0,y1,y2)<=0:return None,"MISSING_3Y_REVENUE"
+              x=((y0/y2)**.5-1)*100
+              if x<-5:p=0
+              elif x<0:p=.5
+              elif x<5:p=1.5
+              elif x<10:p=2.5
+              elif x<20:p=3.5
+              else:p=4
+              a=(y0/y1-1)*100; b=(y1/y2-1)*100
+              if a<=-15 or b<=-15:p=min(p,2.5)
+              return p,""
+
+          def s_3y_op(raw):
+              y0,y1,y2=[num(raw.get(k)) for k in ("annual_operating_profit_y0","annual_operating_profit_y1","annual_operating_profit_y2")]
+              if None in (y0,y1,y2):return None,"MISSING_3Y_OP"
+              if y0<=0:return 0,""
+              if y1<=0 or y2<=0:return 3,"TURNAROUND"
+              x=((y0/y2)**.5-1)*100
+              if x<-10:return .5,""
+              if x<0:return 1,""
+              if x<10:return 2,""
+              if x<25:return 3,""
+              return 4,""
+
+          def s_accel(raw):
+              qrev=num(raw.get("q2_revenue_yoy_pct")); qop=num(raw.get("q2_operating_profit_yoy_pct"))
+              qcur=num(raw.get("q2_operating_profit_current")); qprev=num(raw.get("q2_operating_profit_previous"))
+              y0r=num(raw.get("annual_revenue_y0")); y1r=num(raw.get("annual_revenue_y1"))
+              y0o=num(raw.get("annual_operating_profit_y0")); y1o=num(raw.get("annual_operating_profit_y1"))
+              if None in (qrev,qop,qcur,qprev,y0r,y1r,y0o,y1o) or y1r<=0:
+                  return None,"MISSING_ACCEL_INPUT"
+              if y1o<=0 and qcur>0 and qprev<=0:return 3,"TURNAROUND"
+              if y1o<=0:return None,"ANNUAL_OP_DENOM_NONPOSITIVE"
+              arev=(y0r/y1r-1)*100; aop=(y0o/y1o-1)*100
+              rd=qrev-arev; od=qop-aop
+              if qcur<=0:return 0,""
+              if rd<=-10 and od<=-50:return 0,""
+              if rd<=-5 or od<=-10:return .5,""
+              if rd>=5 and od>=10:return 3,""
+              if (od>=10 and rd>=0) or (rd>=5 and od>=0):return 2.5,""
+              if abs(rd)<5 and abs(od)<10:return 1.5,""
+              return 1,""
+
+          def s_stability(fin):
+              trend=str(fin.get("earnings_trend") or "")
+              m={"흑자지속":2,"흑자전환":1.5,"적자전환":.5,"적자지속":0}
+              return (m.get(trend), "") if trend in m else (None,"MISSING_EARNINGS_TREND")
+
+          def s_netcash(fin, raw, is_fin):
+              if is_fin:return 1,"FINANCIAL_SECTOR_NEUTRAL"
+              cap=num(fin.get("market_cap")); cash=num(raw.get("cash_and_cash_equivalents"))
+              debt, ds, _, _ = derived_debt_da(raw)
+              if None in (cap,cash,debt) or cap<=0:return None,f"NETCASH_INPUT:{ds}"
+              x=(cash-debt)/cap*100
+              if x>=20:return 2,""
+              if x>=5:return 1.5,""
+              if x>=-10:return 1,""
+              if x>=-30:return .5,""
+              return 0,""
+
+          def s_ret1(metrics):
+              x=num(((metrics.get("returns") or {}).get("1") or {}).get("pct"))
+              if x is None:return None,"MISSING_RET1"
+              if x<-15:return 0,""
+              if x<-5:return 1,""
+              if x<0:return 2,""
+              if x<5:return 3,""
+              if x<15:return 4,""
+              if x<30:return 3.5,""
+              return 2.5,""
+
+          def s_ret3(metrics):
+              x=num(((metrics.get("returns") or {}).get("3") or {}).get("pct"))
+              if x is None:return None,"MISSING_RET3"
+              if x<-25:return 0,""
+              if x<-10:return .5,""
+              if x<0:return 1.5,""
+              if x<10:return 2.5,""
+              if x<30:return 3,""
+              if x<60:return 2.5,""
+              return 1.5,""
+
+          def s_position(metrics):
+              x=num((metrics.get("range_3m") or {}).get("position_pct"))
+              lab=position_label(x)
+              m={"저점권":3.5,"저점권반등초입":5,"중간권":4,"중상단권":3,"상단권부담":1.5,"고점권과열":.5}
+              return (m.get(lab), "") if lab else (None,"MISSING_POSITION")
+
+          def s_risk(metrics):
+              swing=metrics.get("swing") or {}
+              phase=str(swing.get("phase") or "")
+              newlow=bool(swing.get("new_20d_low"))
+              atr=num((metrics.get("atr14") or {}).get("pct"))
+              r1=num(((metrics.get("returns") or {}).get("1") or {}).get("pct"))
+              if not phase or atr is None or r1 is None:return None,"MISSING_RISK_INPUT"
+              p=3+{"NEW_LOW":-2,"TOP_DECLINE":-1.5,"EARLY_REBOUND_UNCONFIRMED":-.5,
+                   "SIDEWAYS_OR_UNCONFIRMED":-.5,"BOTTOM_REBOUND":0,"UPTREND_PULLBACK":0,"UPTREND":0}.get(phase,-.5)
+              if newlow and phase!="NEW_LOW":p-=1
+              if atr>=7:p-=1
+              elif atr>=5:p-=.5
+              if r1>=25:p-=.5
+              if r1<=-20:p-=.5
+              return clamp(p,0,3),""
+
+          def s_activity(metrics):
+              act=metrics.get("activity") or {}
+              value=num(act.get("avg20_trading_value_krw")); vol=num(act.get("volume_vs_20d"))
+              lab=trading_label(value)
+              if not lab or vol is None:return None,"MISSING_ACTIVITY_INPUT"
+              p={"매우활발":6,"활발":5,"보통":4,"부족":2,"매우부족":.5}[lab]
+              if vol>=1.2:p+=.5
+              elif vol<.25:p-=1
+              elif vol<.5:p-=.5
+              return clamp(p,0,6),""
+
+          def s_elasticity(el):
+              x=num(el.get("avg_daily_move_pct"))
+              if x is None:return None,"MISSING_ELASTICITY"
+              if x<1.5:return 2.5,""
+              if x<3:return 4,""
+              if x<5:return 3,""
+              if x<8:return 1.5,""
+              return .5,""
+
+          def s_supply(analysis):
+              status=str(analysis.get("supply_status") or "")
+              level=str(analysis.get("supply_level") or "")
+              if status != "OK":
+                  return None, f"SUPPLY_STATUS_{status or 'MISSING'}"
+              m={"없음":10,"주의":7,"경계":4,"위험":1}
+              return (m.get(level), "") if level in m else (None,"MISSING_SUPPLY_LEVEL")
+
+          def main():
+              policy=read_json(POLICY)
+              if policy.get("version")!=POLICY_VERSION or policy.get("status")!="APPROVED_DESIGN_NOT_PRODUCTION":
+                  raise RuntimeError("POLICY_NOT_READY")
+              if policy.get("activation_rules",{}).get("production_activation") is not False:
+                  raise RuntimeError("PRODUCTION_ACTIVATION_MUST_BE_FALSE")
+
+              prod=production_rows()
+              finmap=read_csv_map(FIN); rawmap=read_csv_map(RAW); ocfmap=read_csv_map(OCF); elmap=read_csv_map(ELASTICITY)
+              rows=[]; missing_counter=Counter(); area_scores=defaultdict(list)
+
+              for code in sorted(prod):
+                  prow=prod[code]; metrics=prow.get("metrics") or {}; analysis=prow.get("analysis") or {}
+                  fin=finmap.get(code) or {}
+                  raw, raw_mode=get_common_raw(code,rawmap,prow)
+                  ocf=ocfmap.get(code) or {}
+                  el=elmap.get(code) or {}
+                  bench=str(((metrics.get("sector_benchmark") or {}).get("benchmark_ticker") or ""))
+                  is_fin=bench in FINANCIAL_BENCHMARKS
+
+                  comps=[
+                      ("financial","매출 성장과 안정성",5,*s_revenue_growth(fin,raw)),
+                      ("financial","영업이익 성장과 흑자 여부",7,*s_op_growth(fin)),
+                      ("financial","순이익 흐름",3,*s_net_income(fin)),
+                      ("financial","영업이익률",4,*s_margin(fin)),
+                      ("financial","ROE",4,*s_roe(fin)),
+                      ("financial","부채비율",3,*s_debt(fin,is_fin)),
+                      ("financial","영업현금흐름",4,*s_ocf(raw,ocf,is_fin)),
+                      ("valuation","PER",8,*s_per(fin)),
+                      ("valuation","PBR",5,*s_pbr(fin)),
+                      ("valuation","EV/EBITDA",4,*s_ev_ebitda(fin,raw,is_fin)),
+                      ("valuation","PSR 또는 대체 가치지표",3,*s_psr(fin,raw,is_fin)),
+                      ("growth_value","최근 3년 매출 성장률",4,*s_3y_rev(raw)),
+                      ("growth_value","최근 3년 영업이익 성장률",4,*s_3y_op(raw)),
+                      ("growth_value","최근 분기 실적 가속·둔화",3,*s_accel(raw)),
+                      ("growth_value","흑자 지속성과 이익 안정성",2,*s_stability(fin)),
+                      ("growth_value","순현금·기업가치 상태",2,*s_netcash(fin,raw,is_fin)),
+                      ("price_position","1개월 가격흐름",4,*s_ret1(metrics)),
+                      ("price_position","3개월 가격흐름",3,*s_ret3(metrics)),
+                      ("price_position","기간 저가·고가 대비 현재위치",5,*s_position(metrics)),
+                      ("price_position","과열·급락 위험",3,*s_risk(metrics)),
+                      ("liquidity_elasticity","20일 평균 거래대금과 거래량",6,*s_activity(metrics)),
+                      ("liquidity_elasticity","하루평균 절대등락률",4,*s_elasticity(el)),
+                      ("supply_disclosure","수급·공시부담",10,*s_supply(analysis)),
+                  ]
+
+                  missing=[]; comp_points={}; areas=defaultdict(float)
+                  warnings=[]
+                  if is_fin:warnings.append("SECTOR_STRUCTURAL_NONCOMPARABILITY")
+                  for area,item,maxp,points,reason in comps:
+                      if points is None:
+                          missing.append(item + ":" + reason)
+                          missing_counter[item + ":" + reason]+=1
+                      else:
+                          points=round(clamp(points,0,maxp)*2)/2
+                          comp_points[item]=points
+                          areas[area]+=points
+                  ready=not missing
+                  total=round(sum(areas.values()),1) if ready else None
+                  band=score_band(total) if ready else ""
+                  for area,val in areas.items():
+                      area_scores[area].append(val)
+
+                  rows.append({
+                      "ticker":code,
+                      "name":str(prow.get("name") or ""),
+                      "market":str(prow.get("market") or ""),
+                      "basis_date":str(metrics.get("basis_date") or ""),
+                      "score_status":"READY" if ready else "LIMITED",
+                      "score_total":"" if total is None else total,
+                      "score_band":band,
+                      "score_financial":round(areas["financial"],1) if ready else "",
+                      "score_valuation":round(areas["valuation"],1) if ready else "",
+                      "score_growth_value":round(areas["growth_value"],1) if ready else "",
+                      "score_price_position":round(areas["price_position"],1) if ready else "",
+                      "score_liquidity_elasticity":round(areas["liquidity_elasticity"],1) if ready else "",
+                      "score_supply_disclosure":round(areas["supply_disclosure"],1) if ready else "",
+                      "missing_component_count":len(missing),
+                      "missing_components":";".join(missing),
+                      "warning_reasons":";".join(warnings),
+                      "raw_source_mode":raw_mode,
+                      "financial_sector":str(is_fin).lower(),
+                      "component_points_json":json.dumps(comp_points,ensure_ascii=False,separators=(",",":")),
+                  })
+
+              ready_rows=[r for r in rows if r["score_status"]=="READY"]
+              limited_rows=[r for r in rows if r["score_status"]=="LIMITED"]
+              scores=[float(r["score_total"]) for r in ready_rows]
+              band_counts=Counter(r["score_band"] for r in ready_rows)
+              score_summary={
+                  "count":len(scores),
+                  "min":min(scores) if scores else None,
+                  "median":median(scores) if scores else None,
+                  "mean":mean(scores) if scores else None,
+                  "max":max(scores) if scores else None,
+              }
+
+              OUT_CSV.parent.mkdir(parents=True,exist_ok=True)
+              fields=list(rows[0].keys())
+              with OUT_CSV.open("w",encoding="utf-8-sig",newline="") as f:
+                  w=csv.DictWriter(f,fieldnames=fields); w.writeheader(); w.writerows(rows)
+
+              summary={
+                  "version":VERSION,
+                  "policy_version":POLICY_VERSION,
+                  "generated_at_kst":datetime.now(KST).isoformat(timespec="seconds"),
+                  "status":"DRY_RUN_ONLY",
+                  "production_unique_tickers":len(prod),
+                  "ready_count":len(ready_rows),
+                  "limited_count":len(limited_rows),
+                  "ready_pct":round(len(ready_rows)/len(prod)*100,2) if prod else 0,
+                  "score_summary_ready_only":score_summary,
+                  "score_band_counts_ready_only":dict(band_counts),
+                  "top_missing_reasons":missing_counter.most_common(30),
+                  "hard_guards":{
+                      "production_api_changed":False,
+                      "production_investment_score_written":False,
+                      "legacy_score_rescaled":False,
+                      "limited_score_total_is_null":all(r["score_total"]=="" for r in limited_rows),
+                  },
+                  "next_step":"REVIEW_DRY_RUN_READY_LIMITED_DISTRIBUTION_AND_BLOCKERS_BEFORE_PRODUCTION",
+              }
+              OUT_JSON.write_text(json.dumps(summary,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+
+              log=[
+                  f"VERSION={VERSION}",
+                  f"POLICY_VERSION={POLICY_VERSION}",
+                  f"PRODUCTION_UNIQUE_TICKERS={len(prod)}",
+                  f"DRY_RUN_READY={len(ready_rows)}",
+                  f"DRY_RUN_LIMITED={len(limited_rows)}",
+                  f"DRY_RUN_READY_PCT={summary['ready_pct']}",
+                  f"READY_SCORE_MIN={score_summary['min']}",
+                  f"READY_SCORE_MEDIAN={score_summary['median']}",
+                  f"READY_SCORE_MEAN={score_summary['mean']}",
+                  f"READY_SCORE_MAX={score_summary['max']}",
+                  "PRODUCTION_DATA_CHANGED=false",
+                  "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+                  "LEGACY_SCORE_RESCALED=false",
+                  "STATUS=OK",
+              ]
+              OUT_LOG.write_text("\n".join(log)+"\n",encoding="utf-8")
+
+              doc=[
+                  "# V8.8.1 투자종합점수 dry-run",
+                  "",
+                  f"버전: `{VERSION}`",
+                  "",
+                  "V8.8.0 승인 계약을 production에 쓰지 않고 현재 production 112종목에 시험 계산한다.",
+                  "",
+                  "## 안전장치",
+                  "",
+                  "- LIMITED 종목은 score_total=null",
+                  "- supply_status가 OK가 아니면 수급점수 확정 금지",
+                  "- EV/EBITDA·순현금은 정확한 원천만 사용",
+                  "- legacy_market_score 재환산 금지",
+                  "- api/two_table_v1 변경 금지",
+                  "",
+                  "## 다음 단계",
+                  "",
+                  "READY/LIMITED 비율, 점수분포, 결측 사유, 금융업 중립처리를 검토한 뒤 production 활성화 여부를 판단한다.",
+                  "",
+              ]
+              OUT_DOC.parent.mkdir(parents=True,exist_ok=True)
+              OUT_DOC.write_text("\n".join(doc),encoding="utf-8")
+
+              print("\n".join(log))
+              return 0
+
+          if __name__=="__main__":
+              raise SystemExit(main())
+          PY
+
+          python -m py_compile investment_score_dry_run_v881.py
+          python investment_score_dry_run_v881.py
+          grep -q '^STATUS=OK$' latest/investment_score_v880_dry_run_run_log_latest.txt
+          echo "V881_DRY_RUN_BUILD=PASS"
+
+
+      - name: Validate dry-run scores
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv,json
+          from pathlib import Path
+
+          s=json.loads(Path("latest/investment_score_v880_dry_run_summary_latest.json").read_text(encoding="utf-8"))
+          with Path("latest/investment_score_v880_dry_run_latest.csv").open(encoding="utf-8-sig",newline="") as f:
+              rows=list(csv.DictReader(f))
+
+          assert s["status"]=="DRY_RUN_ONLY"
+          assert len(rows)==s["production_unique_tickers"]
+          assert s["ready_count"]+s["limited_count"]==len(rows)
+          assert s["hard_guards"]["production_api_changed"] is False
+          assert s["hard_guards"]["production_investment_score_written"] is False
+          assert s["hard_guards"]["legacy_score_rescaled"] is False
+          assert s["hard_guards"]["limited_score_total_is_null"] is True
+
+          for r in rows:
+              if r["score_status"]=="READY":
+                  x=float(r["score_total"])
+                  assert 0<=x<=100
+                  parts=sum(float(r[k]) for k in (
+                      "score_financial","score_valuation","score_growth_value",
+                      "score_price_position","score_liquidity_elasticity","score_supply_disclosure"))
+                  assert abs(parts-x)<=0.1
+                  assert int(r["missing_component_count"])==0
+              else:
+                  assert r["score_total"]==""
+                  assert int(r["missing_component_count"])>0
+
+          print("V881_DRY_RUN_VALIDATION=PASS")
+          print("DRY_RUN_READY="+str(s["ready_count"]))
+          print("DRY_RUN_LIMITED="+str(s["limited_count"]))
+          print("DRY_RUN_READY_PCT="+str(s["ready_pct"]))
+          print("PRODUCTION_INVESTMENT_SCORE_WRITTEN=false")
+          PY
+
+
+      - name: Verify production unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git status --porcelain -- api/two_table_v1 config/two_table_release.json | grep -q .; then
+            echo "::error::Production files changed"
+            git status --short -- api/two_table_v1 config/two_table_release.json
+            exit 1
+          fi
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for table in ("kospi","decliners","decliners24"):
+              p=json.loads(Path(f"api/two_table_v1/{table}.json").read_text(encoding="utf-8"))
+              for row in p.get("rows") or []:
+                  assert (row.get("metrics") or {}).get("investment_score_100") is None
+          print("V881_PRODUCTION_SCORE_STILL_NULL=PASS")
+          PY
+
+          echo "V881_PRODUCTION_UNCHANGED=PASS"
+
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess
+          allowed={
+              "investment_score_dry_run_v881.py",
+              "docs/investment_score_v880_dry_run_v881.md",
+              "latest/investment_score_v880_dry_run_latest.csv",
+              "latest/investment_score_v880_dry_run_summary_latest.json",
+              "latest/investment_score_v880_dry_run_run_log_latest.txt",
+          }
+          out=subprocess.check_output(["git","status","--porcelain"],text=True)
+          changed=set()
+          for line in out.splitlines():
+              if not line.strip(): continue
+              p=line[3:]
+              if " -> " in p:p=p.split(" -> ",1)[1]
+              changed.add(p)
+          if changed!=allowed:
+              raise SystemExit("CHANGE_SCOPE_MISMATCH="+repr(sorted(changed)))
+          print("CHANGE_SCOPE=PASS")
+          PY
+
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_dry_run_v881.py \
+            docs/investment_score_v880_dry_run_v881.md \
+            latest/investment_score_v880_dry_run_latest.csv \
+            latest/investment_score_v880_dry_run_summary_latest.json \
+            latest/investment_score_v880_dry_run_run_log_latest.txt
+
+          git commit -m "Run V8.8.0 investment score dry run"
+
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          fi
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "PRODUCTION_DATA_CHANGED=false"
+          echo "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false"
+          echo "NEXT_STEP=REVIEW_V880_DRY_RUN_DISTRIBUTION_AND_BLOCKERS"
+

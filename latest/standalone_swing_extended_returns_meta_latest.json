@@ -1,49 +1,111 @@
 {
-  "contract_version": "2026-09-12-v8.7.2-standalone-swing-6m-return-source",
-  "script_version": "standalone_swing_extended_returns_v872.py v1.0.0-source-only",
+  "contract_version": "2026-09-13-v8.7.17-standalone-swing-return-basis-source",
+  "script_version": "standalone_swing_extended_returns_v8717.py v1.0.0-source-only",
   "status": "READY_SOURCE_ONLY",
   "source_only": true,
   "standalone_swing_table_enabled": false,
+  "action_route_enabled": false,
   "request_time_price_eligible": false,
   "basis_date": "2026-09-11",
   "target_ticker_count": 235,
-  "return_6m_ready_count": 234,
-  "return_6m_short_count": 1,
-  "return_6m_short": [
-    {
-      "ticker": "439960",
-      "name": "코스모로보틱스",
-      "history_rows": 86,
-      "history_min_date": "2026-05-11",
-      "status": "HISTORY_SHORT_OR_DATE_MISSING"
-    }
-  ],
+  "return_basis": {
+    "1w": "CALENDAR_DAYS_7_FIRST_MARKET_SESSION_ON_OR_AFTER",
+    "1m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
+    "3m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
+    "6m": "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER",
+    "ytd": "PRIOR_YEAR_FINAL_MARKET_SESSION_CLOSE",
+    "52w": "CALENDAR_WEEKS_52_FIRST_MARKET_SESSION_ON_OR_AFTER"
+  },
+  "return_start_dates": {
+    "1w": "2026-09-04",
+    "ytd": "2025-12-30",
+    "52w": "2025-09-12"
+  },
+  "return_ready_count": {
+    "1w": 235,
+    "6m": 234,
+    "ytd": 234,
+    "52w": 233
+  },
+  "return_missing_count": {
+    "1w": 0,
+    "6m": 1,
+    "ytd": 1,
+    "52w": 2
+  },
+  "return_missing": {
+    "1w": [],
+    "6m": [
+      {
+        "ticker": "439960",
+        "name": "코스모로보틱스",
+        "market": "KOSDAQ",
+        "history_rows": 86,
+        "history_min_date": "2026-05-11",
+        "start_date": "2026-03-11",
+        "status": "HISTORY_SHORT_OR_DATE_MISSING"
+      }
+    ],
+    "ytd": [
+      {
+        "ticker": "439960",
+        "name": "코스모로보틱스",
+        "market": "KOSDAQ",
+        "history_rows": 86,
+        "history_min_date": "2026-05-11",
+        "start_date": "2025-12-30",
+        "status": "HISTORY_SHORT_OR_DATE_MISSING"
+      }
+    ],
+    "52w": [
+      {
+        "ticker": "217590",
+        "name": "티엠씨",
+        "market": "KOSPI",
+        "history_rows": 182,
+        "history_min_date": "2025-12-15",
+        "start_date": "2025-09-12",
+        "status": "HISTORY_SHORT_OR_DATE_MISSING"
+      },
+      {
+        "ticker": "439960",
+        "name": "코스모로보틱스",
+        "market": "KOSDAQ",
+        "history_rows": 86,
+        "history_min_date": "2026-05-11",
+        "start_date": "2025-09-12",
+        "status": "HISTORY_SHORT_OR_DATE_MISSING"
+      }
+    ]
+  },
   "production_1m_3m_regression_exact_matches": 30,
-  "pending_returns": [
-    "1w",
-    "ytd",
-    "52w"
-  ],
+  "previous_approved_6m_regression_exact_matches": 235,
+  "pending_returns": [],
   "safety": {
+    "return_1w_calculated": true,
     "return_6m_calculated": true,
-    "return_1w_calculated": false,
-    "return_ytd_calculated": false,
-    "return_52w_calculated": false,
+    "return_ytd_calculated": true,
+    "return_52w_calculated": true,
     "rsi_calculated": false,
     "macd_calculated": false,
     "investment_score_100_calculated": false,
     "earnings_outlook_change_calculated": false,
     "confirmed_swing_low_stop_calculated": false,
-    "metric_formula_changed": false,
+    "core_metric_formula_changed": false,
     "production_table_changed": false,
-    "request_time_price_substitution": false
+    "worker_changed": false,
+    "request_time_price_substitution": false,
+    "new_command_defined": false,
+    "route_enabled": false
   },
   "source_sha256": {
     "latest/active_stock_long_history_260d_latest.csv": "4d984cad2a0a4ed9e42506da660c6a8f40610f1248d6f6ce00e0766c223daad1",
     "latest/active_stock_long_history_260d_meta_latest.json": "268aaf6dc9f460023e23c652944add6c94a770d9ed4cdd61787e9bd6f43ccd32",
+    "active_stock_long_history_builder_v857.py": "ae132eb15de2adc464ceafcc7f4766f5b49c5584ce767d1541e097c983fdd04a",
     "latest/official_index_history_latest.csv": "631eb6c61e4d28130407815b4e69dbc8bfda77dc98a62dcaae574e939f8cb0b0",
-    "api/two_table_v1/kospi.json": "074e216aa8254ab6cf31f35305f69bb3f58dbb3724f7770afdb857eb8336e13b",
+    "api/two_table_v1/kospi.json": "7725d53790a5198f7e7a4e7d3532120b05b746b3d961ac87e1926fed9ef406cf",
     "latest/standalone_swing_source_meta_latest.json": "0af9ced04c33947959b8a7589b0cb7c5df95de9511ac95b718ca4b7a042de6ba",
+    "latest/standalone_swing_extended_returns_latest.json": "7f76c3e40f9eb528c513a3c88ccb428b4e4715e682a4a8b7008cac94b97da6e8",
     "stock_table_metrics_v850.py": "957063e69ddb68c815245fcedf3f090b41a4d992396b1dc579f42952c6829fc9"
   }
 }

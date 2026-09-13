@@ -1,0 +1,321 @@
+{
+  "contract_version": "2026-09-13-v8.7.13-standalone-swing-display-merge-freeze",
+  "script_version": "standalone_swing_display_merge_freeze_v8713.py v1.0.0",
+  "status": "FROZEN_PREPRODUCTION_READY",
+  "display_merge_contract_frozen": true,
+  "production_activation_allowed": false,
+  "standalone_swing_table_enabled": false,
+  "action_route_enabled": false,
+  "standalone_command_defined": false,
+  "final_header_selected": false,
+  "final_position_label_selected": false,
+  "recommendation_contract_selected": false,
+  "price_zone_contract_selected": false,
+  "basis_date": "2026-09-11",
+  "source_row_count": 235,
+  "range3m_position_capacity": {
+    "ready": 213,
+    "unavailable": 22,
+    "unavailable_display": "자료 미제공",
+    "unavailable_reason_contract": "confirmed 3M low/high missing or non-usable; do not fabricate range",
+    "unavailable_rows": [
+      {
+        "ticker": "000880",
+        "name": "한화",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "001210",
+        "name": "금호전기",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "001290",
+        "name": "상상인증권",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "001420",
+        "name": "태원물산",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "001527",
+        "name": "동양2우B",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "001770",
+        "name": "SHD",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "002210",
+        "name": "동성제약",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "002990",
+        "name": "금호건설",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "004545",
+        "name": "깨끗한나라우",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "004870",
+        "name": "티웨이홀딩스",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "005320",
+        "name": "온타이드",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "006380",
+        "name": "카프로",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "006490",
+        "name": "프리티",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "012160",
+        "name": "영흥",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "012170",
+        "name": "아센디오",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "012280",
+        "name": "영화금속",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "014160",
+        "name": "대영포장",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "014990",
+        "name": "인디에프",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "019680",
+        "name": "대교",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "044380",
+        "name": "주연테크",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "091810",
+        "name": "트리니티항공",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      },
+      {
+        "ticker": "298000",
+        "name": "효성화학",
+        "market": "KOSPI",
+        "low": null,
+        "high": null,
+        "display": "자료 미제공"
+      }
+    ]
+  },
+  "request_time_display_merge_contract": {
+    "price_source_operation_id": "getRequestTimePrices",
+    "worker_base_url": "https://krx-live-price-ksh.diaconos.workers.dev",
+    "retry_policy": [
+      10,
+      5,
+      2
+    ],
+    "retry_only_failed": true,
+    "final_failure_display": "⚪ 현재가 확인 실패",
+    "request_time_price_is_overlay_only": true,
+    "official_close_is_reference_only": true,
+    "static_price_fallback_allowed": false,
+    "position_range_source": "confirmed daily 3M low/high",
+    "position_formula": "(request_time_price - low) / (high - low) * 100",
+    "position_pct_clamped_to_0_100": false,
+    "position_when_range_unavailable": null,
+    "position_unavailable_display": "자료 미제공",
+    "static_range_position_copied_as_request_position": false,
+    "confirmed_metrics_recomputed": false,
+    "confirmed_metrics_immutable": [
+      "1M/3M/6M returns",
+      "swing phase/anchors",
+      "MA5/20/60/120",
+      "mean run days",
+      "current streak",
+      "KOSPI RS",
+      "sector RS",
+      "ATR14",
+      "20-day average intraday range",
+      "confirmed 3M low/high",
+      "MA20 trailing reference",
+      "pending metrics"
+    ],
+    "request_vs_official_close_icon": {
+      "absolute_difference_basis": true,
+      "none": "abs(diff) < 0.5%",
+      "blue": "0.5% <= abs(diff) < 1.5%",
+      "orange": "1.5% <= abs(diff) < 3.0%",
+      "red": "abs(diff) >= 3.0%",
+      "failure": "⚪",
+      "icons": {
+        "blue": "🟦",
+        "orange": "🟠",
+        "red": "🔴",
+        "failure": "⚪"
+      }
+    }
+  },
+  "not_frozen_yet": [
+    "final_position_label_bands",
+    "price_zone",
+    "recommendation_mark",
+    "final_table_header",
+    "standalone_command_name",
+    "standalone_route"
+  ],
+  "resolved_activation_blocker": "REQUEST_TIME_DISPLAY_MERGE_CONTRACT_NOT_FROZEN_FOR_STANDALONE",
+  "remaining_activation_blockers": [
+    "NO_FINAL_STANDALONE_TABLE_HEADER_CONTRACT",
+    "NO_STANDALONE_COMMAND_OR_ROUTE_CONTRACT",
+    "1W_YTD_52W_FORMULAS_NOT_APPROVED",
+    "RSI_MACD_FORMULAS_NOT_APPROVED",
+    "CONFIRMED_SWING_LOW_STOP_POLICY_NOT_DEFINED",
+    "INVESTMENT_SCORE_THRESHOLDS_NOT_DEFINED",
+    "EARNINGS_OUTLOOK_SOURCE_NOT_CONNECTED",
+    "KOSDAQ_OFFICIAL_SECTOR_RS_CONTRACT_NOT_DEFINED"
+  ],
+  "evidence": {
+    "v8712_request_time_display_merge_preview": {
+      "run_id": 34741483044,
+      "job_id": 103681809815,
+      "artifact_id": 10312955901,
+      "artifact_sha256": "ac6667c33c41bba84f90b692ce371cada7841bd63f6fd175294919139c16e597",
+      "result": "PASS",
+      "run_head_sha": "926cf65c6284ba69115a5861bf5aa2303f85f516",
+      "findings": {
+        "source_rows": 235,
+        "quote_success": 235,
+        "quote_failed": 0,
+        "position_ready": 213,
+        "position_unavailable": 22,
+        "position_below_range": 0,
+        "position_inside_range": 213,
+        "position_above_range": 0,
+        "static_fallback_count": 0,
+        "confirmed_metric_mutation_count": 0,
+        "position_pct_clamped": false,
+        "overlay_only": true
+      }
+    }
+  },
+  "source_contracts": {
+    "integrated_source": "2026-09-12-v8.7.6-standalone-swing-integrated-source",
+    "preproduction_freeze": "2026-09-13-v8.7.11-standalone-swing-preproduction-freeze",
+    "manifest_build_id": "20260912T200915+0900-8403d73393",
+    "manifest_route_contract_version": "2026-07-15-v8.2-command-route-contract"
+  },
+  "source_sha256": {
+    "latest/standalone_swing_integrated_latest.json": "328d4ba2eac85b4cfc096cd897251baed12915d9ed7c3c23970b20ceb3f2b83f",
+    "latest/standalone_swing_preproduction_readiness_latest.json": "48ea9e93dfd7b43d50343f7569742ad3e8db7bec932b785f9d0700e2ae91313a",
+    "api/manifest.json": "660ec12e477de9601c9fee9eb4361a636004fcdc731e8b9357633ea6a62e39e7",
+    "docs/custom_gpt_action_schema.yaml": "0b38065ef9b5c9a5db3404f9d30ca6e37c1ca0632f87a8176c27210fa1343581",
+    "worker/krx-live-price-worker.js": "4a7580d78920ebd98b4e21f1e7a20838e5d0aa8af4cd3e7e22a4c38b4a13239a",
+    "stock_table_metrics_v850.py": "957063e69ddb68c815245fcedf3f090b41a4d992396b1dc579f42952c6829fc9"
+  },
+  "safety": {
+    "repository_source_data_mutated": false,
+    "production_table_changed": false,
+    "worker_changed": false,
+    "action_schema_changed": false,
+    "metric_formula_changed": false,
+    "static_price_substitution": false,
+    "confirmed_metric_recomputation": false,
+    "new_command_invented": false,
+    "new_route_invented": false,
+    "final_header_invented": false,
+    "final_position_label_invented": false,
+    "recommendation_contract_invented": false,
+    "price_zone_contract_invented": false
+  }
+}

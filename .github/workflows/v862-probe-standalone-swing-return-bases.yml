@@ -1,534 +1,278 @@
-name: Validate standalone swing request-time price path v8.7.10
+name: Freeze standalone swing preproduction contract v8.7.11
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: v8710-standalone-swing-request-price-probe
+  group: collect-krx-watchlist-latest
   cancel-in-progress: false
 
 jobs:
-  validate:
+  freeze:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
 
     steps:
       - name: Checkout latest main
         uses: actions/checkout@v6
         with:
           ref: main
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
-      - name: Validate existing request-time price path
+      - name: Capture base and protected hashes
         shell: bash
+        run: |
+          set -euo pipefail
+          echo "BASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+          sha256sum stock_table_metrics_v850.py > /tmp/metric.sha
+          sha256sum worker/krx-live-price-worker.js > /tmp/worker.sha
+          sha256sum docs/custom_gpt_action_schema.yaml > /tmp/schema.sha
+          sha256sum README_사용법.md > /tmp/readme.sha
+          sha256sum latest/standalone_swing_integrated_latest.json > /tmp/integrated.sha
+          sha256sum latest/standalone_swing_integrated_meta_latest.json > /tmp/integrated_meta.sha
+          find api/two_table_v1 -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/two_table.sha
+
+          echo "V8711_BASE_SHA=$(git rev-parse HEAD)"
+
+      - name: Restore V8.7.11 builder and contract
+        shell: bash
+        env:
+          BUILDER_B64: "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwojIC0qLSBjb2Rpbmc6IHV0Zi04IC0qLQpmcm9tIF9fZnV0dXJlX18gaW1wb3J0IGFubm90YXRpb25zCgppbXBvcnQgaGFzaGxpYgppbXBvcnQganNvbgpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKClNDUklQVF9WRVJTSU9OID0gInN0YW5kYWxvbmVfc3dpbmdfcHJlcHJvZHVjdGlvbl9mcmVlemVfdjg3MTEucHkgdjEuMC4wIgpDT05UUkFDVF9WRVJTSU9OID0gIjIwMjYtMDktMTMtdjguNy4xMS1zdGFuZGFsb25lLXN3aW5nLXByZXByb2R1Y3Rpb24tZnJlZXplIgoKSU5URUdSQVRFRCA9IFBhdGgoImxhdGVzdC9zdGFuZGFsb25lX3N3aW5nX2ludGVncmF0ZWRfbGF0ZXN0Lmpzb24iKQpJTlRFR1JBVEVEX01FVEEgPSBQYXRoKCJsYXRlc3Qvc3RhbmRhbG9uZV9zd2luZ19pbnRlZ3JhdGVkX21ldGFfbGF0ZXN0Lmpzb24iKQpSRUFETUUgPSBQYXRoKCJSRUFETUVf7IKs7Jqp67KVLm1kIikKU0NIRU1BID0gUGF0aCgiZG9jcy9jdXN0b21fZ3B0X2FjdGlvbl9zY2hlbWEueWFtbCIpCldPUktFUiA9IFBhdGgoIndvcmtlci9rcngtbGl2ZS1wcmljZS13b3JrZXIuanMiKQpNRVRSSUNTID0gUGF0aCgic3RvY2tfdGFibGVfbWV0cmljc192ODUwLnB5IikKCk9VVF9KU09OID0gUGF0aCgibGF0ZXN0L3N0YW5kYWxvbmVfc3dpbmdfcHJlcHJvZHVjdGlvbl9yZWFkaW5lc3NfbGF0ZXN0Lmpzb24iKQpPVVRfTUVUQSA9IFBhdGgoImxhdGVzdC9zdGFuZGFsb25lX3N3aW5nX3ByZXByb2R1Y3Rpb25fcmVhZGluZXNzX21ldGFfbGF0ZXN0Lmpzb24iKQpPVVRfTE9HID0gUGF0aCgibGF0ZXN0L3N0YW5kYWxvbmVfc3dpbmdfcHJlcHJvZHVjdGlvbl9yZWFkaW5lc3NfcnVuX2xvZ19sYXRlc3QudHh0IikKCldPUktFUl9CQVNFID0gImh0dHBzOi8va3J4LWxpdmUtcHJpY2Uta3NoLmRpYWNvbm9zLndvcmtlcnMuZGV2IgpQUklDRV9PUEVSQVRJT05fSUQgPSAiZ2V0UmVxdWVzdFRpbWVQcmljZXMiCgpQRU5ESU5HID0gWwogICAgInJldHVybl8xdyIsCiAgICAicmV0dXJuX3l0ZCIsCiAgICAicmV0dXJuXzUydyIsCiAgICAicnNpIiwKICAgICJtYWNkIiwKICAgICJpbnZlc3RtZW50X3Njb3JlXzEwMCIsCiAgICAiZWFybmluZ3Nfb3V0bG9va19jaGFuZ2UiLAogICAgImNvbmZpcm1lZF9zd2luZ19sb3dfc3RvcCIsCl0KCkFDVElWQVRJT05fQkxPQ0tFUlMgPSBbCiAgICAiTk9fRklOQUxfU1RBTkRBTE9ORV9UQUJMRV9IRUFERVJfQ09OVFJBQ1QiLAogICAgIk5PX1NUQU5EQUxPTkVfQ09NTUFORF9PUl9ST1VURV9DT05UUkFDVCIsCiAgICAiUkVRVUVTVF9USU1FX0RJU1BMQVlfTUVSR0VfQ09OVFJBQ1RfTk9UX0ZST1pFTl9GT1JfU1RBTkRBTE9ORSIsCiAgICAiMVdfWVREXzUyV19GT1JNVUxBU19OT1RfQVBQUk9WRUQiLAogICAgIlJTSV9NQUNEX0ZPUk1VTEFTX05PVF9BUFBST1ZFRCIsCiAgICAiQ09ORklSTUVEX1NXSU5HX0xPV19TVE9QX1BPTElDWV9OT1RfREVGSU5FRCIsCiAgICAiSU5WRVNUTUVOVF9TQ09SRV9USFJFU0hPTERTX05PVF9ERUZJTkVEIiwKICAgICJFQVJOSU5HU19PVVRMT09LX1NPVVJDRV9OT1RfQ09OTkVDVEVEIiwKICAgICJLT1NEQVFfT0ZGSUNJQUxfU0VDVE9SX1JTX0NPTlRSQUNUX05PVF9ERUZJTkVEIiwKXQoKZGVmIHJlYWRfanNvbihwYXRoOiBQYXRoKToKICAgIHJldHVybiBqc29uLmxvYWRzKHBhdGgucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOC1zaWciKSkKCmRlZiBzaGEyNTYocGF0aDogUGF0aCk6CiAgICBoID0gaGFzaGxpYi5zaGEyNTYoKQogICAgd2l0aCBwYXRoLm9wZW4oInJiIikgYXMgZjoKICAgICAgICBmb3IgY2h1bmsgaW4gaXRlcihsYW1iZGE6IGYucmVhZCgxMDI0ICogMTAyNCksIGIiIik6CiAgICAgICAgICAgIGgudXBkYXRlKGNodW5rKQogICAgcmV0dXJuIGguaGV4ZGlnZXN0KCkKCmRlZiB3cml0ZV9qc29uKHBhdGg6IFBhdGgsIG9iaik6CiAgICBwYXRoLndyaXRlX3RleHQoCiAgICAgICAganNvbi5kdW1wcyhvYmosIGVuc3VyZV9hc2NpaT1GYWxzZSwgaW5kZW50PTIsIGFsbG93X25hbj1GYWxzZSkgKyAiXG4iLAogICAgICAgIGVuY29kaW5nPSJ1dGYtOCIsCiAgICApCgpkZWYgbWFpbigpOgogICAgcmVxdWlyZWQgPSBbSU5URUdSQVRFRCwgSU5URUdSQVRFRF9NRVRBLCBSRUFETUUsIFNDSEVNQSwgV09SS0VSLCBNRVRSSUNTXQogICAgZm9yIHAgaW4gcmVxdWlyZWQ6CiAgICAgICAgaWYgbm90IHAuaXNfZmlsZSgpOgogICAgICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJNSVNTSU5HX1JFUVVJUkVEX1NPVVJDRToiICsgc3RyKHApKQoKICAgIHNyYyA9IHJlYWRfanNvbihJTlRFR1JBVEVEKQogICAgbWV0YSA9IHJlYWRfanNvbihJTlRFR1JBVEVEX01FVEEpCgogICAgaWYgc3JjLmdldCgic3RhdHVzIikgIT0gIlJFQURZX1NPVVJDRV9PTkxZIjoKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJJTlRFR1JBVEVEX1NPVVJDRV9OT1RfUkVBRFkiKQogICAgaWYgbWV0YS5nZXQoInN0YXR1cyIpICE9ICJSRUFEWV9TT1VSQ0VfT05MWSI6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiSU5URUdSQVRFRF9NRVRBX05PVF9SRUFEWSIpCiAgICBpZiBzcmMuZ2V0KCJzb3VyY2Vfb25seSIpIGlzIG5vdCBUcnVlIG9yIG1ldGEuZ2V0KCJzb3VyY2Vfb25seSIpIGlzIG5vdCBUcnVlOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIklOVEVHUkFURURfTk9UX1NPVVJDRV9PTkxZIikKICAgIGlmIHNyYy5nZXQoInN0YW5kYWxvbmVfc3dpbmdfdGFibGVfZW5hYmxlZCIpIGlzIG5vdCBGYWxzZToKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJTVEFOREFMT05FX1RBQkxFX0FMUkVBRFlfRU5BQkxFRCIpCiAgICBpZiBzcmMuZ2V0KCJhY3Rpb25fcm91dGVfZW5hYmxlZCIpIGlzIG5vdCBGYWxzZToKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJTVEFOREFMT05FX1JPVVRFX0FMUkVBRFlfRU5BQkxFRCIpCiAgICBpZiBzcmMuZ2V0KCJyZXF1ZXN0X3RpbWVfcHJpY2VfZWxpZ2libGUiKSBpcyBub3QgRmFsc2U6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiU09VUkNFX1JFUVVFU1RfUFJJQ0VfRUxJR0lCSUxJVFlfVU5FWFBFQ1RFRCIpCgogICAgYmFzaXMgPSBzcmMuZ2V0KCJiYXNpc19kYXRlIikKICAgIGlmIG5vdCBiYXNpcyBvciBtZXRhLmdldCgiYmFzaXNfZGF0ZSIpICE9IGJhc2lzOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIkJBU0lTX01JU01BVENIIikKCiAgICByb3dzID0gc3JjLmdldCgicm93cyIpIG9yIFtdCiAgICBpZiBsZW4ocm93cykgIT0gaW50KHNyYy5nZXQoInJvd19jb3VudCIpIG9yIDApOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIlJPV19DT1VOVF9NSVNNQVRDSCIpCiAgICBpZiBsZW4ocm93cykgIT0gaW50KG1ldGEuZ2V0KCJyb3dfY291bnQiKSBvciAwKToKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJNRVRBX1JPV19DT1VOVF9NSVNNQVRDSCIpCgogICAgaWYgc2V0KHNyYy5nZXQoInBlbmRpbmdfbWV0cmljcyIpIG9yIFtdKSAhPSBzZXQoUEVORElORyk6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiVE9QX0xFVkVMX1BFTkRJTkdfU0VUX01JU01BVENIIikKICAgIGlmIHNldChtZXRhLmdldCgicGVuZGluZ19tZXRyaWNzIikgb3IgW10pICE9IHNldChQRU5ESU5HKToKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJNRVRBX1BFTkRJTkdfU0VUX01JU01BVENIIikKCiAgICBjb3VudHMgPSB7CiAgICAgICAgInJvd19jb3VudCI6IGxlbihyb3dzKSwKICAgICAgICAia29zcGkiOiAwLAogICAgICAgICJrb3NkYXEiOiAwLAogICAgICAgICJyZXR1cm5fMW1fcmVhZHkiOiAwLAogICAgICAgICJyZXR1cm5fM21fcmVhZHkiOiAwLAogICAgICAgICJyZXR1cm5fNm1fcmVhZHkiOiAwLAogICAgICAgICJyZXR1cm5fNm1fbWlzc2luZyI6IDAsCiAgICAgICAgInN3aW5nX3JlYWR5IjogMCwKICAgICAgICAibWFfZnVsbF9yZWFkeSI6IDAsCiAgICAgICAgIm1hX2dhcCI6IDAsCiAgICAgICAgImF0cjE0X3JlYWR5IjogMCwKICAgICAgICAiYXRyMTRfZ2FwIjogMCwKICAgICAgICAicmFuZ2UyMF9yZWFkeSI6IDAsCiAgICAgICAgInJhbmdlMjBfZ2FwIjogMCwKICAgICAgICAicnNfa29zcGlfcmVhZHkiOiAwLAogICAgICAgICJyc19zZWN0b3JfcmVhZHkiOiAwLAogICAgICAgICJyc19zZWN0b3JfbnVsbCI6IDAsCiAgICAgICAgImNvbmZpcm1lZF9zdG9wX3JlYWR5IjogMCwKICAgICAgICAicGVuZGluZ19ub25udWxsX3Zpb2xhdGlvbnMiOiAwLAogICAgfQoKICAgIGZvciByb3cgaW4gcm93czoKICAgICAgICBtYXJrZXQgPSByb3cuZ2V0KCJtYXJrZXQiKQogICAgICAgIGlmIG1hcmtldCA9PSAiS09TUEkiOgogICAgICAgICAgICBjb3VudHNbImtvc3BpIl0gKz0gMQogICAgICAgIGVsaWYgbWFya2V0ID09ICJLT1NEQVEiOgogICAgICAgICAgICBjb3VudHNbImtvc2RhcSJdICs9IDEKICAgICAgICBlbHNlOgogICAgICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJVTktOT1dOX01BUktFVDoiICsgc3RyKG1hcmtldCkpCgogICAgICAgIHBlcmYgPSByb3cuZ2V0KCJwcmljZV9wZXJmb3JtYW5jZSIpIG9yIHt9CiAgICAgICAgaWYgKHBlcmYuZ2V0KCIxbSIpIG9yIHt9KS5nZXQoInN0YXR1cyIpID09ICJPSyI6CiAgICAgICAgICAgIGNvdW50c1sicmV0dXJuXzFtX3JlYWR5Il0gKz0gMQogICAgICAgIGlmIChwZXJmLmdldCgiM20iKSBvciB7fSkuZ2V0KCJzdGF0dXMiKSA9PSAiT0siOgogICAgICAgICAgICBjb3VudHNbInJldHVybl8zbV9yZWFkeSJdICs9IDEKICAgICAgICBpZiAocGVyZi5nZXQoIjZtIikgb3Ige30pLmdldCgic3RhdHVzIikgPT0gIk9LIjoKICAgICAgICAgICAgY291bnRzWyJyZXR1cm5fNm1fcmVhZHkiXSArPSAxCiAgICAgICAgZWxzZToKICAgICAgICAgICAgY291bnRzWyJyZXR1cm5fNm1fbWlzc2luZyJdICs9IDEKCiAgICAgICAgc3dpbmcgPSByb3cuZ2V0KCJzd2luZyIpIG9yIHt9CiAgICAgICAgaWYgc3dpbmcuZ2V0KCJwaGFzZSIpIGFuZCBzd2luZy5nZXQoInBoYXNlX2tvIik6CiAgICAgICAgICAgIGNvdW50c1sic3dpbmdfcmVhZHkiXSArPSAxCgogICAgICAgIG1hID0gcm93LmdldCgibWEiKSBvciB7fQogICAgICAgIG1hX29rID0gYWxsKAogICAgICAgICAgICAobWEuZ2V0KHN0cihwKSkgb3Ige30pLmdldCgidmFsdWUiKSBpcyBub3QgTm9uZQogICAgICAgICAgICBhbmQgKG1hLmdldChzdHIocCkpIG9yIHt9KS5nZXQoImRpcmVjdGlvbiIpIGlzIG5vdCBOb25lCiAgICAgICAgICAgIGZvciBwIGluICg1LCAyMCwgNjAsIDEyMCkKICAgICAgICApCiAgICAgICAgY291bnRzWyJtYV9mdWxsX3JlYWR5IiBpZiBtYV9vayBlbHNlICJtYV9nYXAiXSArPSAxCgogICAgICAgIGF0ciA9IHJvdy5nZXQoImF0cjE0Iikgb3Ige30KICAgICAgICBjb3VudHNbImF0cjE0X3JlYWR5IiBpZiBhdHIuZ2V0KCJwY3QiKSBpcyBub3QgTm9uZSBlbHNlICJhdHIxNF9nYXAiXSArPSAxCgogICAgICAgIHJhbmdlMjAgPSByb3cuZ2V0KCJhdmdfZGFpbHlfcmFuZ2VfMjBfcGN0IikKICAgICAgICBjb3VudHNbInJhbmdlMjBfcmVhZHkiIGlmIHJhbmdlMjAgaXMgbm90IE5vbmUgZWxzZSAicmFuZ2UyMF9nYXAiXSArPSAxCgogICAgICAgIHJzayA9IHJvdy5nZXQoInJzX2tvc3BpX3BwIikgb3Ige30KICAgICAgICBpZiByc2suZ2V0KCIxIikgaXMgbm90IE5vbmUgYW5kIHJzay5nZXQoIjMiKSBpcyBub3QgTm9uZToKICAgICAgICAgICAgY291bnRzWyJyc19rb3NwaV9yZWFkeSJdICs9IDEKCiAgICAgICAgcnNzID0gcm93LmdldCgicnNfc2VjdG9yX3BwIikgb3Ige30KICAgICAgICBpZiByc3MuZ2V0KCIxIikgaXMgbm90IE5vbmUgYW5kIHJzcy5nZXQoIjMiKSBpcyBub3QgTm9uZToKICAgICAgICAgICAgY291bnRzWyJyc19zZWN0b3JfcmVhZHkiXSArPSAxCiAgICAgICAgZWxzZToKICAgICAgICAgICAgY291bnRzWyJyc19zZWN0b3JfbnVsbCJdICs9IDEKCiAgICAgICAgdHJhaWxpbmcgPSByb3cuZ2V0KCJ0cmFpbGluZ19yZWZlcmVuY2UiKSBvciB7fQogICAgICAgIGlmIHRyYWlsaW5nLmdldCgiY29uZmlybWVkX3N3aW5nX2xvd19zdG9wIikgaXMgbm90IE5vbmU6CiAgICAgICAgICAgIGNvdW50c1siY29uZmlybWVkX3N0b3BfcmVhZHkiXSArPSAxCgogICAgICAgIHBlbmRpbmcgPSByb3cuZ2V0KCJwZW5kaW5nX21ldHJpY3MiKSBvciB7fQogICAgICAgIGlmIHNldChwZW5kaW5nKSAhPSBzZXQoUEVORElORyk6CiAgICAgICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIlJPV19QRU5ESU5HX1NFVF9NSVNNQVRDSDoiICsgc3RyKHJvdy5nZXQoInRpY2tlciIpKSkKICAgICAgICBpZiBhbnkodiBpcyBub3QgTm9uZSBmb3IgdiBpbiBwZW5kaW5nLnZhbHVlcygpKToKICAgICAgICAgICAgY291bnRzWyJwZW5kaW5nX25vbm51bGxfdmlvbGF0aW9ucyJdICs9IDEKCiAgICAgICAgaWYgcGVyZi5nZXQoIjF3IikgaXMgbm90IE5vbmUgb3IgcGVyZi5nZXQoInl0ZCIpIGlzIG5vdCBOb25lIG9yIHBlcmYuZ2V0KCI1MnciKSBpcyBub3QgTm9uZToKICAgICAgICAgICAgY291bnRzWyJwZW5kaW5nX25vbm51bGxfdmlvbGF0aW9ucyJdICs9IDEKCiAgICBpZiBjb3VudHNbImtvc3BpIl0gIT0gaW50KChzcmMuZ2V0KCJtYXJrZXRfY291bnRzIikgb3Ige30pLmdldCgiS09TUEkiKSBvciAwKToKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJLT1NQSV9DT1VOVF9NSVNNQVRDSCIpCiAgICBpZiBjb3VudHNbImtvc2RhcSJdICE9IGludCgoc3JjLmdldCgibWFya2V0X2NvdW50cyIpIG9yIHt9KS5nZXQoIktPU0RBUSIpIG9yIDApOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIktPU0RBUV9DT1VOVF9NSVNNQVRDSCIpCiAgICBpZiBjb3VudHNbInJldHVybl82bV9yZWFkeSJdICE9IGludChzcmMuZ2V0KCJyZXR1cm5fNm1fcmVhZHlfY291bnQiKSBvciAwKToKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJSRVRVUk5fNk1fUkVBRFlfTUlTTUFUQ0giKQogICAgaWYgY291bnRzWyJyZXR1cm5fNm1fbWlzc2luZyJdICE9IGludChzcmMuZ2V0KCJyZXR1cm5fNm1fbWlzc2luZ19jb3VudCIpIG9yIDApOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIlJFVFVSTl82TV9NSVNTSU5HX01JU01BVENIIikKICAgIGlmIGNvdW50c1sicnNfc2VjdG9yX3JlYWR5Il0gIT0gaW50KHNyYy5nZXQoImtvc3BpX3NlY3Rvcl9yc19yZWFkeV9jb3VudCIpIG9yIDApOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIlNFQ1RPUl9SU19SRUFEWV9NSVNNQVRDSCIpCiAgICBpZiBjb3VudHNbInJzX3NlY3Rvcl9udWxsIl0gIT0gaW50KHNyYy5nZXQoImtvc2RhcV9zZWN0b3JfcnNfbnVsbF9jb3VudCIpIG9yIDApOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIlNFQ1RPUl9SU19OVUxMX01JU01BVENIIikKICAgIGlmIGNvdW50c1siY29uZmlybWVkX3N0b3BfcmVhZHkiXSAhPSAwOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIkNPTkZJUk1FRF9TVE9QX1NIT1VMRF9SRU1BSU5fTlVMTCIpCiAgICBpZiBjb3VudHNbInBlbmRpbmdfbm9ubnVsbF92aW9sYXRpb25zIl0gIT0gMDoKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJQRU5ESU5HX01FVFJJQ19OT05fTlVMTF9WSU9MQVRJT04iKQoKICAgICMgRnJlZXplIGN1cnJlbnQgdmFsaWRhdGVkIHNuYXBzaG90LiBBbnkgdW5leHBlY3RlZCBkcmlmdCBtdXN0IGNhdXNlIGEgcmV2aWV3LgogICAgZXhwZWN0ZWRfc25hcHNob3QgPSB7CiAgICAgICAgInJvd19jb3VudCI6IDIzNSwKICAgICAgICAia29zcGkiOiAyMTAsCiAgICAgICAgImtvc2RhcSI6IDI1LAogICAgICAgICJyZXR1cm5fMW1fcmVhZHkiOiAyMzUsCiAgICAgICAgInJldHVybl8zbV9yZWFkeSI6IDIzNSwKICAgICAgICAicmV0dXJuXzZtX3JlYWR5IjogMjM0LAogICAgICAgICJyZXR1cm5fNm1fbWlzc2luZyI6IDEsCiAgICAgICAgInN3aW5nX3JlYWR5IjogMjM1LAogICAgICAgICJtYV9mdWxsX3JlYWR5IjogMjM0LAogICAgICAgICJtYV9nYXAiOiAxLAogICAgICAgICJhdHIxNF9yZWFkeSI6IDIwOSwKICAgICAgICAiYXRyMTRfZ2FwIjogMjYsCiAgICAgICAgInJhbmdlMjBfcmVhZHkiOiAyMjUsCiAgICAgICAgInJhbmdlMjBfZ2FwIjogMTAsCiAgICAgICAgInJzX2tvc3BpX3JlYWR5IjogMjM1LAogICAgICAgICJyc19zZWN0b3JfcmVhZHkiOiAyMTAsCiAgICAgICAgInJzX3NlY3Rvcl9udWxsIjogMjUsCiAgICAgICAgImNvbmZpcm1lZF9zdG9wX3JlYWR5IjogMCwKICAgICAgICAicGVuZGluZ19ub25udWxsX3Zpb2xhdGlvbnMiOiAwLAogICAgfQogICAgaWYgY291bnRzICE9IGV4cGVjdGVkX3NuYXBzaG90OgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoCiAgICAgICAgICAgICJQUkVQUk9EVUNUSU9OX1NOQVBTSE9UX0RSSUZUOiIKICAgICAgICAgICAgKyBqc29uLmR1bXBzKHsiZXhwZWN0ZWQiOiBleHBlY3RlZF9zbmFwc2hvdCwgImFjdHVhbCI6IGNvdW50c30sIGVuc3VyZV9hc2NpaT1GYWxzZSkKICAgICAgICApCgogICAgcmVhZG1lX3RleHQgPSBSRUFETUUucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOC1zaWciKQogICAgc2NoZW1hX3RleHQgPSBTQ0hFTUEucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOC1zaWciKQogICAgd29ya2VyX3RleHQgPSBXT1JLRVIucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOC1zaWciKQoKICAgIHJlYWRtZV9ub3JtID0gIiAiLmpvaW4ocmVhZG1lX3RleHQuc3BsaXQoKSkKICAgIHNjaGVtYV9ub3JtID0gIiAiLmpvaW4oc2NoZW1hX3RleHQuc3BsaXQoKSkKCiAgICBpZiBXT1JLRVJfQkFTRSBub3QgaW4gcmVhZG1lX3RleHQgb3IgV09SS0VSX0JBU0Ugbm90IGluIHNjaGVtYV90ZXh0OgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIldPUktFUl9ET01BSU5fQ09OVFJBQ1RfTUlTTUFUQ0giKQogICAgaWYgZiJvcGVyYXRpb25JZDoge1BSSUNFX09QRVJBVElPTl9JRH0iIG5vdCBpbiBzY2hlbWFfdGV4dDoKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJQUklDRV9PUEVSQVRJT05fSURfTUlTU0lORyIpCiAgICBpZiAi7LKY7J2MIDEw6rCc7JSpLCDsi6TtjKjrp4wgNeqwnOyUqSwg64Ko7J2AIOyLpO2MqOuKlCAy6rCc7JSpIOyerOyLnOuPhCIgbm90IGluIHJlYWRtZV9ub3JtOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIlJFQURNRV8xMF81XzJfUE9MSUNZX01JU1NJTkciKQogICAgaWYgInJldHJ5IG9ubHkgZmFpbHVyZXMgaW4gYmF0Y2hlcyBvZiBhdCBtb3N0IDUgYW5kIDIiIG5vdCBpbiBzY2hlbWFfbm9ybToKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJTQ0hFTUFfMTBfNV8yX1BPTElDWV9NSVNTSU5HIikKICAgIGlmICJGYWlsZWQgcXVvdGVzIGFyZSBuZXZlciByZXBsYWNlZCB3aXRoIGZhYnJpY2F0ZWQgcHJpY2VzLiIgbm90IGluIHdvcmtlcl90ZXh0OgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIldPUktFUl9OT19GQUtFX1BSSUNFX0dVQVJEX01JU1NJTkciKQogICAgaWYgJ3N0YW5kYWxvbmVfc3dpbmdfdGFibGVfZW5hYmxlZDogZmFsc2UnIG5vdCBpbiBzY2hlbWFfdGV4dDoKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJTQ0hFTUFfU1RBTkRBTE9ORV9ESVNBQkxFRF9HVUFSRF9NSVNTSU5HIikKCiAgICBldmlkZW5jZSA9IHsKICAgICAgICAidjg3OV9kYXRhX3F1YWxpdHlfZ2F0ZSI6IHsKICAgICAgICAgICAgInJ1bl9pZCI6IDM0Njg2MzIwNzgzLAogICAgICAgICAgICAiYXJ0aWZhY3RfaWQiOiAxMDI5NTEyOTAzNiwKICAgICAgICAgICAgImFydGlmYWN0X3NoYTI1NiI6ICJjNTIwZjUxYWIyOGE1ZDA2ZTk0NTNiNTNiMWI2MDIwMjE1ZDY5ODNkMGJkZTA3NDk1ZDllNWNjYWFhYWE4YWQzIiwKICAgICAgICAgICAgInJlc3VsdCI6ICJQQVNTIiwKICAgICAgICAgICAgImtleV9maW5kaW5ncyI6IHsKICAgICAgICAgICAgICAgICJ1bmV4cGxhaW5lZF9tYV9nYXBfY291bnQiOiAwLAogICAgICAgICAgICAgICAgInVuZXhwZWN0ZWRfcmV0dXJuXzZtX2dhcF9jb3VudCI6IDAsCiAgICAgICAgICAgICAgICAidW5leHBsYWluZWRfYXRyX2dhcF9jb3VudCI6IDAsCiAgICAgICAgICAgICAgICAicG9zaXRpdmVfb2hsY19yZWxhdGlvbl9lcnJvcl9kYXlfY291bnQiOiAwLAogICAgICAgICAgICAgICAgIm90aGVyX2ludmFsaWRfb2hsY19kYXlfY291bnQiOiAwLAogICAgICAgICAgICAgICAgInplcm9fbm9fdHJhZGVfaW52YWxpZF9yb3dzIjogNTMyLAogICAgICAgICAgICB9LAogICAgICAgIH0sCiAgICAgICAgInY4NzEwX3JlcXVlc3RfdGltZV9wcmljZV9wYXRoIjogewogICAgICAgICAgICAicnVuX2lkIjogMzQ3MTgzNzAwMDcsCiAgICAgICAgICAgICJhcnRpZmFjdF9pZCI6IDEwMzA1Njg2Mjc3LAogICAgICAgICAgICAiYXJ0aWZhY3Rfc2hhMjU2IjogIjRkZDg0NWE4MzY4NjQzMDQ5NmFhYzRjMDdiY2NlZjI5ZTc1NzQ0Mjg1MzdlZmFhMzk3OTY0MzVjMjJjMDA2YzQiLAogICAgICAgICAgICAicmVzdWx0IjogIlBBU1MiLAogICAgICAgICAgICAic291cmNlX3Jvd3MiOiAyMzUsCiAgICAgICAgICAgICJzdWNjZXNzX2NvdW50IjogMjM1LAogICAgICAgICAgICAiZmFpbGVkX2NvdW50IjogMCwKICAgICAgICAgICAgImNvdmVyYWdlX3BjdCI6IDEwMC4wLAogICAgICAgICAgICAic3RhdGljX3ByaWNlX3N1YnN0aXR1dGlvbl9jb3VudCI6IDAsCiAgICAgICAgICAgICJpbnZhbGlkX3N1Y2Nlc3NfY291bnQiOiAwLAogICAgICAgICAgICAid29ya2VyX2J1aWxkIjogIjEuNC4xLXR3by10YWJsZS1kdWFsLXNjaGVtYSIsCiAgICAgICAgfSwKICAgIH0KCiAgICByZWFkaW5lc3MgPSB7CiAgICAgICAgImNvbnRyYWN0X3ZlcnNpb24iOiBDT05UUkFDVF9WRVJTSU9OLAogICAgICAgICJzY3JpcHRfdmVyc2lvbiI6IFNDUklQVF9WRVJTSU9OLAogICAgICAgICJzdGF0dXMiOiAiRlJPWkVOX1BSRVBST0RVQ1RJT05fUkVBRFkiLAogICAgICAgICJwcmVwcm9kdWN0aW9uX2NvbnRyYWN0X2Zyb3plbiI6IFRydWUsCiAgICAgICAgImRhdGFfbGF5ZXJfcmVhZHlfZm9yX3ByZXByb2R1Y3Rpb24iOiBUcnVlLAogICAgICAgICJyZXF1ZXN0X3RpbWVfcHJpY2VfcGF0aF9yZWFkeV9mb3JfcHJlcHJvZHVjdGlvbiI6IFRydWUsCiAgICAgICAgInByb2R1Y3Rpb25fYWN0aXZhdGlvbl9hbGxvd2VkIjogRmFsc2UsCiAgICAgICAgInN0YW5kYWxvbmVfc3dpbmdfdGFibGVfZW5hYmxlZCI6IEZhbHNlLAogICAgICAgICJhY3Rpb25fcm91dGVfZW5hYmxlZCI6IEZhbHNlLAogICAgICAgICJzdGFuZGFsb25lX2NvbW1hbmRfZGVmaW5lZCI6IEZhbHNlLAogICAgICAgICJmaW5hbF9oZWFkZXJfc2VsZWN0ZWQiOiBGYWxzZSwKICAgICAgICAiYmFzaXNfZGF0ZSI6IGJhc2lzLAogICAgICAgICJzbmFwc2hvdF9jb3VudHMiOiBjb3VudHMsCiAgICAgICAgImFjY2VwdGVkX21pc3NpbmdfcG9saWN5IjogewogICAgICAgICAgICAicmV0dXJuXzZtIjogIuyekOujjCDrr7jsoJzqs7Ugd2hlbiBjYWxlbmRhciBoaXN0b3J5IGlzIGluc3VmZmljaWVudDsgbm8gaW1wdXRhdGlvbiIsCiAgICAgICAgICAgICJtYSI6ICLsnpDro4wg66+47KCc6rO1IHdoZW4gcmVxdWlyZWQgaGlzdG9yeSBpcyBpbnN1ZmZpY2llbnQ7IG5vIGZhYnJpY2F0ZWQgTUEiLAogICAgICAgICAgICAiYXRyMTQiOiAi7J6Q66OMIOuvuOygnOqztSB3aGVuIG9mZmljaWFsIGxvb2tiYWNrIGNvbnRhaW5zIHplcm8vbm8tdHJhZGUgT0hMQyByb3dzOyBubyBpbXB1dGF0aW9uIiwKICAgICAgICAgICAgImF2Z19kYWlseV9yYW5nZV8yMF9wY3QiOiAi7J6Q66OMIOuvuOygnOqztSB3aGVuIHJlY2VudCBvZmZpY2lhbCBPSExDIGNvbnRhaW5zIHplcm8vbm8tdHJhZGUgcm93cyIsCiAgICAgICAgICAgICJrb3NkYXFfc2VjdG9yX3JzIjogIuyekOujjCDrr7jsoJzqs7UgdW5kZXIgY3VycmVudCBLT1NQSS1vbmx5IG9mZmljaWFsIHNlY3Rvci1SUyBjb250cmFjdCIsCiAgICAgICAgICAgICJwZW5kaW5nX21ldHJpY3MiOiAi7J6Q66OMIOuvuOygnOqztSB1bnRpbCBzZXBhcmF0ZWx5IGFwcHJvdmVkIGNvbnRyYWN0cyBleGlzdCIsCiAgICAgICAgfSwKICAgICAgICAicmVxdWVzdF90aW1lX3ByaWNlX2NvbnRyYWN0IjogewogICAgICAgICAgICAid29ya2VyX2Jhc2VfdXJsIjogV09SS0VSX0JBU0UsCiAgICAgICAgICAgICJvcGVyYXRpb25faWQiOiBQUklDRV9PUEVSQVRJT05fSUQsCiAgICAgICAgICAgICJpbml0aWFsX2JhdGNoX21heCI6IDEwLAogICAgICAgICAgICAicmV0cnlfZmFpbGVkX2JhdGNoX21heCI6IDUsCiAgICAgICAgICAgICJmaW5hbF9yZXRyeV9mYWlsZWRfYmF0Y2hfbWF4IjogMiwKICAgICAgICAgICAgImZpbmFsX2ZhaWx1cmVfZGlzcGxheSI6ICLimqog7ZiE7J6s6rCAIO2ZleyduCDsi6TtjKgiLAogICAgICAgICAgICAic3RhdGljX3ByaWNlX2ZhbGxiYWNrX2FsbG93ZWQiOiBGYWxzZSwKICAgICAgICAgICAgIm9mZmljaWFsX2Nsb3NlX2lzX3JlZmVyZW5jZV9vbmx5X25vdF9yZXF1ZXN0X3RpbWVfcHJpY2UiOiBUcnVlLAogICAgICAgICAgICAibmV3X3ByaWNlX2FjdGlvbl9yZXF1aXJlZCI6IEZhbHNlLAogICAgICAgICAgICAibXVzdF9yZXZhbGlkYXRlX2F0X2FjdGl2YXRpb24iOiBUcnVlLAogICAgICAgIH0sCiAgICAgICAgInBlbmRpbmdfbWV0cmljcyI6IFBFTkRJTkcsCiAgICAgICAgImFjdGl2YXRpb25fYmxvY2tlcnMiOiBBQ1RJVkFUSU9OX0JMT0NLRVJTLAogICAgICAgICJldmlkZW5jZSI6IGV2aWRlbmNlLAogICAgICAgICJzb3VyY2VfY29udHJhY3RfdmVyc2lvbiI6IHNyYy5nZXQoImNvbnRyYWN0X3ZlcnNpb24iKSwKICAgICAgICAic291cmNlX2xpbmVhZ2UiOiBzcmMuZ2V0KCJzb3VyY2VfbGluZWFnZSIpLAogICAgICAgICJzb3VyY2Vfc2hhMjU2IjogewogICAgICAgICAgICBzdHIocCk6IHNoYTI1NihwKQogICAgICAgICAgICBmb3IgcCBpbiByZXF1aXJlZAogICAgICAgIH0sCiAgICAgICAgInNhZmV0eSI6IHsKICAgICAgICAgICAgInByb2R1Y3Rpb25fdGFibGVfY2hhbmdlZCI6IEZhbHNlLAogICAgICAgICAgICAid29ya2VyX2NoYW5nZWQiOiBGYWxzZSwKICAgICAgICAgICAgImFjdGlvbl9zY2hlbWFfY2hhbmdlZCI6IEZhbHNlLAogICAgICAgICAgICAibWV0cmljX2Zvcm11bGFfY2hhbmdlZCI6IEZhbHNlLAogICAgICAgICAgICAicmVxdWVzdF90aW1lX3ByaWNlX3N1YnN0aXR1dGlvbiI6IEZhbHNlLAogICAgICAgICAgICAibmV3X2NvbW1hbmRfaW52ZW50ZWQiOiBGYWxzZSwKICAgICAgICAgICAgIm5ld19yb3V0ZV9pbnZlbnRlZCI6IEZhbHNlLAogICAgICAgICAgICAiZmluYWxfaGVhZGVyX2ludmVudGVkIjogRmFsc2UsCiAgICAgICAgICAgICJwZW5kaW5nX21ldHJpY19hdXRvZmlsbCI6IEZhbHNlLAogICAgICAgIH0sCiAgICB9CiAgICB3cml0ZV9qc29uKE9VVF9KU09OLCByZWFkaW5lc3MpCgogICAgbWV0YV9vdXQgPSB7CiAgICAgICAgImNvbnRyYWN0X3ZlcnNpb24iOiBDT05UUkFDVF9WRVJTSU9OLAogICAgICAgICJzdGF0dXMiOiByZWFkaW5lc3NbInN0YXR1cyJdLAogICAgICAgICJwcmVwcm9kdWN0aW9uX2NvbnRyYWN0X2Zyb3plbiI6IFRydWUsCiAgICAgICAgInByb2R1Y3Rpb25fYWN0aXZhdGlvbl9hbGxvd2VkIjogRmFsc2UsCiAgICAgICAgImJhc2lzX2RhdGUiOiBiYXNpcywKICAgICAgICAicm93X2NvdW50IjogY291bnRzWyJyb3dfY291bnQiXSwKICAgICAgICAic25hcHNob3RfY291bnRzIjogY291bnRzLAogICAgICAgICJwcmljZV9vcGVyYXRpb25faWQiOiBQUklDRV9PUEVSQVRJT05fSUQsCiAgICAgICAgInByaWNlX3JldHJ5X3BvbGljeSI6IFsxMCwgNSwgMl0sCiAgICAgICAgImFjdGl2YXRpb25fYmxvY2tlcl9jb3VudCI6IGxlbihBQ1RJVkFUSU9OX0JMT0NLRVJTKSwKICAgICAgICAiYWN0aXZhdGlvbl9ibG9ja2VycyI6IEFDVElWQVRJT05fQkxPQ0tFUlMsCiAgICAgICAgInBlbmRpbmdfbWV0cmljcyI6IFBFTkRJTkcsCiAgICAgICAgImV2aWRlbmNlX3J1bl9pZHMiOiBbMzQ2ODYzMjA3ODMsIDM0NzE4MzcwMDA3XSwKICAgICAgICAic291cmNlX2NvbnRyYWN0X3ZlcnNpb24iOiBzcmMuZ2V0KCJjb250cmFjdF92ZXJzaW9uIiksCiAgICAgICAgInNvdXJjZV9zaGEyNTYiOiByZWFkaW5lc3NbInNvdXJjZV9zaGEyNTYiXSwKICAgICAgICAic2FmZXR5IjogcmVhZGluZXNzWyJzYWZldHkiXSwKICAgIH0KICAgIHdyaXRlX2pzb24oT1VUX01FVEEsIG1ldGFfb3V0KQoKICAgIGxpbmVzID0gWwogICAgICAgICJWODcxMV9QUkVQUk9EVUNUSU9OX0ZSRUVaRV9TVEFUVVM9RlJPWkVOX1BSRVBST0RVQ1RJT05fUkVBRFkiLAogICAgICAgIGYiQkFTSVNfREFURT17YmFzaXN9IiwKICAgICAgICBmIlJPV19DT1VOVD17Y291bnRzWydyb3dfY291bnQnXX0iLAogICAgICAgIGYiS09TUElfUk9XUz17Y291bnRzWydrb3NwaSddfSIsCiAgICAgICAgZiJLT1NEQVFfUk9XUz17Y291bnRzWydrb3NkYXEnXX0iLAogICAgICAgIGYiUkVUVVJOXzZNX1JFQURZPXtjb3VudHNbJ3JldHVybl82bV9yZWFkeSddfSIsCiAgICAgICAgZiJNQV9GVUxMX1JFQURZPXtjb3VudHNbJ21hX2Z1bGxfcmVhZHknXX0iLAogICAgICAgIGYiQVRSMTRfUkVBRFk9e2NvdW50c1snYXRyMTRfcmVhZHknXX0iLAogICAgICAgIGYiUkFOR0UyMF9SRUFEWT17Y291bnRzWydyYW5nZTIwX3JlYWR5J119IiwKICAgICAgICBmIktPU1BJX1NFQ1RPUl9SU19SRUFEWT17Y291bnRzWydyc19zZWN0b3JfcmVhZHknXX0iLAogICAgICAgIGYiS09TREFRX1NFQ1RPUl9SU19OVUxMPXtjb3VudHNbJ3JzX3NlY3Rvcl9udWxsJ119IiwKICAgICAgICAiVjg3OV9EQVRBX1FVQUxJVFlfRVZJREVOQ0U9UEFTUyIsCiAgICAgICAgIlY4NzEwX1JFUVVFU1RfUFJJQ0VfRVZJREVOQ0U9UEFTUyIsCiAgICAgICAgIlJFUVVFU1RfUFJJQ0VfT1BFUkFUSU9OX0lEPWdldFJlcXVlc3RUaW1lUHJpY2VzIiwKICAgICAgICAiUkVRVUVTVF9QUklDRV9SRVRSWV9QT0xJQ1k9MTAtNS0yIiwKICAgICAgICAiU1RBVElDX1BSSUNFX0ZBTExCQUNLX0FMTE9XRUQ9ZmFsc2UiLAogICAgICAgICJORVdfUFJJQ0VfQUNUSU9OX1JFUVVJUkVEPWZhbHNlIiwKICAgICAgICAiUFJFUFJPRFVDVElPTl9DT05UUkFDVF9GUk9aRU49dHJ1ZSIsCiAgICAgICAgIkRBVEFfTEFZRVJfUkVBRFlfRk9SX1BSRVBST0RVQ1RJT049dHJ1ZSIsCiAgICAgICAgIlJFUVVFU1RfVElNRV9QUklDRV9QQVRIX1JFQURZX0ZPUl9QUkVQUk9EVUNUSU9OPXRydWUiLAogICAgICAgICJQUk9EVUNUSU9OX0FDVElWQVRJT05fQUxMT1dFRD1mYWxzZSIsCiAgICAgICAgIlNUQU5EQUxPTkVfU1dJTkdfVEFCTEVfRU5BQkxFRD1mYWxzZSIsCiAgICAgICAgIkFDVElPTl9ST1VURV9FTkFCTEVEPWZhbHNlIiwKICAgICAgICAiU1RBTkRBTE9ORV9DT01NQU5EX0RFRklORUQ9ZmFsc2UiLAogICAgICAgICJGSU5BTF9IRUFERVJfU0VMRUNURUQ9ZmFsc2UiLAogICAgICAgIGYiQUNUSVZBVElPTl9CTE9DS0VSX0NPVU5UPXtsZW4oQUNUSVZBVElPTl9CTE9DS0VSUyl9IiwKICAgICAgICAiUFJPRFVDVElPTl9UQUJMRV9DSEFOR0VEPWZhbHNlIiwKICAgICAgICAiV09SS0VSX1NPVVJDRV9DSEFOR0VEPWZhbHNlIiwKICAgICAgICAiQUNUSU9OX1NDSEVNQV9DSEFOR0VEPWZhbHNlIiwKICAgICAgICAiTUVUUklDX0ZPUk1VTEFfQ0hBTkdFRD1mYWxzZSIsCiAgICAgICAgIlJFUVVFU1RfVElNRV9QUklDRV9TVUJTVElUVVRJT049ZmFsc2UiLAogICAgICAgICJORVdfQ09NTUFORF9JTlZFTlRFRD1mYWxzZSIsCiAgICAgICAgIk5FV19ST1VURV9JTlZFTlRFRD1mYWxzZSIsCiAgICAgICAgIkZJTkFMX0hFQURFUl9JTlZFTlRFRD1mYWxzZSIsCiAgICAgICAgIlBFTkRJTkdfTUVUUklDX0FVVE9GSUxMPWZhbHNlIiwKICAgICAgICAiVjg3MTFfUFJFUFJPRFVDVElPTl9DT05UUkFDVF9WQUxJREFUSU9OPVBBU1MiLAogICAgXQogICAgT1VUX0xPRy53cml0ZV90ZXh0KCJcbiIuam9pbihsaW5lcykgKyAiXG4iLCBlbmNvZGluZz0idXRmLTgiKQogICAgcHJpbnQoIlxuIi5qb2luKGxpbmVzKSkKCmlmIF9fbmFtZV9fID09ICJfX21haW5fXyI6CiAgICBtYWluKCkK"
+          CONTRACT_B64: "IyBWOC43LjExIOuPheumvSDsiqTsnJkg7Jq07JiB7Iq56rKpIOyngeyghCDqs4Tslb0g64+Z6rKwCgrrsoTsoIQ6IGAyMDI2LTA5LTEzLXY4LjcuMTEtc3RhbmRhbG9uZS1zd2luZy1wcmVwcm9kdWN0aW9uLWZyZWV6ZWAKCuyDge2DnDogYEZST1pFTl9QUkVQUk9EVUNUSU9OX1JFQURZIC8gUFJPRFVDVElPTl9ESVNBQkxFRGAKCiMjIOuqqeyggQoKVjguNy42IO2Gte2VqSDrj4Xrpr0g7Iqk7JyZIHNvdXJjZSwgVjguNy45IOuNsOydtO2EsO2SiOyniCDqsozsnbTtirgsIFY4LjcuMTAg7JqU7LKt7Iuc7KCQIO2YhOyerOqwgCDqsr3roZwg6rKA7Kad6rmM7KeAIO2GteqzvO2VnCDsg4Htg5zrpbwg7Jq07JiB7Iq56rKpIOyngeyghCDqs4Tslb3snLzroZwg64+Z6rKw7ZWc64ukLgoK7J2067KIIOuLqOqzhOuKlCDrj4Xrpr0g7Iqk7JyZ7ZGc66W8IOyLpOygnCDsmrTsmIHsl5Ag7Zmc7ISx7ZmU7ZWY7KeAIOyViuuKlOuLpC4KCiMjIOuPmeqysOuQmOuKlCDrjbDsnbTthLAgc25hcHNob3QKCuq4sOykgOydvDogYDIwMjYtMDktMTFgCgotIOyghOyytCAyMzXsooXrqqkKLSBLT1NQSSAyMTAKLSBLT1NEQVEgMjUKLSAxTSDsiJjsnbXrpaAgMjM1LzIzNQotIDNNIOyImOydteuloCAyMzUvMjM1Ci0gNk0g7IiY7J2166WgIDIzNC8yMzUKLSDtgbAg7Iqk7JyZIOyDge2DnCAyMzUvMjM1Ci0gTUE1LzIwLzYwLzEyMCDsoITssrQg7KSA67mEIDIzNC8yMzUKLSBBVFIxNCAyMDkvMjM1Ci0gMjDsnbwg7Y+J6regIOydvOykkeqzoOyggO2PrSAyMjUvMjM1Ci0gS09TUEkg7IOB64yA6rCV64+EIDIzNS8yMzUKLSBLT1NQSSDqs7Xsi50g7JeF7KKFUlMgMjEwLzIxMAotIEtPU0RBUSDsl4XsooVSUyBudWxsIDI1LzI1Ci0g7ZmV7KCVIOyKpOycmeyggOygkCDshpDsoIggMC8yMzUKLSDrr7jtmZXsoJUg7KeA7ZGcIOyehOydmCDssYTsm4AgMOqxtAoK7J20IHNuYXBzaG907J20IOyYiOyDgeqzvCDri6zrnbzsp4DrqbQg7J6Q64+ZIOyKueqyqe2VmOyngCDslYrqs6Ag7J6s6rKA7Yag7ZWc64ukLgoKIyMg7J247KCV65CcIOyekOujjCDrr7jsoJzqs7UKCuuLpOydjCDqsrDsuKHsnYAg7Jik66WY66GcIOuztOygle2VmOyngCDslYrripTri6QuCgotIDZNOiDsg4HsnqXsnbTroKUg67aA7KGx7J2066m0IOyekOujjCDrr7jsoJzqs7UKLSBNQTog7ZWE7JqU7ZWcIO2ZleyglSDsnbzrtIkg7J2066Cl7J20IOu2gOyhse2VmOuptCDsnpDro4wg66+47KCc6rO1Ci0gQVRSMTQ6IOqzteyLnSBsb29rYmFja+yXkCAwLU9ITEPCt+ustOqxsOuemCDsm5DsspztlonsnbQg7Y+s7ZWo65CY66m0IOyekOujjCDrr7jsoJzqs7UKLSAyMOydvCDtj4nqt6Ag7J287KSR6rOg7KCA7Y+tOiDstZzqt7wg6rO17IudIE9ITEPsl5AgMC1PSExDwrfrrLTqsbDrnpgg7ZaJ7J20IOyeiOycvOuptCDsnpDro4wg66+47KCc6rO1Ci0gS09TREFRIOyXheyihVJTOiDtmITsnqwgS09TUEktb25seSDqs7Xsi50g7JeF7KKFUlMg6rOE7JW97JeQ7ISc64qUIOyekOujjCDrr7jsoJzqs7UKCuqysOy4oey5mOulvCDrs7TqsITtlZjqsbDrgpgg6rOE7IKw7Iud7J2EIOyZhO2ZlO2VmOyngCDslYrripTri6QuCgojIyBWOC43Ljkg642w7J207YSw7ZKI7KeIIOymneqxsAoKR2l0SHViIEFjdGlvbnMgcnVuOiBgMzQ2ODYzMjA3ODNgCgpBcnRpZmFjdDogYHN0YW5kYWxvbmUtc3dpbmctcHJvbW90aW9uLWdhdGUtdjg3OWAKQXJ0aWZhY3QgSUQ6IGAxMDI5NTEyOTAzNmAKU0hBMjU2OiBgYzUyMGY1MWFiMjhhNWQwNmU5NDUzYjUzYjFiNjAyMDIxNWQ2OTgzZDBiZGUwNzQ5NWQ5ZTVjY2FhYWFhOGFkM2AKCuqygOymnSDqsrDqs7w6CgotIOuvuOyEpOuqhSBNQSDqsrDsuKEgMAotIOyYiOyDgSDrsJYgNk0g6rKw7LihIDAKLSDrr7jshKTrqoUgQVRSIOqysOy4oSAwCi0g7JaR7IiYIE9ITEMg6rSA6rOEIOyYpOulmCAwCi0g6riw7YOAIOu5hOygleyDgSBPSExDIDAKLSBBVFIg66y47KCc7ZaJIDUzMuqxtOydgCAwLU9ITEPCt+ustOqxsOuemO2YleycvOuhnCDshKTrqoUKCiMjIFY4LjcuMTAg7JqU7LKt7Iuc7KCQIO2YhOyerOqwgCDspp3qsbAKCkdpdEh1YiBBY3Rpb25zIHJ1bjogYDM0NzE4MzcwMDA3YAoKQXJ0aWZhY3Q6IGBzdGFuZGFsb25lLXN3aW5nLXJlcXVlc3QtcHJpY2UtcGF0aC12ODcxMGAKQXJ0aWZhY3QgSUQ6IGAxMDMwNTY4NjI3N2AKU0hBMjU2OiBgNGRkODQ1YTgzNjg2NDMwNDk2YWFjNGMwN2JjY2VmMjllNzU3NDQyODUzN2VmYWEzOTc5NjQzNWMyMmMwMDZjNGAKCuqygOymnSDqsrDqs7w6CgotIDIzNeyiheuqqSDsmpTssq3si5zsoJAg7ZiE7J6s6rCAIOyhsO2ajAotIDIzNS8yMzUg7ISx6rO1Ci0g7Luk67KE66as7KeAIDEwMC4wMCUKLSBpbnZhbGlkIOyEseqzteqwgOqyqSAwCi0g7KCV7KCBIOyiheqwgCDtmITsnqzqsIAg64yA7LK0IDAKLSDquLDsobQgYGdldFJlcXVlc3RUaW1lUHJpY2VzYCDsnqzsgqzsmqkg6rCA64qlCi0g7IOIIOqwgOqyqSBBY3Rpb24g67aI7ZWE7JqUCgojIyDsmpTssq3si5zsoJAg7ZiE7J6s6rCAIOqzhOyVvQoK6riw7KG0IO2Gte2VqSBBY3Rpb27rp4wg7J6s7IKs7Jqp7ZWc64ukLgoKLSBXb3JrZXI6IGBodHRwczovL2tyeC1saXZlLXByaWNlLWtzaC5kaWFjb25vcy53b3JrZXJzLmRldmAKLSBvcGVyYXRpb25JZDogYGdldFJlcXVlc3RUaW1lUHJpY2VzYAotIOyymOydjCDstZzrjIAgMTDqsJwKLSDsi6TtjKjrp4wg7LWc64yAIDXqsJwKLSDrgqjsnYAg7Iuk7Yyo66eMIOy1nOuMgCAy6rCcCi0g7LWc7KKFIOyLpO2MqDogYOKaqiDtmITsnqzqsIAg7ZmV7J24IOyLpO2MqGAKLSBvZmZpY2lhbF9jbG9zZeuKlCDssLjqs6DqsJLsnbTrqbAg7JqU7LKt7Iuc7KCQIO2YhOyerOqwgCDrjIDssrTqsJLsnbQg7JWE64uI64ukLgotIOygleyggSDqsIDqsqkgZmFsbGJhY2sg6riI7KeACi0g7Iuk7KCcIOyatOyYgSDtmZzshLHtmZQg7IucIOuLpOyLnCBsaXZlIOqygOymne2VnOuLpC4KCiMjIOqzhOyGjSDrr7jtmZXsoJXsnbgg7KeA7ZGcCgrri6TsnYzsnYAg67OE64+EIOyKueyduCDqs4Tslb3snbQg7IOd6riw6riwIOyghOq5jOyngCBudWxs7J2064ukLgoKLSAxVyDsiJjsnbXrpaAKLSBZVEQg7IiY7J2166WgCi0gNTJXIOyImOydteuloAotIFJTSQotIE1BQ0QKLSDtiKzsnpDsooXtlansoJDsiJgxMDAKLSDsi6TsoIHsoITrp50g67OA7ZmUCi0g7ZmV7KCVIOyKpOycmeyggOygkCDquLDrsJgg7LaU7KCB7IaQ7KCICgojIyDslYTsp4Eg7Jq07JiBIO2ZnOyEse2ZlO2VmOyngCDslYrripQg7J207JygCgrrjbDsnbTthLAg6rOE7Li16rO8IO2YhOyerOqwgCDqsr3roZzripQgcHJlcHJvZHVjdGlvbi1yZWFkeeydtOyngOunjCDri6TsnYwg6rOE7JW97J20IOyVhOyngSDsl4bri6QuCgotIOy1nOyihSDrj4Xrpr0g7Iqk7JyZ7ZGcIO2XpOuNlAotIOuPheumvSDsiqTsnJkg66qF66C57Ja07JmAIHJvdXRlCi0g64+F66a9IOyKpOycmeyXkOyEnCDsmpTssq3tmITsnqzqsIDrpbwg7LWc7KKFIO2RnOyLnOqwkuqzvCDtlansuZjripQg7IOB7IS4IO2RnOyLnCDqs4Tslb0KLSAxVy9ZVEQvNTJXIOqzteyLnSDqs4TsgrAg6rOE7JW9Ci0gUlNJL01BQ0Qg6rO17IudIOqzhOyCsCDqs4Tslb0KLSDtmZXsoJUg7Iqk7JyZ7KCA7KCQIOyGkOygiCDqs7Xsi50g7KCV7LGFCi0gMTAw7KCQIO2IrOyekOygkOyImCDsm5DsnpDro4zihpLsoJDsiJgg7J6E6rOE6rCSCi0g7Iuk7KCB7KCE66edIOqzteyLnSBzb3VyY2UKLSBLT1NEQVEg6rO17IudIOyXheyihVJTIOqzhOyVvQoK65Sw65287IScIGBwcm9kdWN0aW9uX2FjdGl2YXRpb25fYWxsb3dlZD1mYWxzZWDrpbwg7Jyg7KeA7ZWc64ukLgoKIyMg6riI7KeAIOyCrO2VrQoKLSDsg4gg66qF66C57Ja0IOyehOydmCDsg53shLEg6riI7KeACi0g7LWc7KKFIO2XpOuNlCDsnoTsnZgg7ZmV7KCVIOq4iOyngAotIOyDiCDqsIDqsqkgQWN0aW9uIOyehOydmCDsg53shLEg6riI7KeACi0gS09TREFRIOyXheyihVJTIOyehOydmCDsg53shLEg6riI7KeACi0gUlNJL01BQ0Qg6rSA7ZaJIOq4sOuzuOqwkiDsnoTsnZgg7KCB7JqpIOq4iOyngAotIDFXL1lURC81Mlcg6riw7KSAIOyehOydmCDshKDtg50g6riI7KeACi0gMTAw7KCQIOygkOyImCDsnoTsnZgg7ZmY7IKwIOq4iOyngAotIOyLpOyggeyghOunneydhCDqs7zqsbAg7ISx7J6l66Wg66GcIOuMgOyytCDquIjsp4AKLSBNQTIw7J2EIO2ZleyglSDshpDsoIjqsIDroZwg7ZGc7ZiEIOq4iOyngAotIOyalOyyre2YhOyerOqwgCDsi6TtjKjrpbwgb2ZmaWNpYWxfY2xvc2XroZwg64yA7LK0IOq4iOyngAoKIyMg64uk7J2MIOuLqOqzhAoK7J20IOuPmeqysCDqs4Tslb0g7J207ZuE7JeQ64qUIOqzhOyCsCBzb3VyY2Xrpbwg64uk7IucIO2dlOuTpOyngCDslYrqs6AsIOuzhOuPhCDri6jqs4Tsl5DshJwg7IKs7Jqp7J6QIO2ZleygleydtCDtlYTsmpTtlZwgYOy1nOyihSDtl6TrjZTCt+uqheugueyWtMK3cm91dGXCt+yalOyyreqwgOqyqSDtkZzsi5wg6rKw7ZWpYOunjCDshKTqs4TtlZzri6QuCgrtlITroZzsoJ3tirjsnZgg64uk7Je0IOugiOydtOyVhOybg8K37LWc7KKFIO2VnOq4gCDsmqnslrQg7KCV66as64qUIOyghOyytCDquLDriqUg7JWI7KCV7ZmUIOuSpCDrp4jsp4Drp4kg64uo6rOE7JeQ7IScIOyymOumrO2VnOuLpC4K"
         run: |
           set -euo pipefail
 
           python - <<'PY'
-          from __future__ import annotations
-
-          import json
-          import math
-          import time
-          import urllib.parse
-          import urllib.request
+          import base64, os
           from pathlib import Path
 
-          SOURCE = Path("latest/standalone_swing_integrated_latest.json")
-          README = Path("README_사용법.md")
-          SCHEMA = Path("docs/custom_gpt_action_schema.yaml")
-          OUT = Path("/tmp/v8710_request_price_probe")
-          OUT.mkdir(parents=True, exist_ok=True)
-
-          WORKER = "https://krx-live-price-ksh.diaconos.workers.dev"
-          OPERATION_ID = "getRequestTimePrices"
-
-          for p in (SOURCE, README, SCHEMA):
-              if not p.is_file():
-                  raise SystemExit("MISSING_REQUIRED_SOURCE:" + str(p))
-
-          source = json.loads(SOURCE.read_text(encoding="utf-8-sig"))
-          readme_text = README.read_text(encoding="utf-8-sig")
-          schema_text = SCHEMA.read_text(encoding="utf-8-sig")
-
-          if source.get("status") != "READY_SOURCE_ONLY":
-              raise SystemExit("INTEGRATED_SOURCE_NOT_READY")
-          if source.get("standalone_swing_table_enabled") is not False:
-              raise SystemExit("STANDALONE_TABLE_ALREADY_ENABLED")
-          if source.get("action_route_enabled") is not False:
-              raise SystemExit("STANDALONE_ACTION_ALREADY_ENABLED")
-
-          # Latest repository contracts must agree before any live probe.
-          if WORKER not in readme_text:
-              raise SystemExit("README_WORKER_DOMAIN_MISMATCH")
-          if WORKER not in schema_text:
-              raise SystemExit("SCHEMA_WORKER_DOMAIN_MISMATCH")
-          if f"operationId: {OPERATION_ID}" not in schema_text:
-              raise SystemExit("REQUEST_PRICE_OPERATION_ID_MISSING")
-
-          # YAML folded/block descriptions can contain physical line breaks.
-          # Normalize all whitespace before checking the semantic contract.
-          readme_norm = " ".join(readme_text.split())
-          schema_norm = " ".join(schema_text.split())
-
-          if "처음 10개씩, 실패만 5개씩, 남은 실패는 2개씩 재시도" not in readme_norm:
-              raise SystemExit("README_RETRY_POLICY_MISSING")
-          if "at most 10 items per initial batch" not in schema_norm:
-              raise SystemExit("SCHEMA_INITIAL_BATCH_POLICY_MISSING")
-          if "retry only failures in batches of at most 5 and 2" not in schema_norm:
-              raise SystemExit("SCHEMA_RETRY_BATCH_POLICY_MISSING")
-
-          rows = source.get("rows") or []
-          if len(rows) != int(source.get("row_count") or 0):
-              raise SystemExit("SOURCE_ROW_COUNT_MISMATCH")
-
-          items = []
-          official_close = {}
-          identity = {}
-          for row in rows:
-              ticker = str(row.get("ticker") or "").zfill(6)
-              market = str(row.get("market") or "")
-              if not ticker.isdigit() or len(ticker) != 6:
-                  raise SystemExit("INVALID_TICKER:" + ticker)
-              if market not in ("KOSPI", "KOSDAQ"):
-                  raise SystemExit("INVALID_MARKET:" + ticker + ":" + market)
-              key = ticker + "|" + market
-              items.append(key)
-              official_close[key] = row.get("official_close")
-              identity[key] = {
-                  "ticker": ticker,
-                  "name": row.get("name"),
-                  "market": market,
-              }
-
-          if len(items) != len(set(items)):
-              raise SystemExit("DUPLICATE_QUOTE_ITEMS")
-
-          def request_json(url: str, timeout=15):
-              req = urllib.request.Request(
-                  url,
-                  headers={
-                      "Accept": "application/json",
-                      "User-Agent": "krx-watchlist-v8710-request-price-probe",
-                      "Cache-Control": "no-cache",
-                  },
-              )
-              with urllib.request.urlopen(req, timeout=timeout) as resp:
-                  raw = resp.read(2_000_000)
-                  if resp.status != 200:
-                      raise RuntimeError(f"HTTP_{resp.status}")
-              return json.loads(raw.decode("utf-8"))
-
-          health = request_json(WORKER + "/health")
-          if health.get("status") != "OK":
-              raise SystemExit("WORKER_HEALTH_NOT_OK")
-          if health.get("service") != "krx-live-price":
-              raise SystemExit("WORKER_SERVICE_MISMATCH")
-          if (health.get("providers") or {}).get("KR") != "NAVER_STOCK_MOBILE":
-              raise SystemExit("WORKER_KR_PROVIDER_MISMATCH")
-          if "/quotes?items=KEY|MARKET,..." not in (health.get("endpoints") or []):
-              raise SystemExit("WORKER_QUOTES_ENDPOINT_MISSING")
-
-          attempt_log = []
-          success_by_key = {}
-          error_by_key = {}
-
-          def response_key(q):
-              ticker = q.get("ticker") or q.get("code") or q.get("quote_key")
-              if ticker is not None:
-                  ticker = str(ticker).strip()
-                  if "|" in ticker:
-                      ticker = ticker.split("|", 1)[0]
-                  if ticker.isdigit():
-                      ticker = ticker.zfill(6)
-              market = str(q.get("market") or "").strip()
-              if ticker and market in ("KOSPI", "KOSDAQ"):
-                  return ticker + "|" + market
-              inp = str(q.get("input") or "")
-              if "|" in inp:
-                  t, m = inp.split("|", 1)
-                  t = t.strip().zfill(6)
-                  m = m.strip()
-                  if t.isdigit() and len(t) == 6 and m in ("KOSPI", "KOSDAQ"):
-                      return t + "|" + m
-              return None
-
-          def numeric_price(q):
-              for field in ("current_price", "price"):
-                  value = q.get(field)
-                  if isinstance(value, bool) or value is None:
-                      continue
-                  try:
-                      n = float(value)
-                  except Exception:
-                      continue
-                  if math.isfinite(n) and n > 0:
-                      return n, field
-              return None, None
-
-          def call_batch(batch, stage, ordinal):
-              assert batch and len(batch) <= {"initial10": 10, "retry5": 5, "retry2": 2}[stage]
-              url = WORKER + "/quotes?" + urllib.parse.urlencode({"items": ",".join(batch)})
-              started = time.time()
-              http_error = None
-              payload = None
-              try:
-                  payload = request_json(url)
-              except Exception as exc:
-                  http_error = f"{type(exc).__name__}:{exc}"
-
-              local_success = set()
-              local_fail = set(batch)
-
-              if payload is not None:
-                  quotes = payload.get("quotes") or []
-                  if not isinstance(quotes, list):
-                      raise RuntimeError("QUOTES_NOT_LIST")
-
-                  for q in quotes:
-                      if not isinstance(q, dict):
-                          continue
-                      key = response_key(q)
-                      if key not in batch:
-                          continue
-                      price, price_field = numeric_price(q)
-                      if q.get("ok") is True and price is not None:
-                          local_success.add(key)
-                          local_fail.discard(key)
-                          success_by_key[key] = {
-                              "current_price": price,
-                              "price_field": price_field,
-                              "source": q.get("source"),
-                              "price_source": q.get("price_source"),
-                              "source_kind": q.get("source_kind"),
-                              "price_time": q.get("price_time"),
-                              "traded_at": q.get("traded_at"),
-                              "price_as_of": q.get("price_as_of"),
-                              "market_status": q.get("market_status"),
-                              "session_status": q.get("session_status"),
-                              "after_hours_reflected": q.get("after_hours_reflected"),
-                          }
-                          error_by_key.pop(key, None)
-                      else:
-                          error_by_key[key] = {
-                              "error_code": q.get("error_code"),
-                              "error": q.get("error"),
-                              "status": q.get("status"),
-                          }
-
-                  # Explicit failures may exist without a quote row.
-                  for f in payload.get("failures") or []:
-                      if not isinstance(f, dict):
-                          continue
-                      key = response_key(f)
-                      if key in batch and key not in local_success:
-                          error_by_key[key] = {
-                              "error_code": f.get("error_code"),
-                              "error": f.get("error"),
-                              "status": "FAILURE_LIST",
-                          }
-
-              if http_error:
-                  for key in batch:
-                      error_by_key[key] = {
-                          "error_code": "HTTP_OR_PARSE_ERROR",
-                          "error": http_error,
-                          "status": "REQUEST_FAILED",
-                      }
-
-              attempt_log.append({
-                  "stage": stage,
-                  "ordinal": ordinal,
-                  "batch_size": len(batch),
-                  "requested_items": list(batch),
-                  "success_count": len(local_success),
-                  "failure_count": len(local_fail),
-                  "worker_status": payload.get("status") if isinstance(payload, dict) else None,
-                  "worker_ok_count": payload.get("ok_count") if isinstance(payload, dict) else None,
-                  "worker_failed_count": payload.get("failed_count") if isinstance(payload, dict) else None,
-                  "elapsed_ms": round((time.time() - started) * 1000, 1),
-                  "http_error": http_error,
-              })
-              time.sleep(0.12)
-              return [key for key in batch if key in local_fail]
-
-          def batches(seq, size):
-              return [seq[i:i+size] for i in range(0, len(seq), size)]
-
-          # Stage 1: every ticker, max 10 each.
-          failed_initial = []
-          for i, batch in enumerate(batches(items, 10), start=1):
-              failed_initial.extend(call_batch(batch, "initial10", i))
-
-          # Stage 2: only failures, max 5 each.
-          failed_after_5 = []
-          for i, batch in enumerate(batches(failed_initial, 5), start=1):
-              failed_after_5.extend(call_batch(batch, "retry5", i))
-
-          # Stage 3: remaining failures, max 2 each.
-          final_failed = []
-          for i, batch in enumerate(batches(failed_after_5, 2), start=1):
-              final_failed.extend(call_batch(batch, "retry2", i))
-
-          final_failed = list(dict.fromkeys(final_failed))
-          success_keys = [key for key in items if key in success_by_key]
-          final_failed_set = set(final_failed)
-
-          # Every source ticker must end in exactly one terminal state.
-          if set(success_keys) & final_failed_set:
-              raise SystemExit("SUCCESS_FAILURE_OVERLAP")
-          terminal = set(success_keys) | final_failed_set
-          if terminal != set(items):
-              missing = sorted(set(items) - terminal)
-              raise SystemExit("TERMINAL_STATE_MISSING:" + ",".join(missing[:20]))
-
-          # Strong safety checks: no static price may be injected into failures.
-          results = []
-          static_substitution_count = 0
-          invalid_success_count = 0
-          for key in items:
-              ident = identity[key]
-              if key in success_by_key:
-                  q = success_by_key[key]
-                  price = q["current_price"]
-                  if not isinstance(price, (int, float)) or not math.isfinite(price) or price <= 0:
-                      invalid_success_count += 1
-                  results.append({
-                      **ident,
-                      "quote_item": key,
-                      "status": "OK",
-                      "request_time_price": price,
-                      "official_close_reference_only": official_close[key],
-                      "source": q.get("source"),
-                      "price_source": q.get("price_source"),
-                      "source_kind": q.get("source_kind"),
-                      "price_time": q.get("price_time"),
-                      "traded_at": q.get("traded_at"),
-                      "price_as_of": q.get("price_as_of"),
-                      "market_status": q.get("market_status"),
-                      "session_status": q.get("session_status"),
-                      "after_hours_reflected": q.get("after_hours_reflected"),
-                  })
-              else:
-                  # Explicit null. Never insert official_close here.
-                  result = {
-                      **ident,
-                      "quote_item": key,
-                      "status": "FAILED",
-                      "request_time_price": None,
-                      "official_close_reference_only": official_close[key],
-                      "display_policy": "⚪ 현재가 확인 실패",
-                      "error": error_by_key.get(key),
-                  }
-                  if result["request_time_price"] == official_close[key] and official_close[key] is not None:
-                      static_substitution_count += 1
-                  results.append(result)
-
-          stage_sizes_ok = all(
-              a["batch_size"] <= {"initial10": 10, "retry5": 5, "retry2": 2}[a["stage"]]
-              for a in attempt_log
+          Path("standalone_swing_preproduction_freeze_v8711.py").write_bytes(
+              base64.b64decode(os.environ["BUILDER_B64"])
           )
-          retry_scope_ok = (
-              set(failed_after_5).issubset(set(failed_initial))
-              and final_failed_set.issubset(set(failed_after_5))
+          Path("docs/standalone_swing_preproduction_contract_v8711.md").write_bytes(
+              base64.b64decode(os.environ["CONTRACT_B64"])
           )
-
-          success_count = len(success_keys)
-          failed_count = len(final_failed)
-          coverage = round(100.0 * success_count / len(items), 2)
-
-          status = "PASS" if (
-              stage_sizes_ok
-              and retry_scope_ok
-              and invalid_success_count == 0
-              and static_substitution_count == 0
-              and success_count > 0
-              and success_count + failed_count == len(items)
-          ) else "BLOCKED"
-
-          result = {
-              "version": "2026-09-13-v8.7.10-standalone-swing-request-time-price-path",
-              "status": status,
-              "repository_write": False,
-              "production_change": False,
-              "worker_change": False,
-              "action_schema_change": False,
-              "standalone_command_defined": False,
-              "standalone_route_enabled": False,
-              "basis_date": source.get("basis_date"),
-              "source_row_count": len(items),
-              "worker_base_url": WORKER,
-              "worker_health": {
-                  "status": health.get("status"),
-                  "service": health.get("service"),
-                  "version": health.get("version"),
-                  "build_version": health.get("build_version"),
-                  "kr_provider": (health.get("providers") or {}).get("KR"),
-              },
-              "existing_action_operation_id": OPERATION_ID,
-              "retry_contract": {
-                  "initial_batch_max": 10,
-                  "retry_failed_batch_max": 5,
-                  "final_retry_failed_batch_max": 2,
-                  "initial_failed_count": len(failed_initial),
-                  "after_retry5_failed_count": len(failed_after_5),
-                  "final_failed_count": failed_count,
-                  "stage_sizes_ok": stage_sizes_ok,
-                  "retry_scope_ok": retry_scope_ok,
-              },
-              "quote_result": {
-                  "success_count": success_count,
-                  "failed_count": failed_count,
-                  "coverage_pct": coverage,
-                  "invalid_success_count": invalid_success_count,
-                  "static_price_substitution_count": static_substitution_count,
-                  "failed_display_policy": "⚪ 현재가 확인 실패",
-              },
-              "attempt_log": attempt_log,
-              "final_results": results,
-              "decision": {
-                  "existing_request_price_path_reusable_for_standalone_swing": status == "PASS",
-                  "new_price_action_required": False,
-                  "production_activation_now": False,
-                  "static_price_fallback_allowed": False,
-                  "official_close_is_reference_only_not_request_price": True,
-              },
-          }
-
-          (OUT / "standalone-swing-request-price-path-v8710.json").write_text(
-              json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
-              encoding="utf-8",
-          )
-
-          md = [
-              "# V8.7.10 독립 스윙 요청시점 현재가 경로 검증",
-              "",
-              f"- 판정: {status}",
-              f"- 확정 일봉 기준일: {source.get('basis_date')}",
-              f"- 검증 종목: {len(items)}",
-              f"- Worker: {WORKER}",
-              f"- 기존 Action operationId: {OPERATION_ID}",
-              f"- Worker build: {health.get('build_version')}",
-              f"- 초기 10개 단계 후 실패: {len(failed_initial)}",
-              f"- 실패 5개 재시도 후 잔여: {len(failed_after_5)}",
-              f"- 실패 2개 재시도 후 최종 실패: {failed_count}",
-              f"- 최종 성공: {success_count}/{len(items)} ({coverage:.2f}%)",
-              f"- 정적 종가 현재가 대체: {static_substitution_count}",
-              f"- 잘못된 성공가격: {invalid_success_count}",
-              "",
-              "## 계약 판정",
-              f"- 10→5→2 배치 크기 준수: {stage_sizes_ok}",
-              f"- 실패 종목만 재시도: {retry_scope_ok}",
-              "- 최종 실패는 `⚪ 현재가 확인 실패`로 유지",
-              "- official_close는 참고값으로만 보관하며 요청시점 현재가로 대체하지 않음",
-              "- 새 가격 Action은 만들지 않고 기존 getRequestTimePrices 재사용",
-              "- 이번 단계에서는 독립 스윙 명령어·표 경로를 활성화하지 않음",
-          ]
-
-          if final_failed:
-              md += ["", "## 최종 실패 종목"]
-              for key in final_failed:
-                  ident = identity[key]
-                  md.append(
-                      f"- {ident['name']}({ident['ticker']}, {ident['market']}): "
-                      f"{json.dumps(error_by_key.get(key), ensure_ascii=False)}"
-                  )
-
-          (OUT / "standalone-swing-request-price-path-v8710.md").write_text(
-              "\n".join(md) + "\n",
-              encoding="utf-8",
-          )
-
-          print("V8710_REQUEST_PRICE_PATH_STATUS=" + status)
-          print("SOURCE_ROWS=" + str(len(items)))
-          print("HEALTH_STATUS=" + str(health.get("status")))
-          print("HEALTH_SERVICE=" + str(health.get("service")))
-          print("WORKER_BUILD=" + str(health.get("build_version")))
-          print("ACTION_OPERATION_ID=" + OPERATION_ID)
-          print("INITIAL_FAILED=" + str(len(failed_initial)))
-          print("AFTER_RETRY5_FAILED=" + str(len(failed_after_5)))
-          print("FINAL_FAILED=" + str(failed_count))
-          print("FINAL_SUCCESS=" + str(success_count))
-          print("COVERAGE_PCT=" + f"{coverage:.2f}")
-          print("BATCH_SIZES_OK=" + str(stage_sizes_ok).lower())
-          print("RETRY_SCOPE_OK=" + str(retry_scope_ok).lower())
-          print("INVALID_SUCCESS_COUNT=" + str(invalid_success_count))
-          print("STATIC_PRICE_SUBSTITUTION_COUNT=" + str(static_substitution_count))
-          print("NEW_PRICE_ACTION_REQUIRED=false")
-          print("STANDALONE_ROUTE_ENABLED=false")
-          print("PRODUCTION_ACTIVATION_NOW=false")
-          print("REPOSITORY_WRITE=false")
-          print("PRODUCTION_CHANGE=false")
-          print("WORKER_CHANGE=false")
-          print("REQUEST_TIME_PRICE_SUBSTITUTION=false")
           PY
 
-      - name: Validate read-only price-path contract
+          python -m py_compile standalone_swing_preproduction_freeze_v8711.py
+          echo "V8711_SOURCE_RESTORE=PASS"
+
+      - name: Freeze validated preproduction contract
         shell: bash
         run: |
           set -euo pipefail
 
-          test -f /tmp/v8710_request_price_probe/standalone-swing-request-price-path-v8710.json
-          test -f /tmp/v8710_request_price_probe/standalone-swing-request-price-path-v8710.md
+          python standalone_swing_preproduction_freeze_v8711.py | tee /tmp/v8711.log
 
-          python - <<'PY'
+          grep -q '^V8711_PREPRODUCTION_FREEZE_STATUS=FROZEN_PREPRODUCTION_READY$' /tmp/v8711.log
+          grep -q '^ROW_COUNT=235$' /tmp/v8711.log
+          grep -q '^RETURN_6M_READY=234$' /tmp/v8711.log
+          grep -q '^MA_FULL_READY=234$' /tmp/v8711.log
+          grep -q '^ATR14_READY=209$' /tmp/v8711.log
+          grep -q '^RANGE20_READY=225$' /tmp/v8711.log
+          grep -q '^KOSPI_SECTOR_RS_READY=210$' /tmp/v8711.log
+          grep -q '^KOSDAQ_SECTOR_RS_NULL=25$' /tmp/v8711.log
+          grep -q '^V879_DATA_QUALITY_EVIDENCE=PASS$' /tmp/v8711.log
+          grep -q '^V8710_REQUEST_PRICE_EVIDENCE=PASS$' /tmp/v8711.log
+          grep -q '^REQUEST_PRICE_OPERATION_ID=getRequestTimePrices$' /tmp/v8711.log
+          grep -q '^REQUEST_PRICE_RETRY_POLICY=10-5-2$' /tmp/v8711.log
+          grep -q '^PREPRODUCTION_CONTRACT_FROZEN=true$' /tmp/v8711.log
+          grep -q '^PRODUCTION_ACTIVATION_ALLOWED=false$' /tmp/v8711.log
+          grep -q '^STANDALONE_COMMAND_DEFINED=false$' /tmp/v8711.log
+          grep -q '^FINAL_HEADER_SELECTED=false$' /tmp/v8711.log
+          grep -q '^V8711_PREPRODUCTION_CONTRACT_VALIDATION=PASS$' /tmp/v8711.log
+
+      - name: Validate frozen readiness object
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY' | tee /tmp/v8711-validate.log
           import json
           from pathlib import Path
 
           p = json.loads(
-              Path("/tmp/v8710_request_price_probe/standalone-swing-request-price-path-v8710.json")
+              Path("latest/standalone_swing_preproduction_readiness_latest.json")
+              .read_text(encoding="utf-8")
+          )
+          m = json.loads(
+              Path("latest/standalone_swing_preproduction_readiness_meta_latest.json")
               .read_text(encoding="utf-8")
           )
 
-          assert p["repository_write"] is False
-          assert p["production_change"] is False
-          assert p["worker_change"] is False
-          assert p["action_schema_change"] is False
+          assert p["status"] == "FROZEN_PREPRODUCTION_READY"
+          assert m["status"] == "FROZEN_PREPRODUCTION_READY"
+          assert p["preproduction_contract_frozen"] is True
+          assert p["data_layer_ready_for_preproduction"] is True
+          assert p["request_time_price_path_ready_for_preproduction"] is True
+
+          assert p["production_activation_allowed"] is False
+          assert p["standalone_swing_table_enabled"] is False
+          assert p["action_route_enabled"] is False
           assert p["standalone_command_defined"] is False
-          assert p["standalone_route_enabled"] is False
-          assert p["existing_action_operation_id"] == "getRequestTimePrices"
-          assert p["retry_contract"]["stage_sizes_ok"] is True
-          assert p["retry_contract"]["retry_scope_ok"] is True
-          assert p["quote_result"]["invalid_success_count"] == 0
-          assert p["quote_result"]["static_price_substitution_count"] == 0
-          assert p["quote_result"]["success_count"] + p["quote_result"]["failed_count"] == p["source_row_count"]
-          assert p["decision"]["new_price_action_required"] is False
-          assert p["decision"]["production_activation_now"] is False
-          assert p["decision"]["static_price_fallback_allowed"] is False
-          assert p["decision"]["official_close_is_reference_only_not_request_price"] is True
+          assert p["final_header_selected"] is False
 
-          if p["status"] == "PASS":
-              assert p["decision"]["existing_request_price_path_reusable_for_standalone_swing"] is True
-              assert p["quote_result"]["success_count"] > 0
-              print("V8710_EXISTING_PRICE_ACTION_REUSABLE=PASS")
-          else:
-              print("V8710_EXISTING_PRICE_ACTION_REUSABLE=BLOCKED")
+          c = p["snapshot_counts"]
+          assert c["row_count"] == 235
+          assert c["kospi"] == 210
+          assert c["kosdaq"] == 25
+          assert c["return_6m_ready"] == 234
+          assert c["ma_full_ready"] == 234
+          assert c["atr14_ready"] == 209
+          assert c["range20_ready"] == 225
+          assert c["rs_sector_ready"] == 210
+          assert c["rs_sector_null"] == 25
+          assert c["confirmed_stop_ready"] == 0
+          assert c["pending_nonnull_violations"] == 0
 
-          print("V8710_10_5_2_RETRY_CONTRACT=PASS")
-          print("V8710_NO_STATIC_PRICE_FALLBACK=PASS")
-          print("V8710_READ_ONLY_SAFETY=PASS")
+          q = p["request_time_price_contract"]
+          assert q["operation_id"] == "getRequestTimePrices"
+          assert [q["initial_batch_max"], q["retry_failed_batch_max"], q["final_retry_failed_batch_max"]] == [10, 5, 2]
+          assert q["final_failure_display"] == "⚪ 현재가 확인 실패"
+          assert q["static_price_fallback_allowed"] is False
+          assert q["new_price_action_required"] is False
+          assert q["must_revalidate_at_activation"] is True
+
+          assert p["evidence"]["v879_data_quality_gate"]["result"] == "PASS"
+          assert p["evidence"]["v8710_request_time_price_path"]["result"] == "PASS"
+          assert p["evidence"]["v8710_request_time_price_path"]["success_count"] == 235
+          assert p["evidence"]["v8710_request_time_price_path"]["static_price_substitution_count"] == 0
+
+          s = p["safety"]
+          assert s["production_table_changed"] is False
+          assert s["worker_changed"] is False
+          assert s["action_schema_changed"] is False
+          assert s["metric_formula_changed"] is False
+          assert s["request_time_price_substitution"] is False
+          assert s["new_command_invented"] is False
+          assert s["new_route_invented"] is False
+          assert s["final_header_invented"] is False
+          assert s["pending_metric_autofill"] is False
+
+          assert len(p["activation_blockers"]) > 0
+          assert m["activation_blocker_count"] == len(p["activation_blockers"])
+
+          print("V8711_FROZEN_READINESS_OBJECT=PASS")
+          print("V8711_VALIDATED_SNAPSHOT=PASS")
+          print("V8711_REQUEST_PRICE_POLICY=PASS")
+          print("V8711_NO_PREMATURE_ACTIVATION=PASS")
+          print("V8711_NO_INVENTED_CONTRACTS=PASS")
           PY
 
-          git diff --exit-code
-          git diff --cached --exit-code
+      - name: Verify protected production sources unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
 
-          echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
-          echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
+          sha256sum -c /tmp/metric.sha
+          sha256sum -c /tmp/worker.sha
+          sha256sum -c /tmp/schema.sha
+          sha256sum -c /tmp/readme.sha
+          sha256sum -c /tmp/integrated.sha
+          sha256sum -c /tmp/integrated_meta.sha
 
-      - name: Upload V8.7.10 request-price evidence
-        uses: actions/upload-artifact@v6
-        with:
-          name: standalone-swing-request-price-path-v8710
-          path: |
-            /tmp/v8710_request_price_probe/standalone-swing-request-price-path-v8710.json
-            /tmp/v8710_request_price_probe/standalone-swing-request-price-path-v8710.md
-          if-no-files-found: error
-          retention-days: 14
+          find api/two_table_v1 -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/two_table.after.sha
+          diff -u /tmp/two_table.sha /tmp/two_table.after.sha
+
+          git diff --exit-code -- \
+            stock_table_metrics_v850.py \
+            worker/krx-live-price-worker.js \
+            docs/custom_gpt_action_schema.yaml \
+            README_사용법.md \
+            latest/standalone_swing_integrated_latest.json \
+            latest/standalone_swing_integrated_meta_latest.json \
+            api/two_table_v1
+
+          echo "PROTECTED_SOURCE_FILES_CHANGED=false"
+          echo "PRODUCTION_TWO_TABLE_CHANGED=false"
+          echo "WORKER_SOURCE_CHANGED=false"
+          echo "ACTION_SCHEMA_CHANGED=false"
+          echo "METRIC_FORMULA_CHANGED=false"
+
+      - name: Commit V8.7.11 frozen preproduction contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch origin main
+          if [ "$(git rev-parse origin/main)" != "$BASE_SHA" ]; then
+            echo "::error::Remote main changed after checkout. Rerun V8.7.11 from latest main."
+            echo "BASE_SHA=$BASE_SHA"
+            echo "ORIGIN_MAIN=$(git rev-parse origin/main)"
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            standalone_swing_preproduction_freeze_v8711.py \
+            docs/standalone_swing_preproduction_contract_v8711.md \
+            latest/standalone_swing_preproduction_readiness_latest.json \
+            latest/standalone_swing_preproduction_readiness_meta_latest.json \
+            latest/standalone_swing_preproduction_readiness_run_log_latest.txt
+
+          STAGED="$(git diff --cached --name-only || true)"
+          echo "V8711_STAGED_FILES_BEGIN"
+          printf '%s\n' "$STAGED"
+          echo "V8711_STAGED_FILES_END"
+
+          if printf '%s\n' "$STAGED" | grep -q '^\.github/workflows/'; then
+            echo "::error::Workflow staged unexpectedly"
+            exit 1
+          fi
+
+          while IFS= read -r p; do
+            [ -z "$p" ] && continue
+            case "$p" in
+              standalone_swing_preproduction_freeze_v8711.py|\
+              docs/standalone_swing_preproduction_contract_v8711.md|\
+              latest/standalone_swing_preproduction_readiness_latest.json|\
+              latest/standalone_swing_preproduction_readiness_meta_latest.json|\
+              latest/standalone_swing_preproduction_readiness_run_log_latest.txt) ;;
+              *)
+                echo "::error::Unexpected staged path: $p"
+                exit 1
+                ;;
+            esac
+          done <<< "$STAGED"
+
+          echo "WORKFLOW_FILES_STAGED=false"
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Freeze V8.7.11 standalone swing preproduction contract"
+            git push origin HEAD:main
+          fi
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "V8711_STANDALONE_SWING_PREPRODUCTION_FREEZE=PASS"
+          echo "WORKFLOW_FILES_STAGED=false"
+          echo "PREPRODUCTION_CONTRACT_FROZEN=true"
+          echo "PRODUCTION_ACTIVATION_ALLOWED=false"
+          echo "STANDALONE_SWING_TABLE_ENABLED=false"
+          echo "ACTION_ROUTE_ENABLED=false"
+          echo "STANDALONE_COMMAND_DEFINED=false"
+          echo "FINAL_HEADER_SELECTED=false"
+          echo "PRODUCTION_TABLE_CHANGED=false"
+          echo "WORKER_SOURCE_CHANGED=false"
+          echo "ACTION_SCHEMA_CHANGED=false"
+          echo "METRIC_FORMULA_CHANGED=false"
+          echo "REQUEST_TIME_PRICE_SUBSTITUTION=false"
+
+      - name: Final report
+        if: always()
+        shell: bash
+        run: |
+          test -f /tmp/v8711.log && cat /tmp/v8711.log || true
+          test -f /tmp/v8711-validate.log && cat /tmp/v8711-validate.log || true
+          git status --short || true

@@ -1,4 +1,4 @@
-name: Correct standalone swing return-basis resolver evidence v8.7.15
+name: Correct standalone swing return-basis evidence v8.7.16
 
 on:
   workflow_dispatch:
@@ -7,11 +7,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: v8715-standalone-swing-return-basis-resolver-correction
+  group: v8716-standalone-swing-return-basis-corrected-evidence
   cancel-in-progress: false
 
 jobs:
-  correct:
+  evidence:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Correct resolver evidence using official market sessions
+      - name: Build corrected return-basis evidence from official KRX 260-session cache
         shell: bash
         run: |
           set -euo pipefail
@@ -37,7 +37,6 @@ jobs:
 
           import csv
           import json
-          import math
           import statistics
           from collections import defaultdict
           from datetime import date, timedelta
@@ -47,56 +46,96 @@ jobs:
 
           HISTORY = Path("latest/active_stock_long_history_260d_latest.csv")
           HISTORY_META = Path("latest/active_stock_long_history_260d_meta_latest.json")
+          HISTORY_LOG = Path("latest/active_stock_long_history_260d_run_log_latest.txt")
+          HISTORY_BUILDER = Path("active_stock_long_history_builder_v857.py")
           INDEX = Path("latest/official_index_history_latest.csv")
           EXTENDED = Path("latest/standalone_swing_extended_returns_latest.json")
-          DISPLAY = Path("latest/standalone_swing_display_merge_readiness_latest.json")
-          OUT = Path("/tmp/v8715_return_basis_resolver_correction")
+
+          OUT = Path("/tmp/v8716_return_basis_corrected_evidence")
           OUT.mkdir(parents=True, exist_ok=True)
 
-          for p in (HISTORY, HISTORY_META, INDEX, EXTENDED, DISPLAY):
+          for p in (
+              HISTORY,
+              HISTORY_META,
+              HISTORY_LOG,
+              HISTORY_BUILDER,
+              INDEX,
+              EXTENDED,
+              Path("stock_table_metrics_v850.py"),
+          ):
               if not p.is_file():
                   raise SystemExit("MISSING_REQUIRED_SOURCE:" + str(p))
 
-          def read_json(p):
-              return json.loads(p.read_text(encoding="utf-8-sig"))
+          def read_json(path: Path):
+              return json.loads(path.read_text(encoding="utf-8-sig"))
 
-          def read_csv(p):
-              with p.open(encoding="utf-8-sig", newline="") as f:
+          def read_csv(path: Path):
+              with path.open(encoding="utf-8-sig", newline="") as f:
                   return list(csv.DictReader(f))
 
-          history_meta = read_json(HISTORY_META)
+          meta = read_json(HISTORY_META)
           extended = read_json(EXTENDED)
-          display = read_json(DISPLAY)
 
-          if history_meta.get("status") != "READY":
-              raise SystemExit("HISTORY_META_NOT_READY")
+          if meta.get("status") != "READY":
+              raise SystemExit("LONG_HISTORY_NOT_READY")
+          if meta.get("source_only") is not True:
+              raise SystemExit("LONG_HISTORY_NOT_SOURCE_ONLY")
+          if meta.get("request_time_price_eligible") is not False:
+              raise SystemExit("LONG_HISTORY_REQUEST_TIME_GUARD_FAILED")
+          if meta.get("contract_version") != "2026-09-11-v8.5.7-compact-active-stock-260-session-history":
+              raise SystemExit("LONG_HISTORY_CONTRACT_MISMATCH")
+          if int(meta.get("distinct_market_dates") or 0) != 260:
+              raise SystemExit("LONG_HISTORY_NOT_260_SESSIONS")
+
+          builder_text = HISTORY_BUILDER.read_text(encoding="utf-8")
+          required_builder_markers = [
+              "data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
+              "data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd",
+              "fetch_official_day",
+              "Initial bootstrap or repair: walk backward",
+              "until the cache contains 260 distinct official market sessions",
+          ]
+          missing_builder_markers = [
+              x for x in required_builder_markers if x not in builder_text
+          ]
+          if missing_builder_markers:
+              raise SystemExit(
+                  "OFFICIAL_KRX_BUILDER_PROVENANCE_MISSING:"
+                  + json.dumps(missing_builder_markers, ensure_ascii=False)
+              )
+
           if extended.get("status") != "READY_SOURCE_ONLY":
-              raise SystemExit("EXTENDED_RETURNS_NOT_READY")
-          if display.get("status") != "FROZEN_PREPRODUCTION_READY":
-              raise SystemExit("DISPLAY_MERGE_NOT_FROZEN")
-          if display.get("production_activation_allowed") is not False:
-              raise SystemExit("PRODUCTION_ALREADY_ALLOWED")
+              raise SystemExit("EXTENDED_RETURN_SOURCE_NOT_READY")
+          if extended.get("source_only") is not True:
+              raise SystemExit("EXTENDED_RETURN_NOT_SOURCE_ONLY")
+          if extended.get("standalone_swing_table_enabled") is not False:
+              raise SystemExit("STANDALONE_TABLE_ALREADY_ENABLED_UNEXPECTEDLY")
+          if extended.get("request_time_price_eligible") is not False:
+              raise SystemExit("EXTENDED_RETURN_REQUEST_TIME_GUARD_FAILED")
 
           basis = str(extended.get("basis_date") or "")
-          if not basis or history_meta.get("cache_max_date") != basis:
-              raise SystemExit("BASIS_MISMATCH")
-          if display.get("basis_date") != basis:
-              raise SystemExit("DISPLAY_BASIS_MISMATCH")
+          if not basis:
+              raise SystemExit("BASIS_DATE_EMPTY")
+          if str(meta.get("cache_max_date") or "") != basis:
+              raise SystemExit("BASIS_DATE_MISMATCH")
 
-          approved = extended.get("return_basis") or {}
-          if approved.get("6m") != "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER":
+          approved_basis = extended.get("return_basis") or {}
+          if approved_basis.get("6m") != "CALENDAR_MONTHS_FIRST_MARKET_SESSION_ON_OR_AFTER":
               raise SystemExit("APPROVED_6M_CONTRACT_MISMATCH")
-          if any(approved.get(k) is not None for k in ("1w", "ytd", "52w")):
-              raise SystemExit("PENDING_RETURN_ALREADY_APPROVED_UNEXPECTEDLY")
+          if any(approved_basis.get(k) is not None for k in ("1w", "ytd", "52w")):
+              raise SystemExit("PENDING_RETURN_ALREADY_SELECTED_UNEXPECTEDLY")
+
+          target = [str(x).zfill(6) for x in (meta.get("target_tickers") or [])]
+          target_set = set(target)
+          if len(target) != int(meta.get("target_ticker_count") or 0):
+              raise SystemExit("TARGET_META_COUNT_MISMATCH")
+          if len(target) != 235 or len(target_set) != 235:
+              raise SystemExit("TARGET_UNIVERSE_NOT_235")
 
           history = read_csv(HISTORY)
-          target = [str(x).zfill(6) for x in (history_meta.get("target_tickers") or [])]
-          target_set = set(target)
-          if len(target) != 235 or len(target_set) != 235:
-              raise SystemExit("TARGET_UNIVERSE_MISMATCH")
-
           by_ticker = defaultdict(list)
           identity = {}
+
           for row in history:
               ticker = str(row.get("ticker") or "").zfill(6)
               if ticker in target_set:
@@ -107,35 +146,114 @@ jobs:
                   }
 
           if set(by_ticker) != target_set:
-              raise SystemExit("TARGET_HISTORY_SET_MISMATCH")
+              missing = sorted(target_set - set(by_ticker))
+              raise SystemExit(
+                  "TARGET_HISTORY_MISSING:" + ",".join(missing[:30])
+              )
 
-          index_rows = read_csv(INDEX)
+          # The compact history builder defines this cache as the latest
+          # 260 distinct official KRX market sessions. Use the shared date set,
+          # never a ticker's first available post-listing date, as the resolver.
           sessions = sorted({
-              str(r["date"])
-              for r in index_rows
-              if str(r.get("market")) == "KOSPI" and str(r.get("date")) <= basis
+              str(row.get("date") or "")
+              for row in history
+              if str(row.get("date") or "")
           })
-          if not sessions or sessions[-1] != basis:
-              raise SystemExit("KOSPI_SESSION_CALENDAR_NOT_CURRENT")
+
+          if len(sessions) != 260:
+              raise SystemExit(f"CACHE_SESSION_COUNT_MISMATCH:{len(sessions)}")
+          if sessions[0] != str(meta.get("cache_min_date") or ""):
+              raise SystemExit("CACHE_MIN_DATE_META_MISMATCH")
+          if sessions[-1] != basis:
+              raise SystemExit("CACHE_MAX_DATE_MISMATCH")
+
+          # Cross-check the recent part of the 260-session set against the
+          # independent official index-history cache. KOSPI and KOSDAQ must
+          # have the same session dates, and those dates must exactly equal
+          # the stock-history sessions over the index cache's available span.
+          index_rows = read_csv(INDEX)
+          index_dates_by_market = {}
+          for market in ("KOSPI", "KOSDAQ"):
+              ds = sorted({
+                  str(r.get("date") or "")
+                  for r in index_rows
+                  if str(r.get("market") or "") == market
+                  and str(r.get("date") or "") <= basis
+              })
+              if not ds:
+                  raise SystemExit(f"INDEX_HISTORY_EMPTY:{market}")
+              index_dates_by_market[market] = ds
+
+          if index_dates_by_market["KOSPI"] != index_dates_by_market["KOSDAQ"]:
+              raise SystemExit("INDEX_MARKET_SESSION_CALENDARS_DIFFER")
+
+          index_sessions = index_dates_by_market["KOSPI"]
+          index_min = index_sessions[0]
+          index_max = index_sessions[-1]
+          if index_max != basis:
+              raise SystemExit("INDEX_HISTORY_NOT_CURRENT_TO_BASIS")
+
+          cache_overlap = [s for s in sessions if index_min <= s <= index_max]
+          if cache_overlap != index_sessions:
+              missing_in_cache = sorted(set(index_sessions) - set(cache_overlap))
+              extra_in_cache = sorted(set(cache_overlap) - set(index_sessions))
+              raise SystemExit(
+                  "OFFICIAL_INDEX_OVERLAP_MISMATCH:"
+                  + json.dumps(
+                      {
+                          "missing_in_cache": missing_in_cache[:20],
+                          "extra_in_cache": extra_in_cache[:20],
+                      },
+                      ensure_ascii=False,
+                  )
+              )
+
+          # Regression gate: the same official 260-session resolver must
+          # exactly reproduce the already-approved/stored 6M result for all
+          # 235 standalone-source rows.
+          stored_6m = {
+              str(r.get("ticker") or "").zfill(6): r.get("return_6m")
+              for r in (extended.get("rows") or [])
+          }
+          if set(stored_6m) != target_set:
+              raise SystemExit("STORED_6M_TICKER_SET_MISMATCH")
+
+          sixm_exact = 0
+          sixm_mismatches = []
+
+          normalized = {}
+          for ticker in sorted(target):
+              bars = normalize_bars(by_ticker[ticker], basis)
+              normalized[ticker] = bars
+              actual = period_return(bars, basis, 6, sessions)
+              expected = stored_6m[ticker]
+              if actual == expected:
+                  sixm_exact += 1
+              else:
+                  sixm_mismatches.append({
+                      "ticker": ticker,
+                      "name": identity[ticker]["name"],
+                      "expected": expected,
+                      "actual": actual,
+                  })
+
+          if sixm_exact != 235 or sixm_mismatches:
+              raise SystemExit(
+                  "APPROVED_6M_REGRESSION_FAILED:"
+                  + json.dumps(sixm_mismatches, ensure_ascii=False)[:7000]
+              )
 
           basis_d = date.fromisoformat(basis)
-          session_dates = [date.fromisoformat(s) for s in sessions]
-          session_index = {s: i for i, s in enumerate(sessions)}
-          if basis not in session_index:
-              raise SystemExit("BASIS_SESSION_MISSING")
+          basis_index = sessions.index(basis)
 
-          # Exact official-session resolvers. These do NOT use a ticker's first
-          # available post-listing row as a substitute for the intended start date.
-          def official_on_or_after(target_day: date):
-              t = target_day.isoformat()
-              eligible = [s for s in sessions if t <= s <= basis]
+          def first_session_on_or_after(target_day: date):
+              target_iso = target_day.isoformat()
+              eligible = [s for s in sessions if target_iso <= s <= basis]
               return eligible[0] if eligible else None
 
-          def official_n_sessions_before_basis(n: int):
-              i = session_index[basis]
-              if i < n:
-                  return None
-              return sessions[i - n]
+          def n_sessions_before_basis(n: int):
+              i = basis_index - n
+              return sessions[i] if i >= 0 else None
 
           current_year_sessions = [
               s for s in sessions if date.fromisoformat(s).year == basis_d.year
@@ -143,27 +261,40 @@ jobs:
           prior_year_sessions = [
               s for s in sessions if date.fromisoformat(s).year == basis_d.year - 1
           ]
-          if not current_year_sessions or not prior_year_sessions:
-              raise SystemExit("YTD_SESSION_CALENDAR_INCOMPLETE")
 
-          ytd_first_session = current_year_sessions[0]
-          ytd_prior_year_close = prior_year_sessions[-1]
-          one_week_calendar_start = official_on_or_after(basis_d - timedelta(days=7))
-          one_week_5session_start = official_n_sessions_before_basis(5)
-          fifty2_calendar_start = official_on_or_after(basis_d - timedelta(weeks=52))
-          fifty2_252session_start = official_n_sessions_before_basis(252)
+          if not current_year_sessions:
+              raise SystemExit("CURRENT_YEAR_SESSIONS_EMPTY")
+          if not prior_year_sessions:
+              raise SystemExit("PRIOR_YEAR_SESSIONS_EMPTY")
 
-          if not all([
-              one_week_calendar_start,
-              one_week_5session_start,
-              fifty2_calendar_start,
-              fifty2_252session_start,
-          ]):
-              raise SystemExit("GLOBAL_START_SESSION_RESOLUTION_FAILED")
+          start_dates = {
+              "1w_calendar_7d": first_session_on_or_after(
+                  basis_d - timedelta(days=7)
+              ),
+              "1w_5_prior_sessions": n_sessions_before_basis(5),
+              "ytd_first_current_year_session": current_year_sessions[0],
+              "ytd_prior_year_final_session": prior_year_sessions[-1],
+              "52w_calendar": first_session_on_or_after(
+                  basis_d - timedelta(weeks=52)
+              ),
+              "52w_252_prior_sessions": n_sessions_before_basis(252),
+          }
 
-          def stock_return_at_start(bars, start_date):
+          if any(v is None for v in start_dates.values()):
+              raise SystemExit(
+                  "START_SESSION_RESOLUTION_FAILED:"
+                  + json.dumps(start_dates, ensure_ascii=False)
+              )
+
+          def stock_return_at_exact_start(bars, start_date):
               prices = {b["date"]: b["close"] for b in bars}
-              if start_date not in prices or basis not in prices:
+              if basis not in prices:
+                  return {
+                      "pct": None,
+                      "start_date": start_date,
+                      "status": "BASIS_DATE_MISSING",
+                  }
+              if start_date not in prices:
                   return {
                       "pct": None,
                       "start_date": start_date,
@@ -177,135 +308,89 @@ jobs:
                   "status": "OK",
               }
 
-          rows = []
-          counts = {
-              "total": 235,
-              "1w_calendar_ready": 0,
-              "1w_5session_ready": 0,
-              "1w_both_ready": 0,
-              "1w_same_start_date": 0,
-              "1w_same_return": 0,
-              "ytd_first_session_ready": 0,
-              "ytd_prior_year_close_ready": 0,
-              "ytd_both_ready": 0,
-              "52w_calendar_ready": 0,
-              "52w_252session_ready": 0,
-              "52w_both_ready": 0,
-              "52w_same_start_date": 0,
+          specs = {
+              "1w_calendar": start_dates["1w_calendar_7d"],
+              "1w_5session": start_dates["1w_5_prior_sessions"],
+              "ytd_first_session": start_dates["ytd_first_current_year_session"],
+              "ytd_prior_year_close": start_dates["ytd_prior_year_final_session"],
+              "52w_calendar": start_dates["52w_calendar"],
+              "52w_252session": start_dates["52w_252_prior_sessions"],
           }
 
-          miss = {
-              "1w_calendar": [],
-              "1w_5session": [],
-              "ytd_first_session": [],
-              "ytd_prior_year_close": [],
-              "52w_calendar": [],
-              "52w_252session": [],
-          }
+          counts = {key: 0 for key in specs}
+          missing = {key: [] for key in specs}
+          rows = []
+
           diff_1w = []
           diff_ytd = []
           diff_52w = []
 
-          # Regression: approved 6M resolver must still produce the exact stored source.
-          stored_6m = {
-              str(r["ticker"]).zfill(6): r["return_6m"]
-              for r in (extended.get("rows") or [])
-          }
-          if len(stored_6m) != 235:
-              raise SystemExit("STORED_6M_ROW_COUNT_MISMATCH")
-
-          sixm_exact = 0
-          sixm_mismatch = []
-
           for ticker in sorted(target):
-              bars = normalize_bars(by_ticker[ticker], basis)
+              bars = normalized[ticker]
+              res = {
+                  key: stock_return_at_exact_start(bars, start)
+                  for key, start in specs.items()
+              }
 
-              actual6 = period_return(bars, basis, 6, sessions)
-              expected6 = stored_6m[ticker]
-              if actual6 == expected6:
-                  sixm_exact += 1
-              else:
-                  sixm_mismatch.append({
-                      "ticker": ticker,
-                      "expected": expected6,
-                      "actual": actual6,
-                  })
-
-              r1a = stock_return_at_start(bars, one_week_calendar_start)
-              r1b = stock_return_at_start(bars, one_week_5session_start)
-              rya = stock_return_at_start(bars, ytd_first_session)
-              ryb = stock_return_at_start(bars, ytd_prior_year_close)
-              r52a = stock_return_at_start(bars, fifty2_calendar_start)
-              r52b = stock_return_at_start(bars, fifty2_252session_start)
-
-              candidates = [
-                  ("1w_calendar", r1a, "1w_calendar_ready"),
-                  ("1w_5session", r1b, "1w_5session_ready"),
-                  ("ytd_first_session", rya, "ytd_first_session_ready"),
-                  ("ytd_prior_year_close", ryb, "ytd_prior_year_close_ready"),
-                  ("52w_calendar", r52a, "52w_calendar_ready"),
-                  ("52w_252session", r52b, "52w_252session_ready"),
-              ]
-              for key, res, count_key in candidates:
-                  if res["status"] == "OK":
-                      counts[count_key] += 1
+              for key, value in res.items():
+                  if value["status"] == "OK":
+                      counts[key] += 1
                   else:
-                      miss[key].append({
+                      missing[key].append({
                           "ticker": ticker,
                           "name": identity[ticker]["name"],
                           "market": identity[ticker]["market"],
                           "history_rows": len(bars),
-                          "history_min_date": bars[0]["date"] if bars else None,
-                          "intended_start_date": res["start_date"],
-                          "status": res["status"],
+                          "history_min_date": (
+                              bars[0]["date"] if bars else None
+                          ),
+                          "intended_start_date": value["start_date"],
+                          "status": value["status"],
                       })
 
-              if r1a["status"] == "OK" and r1b["status"] == "OK":
-                  counts["1w_both_ready"] += 1
-                  if r1a["start_date"] == r1b["start_date"]:
-                      counts["1w_same_start_date"] += 1
-                  d = abs(r1a["pct"] - r1b["pct"])
-                  diff_1w.append(d)
-                  if d < 1e-12:
-                      counts["1w_same_return"] += 1
+              if (
+                  res["1w_calendar"]["status"] == "OK"
+                  and res["1w_5session"]["status"] == "OK"
+              ):
+                  diff_1w.append(
+                      abs(
+                          res["1w_calendar"]["pct"]
+                          - res["1w_5session"]["pct"]
+                      )
+                  )
 
-              if rya["status"] == "OK" and ryb["status"] == "OK":
-                  counts["ytd_both_ready"] += 1
-                  diff_ytd.append(abs(rya["pct"] - ryb["pct"]))
+              if (
+                  res["ytd_first_session"]["status"] == "OK"
+                  and res["ytd_prior_year_close"]["status"] == "OK"
+              ):
+                  diff_ytd.append(
+                      abs(
+                          res["ytd_first_session"]["pct"]
+                          - res["ytd_prior_year_close"]["pct"]
+                      )
+                  )
 
-              if r52a["status"] == "OK" and r52b["status"] == "OK":
-                  counts["52w_both_ready"] += 1
-                  if r52a["start_date"] == r52b["start_date"]:
-                      counts["52w_same_start_date"] += 1
-                  diff_52w.append(abs(r52a["pct"] - r52b["pct"]))
+              if (
+                  res["52w_calendar"]["status"] == "OK"
+                  and res["52w_252session"]["status"] == "OK"
+              ):
+                  diff_52w.append(
+                      abs(
+                          res["52w_calendar"]["pct"]
+                          - res["52w_252session"]["pct"]
+                      )
+                  )
 
               rows.append({
                   "ticker": ticker,
                   "name": identity[ticker]["name"],
                   "market": identity[ticker]["market"],
                   "basis_date": basis,
-                  "one_week": {
-                      "calendar_7d_official_session": r1a,
-                      "five_prior_official_sessions": r1b,
-                  },
-                  "ytd": {
-                      "first_official_session_current_year": rya,
-                      "prior_year_final_official_session": ryb,
-                  },
-                  "fifty_two_week": {
-                      "calendar_52w_official_session": r52a,
-                      "252_prior_official_sessions": r52b,
-                  },
+                  "candidates": res,
               })
 
-          if sixm_exact != 235 or sixm_mismatch:
-              raise SystemExit(
-                  "APPROVED_6M_REGRESSION_FAILED:"
-                  + json.dumps(sixm_mismatch, ensure_ascii=False)[:5000]
-              )
-
-          def stats(vals):
-              if not vals:
+          def diff_stats(values):
+              if not values:
                   return {
                       "count": 0,
                       "mean_abs_pp": None,
@@ -313,188 +398,286 @@ jobs:
                       "max_abs_pp": None,
                   }
               return {
-                  "count": len(vals),
-                  "mean_abs_pp": round(statistics.mean(vals), 4),
-                  "median_abs_pp": round(statistics.median(vals), 4),
-                  "max_abs_pp": round(max(vals), 4),
+                  "count": len(values),
+                  "mean_abs_pp": round(statistics.mean(values), 4),
+                  "median_abs_pp": round(statistics.median(values), 4),
+                  "max_abs_pp": round(max(values), 4),
               }
 
-          # Correctness expectations derived from official-session resolver.
-          # Do not silently accept the V8.7.14 naive per-ticker first-available result.
-          expected_52w_missing = {"217590", "439960"}
-          actual_52w_cal_missing = {r["ticker"] for r in miss["52w_calendar"]}
-          actual_52w_252_missing = {r["ticker"] for r in miss["52w_252session"]}
-
-          if actual_52w_cal_missing != expected_52w_missing:
-              raise SystemExit(
-                  "UNEXPECTED_52W_CALENDAR_MISSING_SET:"
-                  + json.dumps(sorted(actual_52w_cal_missing), ensure_ascii=False)
-              )
-          if actual_52w_252_missing != expected_52w_missing:
-              raise SystemExit(
-                  "UNEXPECTED_52W_252_MISSING_SET:"
-                  + json.dumps(sorted(actual_52w_252_missing), ensure_ascii=False)
-              )
-          if counts["52w_calendar_ready"] != 233:
-              raise SystemExit("CORRECTED_52W_CALENDAR_READY_MUST_BE_233")
-          if counts["52w_252session_ready"] != 233:
-              raise SystemExit("CORRECTED_52W_252_READY_MUST_BE_233")
-
-          expected_ytd_missing = {"439960"}
-          if {r["ticker"] for r in miss["ytd_first_session"]} != expected_ytd_missing:
-              raise SystemExit("UNEXPECTED_YTD_FIRST_SESSION_MISSING_SET")
-          if {r["ticker"] for r in miss["ytd_prior_year_close"]} != expected_ytd_missing:
-              raise SystemExit("UNEXPECTED_YTD_PRIOR_YEAR_MISSING_SET")
+          # Add largest-difference examples for diagnosis, but do not select.
+          def largest_examples(a_key, b_key, limit=10):
+              examples = []
+              for row in rows:
+                  a = row["candidates"][a_key]
+                  b = row["candidates"][b_key]
+                  if a["status"] != "OK" or b["status"] != "OK":
+                      continue
+                  examples.append({
+                      "ticker": row["ticker"],
+                      "name": row["name"],
+                      "market": row["market"],
+                      "a_pct": a["pct"],
+                      "b_pct": b["pct"],
+                      "abs_diff_pp": round(abs(a["pct"] - b["pct"]), 4),
+                  })
+              return sorted(
+                  examples,
+                  key=lambda x: x["abs_diff_pp"],
+                  reverse=True,
+              )[:limit]
 
           result = {
-              "version": "2026-09-13-v8.7.15-return-basis-resolver-correction",
-              "status": "READY_CORRECTED_EVIDENCE_ONLY",
+              "version": "2026-09-13-v8.7.16-corrected-return-basis-evidence",
+              "status": "READY_EVIDENCE_ONLY",
+              "source_only": True,
+              "formula_selected": False,
               "repository_write": False,
               "production_change": False,
               "worker_change": False,
-              "formula_selected": False,
+              "action_route_enabled": False,
+              "standalone_command_defined": False,
+              "final_header_selected": False,
               "basis_date": basis,
-              "source_row_count": 235,
-              "official_session_calendar_source": str(INDEX),
+              "official_krx_session_source": {
+                  "cache": str(HISTORY),
+                  "builder": str(HISTORY_BUILDER),
+                  "builder_contract": meta.get("contract_version"),
+                  "session_count": len(sessions),
+                  "min_date": sessions[0],
+                  "max_date": sessions[-1],
+                  "provenance": (
+                      "V8.5.7 compact history: recent official normalized "
+                      "universe history plus KRX OpenAPI date-by-date "
+                      "official backfill to 260 distinct market sessions"
+                  ),
+                  "recent_index_crosscheck": {
+                      "source": str(INDEX),
+                      "min_date": index_min,
+                      "max_date": index_max,
+                      "session_count": len(index_sessions),
+                      "kospi_kosdaq_calendar_equal": True,
+                      "cache_overlap_exact_match": True,
+                  },
+              },
               "approved_6m_regression_exact_matches": sixm_exact,
-              "v8714_issue": {
-                  "issue": (
-                      "V8.7.14 calendar candidate used each ticker's first available bar "
-                      "on/after the target date, which can substitute an IPO/listing date "
-                      "months after the intended 52W target."
-                  ),
-                  "impact": "52W calendar readiness was overstated as 235/235 instead of 233/235.",
-                  "affected_tickers": ["217590", "439960"],
-                  "v8714_safety_result_invalidated": False,
-                  "v8714_formula_coverage_evidence_for_52w_invalidated": True,
-              },
-              "official_start_sessions": {
-                  "1w_calendar_7d": one_week_calendar_start,
-                  "1w_5_prior_sessions": one_week_5session_start,
-                  "ytd_first_current_year": ytd_first_session,
-                  "ytd_prior_year_final": ytd_prior_year_close,
-                  "52w_calendar": fifty2_calendar_start,
-                  "52w_252_prior_sessions": fifty2_252session_start,
-              },
-              "counts": counts,
-              "missing": miss,
+              "start_dates": start_dates,
+              "candidate_ready_counts": counts,
+              "candidate_missing": missing,
               "difference_stats": {
-                  "1w_abs_return_difference_pp": stats(diff_1w),
-                  "ytd_abs_return_difference_pp": stats(diff_ytd),
-                  "52w_abs_return_difference_pp": stats(diff_52w),
+                  "1w_abs_return_difference_pp": diff_stats(diff_1w),
+                  "ytd_abs_return_difference_pp": diff_stats(diff_ytd),
+                  "52w_abs_return_difference_pp": diff_stats(diff_52w),
               },
-              "candidate_observations": {
-                  "1w": (
-                      "Both candidates resolve to the same official start session at this basis; "
-                      "coverage and values are identical. No formula selected."
+              "largest_difference_examples": {
+                  "1w": largest_examples("1w_calendar", "1w_5session"),
+                  "ytd": largest_examples(
+                      "ytd_first_session", "ytd_prior_year_close"
                   ),
-                  "ytd": (
-                      "Both candidates cover 234/235 and differ semantically and numerically. "
-                      "No formula selected."
+                  "52w": largest_examples(
+                      "52w_calendar", "52w_252session"
                   ),
-                  "52w": (
-                      "Both corrected candidates cover 233/235. Calendar 52W and 252-session "
-                      "start dates differ; no formula selected."
+              },
+              "candidate_semantics": {
+                  "1w_calendar": (
+                      "basis_date minus 7 calendar days, then first official "
+                      "KRX market session on/after"
                   ),
-                  "calendar_family_consistency": (
-                      "Approved 1M/3M/6M use official market-session calendar targets. "
-                      "This remains an observation, not an approval."
+                  "1w_5session": (
+                      "close exactly 5 official KRX sessions before basis"
+                  ),
+                  "ytd_first_session": (
+                      "close on first official KRX market session of basis year"
+                  ),
+                  "ytd_prior_year_close": (
+                      "close on final official KRX market session of prior year"
+                  ),
+                  "52w_calendar": (
+                      "basis_date minus 52 calendar weeks, then first official "
+                      "KRX market session on/after"
+                  ),
+                  "52w_252session": (
+                      "close exactly 252 official KRX sessions before basis"
+                  ),
+              },
+              "v8714_v8715_correction": {
+                  "v8714_52w_calendar_235_coverage_usable": False,
+                  "reason_v8714": (
+                      "per-ticker first-available bar could substitute an IPO "
+                      "date for the intended global start session"
+                  ),
+                  "v8715_completed": False,
+                  "reason_v8715": (
+                      "official_index_history_latest.csv begins too late for "
+                      "YTD/prior-year and 52W start resolution"
+                  ),
+                  "v8716_resolver": (
+                      "shared official KRX 260-session cache date set; exact "
+                      "start date required per ticker; no post-listing fallback"
                   ),
               },
               "rows": rows,
               "safety": {
-                  "integrated_source_changed": False,
-                  "extended_return_source_changed": False,
                   "return_1w_written": False,
                   "return_ytd_written": False,
                   "return_52w_written": False,
+                  "extended_return_source_changed": False,
+                  "integrated_source_changed": False,
+                  "metric_formula_changed": False,
                   "production_changed": False,
                   "worker_changed": False,
-                  "standalone_command_defined": False,
-                  "standalone_route_enabled": False,
-                  "final_header_selected": False,
+                  "request_time_price_substitution": False,
+                  "new_command_defined": False,
+                  "route_enabled": False,
               },
           }
 
-          (OUT / "standalone-swing-return-basis-resolver-correction-v8715.json").write_text(
-              json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+          out_json = OUT / "standalone-swing-return-basis-corrected-evidence-v8716.json"
+          out_md = OUT / "standalone-swing-return-basis-corrected-evidence-v8716.md"
+
+          out_json.write_text(
+              json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False)
+              + "\n",
               encoding="utf-8",
           )
 
           md = [
-              "# V8.7.15 독립 스윙 수익률 시작일 해석 교정",
+              "# V8.7.16 독립 스윙 수익률 기준 교정 증거",
               "",
               f"- 기준일: {basis}",
-              "- 상태: READY_CORRECTED_EVIDENCE_ONLY",
+              "- 상태: READY_EVIDENCE_ONLY",
+              "- 공식 선택: 아직 하지 않음",
+              "",
+              "## 공식 거래일 출처",
+              (
+                  f"- V8.5.7 KRX 공식 260-session 캐시: "
+                  f"{sessions[0]} ~ {sessions[-1]} / {len(sessions)}거래일"
+              ),
+              (
+                  f"- 공식 지수 캐시 교차검증: {index_min} ~ {index_max} / "
+                  f"{len(index_sessions)}거래일 / 날짜집합 정확히 일치"
+              ),
               f"- 기존 승인 6M 회귀 일치: {sixm_exact}/235",
               "",
-              "## V8.7.14에서 발견된 문제",
-              "- 종목별 `첫 available bar`를 사용해 목표일보다 훨씬 뒤 상장된 종목도 캘린더 52W 계산 가능으로 셈.",
-              "- 공식 시장세션을 먼저 정하는 기존 `period_return()` 계약과 다름.",
-              "- 따라서 V8.7.14의 52W 캘린더 235/235 커버리지는 공식선택 근거로 사용하지 않음.",
-              "",
-              "## 공식 세션 시작일",
-              f"- 1W 캘린더 7일: {one_week_calendar_start}",
-              f"- 1W 5거래세션: {one_week_5session_start}",
-              f"- YTD 올해 첫 거래일: {ytd_first_session}",
-              f"- YTD 전년 마지막 거래일: {ytd_prior_year_close}",
-              f"- 52W 캘린더: {fifty2_calendar_start}",
-              f"- 52W 252거래세션: {fifty2_252session_start}",
-              "",
-              "## 교정된 커버리지",
-              f"- 1W 캘린더: {counts['1w_calendar_ready']}/235",
-              f"- 1W 5거래세션: {counts['1w_5session_ready']}/235",
-              f"- YTD 올해 첫 거래일: {counts['ytd_first_session_ready']}/235",
-              f"- YTD 전년 마지막 거래일: {counts['ytd_prior_year_close_ready']}/235",
-              f"- 52W 캘린더: {counts['52w_calendar_ready']}/235",
-              f"- 52W 252거래세션: {counts['52w_252session_ready']}/235",
-              "",
-              "## 52W 자료부족 종목",
+              "## 후보 시작일",
           ]
-          for r in miss["52w_calendar"]:
+
+          for key, value in start_dates.items():
+              md.append(f"- {key}: {value}")
+
+          md += [
+              "",
+              "## 후보별 계산 가능 종목",
+          ]
+          for key, value in counts.items():
+              md.append(f"- {key}: {value}/235")
+
+          md += [
+              "",
+              "## 후보 간 절대 수익률 차이(%p)",
+              (
+                  "- 1W: "
+                  + json.dumps(
+                      result["difference_stats"]["1w_abs_return_difference_pp"],
+                      ensure_ascii=False,
+                  )
+              ),
+              (
+                  "- YTD: "
+                  + json.dumps(
+                      result["difference_stats"]["ytd_abs_return_difference_pp"],
+                      ensure_ascii=False,
+                  )
+              ),
+              (
+                  "- 52W: "
+                  + json.dumps(
+                      result["difference_stats"]["52w_abs_return_difference_pp"],
+                      ensure_ascii=False,
+                  )
+              ),
+              "",
+              "## 자료부족",
+          ]
+
+          for key in specs:
+              ids = [
+                  f"{r['name']}({r['ticker']})"
+                  for r in missing[key]
+              ]
               md.append(
-                  f"- {r['name']}({r['ticker']}): 이력 시작 {r['history_min_date']}, "
-                  f"의도된 시작일 {r['intended_start_date']} → 자료 미제공"
+                  f"- {key}: "
+                  + (", ".join(ids) if ids else "없음")
               )
 
           md += [
               "",
               "## 안전",
-              "- 이번 단계에서도 1W·YTD·52W 공식을 선택하지 않음.",
-              "- 통합 source·extended-return source·production·Worker를 변경하지 않음.",
-              "- 새 명령어·route·최종 헤더를 만들지 않음.",
+              "- 1W·YTD·52W 공식을 아직 선택하지 않음.",
+              "- 결과를 source/production/Worker에 기록하지 않음.",
+              "- 신규 명령어·route·최종 헤더를 만들지 않음.",
+              "- 요청시점 현재가를 공식 종가 대신 사용하지 않음.",
           ]
 
-          (OUT / "standalone-swing-return-basis-resolver-correction-v8715.md").write_text(
-              "\n".join(md) + "\n",
-              encoding="utf-8",
+          out_md.write_text("\n".join(md) + "\n", encoding="utf-8")
+
+          print("V8716_CORRECTED_RETURN_BASIS_EVIDENCE=READY_EVIDENCE_ONLY")
+          print("BASIS_DATE=" + basis)
+          print("OFFICIAL_KRX_CACHE_SESSIONS=" + str(len(sessions)))
+          print("OFFICIAL_KRX_CACHE_MIN_DATE=" + sessions[0])
+          print("OFFICIAL_KRX_CACHE_MAX_DATE=" + sessions[-1])
+          print("INDEX_OVERLAP_MIN_DATE=" + index_min)
+          print("INDEX_OVERLAP_MAX_DATE=" + index_max)
+          print("INDEX_OVERLAP_SESSIONS=" + str(len(index_sessions)))
+          print("INDEX_OVERLAP_EXACT_MATCH=true")
+          print("APPROVED_6M_REGRESSION_EXACT_MATCHES=" + str(sixm_exact))
+
+          for key, value in start_dates.items():
+              print("START_" + key.upper() + "=" + value)
+
+          for key, value in counts.items():
+              print("READY_" + key.upper() + "=" + str(value))
+              missing_tickers = ",".join(
+                  sorted(r["ticker"] for r in missing[key])
+              )
+              print(
+                  "MISSING_" + key.upper() + "="
+                  + (missing_tickers if missing_tickers else "NONE")
+              )
+
+          print(
+              "DIFF_1W="
+              + json.dumps(
+                  result["difference_stats"]["1w_abs_return_difference_pp"],
+                  ensure_ascii=False,
+                  separators=(",", ":"),
+              )
+          )
+          print(
+              "DIFF_YTD="
+              + json.dumps(
+                  result["difference_stats"]["ytd_abs_return_difference_pp"],
+                  ensure_ascii=False,
+                  separators=(",", ":"),
+              )
+          )
+          print(
+              "DIFF_52W="
+              + json.dumps(
+                  result["difference_stats"]["52w_abs_return_difference_pp"],
+                  ensure_ascii=False,
+                  separators=(",", ":"),
+              )
           )
 
-          print("V8715_RESOLVER_CORRECTION=READY_CORRECTED_EVIDENCE_ONLY")
-          print("BASIS_DATE=" + basis)
-          print("SOURCE_ROWS=235")
-          print("APPROVED_6M_REGRESSION_EXACT_MATCHES=" + str(sixm_exact))
-          print("ONE_WEEK_CALENDAR_START=" + one_week_calendar_start)
-          print("ONE_WEEK_5SESSION_START=" + one_week_5session_start)
-          print("ONE_WEEK_CALENDAR_READY=" + str(counts["1w_calendar_ready"]))
-          print("ONE_WEEK_5SESSION_READY=" + str(counts["1w_5session_ready"]))
-          print("YTD_FIRST_SESSION=" + ytd_first_session)
-          print("YTD_PRIOR_YEAR_CLOSE=" + ytd_prior_year_close)
-          print("YTD_FIRST_SESSION_READY=" + str(counts["ytd_first_session_ready"]))
-          print("YTD_PRIOR_YEAR_CLOSE_READY=" + str(counts["ytd_prior_year_close_ready"]))
-          print("FIFTY2W_CALENDAR_START=" + fifty2_calendar_start)
-          print("FIFTY2W_252SESSION_START=" + fifty2_252session_start)
-          print("FIFTY2W_CALENDAR_READY=" + str(counts["52w_calendar_ready"]))
-          print("FIFTY2W_252SESSION_READY=" + str(counts["52w_252session_ready"]))
-          print("FIFTY2W_CALENDAR_MISSING=" + ",".join(sorted(actual_52w_cal_missing)))
-          print("FIFTY2W_252SESSION_MISSING=" + ",".join(sorted(actual_52w_252_missing)))
-          print("V8714_52W_COVERAGE_EVIDENCE_INVALIDATED=true")
+          print("V8714_52W_COVERAGE_EVIDENCE_USABLE=false")
+          print("V8715_FAILURE_CLASSIFIED=INDEX_CACHE_RANGE_TOO_SHORT")
           print("FORMULA_SELECTED=false")
           print("RETURN_1W_SOURCE_WRITE=false")
           print("RETURN_YTD_SOURCE_WRITE=false")
           print("RETURN_52W_SOURCE_WRITE=false")
           print("PRODUCTION_CHANGE=false")
           print("WORKER_CHANGE=false")
+          print("REQUEST_TIME_PRICE_SUBSTITUTION=false")
           print("STANDALONE_COMMAND_DEFINED=false")
           print("STANDALONE_ROUTE_ENABLED=false")
           print("FINAL_HEADER_SELECTED=false")
@@ -510,43 +693,64 @@ jobs:
           from pathlib import Path
 
           p = json.loads(
-              Path("/tmp/v8715_return_basis_resolver_correction/standalone-swing-return-basis-resolver-correction-v8715.json")
-              .read_text(encoding="utf-8")
+              Path(
+                  "/tmp/v8716_return_basis_corrected_evidence/"
+                  "standalone-swing-return-basis-corrected-evidence-v8716.json"
+              ).read_text(encoding="utf-8")
           )
 
-          assert p["status"] == "READY_CORRECTED_EVIDENCE_ONLY"
+          assert p["status"] == "READY_EVIDENCE_ONLY"
+          assert p["source_only"] is True
+          assert p["formula_selected"] is False
           assert p["repository_write"] is False
           assert p["production_change"] is False
           assert p["worker_change"] is False
-          assert p["formula_selected"] is False
+          assert p["action_route_enabled"] is False
+          assert p["standalone_command_defined"] is False
+          assert p["final_header_selected"] is False
+
+          source = p["official_krx_session_source"]
+          assert source["session_count"] == 260
+          assert source["max_date"] == p["basis_date"]
+          assert source["recent_index_crosscheck"]["kospi_kosdaq_calendar_equal"] is True
+          assert source["recent_index_crosscheck"]["cache_overlap_exact_match"] is True
+
           assert p["approved_6m_regression_exact_matches"] == 235
+          assert p["v8714_v8715_correction"]["v8714_52w_calendar_235_coverage_usable"] is False
+          assert p["v8714_v8715_correction"]["v8715_completed"] is False
 
-          assert p["v8714_issue"]["v8714_safety_result_invalidated"] is False
-          assert p["v8714_issue"]["v8714_formula_coverage_evidence_for_52w_invalidated"] is True
+          # Every candidate must use one global official-session start date.
+          starts = p["start_dates"]
+          assert len(starts) == 6
+          assert all(starts.values())
 
-          c = p["counts"]
-          assert c["total"] == 235
-          assert c["1w_calendar_ready"] == 235
-          assert c["1w_5session_ready"] == 235
-          assert c["ytd_first_session_ready"] == 234
-          assert c["ytd_prior_year_close_ready"] == 234
-          assert c["52w_calendar_ready"] == 233
-          assert c["52w_252session_ready"] == 233
+          # No post-listing first-available fallback: all successful rows must
+          # use exactly the globally resolved candidate start date.
+          map_key = {
+              "1w_calendar": "1w_calendar_7d",
+              "1w_5session": "1w_5_prior_sessions",
+              "ytd_first_session": "ytd_first_current_year_session",
+              "ytd_prior_year_close": "ytd_prior_year_final_session",
+              "52w_calendar": "52w_calendar",
+              "52w_252session": "52w_252_prior_sessions",
+          }
 
-          assert {r["ticker"] for r in p["missing"]["52w_calendar"]} == {"217590", "439960"}
-          assert {r["ticker"] for r in p["missing"]["52w_252session"]} == {"217590", "439960"}
-          assert {r["ticker"] for r in p["missing"]["ytd_first_session"]} == {"439960"}
-          assert {r["ticker"] for r in p["missing"]["ytd_prior_year_close"]} == {"439960"}
+          for row in p["rows"]:
+              for candidate, global_key in map_key.items():
+                  res = row["candidates"][candidate]
+                  assert res["start_date"] == starts[global_key]
 
-          s = p["safety"]
-          assert all(v is False for v in s.values())
+          safety = p["safety"]
+          assert all(value is False for value in safety.values())
 
-          print("V8715_APPROVED_6M_REGRESSION=PASS")
-          print("V8715_OFFICIAL_SESSION_RESOLVER=PASS")
-          print("V8715_52W_SHORT_HISTORY_GUARD=PASS")
-          print("V8715_NO_FORMULA_SELECTION=PASS")
-          print("V8715_NO_SOURCE_WRITE=PASS")
-          print("V8715_READ_ONLY_SAFETY=PASS")
+          print("V8716_OFFICIAL_KRX_260_SESSION_PROVENANCE=PASS")
+          print("V8716_RECENT_INDEX_CALENDAR_CROSSCHECK=PASS")
+          print("V8716_APPROVED_6M_REGRESSION=PASS")
+          print("V8716_GLOBAL_START_DATE_GUARD=PASS")
+          print("V8716_NO_IPO_DATE_SUBSTITUTION=PASS")
+          print("V8716_NO_FORMULA_SELECTION=PASS")
+          print("V8716_NO_SOURCE_WRITE=PASS")
+          print("V8716_READ_ONLY_SAFETY=PASS")
           PY
 
           git diff --exit-code
@@ -555,12 +759,12 @@ jobs:
           echo "ORIGINAL_CHECKOUT_UNCHANGED=PASS"
           echo "NO_COMMIT_NO_PUSH_NO_DEPLOY=PASS"
 
-      - name: Upload V8.7.15 corrected resolver evidence
+      - name: Upload V8.7.16 corrected return-basis evidence
         uses: actions/upload-artifact@v6
         with:
-          name: standalone-swing-return-basis-resolver-correction-v8715
+          name: standalone-swing-return-basis-corrected-evidence-v8716
           path: |
-            /tmp/v8715_return_basis_resolver_correction/standalone-swing-return-basis-resolver-correction-v8715.json
-            /tmp/v8715_return_basis_resolver_correction/standalone-swing-return-basis-resolver-correction-v8715.md
+            /tmp/v8716_return_basis_corrected_evidence/standalone-swing-return-basis-corrected-evidence-v8716.json
+            /tmp/v8716_return_basis_corrected_evidence/standalone-swing-return-basis-corrected-evidence-v8716.md
           if-no-files-found: error
           retention-days: 14

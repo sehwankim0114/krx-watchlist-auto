@@ -1,0 +1,985 @@
+{
+  "version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "status": "APPROVED_DESIGN_NOT_PRODUCTION",
+  "parent_score_policy_version": "2026-07-01-v6.0-score-policy",
+  "design_basis": {
+    "v6_weights_preserved": true,
+    "calibration_source": "2026-09-13-v8.7.8-investment-score-calibration-evidence",
+    "decision_matrix_source": "2026-09-13-v8.7.9-investment-score-policy-decision-matrix",
+    "empirical_percentiles_are_thresholds": false,
+    "legacy_market_score_rescaled": false
+  },
+  "area_max_points": {
+    "financial": 30,
+    "valuation": 20,
+    "growth_value": 15,
+    "price_position": 15,
+    "liquidity_elasticity": 10,
+    "supply_disclosure": 10
+  },
+  "global_rules": {
+    "component_increment": 0.5,
+    "component_clamp": "0..component_max",
+    "total_score_range": "0..100",
+    "missing_required_input": "LIMITED_NO_IMPUTATION",
+    "score_total_when_limited": null,
+    "request_time_price_failure": "DISPLAY_WHITE_CIRCLE_AND_DO_NOT_USE_STATIC_CURRENT_PRICE_FALLBACK",
+    "request_time_price_retry_policy": [
+      10,
+      5,
+      2
+    ],
+    "historical_metric_price_basis": "CONFIRMED_OFFICIAL_DAILY_CLOSE",
+    "financial_sector_benchmark_tickers": [
+      "1021",
+      "1024",
+      "1025"
+    ],
+    "financial_sector_neutral_policy": {
+      "debt_ratio_points": 1.5,
+      "operating_cash_flow_points": 2.0,
+      "ev_ebitda_points": 2.0,
+      "psr_points": 1.5,
+      "net_cash_points": 1.0,
+      "warning": "SECTOR_STRUCTURAL_NONCOMPARABILITY"
+    },
+    "final_score_bands": [
+      {
+        "min": 85,
+        "max": 100,
+        "label": "핵심추천 후보"
+      },
+      {
+        "min": 75,
+        "max": 84.9,
+        "label": "추천 후보"
+      },
+      {
+        "min": 65,
+        "max": 74.9,
+        "label": "관찰 후보"
+      },
+      {
+        "min": 55,
+        "max": 64.9,
+        "label": "대기·중립"
+      },
+      {
+        "min": 0,
+        "max": 54.9,
+        "label": "주의"
+      }
+    ],
+    "recommendation_caps": [
+      "supply_level=위험",
+      "operating_loss_flag=true",
+      "current_position_label=고점권과열",
+      "trading_activity_label=매우부족",
+      "basis_date_mismatch",
+      "request_time_price_unavailable"
+    ]
+  },
+  "source_formula_policies": {
+    "three_year_revenue_growth": {
+      "formula": "((annual_revenue_y0 / annual_revenue_y2) ** 0.5 - 1) * 100",
+      "requires": [
+        "annual_revenue_y0>0",
+        "annual_revenue_y2>0"
+      ],
+      "stability_yoy": [
+        "(annual_revenue_y0/annual_revenue_y1-1)*100",
+        "(annual_revenue_y1/annual_revenue_y2-1)*100"
+      ]
+    },
+    "three_year_operating_profit_growth": {
+      "formula_when_all_positive": "((annual_operating_profit_y0 / annual_operating_profit_y2) ** 0.5 - 1) * 100",
+      "turnaround_rule": "if y0>0 and either y1<=0 or y2<=0, classify TURNAROUND instead of CAGR",
+      "loss_rule": "if y0<=0, score 0"
+    },
+    "operating_cash_flow_margin": {
+      "formula": "operating_cash_flow_annual / annual_revenue_y0 * 100",
+      "requires": [
+        "annual_revenue_y0>0"
+      ]
+    },
+    "core_debt": {
+      "include": [
+        "current_borrowings",
+        "noncurrent_borrowings",
+        "bonds"
+      ],
+      "exclude": [
+        "lease_liabilities",
+        "other_financial_liabilities"
+      ],
+      "matching_policy": "EXACT_VALIDATED_INTEREST_BEARING_CORE_DEBT_IDS_ONLY"
+    },
+    "net_cash": {
+      "formula": "cash_and_cash_equivalents - core_debt",
+      "normalization": "net_cash / market_cap * 100"
+    },
+    "ev_ebitda": {
+      "enterprise_value": "market_cap + core_debt - cash_and_cash_equivalents",
+      "ebitda": "annual_operating_profit_y0 + depreciation + amortization",
+      "da_source_policy": [
+        "ifrs-full_AdjustmentsForDepreciationExpense",
+        "ifrs-full_AdjustmentsForAmortisationExpense"
+      ],
+      "da_rule": "exact IFRS account IDs only; duplicate conflicting values => LIMITED",
+      "requires": [
+        "ebitda>0"
+      ]
+    },
+    "psr": {
+      "formula": "market_cap / annual_revenue_y0",
+      "requires": [
+        "annual_revenue_y0>0"
+      ]
+    },
+    "quarter_acceleration": {
+      "annual_revenue_yoy": "(annual_revenue_y0/annual_revenue_y1-1)*100",
+      "annual_operating_profit_yoy": "(annual_operating_profit_y0/annual_operating_profit_y1-1)*100 when denominator>0",
+      "revenue_delta_pp": "q2_revenue_yoy_pct - annual_revenue_yoy",
+      "operating_profit_delta_pp": "q2_operating_profit_yoy_pct - annual_operating_profit_yoy"
+    }
+  },
+  "components": [
+    {
+      "area": "financial",
+      "item": "매출 성장과 안정성",
+      "max_points": 5,
+      "inputs": [
+        "revenue_yoy_pct",
+        "annual_revenue_y0",
+        "annual_revenue_y1",
+        "annual_revenue_y2"
+      ],
+      "score_rule": {
+        "recent_yoy_base": [
+          {
+            "when": "x < -20",
+            "points": 0
+          },
+          {
+            "when": "-20 <= x < -5",
+            "points": 1
+          },
+          {
+            "when": "-5 <= x < 5",
+            "points": 2.5
+          },
+          {
+            "when": "5 <= x < 15",
+            "points": 4
+          },
+          {
+            "when": "15 <= x < 30",
+            "points": 5
+          },
+          {
+            "when": "x >= 30",
+            "points": 4.5
+          }
+        ],
+        "stability_adjustment": [
+          {
+            "when": "both annual YoY >= 0",
+            "delta": 0.5
+          },
+          {
+            "when": "either annual YoY <= -15",
+            "delta": -1.0
+          },
+          {
+            "when": "both annual YoY < 0",
+            "delta": -1.5
+          }
+        ]
+      }
+    },
+    {
+      "area": "financial",
+      "item": "영업이익 성장과 흑자 여부",
+      "max_points": 7,
+      "inputs": [
+        "operating_profit",
+        "previous_operating_profit",
+        "operating_profit_yoy_pct"
+      ],
+      "score_rule": [
+        {
+          "when": "current<=0 and previous<=0",
+          "points": 0
+        },
+        {
+          "when": "current<=0 and previous>0",
+          "points": 0.5
+        },
+        {
+          "when": "current>0 and previous<=0",
+          "points": 5.5
+        },
+        {
+          "when": "current>0 and previous>0 and yoy<-30",
+          "points": 2
+        },
+        {
+          "when": "current>0 and previous>0 and -30<=yoy<-10",
+          "points": 3
+        },
+        {
+          "when": "current>0 and previous>0 and -10<=yoy<10",
+          "points": 4
+        },
+        {
+          "when": "current>0 and previous>0 and 10<=yoy<30",
+          "points": 5
+        },
+        {
+          "when": "current>0 and previous>0 and 30<=yoy<80",
+          "points": 6
+        },
+        {
+          "when": "current>0 and previous>0 and yoy>=80",
+          "points": 7
+        }
+      ]
+    },
+    {
+      "area": "financial",
+      "item": "순이익 흐름",
+      "max_points": 3,
+      "inputs": [
+        "earnings_trend",
+        "net_income_yoy_pct"
+      ],
+      "score_rule": {
+        "적자지속": 0,
+        "적자전환": 0.5,
+        "흑자전환": 2.0,
+        "흑자지속": [
+          {
+            "when": "yoy < -30",
+            "points": 1.5
+          },
+          {
+            "when": "-30 <= yoy < 0",
+            "points": 2.0
+          },
+          {
+            "when": "0 <= yoy < 20",
+            "points": 2.5
+          },
+          {
+            "when": "yoy >= 20",
+            "points": 3.0
+          }
+        ]
+      }
+    },
+    {
+      "area": "financial",
+      "item": "영업이익률",
+      "max_points": 4,
+      "inputs": [
+        "operating_margin_pct"
+      ],
+      "score_rule": [
+        {
+          "when": "x <= 0",
+          "points": 0
+        },
+        {
+          "when": "0 < x < 3",
+          "points": 1
+        },
+        {
+          "when": "3 <= x < 7",
+          "points": 2
+        },
+        {
+          "when": "7 <= x < 15",
+          "points": 3
+        },
+        {
+          "when": "15 <= x < 25",
+          "points": 3.5
+        },
+        {
+          "when": "x >= 25",
+          "points": 4
+        }
+      ]
+    },
+    {
+      "area": "financial",
+      "item": "ROE",
+      "max_points": 4,
+      "inputs": [
+        "roe_annualized_pct"
+      ],
+      "score_rule": [
+        {
+          "when": "x <= 0",
+          "points": 0
+        },
+        {
+          "when": "0 < x < 5",
+          "points": 1
+        },
+        {
+          "when": "5 <= x < 10",
+          "points": 2
+        },
+        {
+          "when": "10 <= x < 15",
+          "points": 3
+        },
+        {
+          "when": "15 <= x <= 25",
+          "points": 4
+        },
+        {
+          "when": "25 < x <= 40",
+          "points": 3.5
+        },
+        {
+          "when": "x > 40",
+          "points": 3
+        }
+      ]
+    },
+    {
+      "area": "financial",
+      "item": "부채비율",
+      "max_points": 3,
+      "inputs": [
+        "debt_ratio_pct"
+      ],
+      "financial_sector_rule": "neutral",
+      "score_rule": [
+        {
+          "when": "x <= 50",
+          "points": 3
+        },
+        {
+          "when": "50 < x <= 100",
+          "points": 2.5
+        },
+        {
+          "when": "100 < x <= 200",
+          "points": 2
+        },
+        {
+          "when": "200 < x <= 300",
+          "points": 1
+        },
+        {
+          "when": "300 < x <= 500",
+          "points": 0.5
+        },
+        {
+          "when": "x > 500",
+          "points": 0
+        }
+      ]
+    },
+    {
+      "area": "financial",
+      "item": "영업현금흐름",
+      "max_points": 4,
+      "inputs": [
+        "operating_cash_flow_annual",
+        "annual_revenue_y0"
+      ],
+      "financial_sector_rule": "neutral",
+      "derived_metric": "operating_cash_flow_margin",
+      "score_rule": [
+        {
+          "when": "x <= 0",
+          "points": 0
+        },
+        {
+          "when": "0 < x < 5",
+          "points": 1.5
+        },
+        {
+          "when": "5 <= x < 10",
+          "points": 2.5
+        },
+        {
+          "when": "10 <= x < 20",
+          "points": 3.5
+        },
+        {
+          "when": "x >= 20",
+          "points": 4
+        }
+      ]
+    },
+    {
+      "area": "valuation",
+      "item": "PER",
+      "max_points": 8,
+      "inputs": [
+        "per_annualized",
+        "earnings_trend",
+        "net_income_yoy_pct"
+      ],
+      "score_rule": [
+        {
+          "when": "per<=0 or earnings_trend in [적자지속,적자전환]",
+          "points": 0
+        },
+        {
+          "when": "0<per<=6",
+          "points": 8
+        },
+        {
+          "when": "6<per<=10",
+          "points": 7.5
+        },
+        {
+          "when": "10<per<=15",
+          "points": 6.5
+        },
+        {
+          "when": "15<per<=20",
+          "points": 5.5
+        },
+        {
+          "when": "20<per<=30",
+          "points": 4
+        },
+        {
+          "when": "30<per<=50",
+          "points": 2
+        },
+        {
+          "when": "per>50",
+          "points": 1
+        }
+      ],
+      "quality_cap": "if net_income_yoy_pct < -30, max 5"
+    },
+    {
+      "area": "valuation",
+      "item": "PBR",
+      "max_points": 5,
+      "inputs": [
+        "pbr",
+        "roe_annualized_pct"
+      ],
+      "score_rule": [
+        {
+          "when": "pbr<=0",
+          "points": 0
+        },
+        {
+          "when": "0<pbr<=0.7",
+          "points": 5
+        },
+        {
+          "when": "0.7<pbr<=1.2",
+          "points": 4.5
+        },
+        {
+          "when": "1.2<pbr<=2",
+          "points": 3.5
+        },
+        {
+          "when": "2<pbr<=4",
+          "points": 2
+        },
+        {
+          "when": "4<pbr<=8",
+          "points": 1
+        },
+        {
+          "when": "pbr>8",
+          "points": 0.5
+        }
+      ],
+      "quality_cap": "if ROE<=5, max 3"
+    },
+    {
+      "area": "valuation",
+      "item": "EV/EBITDA",
+      "max_points": 4,
+      "inputs": [
+        "market_cap",
+        "core_debt",
+        "cash_and_cash_equivalents",
+        "annual_operating_profit_y0",
+        "validated_DA"
+      ],
+      "financial_sector_rule": "neutral",
+      "derived_metric": "ev_ebitda",
+      "score_rule": [
+        {
+          "when": "ebitda<=0",
+          "points": 0
+        },
+        {
+          "when": "0<ev_ebitda<=5",
+          "points": 4
+        },
+        {
+          "when": "5<ev_ebitda<=8",
+          "points": 3.5
+        },
+        {
+          "when": "8<ev_ebitda<=12",
+          "points": 2.5
+        },
+        {
+          "when": "12<ev_ebitda<=18",
+          "points": 1.5
+        },
+        {
+          "when": "18<ev_ebitda<=25",
+          "points": 0.5
+        },
+        {
+          "when": "ev_ebitda>25",
+          "points": 0
+        }
+      ]
+    },
+    {
+      "area": "valuation",
+      "item": "PSR 또는 대체 가치지표",
+      "max_points": 3,
+      "inputs": [
+        "market_cap",
+        "annual_revenue_y0"
+      ],
+      "financial_sector_rule": "neutral",
+      "derived_metric": "psr",
+      "score_rule": [
+        {
+          "when": "0<=psr<=0.75",
+          "points": 3
+        },
+        {
+          "when": "0.75<psr<=1.5",
+          "points": 2.5
+        },
+        {
+          "when": "1.5<psr<=3",
+          "points": 1.5
+        },
+        {
+          "when": "3<psr<=5",
+          "points": 0.5
+        },
+        {
+          "when": "psr>5",
+          "points": 0
+        }
+      ]
+    },
+    {
+      "area": "growth_value",
+      "item": "최근 3년 매출 성장률",
+      "max_points": 4,
+      "inputs": [
+        "annual_revenue_y0",
+        "annual_revenue_y1",
+        "annual_revenue_y2"
+      ],
+      "derived_metric": "three_year_revenue_growth",
+      "score_rule": [
+        {
+          "when": "x < -5",
+          "points": 0
+        },
+        {
+          "when": "-5 <= x < 0",
+          "points": 0.5
+        },
+        {
+          "when": "0 <= x < 5",
+          "points": 1.5
+        },
+        {
+          "when": "5 <= x < 10",
+          "points": 2.5
+        },
+        {
+          "when": "10 <= x < 20",
+          "points": 3.5
+        },
+        {
+          "when": "x >= 20",
+          "points": 4
+        }
+      ],
+      "stability_cap": "if either annual YoY<=-15, max 2.5"
+    },
+    {
+      "area": "growth_value",
+      "item": "최근 3년 영업이익 성장률",
+      "max_points": 4,
+      "inputs": [
+        "annual_operating_profit_y0",
+        "annual_operating_profit_y1",
+        "annual_operating_profit_y2"
+      ],
+      "derived_metric": "three_year_operating_profit_growth",
+      "score_rule": [
+        {
+          "when": "y0<=0",
+          "points": 0
+        },
+        {
+          "when": "y0>0 and (y1<=0 or y2<=0)",
+          "points": 3
+        },
+        {
+          "when": "all positive and CAGR<-10",
+          "points": 0.5
+        },
+        {
+          "when": "all positive and -10<=CAGR<0",
+          "points": 1
+        },
+        {
+          "when": "all positive and 0<=CAGR<10",
+          "points": 2
+        },
+        {
+          "when": "all positive and 10<=CAGR<25",
+          "points": 3
+        },
+        {
+          "when": "all positive and CAGR>=25",
+          "points": 4
+        }
+      ]
+    },
+    {
+      "area": "growth_value",
+      "item": "최근 분기 실적 가속·둔화",
+      "max_points": 3,
+      "inputs": [
+        "q2_revenue_yoy_pct",
+        "q2_operating_profit_yoy_pct",
+        "annual_revenue_yoy",
+        "annual_operating_profit_yoy",
+        "q2_operating_profit_current"
+      ],
+      "derived_metric": "quarter_acceleration",
+      "score_rule": [
+        {
+          "when": "q2_operating_profit_current<=0",
+          "points": 0
+        },
+        {
+          "when": "rev_delta<=-10 and op_delta<=-50",
+          "points": 0
+        },
+        {
+          "when": "rev_delta<=-5 or op_delta<=-10",
+          "points": 0.5
+        },
+        {
+          "when": "mixed/no severe deterioration",
+          "points": 1
+        },
+        {
+          "when": "abs(rev_delta)<5 and abs(op_delta)<10",
+          "points": 1.5
+        },
+        {
+          "when": "(op_delta>=10 and rev_delta>=0) or (rev_delta>=5 and op_delta>=0)",
+          "points": 2.5
+        },
+        {
+          "when": "rev_delta>=5 and op_delta>=10",
+          "points": 3
+        }
+      ],
+      "special_turnaround": "if annual op denominator<=0 and q2 current>0 and q2 previous<=0 => 3"
+    },
+    {
+      "area": "growth_value",
+      "item": "흑자 지속성과 이익 안정성",
+      "max_points": 2,
+      "inputs": [
+        "earnings_trend"
+      ],
+      "score_rule": {
+        "흑자지속": 2,
+        "흑자전환": 1.5,
+        "적자전환": 0.5,
+        "적자지속": 0
+      }
+    },
+    {
+      "area": "growth_value",
+      "item": "순현금·기업가치 상태",
+      "max_points": 2,
+      "inputs": [
+        "cash_and_cash_equivalents",
+        "core_debt",
+        "market_cap"
+      ],
+      "financial_sector_rule": "neutral",
+      "derived_metric": "net_cash_ratio_pct",
+      "score_rule": [
+        {
+          "when": "x>=20",
+          "points": 2
+        },
+        {
+          "when": "5<=x<20",
+          "points": 1.5
+        },
+        {
+          "when": "-10<=x<5",
+          "points": 1
+        },
+        {
+          "when": "-30<=x<-10",
+          "points": 0.5
+        },
+        {
+          "when": "x<-30",
+          "points": 0
+        }
+      ]
+    },
+    {
+      "area": "price_position",
+      "item": "1개월 가격흐름",
+      "max_points": 4,
+      "inputs": [
+        "return_1m_pct"
+      ],
+      "score_rule": [
+        {
+          "when": "x<-15",
+          "points": 0
+        },
+        {
+          "when": "-15<=x<-5",
+          "points": 1
+        },
+        {
+          "when": "-5<=x<0",
+          "points": 2
+        },
+        {
+          "when": "0<=x<5",
+          "points": 3
+        },
+        {
+          "when": "5<=x<15",
+          "points": 4
+        },
+        {
+          "when": "15<=x<30",
+          "points": 3.5
+        },
+        {
+          "when": "x>=30",
+          "points": 2.5
+        }
+      ]
+    },
+    {
+      "area": "price_position",
+      "item": "3개월 가격흐름",
+      "max_points": 3,
+      "inputs": [
+        "return_3m_pct"
+      ],
+      "score_rule": [
+        {
+          "when": "x<-25",
+          "points": 0
+        },
+        {
+          "when": "-25<=x<-10",
+          "points": 0.5
+        },
+        {
+          "when": "-10<=x<0",
+          "points": 1.5
+        },
+        {
+          "when": "0<=x<10",
+          "points": 2.5
+        },
+        {
+          "when": "10<=x<30",
+          "points": 3
+        },
+        {
+          "when": "30<=x<60",
+          "points": 2.5
+        },
+        {
+          "when": "x>=60",
+          "points": 1.5
+        }
+      ]
+    },
+    {
+      "area": "price_position",
+      "item": "기간 저가·고가 대비 현재위치",
+      "max_points": 5,
+      "inputs": [
+        "current_position_label"
+      ],
+      "score_rule": {
+        "저점권": 3.5,
+        "저점권반등초입": 5,
+        "중간권": 4,
+        "중상단권": 3,
+        "상단권부담": 1.5,
+        "고점권과열": 0.5
+      }
+    },
+    {
+      "area": "price_position",
+      "item": "과열·급락 위험",
+      "max_points": 3,
+      "inputs": [
+        "swing_phase",
+        "new_20d_low",
+        "atr14_pct",
+        "return_1m_pct"
+      ],
+      "score_rule": {
+        "start_points": 3,
+        "phase_deductions": {
+          "NEW_LOW": -2,
+          "TOP_DECLINE": -1.5,
+          "EARLY_REBOUND_UNCONFIRMED": -0.5,
+          "SIDEWAYS_OR_UNCONFIRMED": -0.5,
+          "BOTTOM_REBOUND": 0,
+          "UPTREND_PULLBACK": 0,
+          "UPTREND": 0
+        },
+        "additional_deductions": [
+          {
+            "when": "new_20d_low=true and phase!=NEW_LOW",
+            "delta": -1
+          },
+          {
+            "when": "5<=atr14_pct<7",
+            "delta": -0.5
+          },
+          {
+            "when": "atr14_pct>=7",
+            "delta": -1
+          },
+          {
+            "when": "return_1m_pct>=25",
+            "delta": -0.5
+          },
+          {
+            "when": "return_1m_pct<=-20",
+            "delta": -0.5
+          }
+        ]
+      }
+    },
+    {
+      "area": "liquidity_elasticity",
+      "item": "20일 평균 거래대금과 거래량",
+      "max_points": 6,
+      "inputs": [
+        "trading_activity_label",
+        "volume_vs_20d"
+      ],
+      "score_rule": {
+        "base": {
+          "매우활발": 6,
+          "활발": 5,
+          "보통": 4,
+          "부족": 2,
+          "매우부족": 0.5
+        },
+        "volume_adjustment": [
+          {
+            "when": "volume_vs_20d>=1.2",
+            "delta": 0.5
+          },
+          {
+            "when": "0.5<=volume_vs_20d<1.2",
+            "delta": 0
+          },
+          {
+            "when": "0.25<=volume_vs_20d<0.5",
+            "delta": -0.5
+          },
+          {
+            "when": "volume_vs_20d<0.25",
+            "delta": -1
+          }
+        ]
+      }
+    },
+    {
+      "area": "liquidity_elasticity",
+      "item": "하루평균 절대등락률",
+      "max_points": 4,
+      "inputs": [
+        "elasticity_20d_pct"
+      ],
+      "score_rule": [
+        {
+          "when": "x<1.5",
+          "points": 2.5
+        },
+        {
+          "when": "1.5<=x<3",
+          "points": 4
+        },
+        {
+          "when": "3<=x<5",
+          "points": 3
+        },
+        {
+          "when": "5<=x<8",
+          "points": 1.5
+        },
+        {
+          "when": "x>=8",
+          "points": 0.5
+        }
+      ]
+    },
+    {
+      "area": "supply_disclosure",
+      "item": "수급·공시부담",
+      "max_points": 10,
+      "inputs": [
+        "supply_level"
+      ],
+      "score_rule": {
+        "없음": 10,
+        "주의": 7,
+        "경계": 4,
+        "위험": 1
+      },
+      "range_compatibility": {
+        "없음": "within V6 9~10",
+        "주의": "within V6 6~8",
+        "경계": "within V6 3~5",
+        "위험": "within V6 0~2"
+      }
+    }
+  ],
+  "activation_rules": {
+    "production_activation": false,
+    "dry_run_required": true,
+    "score_distribution_validation_required": true,
+    "manual_gpt_display_test_required": true,
+    "no_force_fill": true,
+    "no_legacy_score_substitution": true
+  }
+}

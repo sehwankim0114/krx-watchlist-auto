@@ -1,0 +1,670 @@
+{
+  "version": "2026-09-14-v8.8.5-expanded-xbrl-da-audit",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "prior_audit_version": "2026-09-13-v8.8.3-da-exact-id-audit",
+  "probe_version": "2026-09-13-v8.8.4-xbrl-da-source-path-probe",
+  "generated_at_kst": "2026-09-15T05:29:04+09:00",
+  "status": "EXPANDED_AUDIT_ONLY",
+  "production_unique_tickers": 112,
+  "financial_sector_neutral_count": 15,
+  "nonfinancial_applicable_count": 97,
+  "prior_approved_exact_ready_count": 14,
+  "expanded_target_count": 83,
+  "target_prior_status_counts": {
+    "NO_DA_CANDIDATE": 72,
+    "RAW_SOURCE_UNAVAILABLE": 10,
+    "UNAPPROVED_CANDIDATE_IDS_PRESENT": 1
+  },
+  "corp_code_available_count": 73,
+  "corp_code_missing_count": 10,
+  "business_report_found_count": 73,
+  "xbrl_zip_success_count": 70,
+  "xbrl_any_da_fact_ticker_count": 61,
+  "xbrl_approved_exact_fact_recovered_count": 57,
+  "xbrl_approved_exact_fact_recovered_pct_of_targets": 68.67,
+  "potential_nonfinancial_da_ready_count": 71,
+  "potential_nonfinancial_da_coverage_pct": 73.2,
+  "audit_result_counts": {
+    "XBRL_APPROVED_EXACT_FACT_FOUND": 57,
+    "NO_CORP_CODE": 10,
+    "XBRL_NO_DA_FACT": 9,
+    "XBRL_PARSE_FAILED": 3,
+    "XBRL_DA_FACT_FOUND_NO_APPROVED_EXACT": 4
+  },
+  "approved_exact_local_frequency": {
+    "AdjustmentsForAmortisationExpense": 53,
+    "AdjustmentsForDepreciationExpense": 56
+  },
+  "all_da_localname_frequency_top50": [
+    {
+      "local_name": "DepreciationPropertyPlantAndEquipment",
+      "ticker_count": 59,
+      "sample_tickers": [
+        "001020",
+        "001060",
+        "001440",
+        "002990",
+        "003230",
+        "003280",
+        "004170",
+        "004370",
+        "004910",
+        "005500",
+        "005930",
+        "006380",
+        "006650",
+        "009200",
+        "009420",
+        "010130",
+        "011200",
+        "012160",
+        "013360",
+        "014160"
+      ]
+    },
+    {
+      "local_name": "DepreciationRightofuseAssets",
+      "ticker_count": 58,
+      "sample_tickers": [
+        "001020",
+        "001060",
+        "002990",
+        "003230",
+        "003280",
+        "004170",
+        "004370",
+        "004910",
+        "005500",
+        "005930",
+        "006380",
+        "006650",
+        "009200",
+        "009420",
+        "010130",
+        "011200",
+        "012160",
+        "013360",
+        "014160",
+        "017670"
+      ]
+    },
+    {
+      "local_name": "AdjustmentsForDepreciationExpense",
+      "ticker_count": 56,
+      "sample_tickers": [
+        "001020",
+        "001060",
+        "001440",
+        "002990",
+        "003230",
+        "003280",
+        "004170",
+        "004370",
+        "004910",
+        "005500",
+        "005930",
+        "006380",
+        "006650",
+        "009200",
+        "009420",
+        "010130",
+        "012160",
+        "013360",
+        "014160",
+        "017670"
+      ]
+    },
+    {
+      "local_name": "AmortisationIntangibleAssetsOtherThanGoodwill",
+      "ticker_count": 56,
+      "sample_tickers": [
+        "001020",
+        "001060",
+        "001440",
+        "002990",
+        "003230",
+        "003280",
+        "004170",
+        "004370",
+        "004910",
+        "005500",
+        "005930",
+        "006650",
+        "009200",
+        "009420",
+        "010130",
+        "011200",
+        "012160",
+        "013360",
+        "017670",
+        "018260"
+      ]
+    },
+    {
+      "local_name": "AdjustmentsForAmortisationExpense",
+      "ticker_count": 53,
+      "sample_tickers": [
+        "001020",
+        "001060",
+        "001440",
+        "002990",
+        "003230",
+        "003280",
+        "004170",
+        "004370",
+        "004910",
+        "005500",
+        "005930",
+        "006650",
+        "009200",
+        "009420",
+        "010130",
+        "012160",
+        "013360",
+        "018260",
+        "020000",
+        "021240"
+      ]
+    },
+    {
+      "local_name": "DepreciationExpenseSellingGeneralAdministrativeExpenses",
+      "ticker_count": 53,
+      "sample_tickers": [
+        "001020",
+        "001440",
+        "002990",
+        "003230",
+        "003280",
+        "004170",
+        "004370",
+        "004910",
+        "005500",
+        "005930",
+        "006380",
+        "006650",
+        "009200",
+        "009420",
+        "010130",
+        "011200",
+        "012160",
+        "013360",
+        "014160",
+        "018260"
+      ]
+    },
+    {
+      "local_name": "AmortisationExpenseSellingGeneralAdministrativeExpenses",
+      "ticker_count": 49,
+      "sample_tickers": [
+        "001020",
+        "001440",
+        "002990",
+        "003230",
+        "003280",
+        "004170",
+        "004370",
+        "004910",
+        "005500",
+        "005930",
+        "006650",
+        "009200",
+        "009420",
+        "010130",
+        "012160",
+        "013360",
+        "018260",
+        "020000",
+        "021240",
+        "022100"
+      ]
+    },
+    {
+      "local_name": "DepreciationInvestmentProperty",
+      "ticker_count": 40,
+      "sample_tickers": [
+        "001020",
+        "001440",
+        "002990",
+        "003230",
+        "004170",
+        "004370",
+        "004910",
+        "005500",
+        "006380",
+        "006650",
+        "009200",
+        "010130",
+        "014160",
+        "017670",
+        "018260",
+        "020000",
+        "020560",
+        "021240",
+        "022100",
+        "028050"
+      ]
+    },
+    {
+      "local_name": "DepreciationExpense",
+      "ticker_count": 38,
+      "sample_tickers": [
+        "001060",
+        "001440",
+        "002990",
+        "003280",
+        "004170",
+        "005500",
+        "005930",
+        "006370",
+        "006380",
+        "009420",
+        "010130",
+        "011200",
+        "012160",
+        "013360",
+        "017670",
+        "018260",
+        "020000",
+        "021240",
+        "028050",
+        "029530"
+      ]
+    },
+    {
+      "local_name": "AmortisationExpense",
+      "ticker_count": 34,
+      "sample_tickers": [
+        "001060",
+        "002990",
+        "004170",
+        "005930",
+        "006370",
+        "009420",
+        "010130",
+        "011200",
+        "012160",
+        "013360",
+        "018260",
+        "020000",
+        "022100",
+        "028050",
+        "035420",
+        "035720",
+        "047050",
+        "047810",
+        "058860",
+        "063160"
+      ]
+    },
+    {
+      "local_name": "DepreciationAndAmortisationExpense",
+      "ticker_count": 25,
+      "sample_tickers": [
+        "001020",
+        "001440",
+        "003230",
+        "004370",
+        "004910",
+        "006650",
+        "009200",
+        "014160",
+        "017670",
+        "020560",
+        "029530",
+        "034020",
+        "066570",
+        "069620",
+        "081000",
+        "097950",
+        "139480",
+        "271940",
+        "271980",
+        "286940"
+      ]
+    },
+    {
+      "local_name": "AdjustmentsForDepreciationRightofuseAssets",
+      "ticker_count": 21,
+      "sample_tickers": [
+        "001060",
+        "003230",
+        "004910",
+        "009200",
+        "009420",
+        "010130",
+        "014160",
+        "018260",
+        "029530",
+        "035420",
+        "058860",
+        "069620",
+        "091810",
+        "097950",
+        "139480",
+        "234080",
+        "241590",
+        "267270",
+        "336260",
+        "361610"
+      ]
+    },
+    {
+      "local_name": "AdjustmentsForDepreciationInvestmentProperty",
+      "ticker_count": 11,
+      "sample_tickers": [
+        "001440",
+        "009200",
+        "014160",
+        "020000",
+        "022100",
+        "029530",
+        "047050",
+        "058860",
+        "069620",
+        "097950",
+        "267270"
+      ]
+    },
+    {
+      "local_name": "InvestmentPropertyDepreciationExpenseSellingGeneralAdministrativeExpenses",
+      "ticker_count": 5,
+      "sample_tickers": [
+        "006370",
+        "009200",
+        "014160",
+        "097950",
+        "361610"
+      ]
+    },
+    {
+      "local_name": "RemainingAmortisationPeriodOfIntangibleAssetsMaterialToEntity2019",
+      "ticker_count": 5,
+      "sample_tickers": [
+        "018260",
+        "034020",
+        "097950",
+        "286940",
+        "336260"
+      ]
+    },
+    {
+      "local_name": "RemainingAmortisationPeriodOfResearchAndDevelopmentExpenseForBioindustry",
+      "ticker_count": 5,
+      "sample_tickers": [
+        "001060",
+        "009420",
+        "063160",
+        "069620",
+        "234080"
+      ]
+    },
+    {
+      "local_name": "AmortisationAssetsRecognisedFromCostsIncurredToObtainOrFulfilContractsWithCustomers",
+      "ticker_count": 4,
+      "sample_tickers": [
+        "017670",
+        "034020",
+        "035720",
+        "066570"
+      ]
+    },
+    {
+      "local_name": "AdjustmentsForDepreciationAndAmortisationExpense",
+      "ticker_count": 3,
+      "sample_tickers": [
+        "011200",
+        "020560",
+        "298000"
+      ]
+    },
+    {
+      "local_name": "DepreciationRightOfUseAssetsSellingAndGeneralAdministrativeExpensesOfSellingGeneralAndAdministrativeExpenseLineItemsOfSellingGeneralAndAdministrativeExpensesTableOfItems",
+      "ticker_count": 3,
+      "sample_tickers": [
+        "029530",
+        "047050",
+        "241590"
+      ]
+    },
+    {
+      "local_name": "DescriptionOfDepreciationExpense",
+      "ticker_count": 3,
+      "sample_tickers": [
+        "003230",
+        "005500",
+        "047050"
+      ]
+    },
+    {
+      "local_name": "AdjustmentsForInvestmentPropertyDepreciationExpenseOfAdjustmentsToReconcileProfitLossOfCashFlowsFromUsedInOperatingActivitiesTableOfItems",
+      "ticker_count": 2,
+      "sample_tickers": [
+        "047050",
+        "081000"
+      ]
+    },
+    {
+      "local_name": "AmortisationMethodIntangibleAssetsOtherThanGoodwill",
+      "ticker_count": 2,
+      "sample_tickers": [
+        "017670",
+        "034020"
+      ]
+    },
+    {
+      "local_name": "AmortizationOnNegativeGoodwill",
+      "ticker_count": 2,
+      "sample_tickers": [
+        "020000",
+        "047810"
+      ]
+    },
+    {
+      "local_name": "AGovernmentBondOfCostMeasurementFinancialAssetsAfterAmortizationOfCostMeasurementFinancialAssetsAfterAmortizationTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "006370"
+      ]
+    },
+    {
+      "local_name": "AccumulatedAmortizationOfIntangibleAssetsOfIntangibleAssetsTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "006370"
+      ]
+    },
+    {
+      "local_name": "AccumulatedDepreciationInvestmentProperty",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "006370"
+      ]
+    },
+    {
+      "local_name": "AdditionalExplanationOfDepreciationExpenseOfDisclosureOfReconciliationOfChangesInIntangibleAssetsAndGoodwillLineItemsOfDisclosureOfReconciliationOfChangesInIntangibleAssetsAndGoodwillTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "035720"
+      ]
+    },
+    {
+      "local_name": "AdjustmentsForAmortisationExpenseOfAdjustmentsToReconcileProfitLossOfCashFlowsFromUsedInOperatingActivitiesTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "081000"
+      ]
+    },
+    {
+      "local_name": "AdjustmentsForDepreciationForInvestmentPropertyOfAdjustmentsToReconcileProfitLossOfCashFlowsFromUsedInOperatingActivitiesTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "234080"
+      ]
+    },
+    {
+      "local_name": "AdjustmentsForDepreciationLeasedAssets",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "012160"
+      ]
+    },
+    {
+      "local_name": "AdjustmentsForDepreciationOfRightOfUseAssetsOfAdjustmentsToReconcileProfitLossOfCashFlowsFromUsedInOperatingActivitiesTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "081000"
+      ]
+    },
+    {
+      "local_name": "AllocationOfRightOfUseAssetDepreciationByFunctionTextBlock",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "011200"
+      ]
+    },
+    {
+      "local_name": "AmortisationExpenseOfDisclosureOfExpensesRecognizedInCostOfSalesLineItemsOfDisclosureOfExpensesRecognizedInCostOfSalesTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "081000"
+      ]
+    },
+    {
+      "local_name": "AmortisationIncreaseDecreaseInLiabilitiesArisingFromFinancialActivitiesOfNonCashTransactionsIncreaseDecreaseInLiabilitiesArisingFromFinancialActivitiesOfDisclosureOfReconciliationOfLiabilitiesArisingFromFinancingActivitiesTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "139480"
+      ]
+    },
+    {
+      "local_name": "AmortisationIncreaseDecreaseInLiabilitiesArisingFromFinancingActivitiesOfIncreaseDecreaseThroughNonCashFlowsLiabilitiesArisingFromFinancingActivitiesOfDisclosureOfReconciliationOfLiabilitiesArisingFromFinancingActivitiesTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "004170"
+      ]
+    },
+    {
+      "local_name": "AmortisationLiabilitiesArisingFromFinancingActivitiesOfDisclosureOfReconciliationOfLiabilitiesArisingFromFinancingActivitiesLineItemsOfDisclosureOfReconciliationOfLiabilitiesArisingFromFinancingActivitiesTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "069620"
+      ]
+    },
+    {
+      "local_name": "AmortisationOfCurrentValueDiscountIncreaseDecreaseInLiabilitiesArisingFromFinancingActivitiesOfNonCashFlowLiabilityArisingFromFinancingActivitiesOfDisclosureOfReconciliationOfLiabilitiesArisingFromFinancingActivitiesTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "267270"
+      ]
+    },
+    {
+      "local_name": "AmortisationOfDiscountOnPresentValueReflectedInInterestIncomeOfDisclosureOfTheDifferenceBetweenTheNominalValueAndPresentValueOfLoansToRelatedPartiesLineItemsOfDisclosureOfTheDifferenceBetweenTheNominalValueAndPresentValueOfLoansToRelatedPartiesTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "403550"
+      ]
+    },
+    {
+      "local_name": "AmortisationOfRightOfUseAssetSellingGeneralAndAdministrativeExpenseOfSellingGeneralAdministrativeExpensesOfSellingGeneralAndAdministrativeExpensesTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "267270"
+      ]
+    },
+    {
+      "local_name": "AmortizationClassifiedAsAFinancingActivityNonCashTransactionsOfDisclosureOfReconciliationOfLiabilitiesArisingFromFinancingActivitiesLineItemsOfDisclosureOfReconciliationOfLiabilitiesArisingFromFinancingActivitiesTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "001440"
+      ]
+    },
+    {
+      "local_name": "AmortizationFairValueMeasurementAssetsOfDisclosureOnChangesInFinancialAssetsAtFairValueThroughOtherComprehensiveIncomeLineItemsOfDisclosureOnChangesInFinancialAssetsAtFairValueThroughOtherComprehensiveIncomeTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "271980"
+      ]
+    },
+    {
+      "local_name": "AmortizationFairValueMeasurementLiabilitiesOfFinancialLiabilitiesOfRedemptionConvertiblePreferredSharesAndDerivativesOfChangesInFinancialLiabilitiesOfRedemptionConvertiblePreferredSharesAndDerivativesTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "004910"
+      ]
+    },
+    {
+      "local_name": "AmortizationFromInternallyGeneratedDevelopmentCostsOfResearchAndDevelopmentExpenditureOfDisclosureOfResearchAndDevelopmentExpenditureTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "066570"
+      ]
+    },
+    {
+      "local_name": "AmortizationIncreaseDecreaseInLiabilitiesArisingFromFinancingActivitiesOfCashFlowsFromUsedInFinancingActivitiesLineItemsOfCashFlowsFromUsedInFinancingActivitiesTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "357250"
+      ]
+    },
+    {
+      "local_name": "AmortizationIncreaseDecreaseInLiabilitiesFromFinancingActivitiesOfDisclosureOfReconciliationOfLiabilitiesArisingFromFinancingActivitiesLineItemsOfDisclosureOfReconciliationOfLiabilitiesArisingFromFinancingActivitiesTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "001020"
+      ]
+    },
+    {
+      "local_name": "AmortizationLeaseRelatedPartyTransactionsOfFinanceLeaseTransactionsOfDisclosureOfFinancialTransactionsBetweenRelatedPartiesTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "035720"
+      ]
+    },
+    {
+      "local_name": "AmortizationOfDetailsOfChangesInBookValueOfDetailsOfChangesInBookValueTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "006370"
+      ]
+    },
+    {
+      "local_name": "AmortizationOfDetailsOfChangesInTheCarryingAmountOfIntangibleAssetsOfDetailsOfChangesInTheCarryingAmountOfIntangibleAssetsTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "006370"
+      ]
+    },
+    {
+      "local_name": "AmortizationOfDevelopmentCostsOfDisclosureOfDetailedInformationAboutAmortizationOfDevelopmentCostsLineItemsOfDisclosureOfDetailedInformationAboutAmortizationOfDevelopmentCostsTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "336260"
+      ]
+    },
+    {
+      "local_name": "AmortizationOfPresentValueDiscountOfChangesInBorrowingsOfChangesInBorrowingsTableOfItems",
+      "ticker_count": 1,
+      "sample_tickers": [
+        "035720"
+      ]
+    }
+  ],
+  "request_stats": {
+    "success": 146
+  },
+  "decision": {
+    "approved_exact_source_expansion_promising": true,
+    "ready_for_value_context_extraction_design": true,
+    "ready_for_production_score_write": false,
+    "reason": "Presence audit only. Exact period/context and duplicate-value selection must be validated before EV/EBITDA input is promoted."
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "new_da_id_approved": false,
+    "legacy_score_rescaled": false,
+    "xbrl_fact_presence_treated_as_final_value": false
+  },
+  "next_step": "DESIGN_AND_VALIDATE_EXACT_XBRL_DA_VALUE_CONTEXT_EXTRACTION_THEN_RERUN_V880_SCORE_DRY_RUN"
+}

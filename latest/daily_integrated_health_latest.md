@@ -1,10 +1,10 @@
 # V7.3 일일 통합 건강검사
 
-- 검사시각(KST): 2026-09-11T13:45:08+09:00
-- 최종상태: **PASS**
-- 치명 오류: 0
+- 검사시각(KST): 2026-09-14T14:00:34+09:00
+- 최종상태: **FAIL**
+- 치명 오류: 1
 - 경고: 0
-- 빌드 ID: `20260911T133109+0900-1373a3bceb`
+- 빌드 ID: `20260912T200915+0900-8403d73393`
 - 규칙 버전: `2026-07-14-v8.0-request-time-position-alignment`
 
 | 결과 | 검사 항목 | 설명 |
@@ -62,7 +62,7 @@
 | ✅ | `krx_sector_cache` | KRX KIND 전체 섹터 캐시 행 수가 정상입니다. |
 | ✅ | `price_position_v78` | 3개월 범위 이탈 위치표시가 정상입니다. |
 | ✅ | `recommendation_icon_v79` | 추천 아이콘과 손실·수급 표시 순서가 정상입니다. |
-| ✅ | `worker_health` | Cloudflare Worker 상태와 매니페스트 정책이 정상입니다. |
+| ❌ | `worker_health` | Cloudflare Worker 상태 또는 정책이 예상과 다릅니다. |
 | ✅ | `worker_compact_manifest_size` | Worker 경량 매니페스트 응답 크기가 안전 범위입니다. |
 | ✅ | `worker_compact_manifest_values` | 경량 매니페스트의 핵심 상태값이 정상입니다. |
 | ✅ | `worker_freshness_source` | 최신성 값 출처가 확인됐습니다. |

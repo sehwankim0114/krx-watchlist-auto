@@ -1,0 +1,57 @@
+{
+  "version": "2026-09-15-v8.8.6-xbrl-da-value-context-audit",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v885_version": "2026-09-14-v8.8.5-expanded-xbrl-da-audit",
+  "generated_at_kst": "2026-09-15T08:53:05+09:00",
+  "status": "CONTEXT_AUDIT_ONLY",
+  "target_count": 57,
+  "xbrl_success_count": 57,
+  "target_year_missing_count": 0,
+  "annual_candidate_ticker_count": 56,
+  "both_approved_local_names_annual_present_count": 52,
+  "structurally_clean_ticker_count": 7,
+  "value_conflict_ticker_count": 48,
+  "multi_context_ticker_count": 1,
+  "classification_counts": {
+    "ANNUAL_CANDIDATE_VALUE_CONFLICT": 48,
+    "ANNUAL_CANDIDATE_STRUCTURALLY_CLEAN": 7,
+    "ANNUAL_CANDIDATE_MULTI_CONTEXT": 1,
+    "NO_TARGET_YEAR_ANNUAL_CANDIDATE": 1
+  },
+  "annual_dimension_signature_frequency": [
+    {
+      "dimension_signature": "ifrs-full:CarryingAmountAccumulatedDepreciationAmortisationAndImpairmentAndGrossCarryingAmountAxis=dart:ReportedAmountMember|ifrs-full:ConsolidatedAndSeparateFinancialStatementsAxis=ifrs-full:SeparateMember",
+      "ticker_count": 56
+    },
+    {
+      "dimension_signature": "ifrs-full:CarryingAmountAccumulatedDepreciationAmortisationAndImpairmentAndGrossCarryingAmountAxis=dart:ReportedAmountMember|ifrs-full:ConsolidatedAndSeparateFinancialStatementsAxis=ifrs-full:ConsolidatedMember",
+      "ticker_count": 49
+    }
+  ],
+  "context_rule": {
+    "annual_candidate": "duration context whose start/end are both in the source target year and inclusive duration is 330..370 days",
+    "cfs_ofs_selection": "NOT_SELECTED_IN_V886",
+    "duplicate_conflicting_values": "EVIDENCE_ONLY_LIMITED_CANDIDATE",
+    "fact_ids": [
+      "ifrs-full_AdjustmentsForAmortisationExpense",
+      "ifrs-full_AdjustmentsForDepreciationExpense"
+    ]
+  },
+  "decision": {
+    "ready_for_cfs_ofs_context_mapping_design": true,
+    "ready_for_final_da_value_promotion": false,
+    "ready_for_ev_ebitda_recalculation": false,
+    "ready_for_production_score_write": false
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "new_da_id_approved": false,
+    "xbrl_value_promoted_to_da_source": false,
+    "cfs_ofs_rule_invented": false,
+    "ev_ebitda_recalculated": false,
+    "standalone_swing_changed": false
+  },
+  "next_step": "REVIEW_CONTEXT_DIMENSION_EVIDENCE_AND_DEFINE_CFS_OFS_MAPPING_BEFORE_VALUE_PROMOTION"
+}

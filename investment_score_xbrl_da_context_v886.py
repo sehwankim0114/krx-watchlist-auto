@@ -1,0 +1,725 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import csv
+import io
+import json
+import math
+import os
+import time
+import urllib.parse
+import urllib.request
+import zipfile
+from collections import Counter, defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import date, datetime
+from pathlib import Path
+from threading import Lock
+from zoneinfo import ZoneInfo
+import xml.etree.ElementTree as ET
+
+VERSION = "2026-09-15-v8.8.6-xbrl-da-value-context-audit"
+POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+V885_VERSION = "2026-09-14-v8.8.5-expanded-xbrl-da-audit"
+
+KST = ZoneInfo("Asia/Seoul")
+ROOT = Path(".")
+
+V885_CSV = ROOT / "latest/investment_score_xbrl_da_expand_v885.csv"
+V885_JSON = ROOT / "latest/investment_score_xbrl_da_expand_v885_summary_latest.json"
+RAW_CSV = ROOT / "latest/investment_score_source_cache_latest.csv"
+POLICY_JSON = ROOT / "config/investment_score_policy_v880.json"
+
+OUT_CSV = ROOT / "latest/investment_score_xbrl_da_context_v886.csv"
+OUT_JSON = ROOT / "latest/investment_score_xbrl_da_context_v886_summary_latest.json"
+OUT_LOG = ROOT / "latest/investment_score_xbrl_da_context_v886_run_log_latest.txt"
+OUT_DOC = ROOT / "docs/investment_score_xbrl_da_context_audit_v886.md"
+
+XBRL_URL = "https://opendart.fss.or.kr/api/fnlttXbrl.xml"
+
+APPROVED_LOCAL_NAMES = {
+    "AdjustmentsForDepreciationExpense",
+    "AdjustmentsForAmortisationExpense",
+}
+TARGET_AUDIT_RESULT = "XBRL_APPROVED_EXACT_FACT_FOUND"
+XBRLI_NS = "http://www.xbrl.org/2003/instance"
+
+MAX_WORKERS = 3
+request_lock = Lock()
+request_stats = Counter()
+
+def read_json(path: Path):
+    return json.loads(path.read_text(encoding="utf-8-sig"))
+
+def read_csv(path: Path):
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+def clean_ticker(v):
+    s = "".join(ch for ch in str(v or "") if ch.isdigit())
+    return s.zfill(6) if s else ""
+
+def to_int(v):
+    try:
+        s = str(v or "").strip()
+        if not s:
+            return None
+        return int(float(s))
+    except Exception:
+        return None
+
+def parse_date(v):
+    try:
+        return date.fromisoformat(str(v or "").strip())
+    except Exception:
+        return None
+
+def local_name(tag):
+    s = str(tag or "")
+    if s.startswith("{") and "}" in s:
+        return s.split("}", 1)[1]
+    return s.split(":")[-1]
+
+def namespace_uri(tag):
+    s = str(tag or "")
+    if s.startswith("{") and "}" in s:
+        return s[1:].split("}", 1)[0]
+    return ""
+
+def is_ifrs_namespace(uri):
+    return "ifrs" in str(uri or "").lower()
+
+def request_xbrl(api_key, rcept_no, attempts=3):
+    params = {
+        "crtfc_key": api_key,
+        "rcept_no": rcept_no,
+        "reprt_code": "11011",
+    }
+    full = XBRL_URL + "?" + urllib.parse.urlencode(params)
+    last = None
+
+    for attempt in range(1, attempts + 1):
+        req = urllib.request.Request(
+            full,
+            headers={
+                "User-Agent": "krx-watchlist-v886-xbrl-da-context-audit",
+                "Accept": "*/*",
+                "Cache-Control": "no-cache",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=90) as r:
+                blob = r.read(80_000_000)
+            with request_lock:
+                request_stats["success"] += 1
+            return blob
+        except Exception as exc:
+            last = exc
+            with request_lock:
+                request_stats[type(exc).__name__] += 1
+            if attempt < attempts:
+                time.sleep(0.8 * attempt)
+
+    raise RuntimeError(
+        f"XBRL_REQUEST_FAILED:{type(last).__name__}:{last}"
+    )
+
+def numeric_value(text):
+    s = str(text or "").strip().replace(",", "")
+    if not s:
+        return None
+    try:
+        x = float(s)
+        return x if math.isfinite(x) else None
+    except Exception:
+        return None
+
+def dimension_signature(context_elem):
+    dims = []
+    for elem in context_elem.iter():
+        lname = local_name(elem.tag)
+        if lname not in {"explicitMember", "typedMember"}:
+            continue
+        dim = str(elem.attrib.get("dimension") or "")
+        if lname == "explicitMember":
+            member = (elem.text or "").strip()
+        else:
+            child_locals = [
+                local_name(child.tag)
+                for child in list(elem)
+            ]
+            member = "typed:" + "|".join(child_locals)
+        dims.append({
+            "kind": lname,
+            "dimension": dim,
+            "member": member,
+        })
+    dims.sort(key=lambda x: (x["dimension"], x["member"], x["kind"]))
+    compact = "|".join(
+        f'{x["dimension"]}={x["member"]}' for x in dims
+    )
+    return dims, compact
+
+def context_record(elem):
+    cid = str(elem.attrib.get("id") or "")
+    start = ""
+    end = ""
+    instant = ""
+
+    for child in elem.iter():
+        lname = local_name(child.tag)
+        text = (child.text or "").strip()
+        if lname == "startDate" and text:
+            start = text
+        elif lname == "endDate" and text:
+            end = text
+        elif lname == "instant" and text:
+            instant = text
+
+    dims, signature = dimension_signature(elem)
+    return {
+        "context_id": cid,
+        "start_date": start,
+        "end_date": end,
+        "instant": instant,
+        "dimensions": dims,
+        "dimension_signature": signature,
+    }
+
+def parse_zip(blob):
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(blob))
+    except zipfile.BadZipFile:
+        return {
+            "status": "NOT_ZIP",
+            "member_count": 0,
+            "contexts": {},
+            "facts": [],
+        }
+
+    contexts = {}
+    facts = []
+    member_count = 0
+
+    for member in zf.namelist():
+        lower = member.lower()
+        if not lower.endswith(
+            (".xml", ".xbrl", ".xhtml", ".html", ".htm")
+        ):
+            continue
+        member_count += 1
+
+        try:
+            root = ET.fromstring(zf.read(member))
+        except Exception:
+            continue
+
+        for elem in root.iter():
+            lname = local_name(elem.tag)
+            uri = namespace_uri(elem.tag)
+
+            if lname == "context":
+                rec = context_record(elem)
+                if rec["context_id"]:
+                    # Keep first definition; separately detect inconsistent duplicates.
+                    existing = contexts.get(rec["context_id"])
+                    if existing is None:
+                        contexts[rec["context_id"]] = rec
+                    elif existing != rec:
+                        existing["definition_conflict"] = True
+
+            if (
+                lname in APPROVED_LOCAL_NAMES
+                and is_ifrs_namespace(uri)
+            ):
+                facts.append({
+                    "member": member,
+                    "namespace_uri": uri,
+                    "local_name": lname,
+                    "context_ref": str(elem.attrib.get("contextRef") or ""),
+                    "unit_ref": str(elem.attrib.get("unitRef") or ""),
+                    "decimals": str(elem.attrib.get("decimals") or ""),
+                    "scale": str(elem.attrib.get("scale") or ""),
+                    "sign": str(elem.attrib.get("sign") or ""),
+                    "raw_value": (elem.text or "").strip()[:180],
+                    "numeric_value": numeric_value(elem.text),
+                })
+
+    return {
+        "status": "OK",
+        "member_count": member_count,
+        "contexts": contexts,
+        "facts": facts,
+    }
+
+def classify_context(ctx, target_year):
+    if ctx is None:
+        return "CONTEXT_MISSING"
+
+    if ctx.get("start_date") and ctx.get("end_date"):
+        start = parse_date(ctx["start_date"])
+        end = parse_date(ctx["end_date"])
+        if not start or not end:
+            return "DURATION_DATE_PARSE_FAILED"
+
+        days = (end - start).days + 1
+        if (
+            target_year is not None
+            and start.year == target_year
+            and end.year == target_year
+            and 330 <= days <= 370
+        ):
+            return "TARGET_YEAR_ANNUAL_DURATION"
+        return "OTHER_DURATION"
+
+    if ctx.get("instant"):
+        return "INSTANT_CONTEXT"
+
+    return "OTHER_CONTEXT"
+
+def process_target(item, api_key):
+    out = {
+        "ticker": item["ticker"],
+        "name": item["name"],
+        "market": item["market"],
+        "rcept_no": item["rcept_no"],
+        "target_year": item["target_year"],
+        "preferred_fs_div": item["preferred_fs_div"],
+        "xbrl_status": "",
+        "context_count": 0,
+        "approved_fact_count": 0,
+        "approved_fact_context_missing_count": 0,
+        "annual_candidate_fact_count": 0,
+        "annual_candidate_context_count": 0,
+        "annual_candidate_dimension_signature_count": 0,
+        "annual_candidate_local_names": "",
+        "annual_candidate_unique_numeric_value_count": 0,
+        "annual_candidate_unique_numeric_values_json": "[]",
+        "annual_candidate_dimension_signatures_json": "[]",
+        "annual_context_classification": "",
+        "both_approved_local_names_annual_present": "FALSE",
+        "candidate_value_conflict": "FALSE",
+        "candidate_context_conflict": "FALSE",
+        "context_evidence_json": "[]",
+    }
+
+    if not item["rcept_no"]:
+        out["xbrl_status"] = "MISSING_RCEPT_NO"
+        out["annual_context_classification"] = "NO_XBRL"
+        return out
+
+    try:
+        parsed = parse_zip(
+            request_xbrl(api_key, item["rcept_no"])
+        )
+    except Exception as exc:
+        out["xbrl_status"] = f"{type(exc).__name__}:{exc}"
+        out["annual_context_classification"] = "XBRL_REQUEST_FAILED"
+        return out
+
+    out["xbrl_status"] = parsed["status"]
+    if parsed["status"] != "OK":
+        out["annual_context_classification"] = "XBRL_PARSE_FAILED"
+        return out
+
+    contexts = parsed["contexts"]
+    facts = parsed["facts"]
+    out["context_count"] = len(contexts)
+    out["approved_fact_count"] = len(facts)
+
+    evidence = []
+    annual = []
+    missing_context = 0
+
+    for fact in facts:
+        cref = fact["context_ref"]
+        ctx = contexts.get(cref)
+        cls = classify_context(ctx, item["target_year"])
+        if ctx is None:
+            missing_context += 1
+
+        ev = {
+            **fact,
+            "context_class": cls,
+            "context": ctx,
+        }
+        evidence.append(ev)
+        if cls == "TARGET_YEAR_ANNUAL_DURATION":
+            annual.append(ev)
+
+    out["approved_fact_context_missing_count"] = missing_context
+    out["annual_candidate_fact_count"] = len(annual)
+
+    annual_context_ids = sorted({
+        x["context_ref"] for x in annual if x["context_ref"]
+    })
+    out["annual_candidate_context_count"] = len(annual_context_ids)
+
+    signatures = sorted({
+        str((x.get("context") or {}).get("dimension_signature") or "")
+        for x in annual
+    })
+    out["annual_candidate_dimension_signature_count"] = len(signatures)
+    out["annual_candidate_dimension_signatures_json"] = json.dumps(
+        signatures,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+    annual_names = sorted({x["local_name"] for x in annual})
+    out["annual_candidate_local_names"] = "|".join(annual_names)
+    out["both_approved_local_names_annual_present"] = (
+        "TRUE"
+        if APPROVED_LOCAL_NAMES.issubset(set(annual_names))
+        else "FALSE"
+    )
+
+    numeric_values = sorted({
+        x["numeric_value"]
+        for x in annual
+        if x["numeric_value"] is not None
+    })
+    out["annual_candidate_unique_numeric_value_count"] = len(numeric_values)
+    out["annual_candidate_unique_numeric_values_json"] = json.dumps(
+        numeric_values,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+    by_local = defaultdict(set)
+    for x in annual:
+        if x["numeric_value"] is not None:
+            by_local[x["local_name"]].add(x["numeric_value"])
+
+    value_conflict = any(
+        len(values) > 1 for values in by_local.values()
+    )
+    context_conflict = (
+        len(signatures) > 1
+        or any(
+            bool((x.get("context") or {}).get("definition_conflict"))
+            for x in annual
+        )
+    )
+
+    out["candidate_value_conflict"] = (
+        "TRUE" if value_conflict else "FALSE"
+    )
+    out["candidate_context_conflict"] = (
+        "TRUE" if context_conflict else "FALSE"
+    )
+
+    if not annual:
+        classification = "NO_TARGET_YEAR_ANNUAL_CANDIDATE"
+    elif missing_context:
+        classification = "ANNUAL_CANDIDATE_WITH_CONTEXT_GAP"
+    elif value_conflict:
+        classification = "ANNUAL_CANDIDATE_VALUE_CONFLICT"
+    elif context_conflict:
+        classification = "ANNUAL_CANDIDATE_MULTI_CONTEXT"
+    elif len(numeric_values) == 0:
+        classification = "ANNUAL_CANDIDATE_NONNUMERIC"
+    else:
+        classification = "ANNUAL_CANDIDATE_STRUCTURALLY_CLEAN"
+
+    out["annual_context_classification"] = classification
+    out["context_evidence_json"] = json.dumps(
+        evidence[:40],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    return out
+
+def main():
+    api_key = os.environ.get("DART_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("DART_API_KEY_MISSING")
+
+    for path in (V885_CSV, V885_JSON, RAW_CSV, POLICY_JSON):
+        if not path.is_file():
+            raise RuntimeError("MISSING_REQUIRED_SOURCE:" + str(path))
+
+    v885_summary = read_json(V885_JSON)
+    policy = read_json(POLICY_JSON)
+    v885_rows = read_csv(V885_CSV)
+    raw_rows = read_csv(RAW_CSV)
+
+    if v885_summary.get("version") != V885_VERSION:
+        raise RuntimeError("V885_VERSION_MISMATCH")
+    if (
+        int(
+            v885_summary.get(
+                "xbrl_approved_exact_fact_recovered_count"
+            ) or 0
+        )
+        != 57
+    ):
+        raise RuntimeError("V885_RECOVERED_COUNT_NOT_57")
+    if policy.get("version") != POLICY_VERSION:
+        raise RuntimeError("V880_POLICY_VERSION_MISMATCH")
+    if policy.get("status") != "APPROVED_DESIGN_NOT_PRODUCTION":
+        raise RuntimeError("V880_POLICY_STATUS_MISMATCH")
+
+    ev_policy = (
+        policy.get("source_formula_policies", {})
+        .get("ev_ebitda", {})
+    )
+    approved_ids = set(ev_policy.get("da_source_policy") or [])
+    expected_ids = {
+        "ifrs-full_AdjustmentsForDepreciationExpense",
+        "ifrs-full_AdjustmentsForAmortisationExpense",
+    }
+    if approved_ids != expected_ids:
+        raise RuntimeError(
+            "V880_DA_SOURCE_POLICY_MISMATCH:"
+            + repr(sorted(approved_ids))
+        )
+    if (
+        ev_policy.get("da_rule")
+        != "exact IFRS account IDs only; duplicate conflicting values => LIMITED"
+    ):
+        raise RuntimeError("V880_DA_RULE_MISMATCH")
+
+    raw_map = {
+        clean_ticker(row.get("ticker")): row
+        for row in raw_rows
+        if clean_ticker(row.get("ticker"))
+    }
+
+    targets = []
+    for row in v885_rows:
+        if row.get("audit_result") != TARGET_AUDIT_RESULT:
+            continue
+        code = clean_ticker(row.get("ticker"))
+        raw = raw_map.get(code) or {}
+        year = (
+            to_int(raw.get("deep_source_year"))
+            or to_int(raw.get("annual_source_year"))
+        )
+        targets.append({
+            "ticker": code,
+            "name": str(row.get("name") or ""),
+            "market": str(row.get("market") or ""),
+            "rcept_no": str(row.get("rcept_no") or ""),
+            "target_year": year,
+            "preferred_fs_div": str(
+                raw.get("preferred_fs_div") or ""
+            ),
+        })
+
+    targets.sort(key=lambda x: x["ticker"])
+    if len(targets) != 57:
+        raise RuntimeError(
+            f"V886_TARGET_COUNT_MISMATCH:{len(targets)}"
+        )
+
+    results = []
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+        futures = {
+            pool.submit(process_target, item, api_key): item["ticker"]
+            for item in targets
+        }
+        for future in as_completed(futures):
+            code = futures[future]
+            try:
+                results.append(future.result())
+            except Exception as exc:
+                item = next(
+                    x for x in targets if x["ticker"] == code
+                )
+                results.append({
+                    "ticker": item["ticker"],
+                    "name": item["name"],
+                    "market": item["market"],
+                    "rcept_no": item["rcept_no"],
+                    "target_year": item["target_year"],
+                    "preferred_fs_div": item["preferred_fs_div"],
+                    "xbrl_status": f"UNHANDLED:{type(exc).__name__}:{exc}",
+                    "context_count": 0,
+                    "approved_fact_count": 0,
+                    "approved_fact_context_missing_count": 0,
+                    "annual_candidate_fact_count": 0,
+                    "annual_candidate_context_count": 0,
+                    "annual_candidate_dimension_signature_count": 0,
+                    "annual_candidate_local_names": "",
+                    "annual_candidate_unique_numeric_value_count": 0,
+                    "annual_candidate_unique_numeric_values_json": "[]",
+                    "annual_candidate_dimension_signatures_json": "[]",
+                    "annual_context_classification": "UNHANDLED_FAILURE",
+                    "both_approved_local_names_annual_present": "FALSE",
+                    "candidate_value_conflict": "FALSE",
+                    "candidate_context_conflict": "FALSE",
+                    "context_evidence_json": "[]",
+                })
+
+    results.sort(key=lambda x: x["ticker"])
+
+    fields = list(results[0].keys())
+    with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(results)
+
+    classification_counts = Counter(
+        x["annual_context_classification"] for x in results
+    )
+    xbrl_ok = sum(
+        1 for x in results if x["xbrl_status"] == "OK"
+    )
+    annual_any = sum(
+        1
+        for x in results
+        if int(x["annual_candidate_fact_count"] or 0) > 0
+    )
+    structurally_clean = classification_counts[
+        "ANNUAL_CANDIDATE_STRUCTURALLY_CLEAN"
+    ]
+    value_conflict = classification_counts[
+        "ANNUAL_CANDIDATE_VALUE_CONFLICT"
+    ]
+    multi_context = classification_counts[
+        "ANNUAL_CANDIDATE_MULTI_CONTEXT"
+    ]
+    both_names = sum(
+        1
+        for x in results
+        if x["both_approved_local_names_annual_present"] == "TRUE"
+    )
+    missing_target_year = sum(
+        1 for x in results if x["target_year"] is None
+    )
+
+    signature_freq = Counter()
+    for x in results:
+        try:
+            signatures = json.loads(
+                x["annual_candidate_dimension_signatures_json"]
+            )
+        except Exception:
+            signatures = []
+        for sig in signatures:
+            signature_freq[sig] += 1
+
+    summary = {
+        "version": VERSION,
+        "policy_version": POLICY_VERSION,
+        "v885_version": V885_VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+        "status": "CONTEXT_AUDIT_ONLY",
+        "target_count": 57,
+        "xbrl_success_count": xbrl_ok,
+        "target_year_missing_count": missing_target_year,
+        "annual_candidate_ticker_count": annual_any,
+        "both_approved_local_names_annual_present_count": both_names,
+        "structurally_clean_ticker_count": structurally_clean,
+        "value_conflict_ticker_count": value_conflict,
+        "multi_context_ticker_count": multi_context,
+        "classification_counts": dict(classification_counts),
+        "annual_dimension_signature_frequency": [
+            {
+                "dimension_signature": sig,
+                "ticker_count": count,
+            }
+            for sig, count in signature_freq.most_common(50)
+        ],
+        "context_rule": {
+            "annual_candidate": (
+                "duration context whose start/end are both in the "
+                "source target year and inclusive duration is 330..370 days"
+            ),
+            "cfs_ofs_selection": "NOT_SELECTED_IN_V886",
+            "duplicate_conflicting_values": "EVIDENCE_ONLY_LIMITED_CANDIDATE",
+            "fact_ids": sorted(expected_ids),
+        },
+        "decision": {
+            "ready_for_cfs_ofs_context_mapping_design": annual_any > 0,
+            "ready_for_final_da_value_promotion": False,
+            "ready_for_ev_ebitda_recalculation": False,
+            "ready_for_production_score_write": False,
+        },
+        "hard_guards": {
+            "production_api_changed": False,
+            "production_investment_score_written": False,
+            "scoring_policy_changed": False,
+            "new_da_id_approved": False,
+            "xbrl_value_promoted_to_da_source": False,
+            "cfs_ofs_rule_invented": False,
+            "ev_ebitda_recalculated": False,
+            "standalone_swing_changed": False,
+        },
+        "next_step": (
+            "REVIEW_CONTEXT_DIMENSION_EVIDENCE_AND_DEFINE_CFS_OFS_MAPPING_"
+            "BEFORE_VALUE_PROMOTION"
+        ),
+    }
+
+    OUT_JSON.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    doc = [
+        "# V8.8.6 XBRL D&A value-context 감사",
+        "",
+        f"- 버전: `{VERSION}`",
+        f"- 점수계약: `{POLICY_VERSION}`",
+        "- 상태: CONTEXT_AUDIT_ONLY",
+        "",
+        "## 목적",
+        "",
+        "- V8.8.5에서 회복한 57종목의 exact IFRS D&A fact를 contextRef 정의와 연결한다.",
+        "- 목표 연도의 약 1년 duration context 후보를 식별한다.",
+        "- 값 충돌과 dimension/context 다중성을 수치화한다.",
+        "- CFS/OFS 선택 규칙은 아직 만들지 않는다.",
+        "",
+        "## annual 후보 규칙",
+        "",
+        "- source cache의 deep_source_year, 없으면 annual_source_year를 목표연도로 사용한다.",
+        "- context startDate/endDate가 모두 목표연도에 속한다.",
+        "- inclusive duration이 330~370일이다.",
+        "",
+        "## 금지",
+        "",
+        "- context evidence를 최종 D&A 값으로 승격하지 않는다.",
+        "- consolidated/separate를 dimension 이름만 보고 임의 추정하지 않는다.",
+        "- EV/EBITDA를 다시 계산하지 않는다.",
+        "- investment_score_100 또는 production API를 변경하지 않는다.",
+        "",
+        "## 다음",
+        "",
+        "- 실제 dimension signature 빈도를 검토한다.",
+        "- CFS/OFS 식별이 공식적으로 가능한 context 구조만 채택한다.",
+        "- 이후에만 연간 D&A 값을 source로 승격한다.",
+        "",
+    ]
+    OUT_DOC.write_text("\n".join(doc), encoding="utf-8")
+
+    log = [
+        f"VERSION={VERSION}",
+        f"POLICY_VERSION={POLICY_VERSION}",
+        "STATUS=CONTEXT_AUDIT_ONLY",
+        "TARGETS=57",
+        f"XBRL_SUCCESS={xbrl_ok}",
+        f"TARGET_YEAR_MISSING={missing_target_year}",
+        f"ANNUAL_CANDIDATE_TICKERS={annual_any}",
+        f"BOTH_APPROVED_LOCAL_NAMES_ANNUAL_PRESENT={both_names}",
+        f"STRUCTURALLY_CLEAN_TICKERS={structurally_clean}",
+        f"VALUE_CONFLICT_TICKERS={value_conflict}",
+        f"MULTI_CONTEXT_TICKERS={multi_context}",
+        "CFS_OFS_SELECTION=NOT_SELECTED_IN_V886",
+        "DA_VALUE_PROMOTED=false",
+        "EV_EBITDA_RECALCULATED=false",
+        "PRODUCTION_DATA_CHANGED=false",
+        "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+        "SCORING_POLICY_CHANGED=false",
+        "NEW_DA_ID_APPROVED=false",
+        "STANDALONE_SWING_CHANGED=false",
+        "STATUS_OK=true",
+    ]
+    OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+
+    print("V886_XBRL_DA_CONTEXT_AUDIT=PASS")
+    print("\n".join(log))
+
+if __name__ == "__main__":
+    main()

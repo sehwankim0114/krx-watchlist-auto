@@ -1,0 +1,43 @@
+name: Auto-dispatch XBRL D&A probe v8.8.4
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v884-auto-dispatch-xbrl-da-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: v884-auto-dispatch-xbrl-da-probe
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Dispatch existing V8.8.4 probe
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${REPO}/actions/workflows/v884-probe-original-xbrl-da-source-path.yml/dispatches" \
+            -f ref=main
+
+          echo "V884_EXISTING_WORKFLOW_DISPATCHED=true"
+          echo "DISPATCH_TARGET=v884-probe-original-xbrl-da-source-path.yml"
+          echo "DISPATCH_REF=main"
+          echo "PROBE_LOGIC_CHANGED=false"

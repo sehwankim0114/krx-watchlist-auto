@@ -1,5 +1,5 @@
 {
-  "contract_version": "2026-09-14-v8.7.20-standalone-swing-readiness-rsi-macd-sync",
+  "contract_version": "2026-09-14-v8.7.21-standalone-swing-readiness-stop-policy-sync",
   "status": "FROZEN_PREPRODUCTION_READY",
   "preproduction_contract_frozen": true,
   "request_time_display_merge_contract_frozen": true,
@@ -34,7 +34,9 @@
     "return_52w_ready": 233,
     "return_52w_missing": 2,
     "rsi_ready": 235,
-    "macd_ready": 235
+    "macd_ready": 235,
+    "confirmed_stop_not_provided": 235,
+    "ma20_reference_ready": 235
   },
   "price_operation_id": "getRequestTimePrices",
   "price_retry_policy": [
@@ -42,11 +44,10 @@
     5,
     2
   ],
-  "activation_blocker_count": 6,
+  "activation_blocker_count": 5,
   "activation_blockers": [
     "NO_FINAL_STANDALONE_TABLE_HEADER_CONTRACT",
     "NO_STANDALONE_COMMAND_OR_ROUTE_CONTRACT",
-    "CONFIRMED_SWING_LOW_STOP_POLICY_NOT_DEFINED",
     "INVESTMENT_SCORE_THRESHOLDS_NOT_DEFINED",
     "EARNINGS_OUTLOOK_SOURCE_NOT_CONNECTED",
     "KOSDAQ_OFFICIAL_SECTOR_RS_CONTRACT_NOT_DEFINED"
@@ -54,19 +55,20 @@
   "resolved_activation_blockers": [
     "REQUEST_TIME_DISPLAY_MERGE_CONTRACT_NOT_FROZEN_FOR_STANDALONE",
     "1W_YTD_52W_FORMULAS_NOT_APPROVED",
-    "RSI_MACD_FORMULAS_NOT_APPROVED"
+    "RSI_MACD_FORMULAS_NOT_APPROVED",
+    "CONFIRMED_SWING_LOW_STOP_POLICY_NOT_DEFINED"
   ],
   "pending_metrics": [
     "investment_score_100",
-    "earnings_outlook_change",
-    "confirmed_swing_low_stop"
+    "earnings_outlook_change"
   ],
-  "source_contract_version": "2026-09-14-v8.7.20-standalone-swing-integrated-rsi-macd-source",
+  "source_contract_version": "2026-09-14-v8.7.21-standalone-swing-integrated-stop-policy",
   "source_lineage": {
     "swing_contract_version": "2026-09-11-v8.6.1-standalone-swing-source-cache",
     "extended_returns_contract_version": "2026-09-13-v8.7.17-standalone-swing-return-basis-source",
     "sector_rs_contract_version": "2026-09-12-v8.7.5-standalone-swing-sector-rs-source",
-    "rsi_macd_contract_version": "2026-09-14-v8.7.20-standalone-swing-rsi-macd-source"
+    "rsi_macd_contract_version": "2026-09-14-v8.7.20-standalone-swing-rsi-macd-source",
+    "stop_policy_contract_version": "2026-09-14-v8.7.21-standalone-swing-stop-policy"
   },
   "return_basis": {
     "1w": "CALENDAR_DAYS_7_FIRST_MARKET_SESSION_ON_OR_AFTER",
@@ -127,5 +129,18 @@
     "signal": "EMA9(MACD_LINE)",
     "histogram": "MACD_LINE-SIGNAL",
     "fixed_factor_macdfix_selected": false
+  },
+  "confirmed_swing_low_stop_policy_frozen": true,
+  "confirmed_swing_low_stop_policy": {
+    "confirmed_swing_low_stop_numeric_value_available": false,
+    "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+    "missing_display": "자료 미제공",
+    "derive_or_invent_numeric_stop": false,
+    "ma20_is_stop": false,
+    "ma20_role": "REFERENCE_ONLY",
+    "ma20_display_label": "20일선 참고선",
+    "request_time_price_recomputes_stop": false,
+    "static_official_close_recomputes_stop": false,
+    "allowed_behavior": "Keep confirmed swing-low stop null when no separately approved confirmed-stop source/algorithm exists. Show MA20 only as a reference."
   }
 }

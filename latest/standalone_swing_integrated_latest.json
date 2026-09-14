@@ -1,6 +1,6 @@
 {
-  "contract_version": "2026-09-14-v8.7.20-standalone-swing-integrated-rsi-macd-source",
-  "script_version": "standalone_swing_rsi_macd_v8720.py v1.0.0",
+  "contract_version": "2026-09-14-v8.7.21-standalone-swing-integrated-stop-policy",
+  "script_version": "standalone_swing_stop_policy_v8721.py v1.0.0",
   "status": "READY_SOURCE_ONLY",
   "source_only": true,
   "standalone_swing_table_enabled": false,
@@ -43,8 +43,7 @@
   "kosdaq_sector_rs_null_count": 25,
   "pending_metrics": [
     "investment_score_100",
-    "earnings_outlook_change",
-    "confirmed_swing_low_stop"
+    "earnings_outlook_change"
   ],
   "metric_glossary_version": "2026-09-11-v8.5.9-swing-anchor-source-and-glossary",
   "metric_glossary_footer": "읽는 법: 스윙=최근 큰 가격파동의 현재 위치(미래예측 아님) · MA5/20/60/120=단기→중장기 이동평균 방향 · ATR14=최근 14기간 평균진폭(예상수익률 아님) · RS=KOSPI 대비 상대수익률 차이 · 연속등락=현재 연속 상승/하락 일수와 누적등락률",
@@ -52,7 +51,8 @@
     "swing_contract_version": "2026-09-11-v8.6.1-standalone-swing-source-cache",
     "extended_returns_contract_version": "2026-09-13-v8.7.17-standalone-swing-return-basis-source",
     "sector_rs_contract_version": "2026-09-12-v8.7.5-standalone-swing-sector-rs-source",
-    "rsi_macd_contract_version": "2026-09-14-v8.7.20-standalone-swing-rsi-macd-source"
+    "rsi_macd_contract_version": "2026-09-14-v8.7.20-standalone-swing-rsi-macd-source",
+    "stop_policy_contract_version": "2026-09-14-v8.7.21-standalone-swing-stop-policy"
   },
   "source_sha256": {
     "latest/standalone_swing_source_latest.json": "0b9b2ffa64de9944a66ab3a9e88c51501d60948226e9ed236729c442e3a4ea28",
@@ -173,13 +173,15 @@
         "ma20_close_level": 130025.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -308,13 +310,15 @@
         "ma20_close_level": 7943.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -443,13 +447,15 @@
         "ma20_close_level": 199285.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -578,13 +584,15 @@
         "ma20_close_level": 3569.75,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -713,13 +721,15 @@
         "ma20_close_level": 92125.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -848,13 +858,15 @@
         "ma20_close_level": 149795.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -983,13 +995,15 @@
         "ma20_close_level": 1698400.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -1118,13 +1132,15 @@
         "ma20_close_level": 655550.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -1253,13 +1269,15 @@
         "ma20_close_level": 118075.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -1388,13 +1406,15 @@
         "ma20_close_level": 96725.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -1523,13 +1543,15 @@
         "ma20_close_level": 2349.4,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -1658,13 +1680,15 @@
         "ma20_close_level": 69640.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -1793,13 +1817,15 @@
         "ma20_close_level": 27362.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -1928,13 +1954,15 @@
         "ma20_close_level": 4343.75,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -2063,13 +2091,15 @@
         "ma20_close_level": 10211.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -2198,13 +2228,15 @@
         "ma20_close_level": 1504.05,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -2333,13 +2365,15 @@
         "ma20_close_level": 2533.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": true,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -2468,13 +2502,15 @@
         "ma20_close_level": 28560.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": true,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -2603,13 +2639,15 @@
         "ma20_close_level": 6327.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -2738,13 +2776,15 @@
         "ma20_close_level": 26212.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -2873,13 +2913,15 @@
         "ma20_close_level": 9153.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -3008,13 +3050,15 @@
         "ma20_close_level": 12628.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -3143,13 +3187,15 @@
         "ma20_close_level": 107775.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -3278,13 +3324,15 @@
         "ma20_close_level": 1497.4,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -3413,13 +3461,15 @@
         "ma20_close_level": 476650.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": true,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -3548,13 +3598,15 @@
         "ma20_close_level": 5768.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -3683,13 +3735,15 @@
         "ma20_close_level": 1132.6,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -3818,13 +3872,15 @@
         "ma20_close_level": 15413.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -3953,13 +4009,15 @@
         "ma20_close_level": 10411.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -4088,13 +4146,15 @@
         "ma20_close_level": 1390300.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -4223,13 +4283,15 @@
         "ma20_close_level": 1763.65,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -4358,13 +4420,15 @@
         "ma20_close_level": 12940.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -4493,13 +4557,15 @@
         "ma20_close_level": 27932.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -4628,13 +4694,15 @@
         "ma20_close_level": 21757.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -4763,13 +4831,15 @@
         "ma20_close_level": 4831.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -4898,13 +4968,15 @@
         "ma20_close_level": 26597.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -5033,13 +5105,15 @@
         "ma20_close_level": 116145.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -5168,13 +5242,15 @@
         "ma20_close_level": 1611.4,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -5303,13 +5379,15 @@
         "ma20_close_level": 177795.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -5438,13 +5516,15 @@
         "ma20_close_level": 403225.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -5573,13 +5653,15 @@
         "ma20_close_level": 7355.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -5708,13 +5790,15 @@
         "ma20_close_level": 433100.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -5843,13 +5927,15 @@
         "ma20_close_level": 61345.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -5978,13 +6064,15 @@
         "ma20_close_level": 4342.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -6113,13 +6201,15 @@
         "ma20_close_level": 7691.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -6248,13 +6338,15 @@
         "ma20_close_level": 1961.05,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -6383,13 +6475,15 @@
         "ma20_close_level": 1144.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -6518,13 +6612,15 @@
         "ma20_close_level": 3588.75,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -6653,13 +6749,15 @@
         "ma20_close_level": 961.75,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -6788,13 +6886,15 @@
         "ma20_close_level": 403075.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -6923,13 +7023,15 @@
         "ma20_close_level": 193145.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -7058,13 +7160,15 @@
         "ma20_close_level": 192760.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -7193,13 +7297,15 @@
         "ma20_close_level": 188350.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -7328,13 +7434,15 @@
         "ma20_close_level": 331850.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -7463,13 +7571,15 @@
         "ma20_close_level": 18398.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -7598,13 +7708,15 @@
         "ma20_close_level": 15074.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -7733,13 +7845,15 @@
         "ma20_close_level": 186480.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -7868,13 +7982,15 @@
         "ma20_close_level": 262800.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -8003,13 +8119,15 @@
         "ma20_close_level": 192365.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -8138,13 +8256,15 @@
         "ma20_close_level": 62467.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -8273,13 +8393,15 @@
         "ma20_close_level": 9749.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -8408,13 +8530,15 @@
         "ma20_close_level": 310450.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -8543,13 +8667,15 @@
         "ma20_close_level": 35275.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -8678,13 +8804,15 @@
         "ma20_close_level": 3982.75,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -8813,13 +8941,15 @@
         "ma20_close_level": 2957.8,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -8948,13 +9078,15 @@
         "ma20_close_level": 534025.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -9083,13 +9215,15 @@
         "ma20_close_level": 1019.7,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -9218,13 +9352,15 @@
         "ma20_close_level": 92660.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": true,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -9353,13 +9489,15 @@
         "ma20_close_level": 35082.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -9483,13 +9621,15 @@
         "ma20_close_level": 24400.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -9618,13 +9758,15 @@
         "ma20_close_level": 108135.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -9753,13 +9895,15 @@
         "ma20_close_level": 56865.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -9888,13 +10032,15 @@
         "ma20_close_level": 15469.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -10023,13 +10169,15 @@
         "ma20_close_level": 42617.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -10158,13 +10306,15 @@
         "ma20_close_level": 48652.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -10293,13 +10443,15 @@
         "ma20_close_level": 1398900.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -10428,13 +10580,15 @@
         "ma20_close_level": 1522.55,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -10563,13 +10717,15 @@
         "ma20_close_level": 57735.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -10698,13 +10854,15 @@
         "ma20_close_level": 356150.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -10833,13 +10991,15 @@
         "ma20_close_level": 202575.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -10968,13 +11128,15 @@
         "ma20_close_level": 1259100.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -11103,13 +11265,15 @@
         "ma20_close_level": 21027.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -11233,13 +11397,15 @@
         "ma20_close_level": 13538.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": true,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -11368,13 +11534,15 @@
         "ma20_close_level": 1779.95,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -11503,13 +11671,15 @@
         "ma20_close_level": 149510.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -11638,13 +11808,15 @@
         "ma20_close_level": 584550.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -11773,13 +11945,15 @@
         "ma20_close_level": 21477.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -11908,13 +12082,15 @@
         "ma20_close_level": 125345.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -12043,13 +12219,15 @@
         "ma20_close_level": 2466.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -12178,13 +12356,15 @@
         "ma20_close_level": 2029.1,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -12313,13 +12493,15 @@
         "ma20_close_level": 2545.85,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -12448,13 +12630,15 @@
         "ma20_close_level": 459650.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -12583,13 +12767,15 @@
         "ma20_close_level": 1094200.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -12718,13 +12904,15 @@
         "ma20_close_level": 1478.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -12853,13 +13041,15 @@
         "ma20_close_level": 79860.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -12988,13 +13178,15 @@
         "ma20_close_level": 1499.75,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -13123,13 +13315,15 @@
         "ma20_close_level": 4362.75,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -13258,13 +13452,15 @@
         "ma20_close_level": 708.7,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -13393,13 +13589,15 @@
         "ma20_close_level": 3515.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -13528,13 +13726,15 @@
         "ma20_close_level": 95805.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -13663,13 +13863,15 @@
         "ma20_close_level": 232375.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -13798,13 +14000,15 @@
         "ma20_close_level": 1084.65,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -13933,13 +14137,15 @@
         "ma20_close_level": 15620.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -14068,13 +14274,15 @@
         "ma20_close_level": 6016.75,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -14203,13 +14411,15 @@
         "ma20_close_level": 7511.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -14338,13 +14548,15 @@
         "ma20_close_level": 97505.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -14473,13 +14685,15 @@
         "ma20_close_level": 21182.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -14608,13 +14822,15 @@
         "ma20_close_level": 1022.35,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": true,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -14743,13 +14959,15 @@
         "ma20_close_level": 9974.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -14878,13 +15096,15 @@
         "ma20_close_level": 6161.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -15013,13 +15233,15 @@
         "ma20_close_level": 47752.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -15148,13 +15370,15 @@
         "ma20_close_level": 374575.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -15283,13 +15507,15 @@
         "ma20_close_level": 5900.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -15418,13 +15644,15 @@
         "ma20_close_level": 40612.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -15553,13 +15781,15 @@
         "ma20_close_level": 46482.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -15688,13 +15918,15 @@
         "ma20_close_level": 303025.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -15823,13 +16055,15 @@
         "ma20_close_level": 29577.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -15958,13 +16192,15 @@
         "ma20_close_level": 173520.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -16093,13 +16329,15 @@
         "ma20_close_level": 82410.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -16228,13 +16466,15 @@
         "ma20_close_level": 572250.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -16363,13 +16603,15 @@
         "ma20_close_level": 215725.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -16498,13 +16740,15 @@
         "ma20_close_level": 36365.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -16633,13 +16877,15 @@
         "ma20_close_level": 221700.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -16768,13 +17014,15 @@
         "ma20_close_level": 2586.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -16898,13 +17146,15 @@
         "ma20_close_level": 181850.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -17033,13 +17283,15 @@
         "ma20_close_level": 275850.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -17163,13 +17415,15 @@
         "ma20_close_level": 5779.25,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -17298,13 +17552,15 @@
         "ma20_close_level": 87335.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -17433,13 +17689,15 @@
         "ma20_close_level": 225725.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -17568,13 +17826,15 @@
         "ma20_close_level": 890.25,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -17703,13 +17963,15 @@
         "ma20_close_level": 17977.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -17838,13 +18100,15 @@
         "ma20_close_level": 53895.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -17973,13 +18237,15 @@
         "ma20_close_level": 131670.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -18108,13 +18374,15 @@
         "ma20_close_level": 107120.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -18243,13 +18511,15 @@
         "ma20_close_level": 273625.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -18378,13 +18648,15 @@
         "ma20_close_level": 115020.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -18513,13 +18785,15 @@
         "ma20_close_level": 108800.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -18648,13 +18922,15 @@
         "ma20_close_level": 3481.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -18783,13 +19059,15 @@
         "ma20_close_level": 2561.75,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -18913,13 +19191,15 @@
         "ma20_close_level": 14930.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -19043,13 +19323,15 @@
         "ma20_close_level": 31855.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -19178,13 +19460,15 @@
         "ma20_close_level": 187780.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -19313,13 +19597,15 @@
         "ma20_close_level": 13760.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -19443,13 +19729,15 @@
         "ma20_close_level": 5123.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -19578,13 +19866,15 @@
         "ma20_close_level": 132290.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -19713,13 +20003,15 @@
         "ma20_close_level": 73995.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -19848,13 +20140,15 @@
         "ma20_close_level": 203815.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -19983,13 +20277,15 @@
         "ma20_close_level": 72890.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -20113,13 +20409,15 @@
         "ma20_close_level": 36030.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -20248,13 +20546,15 @@
         "ma20_close_level": 189295.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -20383,13 +20683,15 @@
         "ma20_close_level": 120540.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -20518,13 +20820,15 @@
         "ma20_close_level": 190295.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -20653,13 +20957,15 @@
         "ma20_close_level": 6361.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -20788,13 +21094,15 @@
         "ma20_close_level": 4884.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": true,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -20923,13 +21231,15 @@
         "ma20_close_level": 7346.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -21053,13 +21363,15 @@
         "ma20_close_level": 32965.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -21188,13 +21500,15 @@
         "ma20_close_level": 11439.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -21323,13 +21637,15 @@
         "ma20_close_level": 710800.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -21458,13 +21774,15 @@
         "ma20_close_level": 9656.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": true,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -21593,13 +21911,15 @@
         "ma20_close_level": 47025.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -21728,13 +22048,15 @@
         "ma20_close_level": 22699.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -21863,13 +22185,15 @@
         "ma20_close_level": 204540.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -21993,13 +22317,15 @@
         "ma20_close_level": 19946.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -22123,13 +22449,15 @@
         "ma20_close_level": 86265.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -22258,13 +22586,15 @@
         "ma20_close_level": 133545.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -22393,13 +22723,15 @@
         "ma20_close_level": 5691.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -22528,13 +22860,15 @@
         "ma20_close_level": 9797.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -22663,13 +22997,15 @@
         "ma20_close_level": 140750.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -22798,13 +23134,15 @@
         "ma20_close_level": 18568.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -22933,13 +23271,15 @@
         "ma20_close_level": 1708.25,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -23068,13 +23408,15 @@
         "ma20_close_level": 12679.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -23198,13 +23540,15 @@
         "ma20_close_level": 142850.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -23328,13 +23672,15 @@
         "ma20_close_level": 31797.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -23463,13 +23809,15 @@
         "ma20_close_level": 131185.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -23598,13 +23946,15 @@
         "ma20_close_level": 184540.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -23733,13 +24083,15 @@
         "ma20_close_level": 123200.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -23868,13 +24220,15 @@
         "ma20_close_level": 3160.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -23998,13 +24352,15 @@
         "ma20_close_level": 15679.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -24133,13 +24489,15 @@
         "ma20_close_level": 31820.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -24268,13 +24626,15 @@
         "ma20_close_level": 70030.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -24403,13 +24763,15 @@
         "ma20_close_level": 169995.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -24533,13 +24895,15 @@
         "ma20_close_level": 3158.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -24668,13 +25032,15 @@
         "ma20_close_level": 467825.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -24803,13 +25169,15 @@
         "ma20_close_level": 12243.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -24938,13 +25306,15 @@
         "ma20_close_level": 15140.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -25073,13 +25443,15 @@
         "ma20_close_level": 74175.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -25208,13 +25580,15 @@
         "ma20_close_level": 68070.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -25343,13 +25717,15 @@
         "ma20_close_level": 53045.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -25478,13 +25854,15 @@
         "ma20_close_level": 1512200.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -25613,13 +25991,15 @@
         "ma20_close_level": 18842.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -25748,13 +26128,15 @@
         "ma20_close_level": 5397.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -25878,13 +26260,15 @@
         "ma20_close_level": 398275.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -26013,13 +26397,15 @@
         "ma20_close_level": 11441.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -26148,13 +26534,15 @@
         "ma20_close_level": 11226.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -26278,13 +26666,15 @@
         "ma20_close_level": 9318.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -26413,13 +26803,15 @@
         "ma20_close_level": 2950.25,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -26543,13 +26935,15 @@
         "ma20_close_level": 112270.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -26678,13 +27072,15 @@
         "ma20_close_level": 14924.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -26808,13 +27204,15 @@
         "ma20_close_level": 48020.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -26938,13 +27336,15 @@
         "ma20_close_level": 2663.25,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -27068,13 +27468,15 @@
         "ma20_close_level": 32652.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -27203,13 +27605,15 @@
         "ma20_close_level": 227525.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -27338,13 +27742,15 @@
         "ma20_close_level": 751350.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -27473,13 +27879,15 @@
         "ma20_close_level": 134290.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -27608,13 +28016,15 @@
         "ma20_close_level": 10946.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": true,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -27743,13 +28153,15 @@
         "ma20_close_level": 10306.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -27878,13 +28290,15 @@
         "ma20_close_level": 72695.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -28013,13 +28427,15 @@
         "ma20_close_level": 405400.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -28148,13 +28564,15 @@
         "ma20_close_level": 18423.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -28278,13 +28696,15 @@
         "ma20_close_level": 8849.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -28413,13 +28833,15 @@
         "ma20_close_level": 62030.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -28548,13 +28970,15 @@
         "ma20_close_level": 2878800.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -28683,13 +29107,15 @@
         "ma20_close_level": 1521.75,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -28818,13 +29244,15 @@
         "ma20_close_level": 419950.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -28948,13 +29376,15 @@
         "ma20_close_level": 11702.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": true,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -29083,13 +29513,15 @@
         "ma20_close_level": 10632.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -29218,13 +29650,15 @@
         "ma20_close_level": 459950.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -29353,13 +29787,15 @@
         "ma20_close_level": 43605.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": true,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -29488,13 +29924,15 @@
         "ma20_close_level": 107810.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -29623,13 +30061,15 @@
         "ma20_close_level": 1891.8,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -29753,13 +30193,15 @@
         "ma20_close_level": 332575.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -29888,13 +30330,15 @@
         "ma20_close_level": 16186.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": true,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -30023,13 +30467,15 @@
         "ma20_close_level": 360300.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -30158,13 +30604,15 @@
         "ma20_close_level": 45612.5,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -30293,13 +30741,15 @@
         "ma20_close_level": 1077750.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": true,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -30428,13 +30878,15 @@
         "ma20_close_level": 11003.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -30558,13 +31010,15 @@
         "ma20_close_level": 13178.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -30693,13 +31147,15 @@
         "ma20_close_level": 211250.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -30828,13 +31284,15 @@
         "ma20_close_level": 71040.0,
         "below_ma20_at_official_close": false,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -30963,13 +31421,15 @@
         "ma20_close_level": 80455.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": true,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -31098,13 +31558,15 @@
         "ma20_close_level": 65140.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -31233,13 +31695,15 @@
         "ma20_close_level": 16622.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -31368,13 +31832,15 @@
         "ma20_close_level": 208155.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -31503,13 +31969,15 @@
         "ma20_close_level": 50595.0,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -31638,13 +32106,15 @@
         "ma20_close_level": 41327.5,
         "below_ma20_at_official_close": true,
         "confirmed_swing_low_stop": null,
-        "status": "REFERENCE_ONLY_NOT_ORDER"
+        "status": "REFERENCE_ONLY_NOT_ORDER",
+        "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+        "ma20_role": "REFERENCE_ONLY",
+        "ma20_display_label": "20일선 참고선"
       },
       "matches_decliners_24": false,
       "pending_metrics": {
         "investment_score_100": null,
-        "earnings_outlook_change": null,
-        "confirmed_swing_low_stop": null
+        "earnings_outlook_change": null
       },
       "rsi": {
         "status": "OK",
@@ -31678,7 +32148,9 @@
     "earnings_outlook_change_calculated": false,
     "confirmed_swing_low_stop_calculated": false,
     "kosdaq_sector_mapping_invented": false,
-    "new_command_defined": false
+    "new_command_defined": false,
+    "confirmed_swing_low_stop_invented": false,
+    "ma20_relabelled_as_stop": false
   },
   "rsi_macd_contract_version": "2026-09-14-v8.7.20-standalone-swing-rsi-macd-source",
   "rsi_contract": {
@@ -31708,5 +32180,23 @@
     "fixed_factor_macdfix_selected": false
   },
   "rsi_ready_count": 235,
-  "macd_ready_count": 235
+  "macd_ready_count": 235,
+  "stop_policy_contract_version": "2026-09-14-v8.7.21-standalone-swing-stop-policy",
+  "confirmed_swing_low_stop_policy": {
+    "confirmed_swing_low_stop_numeric_value_available": false,
+    "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+    "missing_display": "자료 미제공",
+    "derive_or_invent_numeric_stop": false,
+    "ma20_is_stop": false,
+    "ma20_role": "REFERENCE_ONLY",
+    "ma20_display_label": "20일선 참고선",
+    "request_time_price_recomputes_stop": false,
+    "static_official_close_recomputes_stop": false,
+    "allowed_behavior": "Keep confirmed swing-low stop null when no separately approved confirmed-stop source/algorithm exists. Show MA20 only as a reference."
+  },
+  "confirmed_swing_low_stop_ready_count": 0,
+  "confirmed_swing_low_stop_status_count": {
+    "NOT_PROVIDED_CURRENT_CONTRACT": 235
+  },
+  "ma20_reference_ready_count": 235
 }

@@ -1,6 +1,6 @@
 {
-  "contract_version": "2026-09-14-v8.7.20-standalone-swing-integrated-rsi-macd-source",
-  "script_version": "standalone_swing_rsi_macd_v8720.py v1.0.0",
+  "contract_version": "2026-09-14-v8.7.21-standalone-swing-integrated-stop-policy",
+  "script_version": "standalone_swing_stop_policy_v8721.py v1.0.0",
   "status": "READY_SOURCE_ONLY",
   "source_only": true,
   "standalone_swing_table_enabled": false,
@@ -43,15 +43,15 @@
   "kosdaq_sector_rs_null_count": 25,
   "pending_metrics": [
     "investment_score_100",
-    "earnings_outlook_change",
-    "confirmed_swing_low_stop"
+    "earnings_outlook_change"
   ],
   "metric_glossary_version": "2026-09-11-v8.5.9-swing-anchor-source-and-glossary",
   "source_lineage": {
     "swing_contract_version": "2026-09-11-v8.6.1-standalone-swing-source-cache",
     "extended_returns_contract_version": "2026-09-13-v8.7.17-standalone-swing-return-basis-source",
     "sector_rs_contract_version": "2026-09-12-v8.7.5-standalone-swing-sector-rs-source",
-    "rsi_macd_contract_version": "2026-09-14-v8.7.20-standalone-swing-rsi-macd-source"
+    "rsi_macd_contract_version": "2026-09-14-v8.7.20-standalone-swing-rsi-macd-source",
+    "stop_policy_contract_version": "2026-09-14-v8.7.21-standalone-swing-stop-policy"
   },
   "source_sha256": {
     "latest/standalone_swing_source_latest.json": "0b9b2ffa64de9944a66ab3a9e88c51501d60948226e9ed236729c442e3a4ea28",
@@ -105,5 +105,23 @@
     "fixed_factor_macdfix_selected": false
   },
   "rsi_ready_count": 235,
-  "macd_ready_count": 235
+  "macd_ready_count": 235,
+  "stop_policy_contract_version": "2026-09-14-v8.7.21-standalone-swing-stop-policy",
+  "confirmed_swing_low_stop_policy": {
+    "confirmed_swing_low_stop_numeric_value_available": false,
+    "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+    "missing_display": "자료 미제공",
+    "derive_or_invent_numeric_stop": false,
+    "ma20_is_stop": false,
+    "ma20_role": "REFERENCE_ONLY",
+    "ma20_display_label": "20일선 참고선",
+    "request_time_price_recomputes_stop": false,
+    "static_official_close_recomputes_stop": false,
+    "allowed_behavior": "Keep confirmed swing-low stop null when no separately approved confirmed-stop source/algorithm exists. Show MA20 only as a reference."
+  },
+  "confirmed_swing_low_stop_ready_count": 0,
+  "confirmed_swing_low_stop_status_count": {
+    "NOT_PROVIDED_CURRENT_CONTRACT": 235
+  },
+  "ma20_reference_ready_count": 235
 }

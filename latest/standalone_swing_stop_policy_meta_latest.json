@@ -1,0 +1,32 @@
+{
+  "contract_version": "2026-09-14-v8.7.21-standalone-swing-stop-policy",
+  "status": "FROZEN_POLICY_ONLY",
+  "basis_date": "2026-09-11",
+  "row_count": 235,
+  "confirmed_stop_null_count": 235,
+  "ma20_reference_ready_count": 235,
+  "policy": {
+    "confirmed_swing_low_stop_numeric_value_available": false,
+    "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+    "missing_display": "자료 미제공",
+    "derive_or_invent_numeric_stop": false,
+    "ma20_is_stop": false,
+    "ma20_role": "REFERENCE_ONLY",
+    "ma20_display_label": "20일선 참고선",
+    "request_time_price_recomputes_stop": false,
+    "static_official_close_recomputes_stop": false,
+    "allowed_behavior": "Keep confirmed swing-low stop null when no separately approved confirmed-stop source/algorithm exists. Show MA20 only as a reference."
+  },
+  "safety": {
+    "numeric_stop_created": false,
+    "numeric_stop_inferred": false,
+    "ma20_relabelled_as_stop": false,
+    "request_time_price_used_to_make_stop": false,
+    "production_table_changed": false,
+    "worker_changed": false,
+    "action_schema_changed": false,
+    "new_command_defined": false,
+    "route_enabled": false,
+    "final_header_selected": false
+  }
+}

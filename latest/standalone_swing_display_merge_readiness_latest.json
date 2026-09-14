@@ -1,6 +1,6 @@
 {
-  "contract_version": "2026-09-14-v8.7.20-standalone-swing-readiness-rsi-macd-sync",
-  "script_version": "standalone_swing_rsi_macd_v8720.py v1.0.0",
+  "contract_version": "2026-09-14-v8.7.21-standalone-swing-readiness-stop-policy-sync",
+  "script_version": "standalone_swing_stop_policy_v8721.py v1.0.0",
   "status": "FROZEN_PREPRODUCTION_READY",
   "display_merge_contract_frozen": true,
   "production_activation_allowed": false,
@@ -257,7 +257,6 @@
   "remaining_activation_blockers": [
     "NO_FINAL_STANDALONE_TABLE_HEADER_CONTRACT",
     "NO_STANDALONE_COMMAND_OR_ROUTE_CONTRACT",
-    "CONFIRMED_SWING_LOW_STOP_POLICY_NOT_DEFINED",
     "INVESTMENT_SCORE_THRESHOLDS_NOT_DEFINED",
     "EARNINGS_OUTLOOK_SOURCE_NOT_CONNECTED",
     "KOSDAQ_OFFICIAL_SECTOR_RS_CONTRACT_NOT_DEFINED"
@@ -287,12 +286,13 @@
     }
   },
   "source_contracts": {
-    "integrated_source": "2026-09-14-v8.7.20-standalone-swing-integrated-rsi-macd-source",
+    "integrated_source": "2026-09-14-v8.7.21-standalone-swing-integrated-stop-policy",
     "extended_returns_source": "2026-09-13-v8.7.17-standalone-swing-return-basis-source",
     "preproduction_freeze": "2026-09-13-v8.7.18-standalone-swing-readiness-sync",
     "display_merge_base_contract": "2026-09-13-v8.7.13-standalone-swing-display-merge-freeze",
     "manifest_route_contract_version": "2026-07-15-v8.2-command-route-contract",
-    "rsi_macd_source": "2026-09-14-v8.7.20-standalone-swing-rsi-macd-source"
+    "rsi_macd_source": "2026-09-14-v8.7.20-standalone-swing-rsi-macd-source",
+    "stop_policy": "2026-09-14-v8.7.21-standalone-swing-stop-policy"
   },
   "source_sha256": {
     "latest/standalone_swing_integrated_latest.json": "f746b3b603b2a58411dbdd1078d8516ea950d24326bdacfb2ac53b73526986d5",
@@ -334,13 +334,13 @@
   },
   "pending_metrics": [
     "investment_score_100",
-    "earnings_outlook_change",
-    "confirmed_swing_low_stop"
+    "earnings_outlook_change"
   ],
   "resolved_activation_blockers": [
     "REQUEST_TIME_DISPLAY_MERGE_CONTRACT_NOT_FROZEN_FOR_STANDALONE",
     "1W_YTD_52W_FORMULAS_NOT_APPROVED",
-    "RSI_MACD_FORMULAS_NOT_APPROVED"
+    "RSI_MACD_FORMULAS_NOT_APPROVED",
+    "CONFIRMED_SWING_LOW_STOP_POLICY_NOT_DEFINED"
   ],
   "rsi_macd_contract_frozen": true,
   "rsi_contract": {
@@ -368,5 +368,18 @@
     "signal": "EMA9(MACD_LINE)",
     "histogram": "MACD_LINE-SIGNAL",
     "fixed_factor_macdfix_selected": false
+  },
+  "confirmed_swing_low_stop_policy_frozen": true,
+  "confirmed_swing_low_stop_policy": {
+    "confirmed_swing_low_stop_numeric_value_available": false,
+    "confirmed_swing_low_stop_status": "NOT_PROVIDED_CURRENT_CONTRACT",
+    "missing_display": "자료 미제공",
+    "derive_or_invent_numeric_stop": false,
+    "ma20_is_stop": false,
+    "ma20_role": "REFERENCE_ONLY",
+    "ma20_display_label": "20일선 참고선",
+    "request_time_price_recomputes_stop": false,
+    "static_official_close_recomputes_stop": false,
+    "allowed_behavior": "Keep confirmed swing-low stop null when no separately approved confirmed-stop source/algorithm exists. Show MA20 only as a reference."
   }
 }

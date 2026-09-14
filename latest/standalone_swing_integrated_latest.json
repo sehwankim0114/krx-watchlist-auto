@@ -1,6 +1,6 @@
 {
-  "contract_version": "2026-09-13-v8.7.17-standalone-swing-integrated-returns-source",
-  "script_version": "standalone_swing_integrated_v8717.py v1.0.0-source-only",
+  "contract_version": "2026-09-14-v8.7.20-standalone-swing-integrated-rsi-macd-source",
+  "script_version": "standalone_swing_rsi_macd_v8720.py v1.0.0",
   "status": "READY_SOURCE_ONLY",
   "source_only": true,
   "standalone_swing_table_enabled": false,
@@ -42,8 +42,6 @@
   "kospi_sector_rs_ready_count": 210,
   "kosdaq_sector_rs_null_count": 25,
   "pending_metrics": [
-    "rsi",
-    "macd",
     "investment_score_100",
     "earnings_outlook_change",
     "confirmed_swing_low_stop"
@@ -53,7 +51,8 @@
   "source_lineage": {
     "swing_contract_version": "2026-09-11-v8.6.1-standalone-swing-source-cache",
     "extended_returns_contract_version": "2026-09-13-v8.7.17-standalone-swing-return-basis-source",
-    "sector_rs_contract_version": "2026-09-12-v8.7.5-standalone-swing-sector-rs-source"
+    "sector_rs_contract_version": "2026-09-12-v8.7.5-standalone-swing-sector-rs-source",
+    "rsi_macd_contract_version": "2026-09-14-v8.7.20-standalone-swing-rsi-macd-source"
   },
   "source_sha256": {
     "latest/standalone_swing_source_latest.json": "0b9b2ffa64de9944a66ab3a9e88c51501d60948226e9ed236729c442e3a4ea28",
@@ -178,11 +177,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 43.692146,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -2607.484179,
+        "signal": -2682.08745,
+        "hist": 74.603271,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -301,11 +312,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 62.602194,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 514.221661,
+        "signal": 559.641097,
+        "hist": -45.419435,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -424,11 +447,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 65.044608,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 17553.444004,
+        "signal": 8851.977547,
+        "hist": 8701.466457,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -547,11 +582,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 56.666132,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 105.803921,
+        "signal": 103.8383,
+        "hist": 1.965621,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -670,11 +717,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 48.983556,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 740.501341,
+        "signal": 1333.004576,
+        "hist": -592.503235,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -793,11 +852,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 39.070666,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -3032.726196,
+        "signal": -2542.466871,
+        "hist": -490.259325,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -916,11 +987,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 55.331171,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 23817.334895,
+        "signal": -7936.264626,
+        "hist": 31753.599521,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -1039,11 +1122,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 56.920803,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 7026.469877,
+        "signal": 7765.831844,
+        "hist": -739.361967,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -1162,11 +1257,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 71.849268,
+        "zone": "OVERBOUGHT_70"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 12535.125945,
+        "signal": 11002.364363,
+        "hist": 1532.761582,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -1285,11 +1392,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 55.361594,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 1892.446049,
+        "signal": -950.201644,
+        "hist": 2842.647694,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -1408,11 +1527,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 48.039258,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 94.371377,
+        "signal": 119.666389,
+        "hist": -25.295011,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -1531,11 +1662,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 41.987336,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -538.212039,
+        "signal": -367.239564,
+        "hist": -170.972475,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -1654,11 +1797,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 48.547599,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 281.253766,
+        "signal": 494.164305,
+        "hist": -212.910539,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -1777,11 +1932,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 51.284693,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 11.243062,
+        "signal": 14.321803,
+        "hist": -3.07874,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -1900,11 +2067,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 73.058874,
+        "zone": "OVERBOUGHT_70"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 2196.895151,
+        "signal": 2304.793412,
+        "hist": -107.898261,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -2023,11 +2202,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 89.983733,
+        "zone": "OVERBOUGHT_70"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 653.202887,
+        "signal": 274.41954,
+        "hist": 378.783348,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -2146,11 +2337,23 @@
       },
       "matches_decliners_24": true,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 58.777163,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 95.010292,
+        "signal": 40.847229,
+        "hist": 54.163064,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -2269,11 +2472,23 @@
       },
       "matches_decliners_24": true,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 52.898823,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 212.004831,
+        "signal": -50.124561,
+        "hist": 262.129393,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -2392,11 +2607,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 33.069163,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -213.958084,
+        "signal": -137.801693,
+        "hist": -76.156391,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -2515,11 +2742,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 52.350577,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 844.530825,
+        "signal": 887.447584,
+        "hist": -42.91676,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -2638,11 +2877,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 46.332446,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 80.529047,
+        "signal": 99.681947,
+        "hist": -19.1529,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -2761,11 +3012,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 42.777663,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 820.560499,
+        "signal": 1323.07157,
+        "hist": -502.511072,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -2884,11 +3147,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 71.045242,
+        "zone": "OVERBOUGHT_70"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 7697.305442,
+        "signal": 5464.211907,
+        "hist": 2233.093535,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -3007,11 +3282,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 46.166412,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 8.474519,
+        "signal": 30.988834,
+        "hist": -22.514315,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -3130,11 +3417,23 @@
       },
       "matches_decliners_24": true,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 55.061469,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 13578.536088,
+        "signal": 12549.969331,
+        "hist": 1028.566757,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -3253,11 +3552,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 42.444552,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 30.838651,
+        "signal": 75.577084,
+        "hist": -44.738433,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -3376,11 +3687,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 47.290091,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 4.338997,
+        "signal": 3.736685,
+        "hist": 0.602312,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -3499,11 +3822,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 51.618655,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 958.893429,
+        "signal": 1282.946995,
+        "hist": -324.053565,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -3622,11 +3957,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 52.742947,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 571.801576,
+        "signal": 999.166031,
+        "hist": -427.364455,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -3745,11 +4092,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 43.768856,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 9657.156391,
+        "signal": 41371.007753,
+        "hist": -31713.851362,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -3868,11 +4227,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 61.275242,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 19.940227,
+        "signal": 1.911227,
+        "hist": 18.029,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -3991,11 +4362,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 71.039855,
+        "zone": "OVERBOUGHT_70"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 1086.018083,
+        "signal": 1100.917348,
+        "hist": -14.899264,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -4114,11 +4497,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 57.125446,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 883.169911,
+        "signal": 769.362621,
+        "hist": 113.80729,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -4237,11 +4632,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 48.420068,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 58.044779,
+        "signal": 54.36298,
+        "hist": 3.681799,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -4360,11 +4767,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 50.249186,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 64.850224,
+        "signal": 74.377643,
+        "hist": -9.527419,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -4483,11 +4902,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 55.513818,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 125.397995,
+        "signal": 45.440668,
+        "hist": 79.957327,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -4606,11 +5037,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 47.810278,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 2967.028021,
+        "signal": 3630.82435,
+        "hist": -663.796329,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -4729,11 +5172,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 56.250393,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 49.610906,
+        "signal": 52.406492,
+        "hist": -2.795586,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -4852,11 +5307,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 55.972572,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 7785.330949,
+        "signal": 7346.544215,
+        "hist": 438.786734,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -4975,11 +5442,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 39.202809,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -22047.593923,
+        "signal": -25389.002148,
+        "hist": 3341.408225,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -5098,11 +5577,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 70.757612,
+        "zone": "OVERBOUGHT_70"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 993.188826,
+        "signal": 642.398893,
+        "hist": 350.789933,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -5221,11 +5712,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 48.6978,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 5039.832672,
+        "signal": 10768.050818,
+        "hist": -5728.218146,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -5344,11 +5847,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 52.946449,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 2296.611804,
+        "signal": 2609.359498,
+        "hist": -312.747694,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -5467,11 +5982,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 29.177927,
+        "zone": "OVERSOLD_30"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -279.365359,
+        "signal": -278.625475,
+        "hist": -0.739883,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -5590,11 +6117,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 59.316397,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 251.528842,
+        "signal": 4.933328,
+        "hist": 246.595513,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -5713,11 +6252,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 56.766583,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 126.323495,
+        "signal": 114.616694,
+        "hist": 11.706801,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -5836,11 +6387,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 56.105092,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 50.214914,
+        "signal": 76.698914,
+        "hist": -26.484,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -5959,11 +6522,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 46.299514,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -4.537404,
+        "signal": 4.480344,
+        "hist": -9.017749,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -6082,11 +6657,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 74.345577,
+        "zone": "OVERBOUGHT_70"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 109.406027,
+        "signal": 79.301558,
+        "hist": 30.104469,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -6205,11 +6792,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 40.612232,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -10500.375887,
+        "signal": -10533.717992,
+        "hist": 33.342105,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -6328,11 +6927,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 38.241713,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -4595.581773,
+        "signal": -3982.682624,
+        "hist": -612.899149,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -6451,11 +7062,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 36.531126,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -5162.524144,
+        "signal": -4406.021358,
+        "hist": -756.502786,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -6574,11 +7197,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 36.500505,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -4115.910174,
+        "signal": -3468.942972,
+        "hist": -646.967202,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -6697,11 +7332,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 51.908381,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 3464.036714,
+        "signal": 3490.668722,
+        "hist": -26.632009,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -6820,11 +7467,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 50.32454,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 133.147537,
+        "signal": 136.065736,
+        "hist": -2.918199,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -6943,11 +7602,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 38.40342,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 72.838536,
+        "signal": 221.287245,
+        "hist": -148.448709,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -7066,11 +7737,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 58.764725,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 6427.093968,
+        "signal": 7329.71385,
+        "hist": -902.619882,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -7189,11 +7872,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 49.201535,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 1361.677449,
+        "signal": 315.609824,
+        "hist": 1046.067625,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -7312,11 +8007,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 51.514717,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 3151.508785,
+        "signal": 2429.77904,
+        "hist": 721.729745,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -7435,11 +8142,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 51.093422,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 4745.391243,
+        "signal": 5857.746136,
+        "hist": -1112.354893,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -7558,11 +8277,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 66.226874,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 198.754252,
+        "signal": 151.725875,
+        "hist": 47.028377,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -7681,11 +8412,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 52.487051,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 643.35445,
+        "signal": -1904.567257,
+        "hist": 2547.921708,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -7804,11 +8547,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 63.333036,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 1339.700485,
+        "signal": 1270.101195,
+        "hist": 69.599289,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -7927,11 +8682,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 30.964856,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -359.263752,
+        "signal": -297.223151,
+        "hist": -62.040602,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -8050,11 +8817,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 0.0,
+        "zone": "OVERSOLD_30"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -782.349766,
+        "signal": -353.551271,
+        "hist": -428.798495,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -8173,11 +8952,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 55.505954,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 22701.651168,
+        "signal": 24050.037754,
+        "hist": -1348.386587,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -8296,11 +9087,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 96.697512,
+        "zone": "OVERBOUGHT_70"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 197.604191,
+        "signal": 77.295531,
+        "hist": 120.30866,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -8419,11 +9222,23 @@
       },
       "matches_decliners_24": true,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 57.00802,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 2629.369836,
+        "signal": 518.894324,
+        "hist": 2110.475512,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -8542,11 +9357,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 41.370576,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -784.291898,
+        "signal": -889.795204,
+        "hist": 105.503305,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -8660,11 +9487,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 54.426364,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 355.249747,
+        "signal": 290.094138,
+        "hist": 65.155608,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -8783,11 +9622,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 55.760927,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 4439.848806,
+        "signal": 4575.649378,
+        "hist": -135.800572,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -8906,11 +9757,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 39.650664,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -2999.31398,
+        "signal": -2796.02684,
+        "hist": -203.287139,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -9029,11 +9892,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 43.726377,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -176.980621,
+        "signal": -26.825532,
+        "hist": -150.15509,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -9152,11 +10027,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 39.650193,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -881.903294,
+        "signal": -895.760091,
+        "hist": 13.856797,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -9275,11 +10162,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 55.103377,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 3696.606611,
+        "signal": 3489.913371,
+        "hist": 206.693239,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -9398,11 +10297,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 50.756529,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 6429.305096,
+        "signal": 2844.466423,
+        "hist": 3584.838674,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -9521,11 +10432,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 41.859525,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -3.023721,
+        "signal": 4.817336,
+        "hist": -7.841057,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -9644,11 +10567,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 39.059329,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -679.15294,
+        "signal": 462.440178,
+        "hist": -1141.593117,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -9767,11 +10702,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 52.771404,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -4278.716856,
+        "signal": -5431.824911,
+        "hist": 1153.108055,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -9890,11 +10837,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 50.695162,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 531.952408,
+        "signal": -105.423351,
+        "hist": 637.375758,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -10013,11 +10972,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 45.534844,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 12481.429484,
+        "signal": 30205.938809,
+        "hist": -17724.509325,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -10136,11 +11107,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 50.188864,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -112.851782,
+        "signal": -250.669533,
+        "hist": 137.817751,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -10254,11 +11237,23 @@
       },
       "matches_decliners_24": true,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 55.77914,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 543.981093,
+        "signal": 484.362899,
+        "hist": 59.618195,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -10377,11 +11372,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 84.662839,
+        "zone": "OVERBOUGHT_70"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 209.527601,
+        "signal": 100.361399,
+        "hist": 109.166202,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -10500,11 +11507,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 52.699891,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 5543.764208,
+        "signal": 5434.139513,
+        "hist": 109.624695,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -10623,11 +11642,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 42.631719,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -20365.637951,
+        "signal": -20452.033982,
+        "hist": 86.39603,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -10746,11 +11777,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 46.512515,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -30.441303,
+        "signal": 103.252582,
+        "hist": -133.693885,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -10869,11 +11912,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 50.031902,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 1332.885686,
+        "signal": 1505.764881,
+        "hist": -172.879195,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -10992,11 +12047,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 40.434339,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 2.791186,
+        "signal": 63.352484,
+        "hist": -60.561297,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -11115,11 +12182,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 68.903867,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 592.426225,
+        "signal": 531.658637,
+        "hist": 60.767588,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -11238,11 +12317,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 83.947372,
+        "zone": "OVERBOUGHT_70"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 818.89454,
+        "signal": 738.826722,
+        "hist": 80.067819,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -11361,11 +12452,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 34.860269,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -22049.630857,
+        "signal": -18385.664728,
+        "hist": -3663.966129,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -11484,11 +12587,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 51.78099,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -698.752948,
+        "signal": 6119.765988,
+        "hist": -6818.518935,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -11607,11 +12722,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 45.926824,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -3.47408,
+        "signal": -3.738147,
+        "hist": 0.264066,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -11730,11 +12857,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 58.172431,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 1418.946593,
+        "signal": 1596.785088,
+        "hist": -177.838495,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -11853,11 +12992,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 44.695054,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -3.453954,
+        "signal": 5.157372,
+        "hist": -8.611326,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -11976,11 +13127,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 53.396334,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 55.25438,
+        "signal": 72.47502,
+        "hist": -17.22064,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -12099,11 +13262,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 40.678782,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -10.815319,
+        "signal": -7.751157,
+        "hist": -3.064163,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -12222,11 +13397,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 71.755992,
+        "zone": "OVERBOUGHT_70"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 577.501718,
+        "signal": 557.736704,
+        "hist": 19.765014,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -12345,11 +13532,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 46.092861,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -338.30107,
+        "signal": 498.397445,
+        "hist": -836.698514,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -12468,11 +13667,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 46.717298,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 2117.438781,
+        "signal": 4433.581846,
+        "hist": -2316.143065,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -12591,11 +13802,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 87.767337,
+        "zone": "OVERBOUGHT_70"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 121.560926,
+        "signal": 38.669349,
+        "hist": 82.891577,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -12714,11 +13937,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 33.678143,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -688.854088,
+        "signal": -844.509035,
+        "hist": 155.654948,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -12837,11 +14072,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 70.539407,
+        "zone": "OVERBOUGHT_70"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 1058.824893,
+        "signal": 885.691217,
+        "hist": 173.133675,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -12960,11 +14207,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 55.417595,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 207.918643,
+        "signal": 186.475382,
+        "hist": 21.44326,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -13083,11 +14342,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 46.448713,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 683.995542,
+        "signal": 1143.63016,
+        "hist": -459.634618,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -13206,11 +14477,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 57.340326,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 355.356439,
+        "signal": 236.948576,
+        "hist": 118.407863,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -13329,11 +14612,23 @@
       },
       "matches_decliners_24": true,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 56.042825,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 15.807301,
+        "signal": 12.755721,
+        "hist": 3.051581,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -13452,11 +14747,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 43.682007,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 28.388453,
+        "signal": 167.928998,
+        "hist": -139.540545,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -13575,11 +14882,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 51.839902,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 98.135707,
+        "signal": 111.40899,
+        "hist": -13.273282,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -13698,11 +15017,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 59.231903,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 838.216158,
+        "signal": 433.084952,
+        "hist": 405.131206,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -13821,11 +15152,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 48.594745,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 3327.874305,
+        "signal": 3518.999422,
+        "hist": -191.125117,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -13944,11 +15287,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 56.084935,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 117.806412,
+        "signal": 118.258476,
+        "hist": -0.452064,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -14067,11 +15422,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 37.026569,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -464.86537,
+        "signal": -276.065663,
+        "hist": -188.799707,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -14190,11 +15557,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 42.09931,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -409.458727,
+        "signal": -361.386425,
+        "hist": -48.072302,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -14313,11 +15692,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 50.613287,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -557.340666,
+        "signal": -2523.17284,
+        "hist": 1965.832174,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -14436,11 +15827,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 44.45709,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 203.035122,
+        "signal": 551.747613,
+        "hist": -348.71249,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -14559,11 +15962,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 45.061173,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -1962.585241,
+        "signal": -1554.92523,
+        "hist": -407.660012,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -14682,11 +16097,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 61.877743,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 3260.000331,
+        "signal": 2186.670417,
+        "hist": 1073.329914,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -14805,11 +16232,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 51.878465,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 7182.862083,
+        "signal": 830.955085,
+        "hist": 6351.906998,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -14928,11 +16367,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 44.230106,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -1037.657302,
+        "signal": 399.166386,
+        "hist": -1436.823688,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -15051,11 +16502,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 39.13273,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -644.017338,
+        "signal": -438.548736,
+        "hist": -205.468603,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -15174,11 +16637,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 33.299011,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -6726.283613,
+        "signal": -5306.078251,
+        "hist": -1420.205362,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -15297,11 +16772,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 50.403588,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 9.044547,
+        "signal": 4.377772,
+        "hist": 4.666775,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -15415,11 +16902,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 62.976903,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 11133.333801,
+        "signal": 6868.191981,
+        "hist": 4265.14182,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -15538,11 +17037,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 47.61242,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -5488.733569,
+        "signal": -7019.726034,
+        "hist": 1530.992465,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -15656,11 +17167,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 49.743048,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 223.330191,
+        "signal": 305.09834,
+        "hist": -81.768148,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -15779,11 +17302,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 46.616864,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -936.46123,
+        "signal": -1007.665457,
+        "hist": 71.204227,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -15902,11 +17437,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 52.207464,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 6070.00551,
+        "signal": 2986.294829,
+        "hist": 3083.710682,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -16025,11 +17572,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 30.291803,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -37.919952,
+        "signal": -2.84168,
+        "hist": -35.078272,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -16148,11 +17707,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 59.917901,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 680.185901,
+        "signal": 438.896116,
+        "hist": 241.289785,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -16271,11 +17842,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 59.697862,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 930.165505,
+        "signal": 454.17954,
+        "hist": 475.985965,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -16394,11 +17977,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 46.81119,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -3149.337251,
+        "signal": -3699.535403,
+        "hist": 550.198152,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -16517,11 +18112,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 43.094421,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -322.985431,
+        "signal": 435.437821,
+        "hist": -758.423252,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -16640,11 +18247,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 49.516048,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 2509.167027,
+        "signal": 2132.397691,
+        "hist": 376.769336,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -16763,11 +18382,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 74.678033,
+        "zone": "OVERBOUGHT_70"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 10958.809695,
+        "signal": 6544.644845,
+        "hist": 4414.164849,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -16886,11 +18517,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 58.176043,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 2061.467184,
+        "signal": 1901.885463,
+        "hist": 159.581721,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -17009,11 +18652,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 44.636587,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -21.556279,
+        "signal": -10.508115,
+        "hist": -11.048164,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -17132,11 +18787,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 48.78865,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 8.082762,
+        "signal": 10.490171,
+        "hist": -2.407409,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -17250,11 +18917,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 49.304145,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 287.353958,
+        "signal": 415.044655,
+        "hist": -127.690698,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -17368,11 +19047,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 54.343955,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 390.392416,
+        "signal": 508.880879,
+        "hist": -118.488463,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -17491,11 +19182,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 55.537612,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 6233.015747,
+        "signal": 4694.192212,
+        "hist": 1538.823536,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -17614,11 +19317,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 36.3077,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -153.320543,
+        "signal": -45.044092,
+        "hist": -108.276451,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -17732,11 +19447,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 49.365001,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 62.699184,
+        "signal": 109.54529,
+        "hist": -46.846106,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -17855,11 +19582,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 37.38342,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -6290.428451,
+        "signal": -6380.92883,
+        "hist": 90.500379,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -17978,11 +19717,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 46.984108,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 147.222075,
+        "signal": 536.628325,
+        "hist": -389.40625,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -18101,11 +19852,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 50.076031,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 3777.799212,
+        "signal": 4458.04689,
+        "hist": -680.247677,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -18224,11 +19987,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 48.790347,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 1563.854767,
+        "signal": 1865.589698,
+        "hist": -301.734931,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -18342,11 +20117,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 46.285237,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -112.166294,
+        "signal": -76.961384,
+        "hist": -35.20491,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -18465,11 +20252,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 35.210767,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -1947.659491,
+        "signal": -185.869391,
+        "hist": -1761.7901,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -18588,11 +20387,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 37.177974,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -2743.701141,
+        "signal": -1510.966463,
+        "hist": -1232.734678,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -18711,11 +20522,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 48.818298,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -2773.775547,
+        "signal": -4335.421165,
+        "hist": 1561.645619,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -18834,11 +20657,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 42.13456,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -27.060068,
+        "signal": -10.915937,
+        "hist": -16.144131,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -18957,11 +20792,23 @@
       },
       "matches_decliners_24": true,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 51.824755,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 28.50872,
+        "signal": 3.348541,
+        "hist": 25.160178,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -19080,11 +20927,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 53.132061,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 119.717014,
+        "signal": 150.699702,
+        "hist": -30.982688,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -19198,11 +21057,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 61.044706,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 834.864821,
+        "signal": 981.587943,
+        "hist": -146.723122,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -19321,11 +21192,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 37.944426,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -230.651584,
+        "signal": 22.066815,
+        "hist": -252.718398,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -19444,11 +21327,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 44.82077,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -21803.78936,
+        "signal": -19171.70157,
+        "hist": -2632.08779,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -19567,11 +21462,23 @@
       },
       "matches_decliners_24": true,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 57.026328,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 186.347632,
+        "signal": 152.502369,
+        "hist": 33.845263,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -19690,11 +21597,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 58.891572,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 512.181292,
+        "signal": 128.910295,
+        "hist": 383.270997,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -19813,11 +21732,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 46.231852,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -89.972987,
+        "signal": 555.929037,
+        "hist": -645.902023,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -19936,11 +21867,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 54.179996,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 1153.577943,
+        "signal": 1155.317138,
+        "hist": -1.739195,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -20054,11 +21997,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 49.224935,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 295.188324,
+        "signal": 444.579125,
+        "hist": -149.390801,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -20172,11 +22127,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 47.982901,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -696.774351,
+        "signal": -621.69686,
+        "hist": -75.077491,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -20295,11 +22262,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 56.887945,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 2133.628534,
+        "signal": 2094.303312,
+        "hist": 39.325221,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -20418,11 +22397,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 60.92256,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 283.776197,
+        "signal": 292.35967,
+        "hist": -8.583473,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -20541,11 +22532,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 44.81665,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -20.512443,
+        "signal": -33.797775,
+        "hist": 13.285333,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -20664,11 +22667,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 54.180088,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 2484.537654,
+        "signal": 3707.371192,
+        "hist": -1222.833539,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -20787,11 +22802,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 51.328607,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 660.017847,
+        "signal": 558.978344,
+        "hist": 101.039503,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -20910,11 +22937,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 85.37157,
+        "zone": "OVERBOUGHT_70"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 581.292972,
+        "signal": 486.833229,
+        "hist": 94.459743,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -21033,11 +23072,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 71.358643,
+        "zone": "OVERBOUGHT_70"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 482.617844,
+        "signal": 298.614043,
+        "hist": 184.003801,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -21151,11 +23202,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 49.406493,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 1327.614794,
+        "signal": -246.95309,
+        "hist": 1574.567884,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -21269,11 +23332,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 51.956808,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 459.434503,
+        "signal": 734.748304,
+        "hist": -275.313801,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -21392,11 +23467,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 61.367835,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 7676.228435,
+        "signal": 5561.48253,
+        "hist": 2114.745905,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -21515,11 +23602,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 40.033232,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -2482.011844,
+        "signal": -2042.717514,
+        "hist": -439.29433,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -21638,11 +23737,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 40.130467,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -845.563771,
+        "signal": -443.722751,
+        "hist": -401.841021,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -21761,11 +23872,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 53.532548,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 31.021878,
+        "signal": 40.013883,
+        "hist": -8.992006,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -21879,11 +24002,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 50.545382,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -88.34124,
+        "signal": -304.179466,
+        "hist": 215.838225,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -22002,11 +24137,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 67.141507,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 2609.70804,
+        "signal": 1874.479747,
+        "hist": 735.228292,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -22125,11 +24272,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 53.859956,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 1237.942619,
+        "signal": 1190.93339,
+        "hist": 47.00923,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -22248,11 +24407,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 58.568092,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 1816.614065,
+        "signal": 1131.071188,
+        "hist": 685.542877,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -22366,11 +24537,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 56.622777,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 68.755391,
+        "signal": 60.793984,
+        "hist": 7.961406,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -22489,11 +24672,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 52.15861,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 18170.618412,
+        "signal": 21801.698291,
+        "hist": -3631.079879,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -22612,11 +24807,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 63.962302,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 483.181852,
+        "signal": 347.663375,
+        "hist": 135.518477,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -22735,11 +24942,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 56.560841,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 2.002636,
+        "signal": -158.857561,
+        "hist": 160.860197,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -22858,11 +25077,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 43.003855,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -1212.840557,
+        "signal": -1505.692191,
+        "hist": 292.851634,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -22981,11 +25212,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 44.696535,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 2119.940097,
+        "signal": 4783.997709,
+        "hist": -2664.057611,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -23104,11 +25347,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 42.3631,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -1338.924834,
+        "signal": -1180.5844,
+        "hist": -158.340434,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -23227,11 +25482,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 39.086988,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -18940.747812,
+        "signal": -2011.62628,
+        "hist": -16929.121533,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -23350,11 +25617,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 37.999898,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -127.856656,
+        "signal": -80.185003,
+        "hist": -47.671653,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -23473,11 +25752,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 45.069107,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -71.355051,
+        "signal": -22.511258,
+        "hist": -48.843792,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -23591,11 +25882,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 37.9683,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -6442.93551,
+        "signal": 4132.534618,
+        "hist": -10575.470128,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -23714,11 +26017,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 43.376362,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -546.274962,
+        "signal": -564.447341,
+        "hist": 18.172379,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -23837,11 +26152,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 41.446766,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -65.333681,
+        "signal": -31.58929,
+        "hist": -33.744392,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -23955,11 +26282,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 53.462593,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 346.781241,
+        "signal": 347.02656,
+        "hist": -0.245319,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -24078,11 +26417,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 34.536887,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -73.920839,
+        "signal": -67.461216,
+        "hist": -6.459624,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -24196,11 +26547,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 48.061115,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -850.793235,
+        "signal": -1336.326868,
+        "hist": 485.533633,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -24319,11 +26682,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 51.422379,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 176.914302,
+        "signal": 76.355741,
+        "hist": 100.558561,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -24437,11 +26812,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 45.021779,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 1076.026229,
+        "signal": 2331.827685,
+        "hist": -1255.801456,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -24555,11 +26942,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 80.172067,
+        "zone": "OVERBOUGHT_70"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 270.211696,
+        "signal": 140.222404,
+        "hist": 129.989292,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -24673,11 +27072,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 56.646712,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 321.974363,
+        "signal": -261.270788,
+        "hist": 583.245151,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -24796,11 +27207,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 62.973286,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 7878.532163,
+        "signal": 4708.560082,
+        "hist": 3169.97208,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -24919,11 +27342,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 48.399891,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -10256.234971,
+        "signal": -12816.445441,
+        "hist": 2560.21047,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -25042,11 +27477,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 56.61399,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 2449.811177,
+        "signal": 1461.654283,
+        "hist": 988.156894,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -25165,11 +27612,23 @@
       },
       "matches_decliners_24": true,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 50.445867,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 161.80316,
+        "signal": 111.483574,
+        "hist": 50.319586,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -25288,11 +27747,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 45.856394,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 49.412584,
+        "signal": 93.875083,
+        "hist": -44.462499,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -25411,11 +27882,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 48.646111,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -468.801189,
+        "signal": -333.790837,
+        "hist": -135.010352,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -25534,11 +28017,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 42.713365,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -2930.819469,
+        "signal": 5611.068381,
+        "hist": -8541.88785,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -25657,11 +28152,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 46.238649,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 21.870837,
+        "signal": 79.380552,
+        "hist": -57.509715,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -25775,11 +28282,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 56.50068,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 207.755162,
+        "signal": 182.049192,
+        "hist": 25.70597,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -25898,11 +28417,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 37.893331,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -2479.100879,
+        "signal": -1766.390015,
+        "hist": -712.710864,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -26021,11 +28552,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 49.786454,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 9449.88555,
+        "signal": 9575.299602,
+        "hist": -125.414052,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -26144,11 +28687,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 46.954264,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 5.189304,
+        "signal": 4.822207,
+        "hist": 0.367097,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -26267,11 +28822,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 42.625641,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -12674.307719,
+        "signal": -10858.113267,
+        "hist": -1816.194452,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -26385,11 +28952,23 @@
       },
       "matches_decliners_24": true,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 54.765232,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 594.131424,
+        "signal": 416.429587,
+        "hist": 177.701837,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -26508,11 +29087,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 61.746291,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 731.073431,
+        "signal": 927.349624,
+        "hist": -196.276193,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -26631,11 +29222,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 53.244249,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -10070.991588,
+        "signal": -14205.448407,
+        "hist": 4134.456819,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -26754,11 +29357,23 @@
       },
       "matches_decliners_24": true,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 57.386714,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 2783.300192,
+        "signal": 1740.637069,
+        "hist": 1042.663123,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -26877,11 +29492,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 43.888391,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -2660.11914,
+        "signal": -2277.910399,
+        "hist": -382.208742,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -27000,11 +29627,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 38.675208,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 2.811856,
+        "signal": 8.390172,
+        "hist": -5.578316,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -27118,11 +29757,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 51.891374,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 6551.201476,
+        "signal": 7412.731975,
+        "hist": -861.530499,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -27241,11 +29892,23 @@
       },
       "matches_decliners_24": true,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 53.381598,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 495.270022,
+        "signal": 424.302711,
+        "hist": 70.967311,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -27364,11 +30027,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 50.939242,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 3497.517098,
+        "signal": 3942.812209,
+        "hist": -445.295111,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -27487,11 +30162,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 53.162764,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 1043.632187,
+        "signal": 1011.26062,
+        "hist": 32.371567,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -27610,11 +30297,23 @@
       },
       "matches_decliners_24": true,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 50.017735,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -2165.756013,
+        "signal": -17123.919402,
+        "hist": 14958.163388,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -27733,11 +30432,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 42.944622,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 85.078154,
+        "signal": 160.819,
+        "hist": -75.740846,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -27851,11 +30562,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 37.332119,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -1009.22669,
+        "signal": -1058.095245,
+        "hist": 48.868555,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -27974,11 +30697,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 71.262351,
+        "zone": "OVERBOUGHT_70"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 6302.639705,
+        "signal": 3184.823118,
+        "hist": 3117.816588,
+        "line_sign": "POSITIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -28097,11 +30832,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 50.507194,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -596.537843,
+        "signal": -998.702431,
+        "hist": 402.164589,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -28220,11 +30967,23 @@
       },
       "matches_decliners_24": true,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 49.197064,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -124.817532,
+        "signal": -327.963562,
+        "hist": 203.14603,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "POSITIVE",
+        "crossover_state": "POSITIVE"
       }
     },
     {
@@ -28343,11 +31102,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 48.994352,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": 664.302417,
+        "signal": 703.374408,
+        "hist": -39.071991,
+        "line_sign": "POSITIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -28466,11 +31237,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 44.902434,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -31.333043,
+        "signal": 218.074086,
+        "hist": -249.407128,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -28589,11 +31372,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 28.531275,
+        "zone": "OVERSOLD_30"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -14438.169111,
+        "signal": -9516.144229,
+        "hist": -4922.024881,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -28712,11 +31507,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 42.858555,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -374.499155,
+        "signal": 34.488452,
+        "hist": -408.987607,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     },
     {
@@ -28835,11 +31642,23 @@
       },
       "matches_decliners_24": false,
       "pending_metrics": {
-        "rsi": null,
-        "macd": null,
         "investment_score_100": null,
         "earnings_outlook_change": null,
         "confirmed_swing_low_stop": null
+      },
+      "rsi": {
+        "status": "OK",
+        "value": 44.88911,
+        "zone": "NEUTRAL"
+      },
+      "macd": {
+        "status": "OK",
+        "line": -183.64658,
+        "signal": 203.479513,
+        "hist": -387.126093,
+        "line_sign": "NEGATIVE",
+        "hist_sign": "NEGATIVE",
+        "crossover_state": "NEGATIVE"
       }
     }
   ],
@@ -28853,12 +31672,41 @@
     "return_1w_calculated": true,
     "return_ytd_calculated": true,
     "return_52w_calculated": true,
-    "rsi_calculated": false,
-    "macd_calculated": false,
+    "rsi_calculated": true,
+    "macd_calculated": true,
     "investment_score_100_calculated": false,
     "earnings_outlook_change_calculated": false,
     "confirmed_swing_low_stop_calculated": false,
     "kosdaq_sector_mapping_invented": false,
     "new_command_defined": false
-  }
+  },
+  "rsi_macd_contract_version": "2026-09-14-v8.7.20-standalone-swing-rsi-macd-source",
+  "rsi_contract": {
+    "name": "WILDER_RSI_14_SMA_SEEDED",
+    "period": 14,
+    "input": "confirmed_daily_close",
+    "gain_loss_seed": "SMA_FIRST_14_CHANGES",
+    "smoothing": "WILDER_RECURSIVE_ALPHA_1_OVER_14",
+    "formula": "RSI=100-100/(1+avg_gain/avg_loss)",
+    "zones": {
+      "overbought": ">=70",
+      "oversold": "<=30",
+      "neutral": "otherwise"
+    }
+  },
+  "macd_contract": {
+    "name": "PERIOD_EMA_MACD_12_26_9_SMA_SEEDED",
+    "input": "confirmed_daily_close",
+    "fast_period": 12,
+    "slow_period": 26,
+    "signal_period": 9,
+    "ema_alpha": "2/(period+1)",
+    "ema_seed": "SMA_FIRST_PERIOD_VALUES",
+    "line": "EMA12-EMA26",
+    "signal": "EMA9(MACD_LINE)",
+    "histogram": "MACD_LINE-SIGNAL",
+    "fixed_factor_macdfix_selected": false
+  },
+  "rsi_ready_count": 235,
+  "macd_ready_count": 235
 }

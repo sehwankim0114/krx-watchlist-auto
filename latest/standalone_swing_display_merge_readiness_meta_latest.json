@@ -1,5 +1,5 @@
 {
-  "contract_version": "2026-09-13-v8.7.18-standalone-swing-readiness-sync",
+  "contract_version": "2026-09-14-v8.7.20-standalone-swing-readiness-rsi-macd-sync",
   "status": "FROZEN_PREPRODUCTION_READY",
   "display_merge_contract_frozen": true,
   "return_basis_contract_frozen": true,
@@ -10,21 +10,19 @@
   "range3m_position_unavailable": 22,
   "resolved_activation_blockers": [
     "REQUEST_TIME_DISPLAY_MERGE_CONTRACT_NOT_FROZEN_FOR_STANDALONE",
-    "1W_YTD_52W_FORMULAS_NOT_APPROVED"
+    "1W_YTD_52W_FORMULAS_NOT_APPROVED",
+    "RSI_MACD_FORMULAS_NOT_APPROVED"
   ],
-  "remaining_activation_blocker_count": 7,
+  "remaining_activation_blocker_count": 6,
   "remaining_activation_blockers": [
     "NO_FINAL_STANDALONE_TABLE_HEADER_CONTRACT",
     "NO_STANDALONE_COMMAND_OR_ROUTE_CONTRACT",
-    "RSI_MACD_FORMULAS_NOT_APPROVED",
     "CONFIRMED_SWING_LOW_STOP_POLICY_NOT_DEFINED",
     "INVESTMENT_SCORE_THRESHOLDS_NOT_DEFINED",
     "EARNINGS_OUTLOOK_SOURCE_NOT_CONNECTED",
     "KOSDAQ_OFFICIAL_SECTOR_RS_CONTRACT_NOT_DEFINED"
   ],
   "pending_metrics": [
-    "rsi",
-    "macd",
     "investment_score_100",
     "earnings_outlook_change",
     "confirmed_swing_low_stop"
@@ -42,7 +40,7 @@
     "ytd": "2025-12-30",
     "52w": "2025-09-12"
   },
-  "source_contract_version": "2026-09-13-v8.7.17-standalone-swing-integrated-returns-source",
+  "source_contract_version": "2026-09-14-v8.7.20-standalone-swing-integrated-rsi-macd-source",
   "source_sha256": {
     "latest/standalone_swing_integrated_latest.json": "f746b3b603b2a58411dbdd1078d8516ea950d24326bdacfb2ac53b73526986d5",
     "latest/standalone_swing_integrated_meta_latest.json": "cfc9c0951238d0a596e9f3b29392e561fd19bf7e2ebdc57f735c22176fb6b11f",
@@ -66,5 +64,32 @@
     "final_position_label_invented": false,
     "recommendation_contract_invented": false,
     "price_zone_contract_invented": false
+  },
+  "rsi_macd_contract_frozen": true,
+  "rsi_contract": {
+    "name": "WILDER_RSI_14_SMA_SEEDED",
+    "period": 14,
+    "input": "confirmed_daily_close",
+    "gain_loss_seed": "SMA_FIRST_14_CHANGES",
+    "smoothing": "WILDER_RECURSIVE_ALPHA_1_OVER_14",
+    "formula": "RSI=100-100/(1+avg_gain/avg_loss)",
+    "zones": {
+      "overbought": ">=70",
+      "oversold": "<=30",
+      "neutral": "otherwise"
+    }
+  },
+  "macd_contract": {
+    "name": "PERIOD_EMA_MACD_12_26_9_SMA_SEEDED",
+    "input": "confirmed_daily_close",
+    "fast_period": 12,
+    "slow_period": 26,
+    "signal_period": 9,
+    "ema_alpha": "2/(period+1)",
+    "ema_seed": "SMA_FIRST_PERIOD_VALUES",
+    "line": "EMA12-EMA26",
+    "signal": "EMA9(MACD_LINE)",
+    "histogram": "MACD_LINE-SIGNAL",
+    "fixed_factor_macdfix_selected": false
   }
 }

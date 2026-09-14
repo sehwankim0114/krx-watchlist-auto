@@ -1,0 +1,54 @@
+{
+  "contract_version": "2026-09-14-v8.7.20-standalone-swing-rsi-macd-source",
+  "status": "READY_SOURCE_ONLY",
+  "basis_date": "2026-09-11",
+  "row_count": 235,
+  "rsi_ready_count": 235,
+  "macd_ready_count": 235,
+  "rsi_contract": {
+    "name": "WILDER_RSI_14_SMA_SEEDED",
+    "period": 14,
+    "input": "confirmed_daily_close",
+    "gain_loss_seed": "SMA_FIRST_14_CHANGES",
+    "smoothing": "WILDER_RECURSIVE_ALPHA_1_OVER_14",
+    "formula": "RSI=100-100/(1+avg_gain/avg_loss)",
+    "zones": {
+      "overbought": ">=70",
+      "oversold": "<=30",
+      "neutral": "otherwise"
+    }
+  },
+  "macd_contract": {
+    "name": "PERIOD_EMA_MACD_12_26_9_SMA_SEEDED",
+    "input": "confirmed_daily_close",
+    "fast_period": 12,
+    "slow_period": 26,
+    "signal_period": 9,
+    "ema_alpha": "2/(period+1)",
+    "ema_seed": "SMA_FIRST_PERIOD_VALUES",
+    "line": "EMA12-EMA26",
+    "signal": "EMA9(MACD_LINE)",
+    "histogram": "MACD_LINE-SIGNAL",
+    "fixed_factor_macdfix_selected": false
+  },
+  "evidence": {
+    "v8719_run_id": 34790950755,
+    "v8719_job_id": 103814938056,
+    "v8719_artifact_id": 10328676199,
+    "v8719_artifact_sha256": "7bcaf1c9bf5d8d2626b8cda02838032d316aa75714ab2ae71b06556c8d49c432",
+    "rsi_zone_mismatch_between_candidates": 31,
+    "macd_line_sign_mismatch_between_candidates": 1,
+    "macd_hist_sign_mismatch_between_candidates": 1,
+    "macd_crossover_state_mismatch_between_candidates": 1
+  },
+  "safety": {
+    "confirmed_daily_close_only": true,
+    "request_time_price_used": false,
+    "production_table_changed": false,
+    "worker_changed": false,
+    "action_schema_changed": false,
+    "new_command_defined": false,
+    "route_enabled": false,
+    "final_header_selected": false
+  }
+}

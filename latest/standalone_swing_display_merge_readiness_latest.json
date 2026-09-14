@@ -1,6 +1,6 @@
 {
-  "contract_version": "2026-09-13-v8.7.18-standalone-swing-readiness-sync",
-  "script_version": "standalone_swing_readiness_sync_v8718.py v1.0.0",
+  "contract_version": "2026-09-14-v8.7.20-standalone-swing-readiness-rsi-macd-sync",
+  "script_version": "standalone_swing_rsi_macd_v8720.py v1.0.0",
   "status": "FROZEN_PREPRODUCTION_READY",
   "display_merge_contract_frozen": true,
   "production_activation_allowed": false,
@@ -257,7 +257,6 @@
   "remaining_activation_blockers": [
     "NO_FINAL_STANDALONE_TABLE_HEADER_CONTRACT",
     "NO_STANDALONE_COMMAND_OR_ROUTE_CONTRACT",
-    "RSI_MACD_FORMULAS_NOT_APPROVED",
     "CONFIRMED_SWING_LOW_STOP_POLICY_NOT_DEFINED",
     "INVESTMENT_SCORE_THRESHOLDS_NOT_DEFINED",
     "EARNINGS_OUTLOOK_SOURCE_NOT_CONNECTED",
@@ -288,11 +287,12 @@
     }
   },
   "source_contracts": {
-    "integrated_source": "2026-09-13-v8.7.17-standalone-swing-integrated-returns-source",
+    "integrated_source": "2026-09-14-v8.7.20-standalone-swing-integrated-rsi-macd-source",
     "extended_returns_source": "2026-09-13-v8.7.17-standalone-swing-return-basis-source",
     "preproduction_freeze": "2026-09-13-v8.7.18-standalone-swing-readiness-sync",
     "display_merge_base_contract": "2026-09-13-v8.7.13-standalone-swing-display-merge-freeze",
-    "manifest_route_contract_version": "2026-07-15-v8.2-command-route-contract"
+    "manifest_route_contract_version": "2026-07-15-v8.2-command-route-contract",
+    "rsi_macd_source": "2026-09-14-v8.7.20-standalone-swing-rsi-macd-source"
   },
   "source_sha256": {
     "latest/standalone_swing_integrated_latest.json": "f746b3b603b2a58411dbdd1078d8516ea950d24326bdacfb2ac53b73526986d5",
@@ -333,14 +333,40 @@
     "52w": "2025-09-12"
   },
   "pending_metrics": [
-    "rsi",
-    "macd",
     "investment_score_100",
     "earnings_outlook_change",
     "confirmed_swing_low_stop"
   ],
   "resolved_activation_blockers": [
     "REQUEST_TIME_DISPLAY_MERGE_CONTRACT_NOT_FROZEN_FOR_STANDALONE",
-    "1W_YTD_52W_FORMULAS_NOT_APPROVED"
-  ]
+    "1W_YTD_52W_FORMULAS_NOT_APPROVED",
+    "RSI_MACD_FORMULAS_NOT_APPROVED"
+  ],
+  "rsi_macd_contract_frozen": true,
+  "rsi_contract": {
+    "name": "WILDER_RSI_14_SMA_SEEDED",
+    "period": 14,
+    "input": "confirmed_daily_close",
+    "gain_loss_seed": "SMA_FIRST_14_CHANGES",
+    "smoothing": "WILDER_RECURSIVE_ALPHA_1_OVER_14",
+    "formula": "RSI=100-100/(1+avg_gain/avg_loss)",
+    "zones": {
+      "overbought": ">=70",
+      "oversold": "<=30",
+      "neutral": "otherwise"
+    }
+  },
+  "macd_contract": {
+    "name": "PERIOD_EMA_MACD_12_26_9_SMA_SEEDED",
+    "input": "confirmed_daily_close",
+    "fast_period": 12,
+    "slow_period": 26,
+    "signal_period": 9,
+    "ema_alpha": "2/(period+1)",
+    "ema_seed": "SMA_FIRST_PERIOD_VALUES",
+    "line": "EMA12-EMA26",
+    "signal": "EMA9(MACD_LINE)",
+    "histogram": "MACD_LINE-SIGNAL",
+    "fixed_factor_macdfix_selected": false
+  }
 }

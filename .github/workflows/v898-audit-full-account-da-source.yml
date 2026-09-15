@@ -1,0 +1,499 @@
+name: Audit full-account D&A source v8.9.8
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v898-audit-full-account-da-source.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v898-full-account-da-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Create V8.9.8 targeted full-account D&A auditor
+        shell: bash
+        run: |
+          cat > investment_score_da_full_account_v898.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import csv, json, os, time
+          from collections import defaultdict
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_source_enricher_v854 as src
+
+          VERSION = "2026-09-15-v8.9.8-targeted-full-account-da-audit"
+          V897_VERSION = "2026-09-15-v8.9.7-refresh-single-blocker-da-xbrl"
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+
+          V897_CSV = ROOT / "latest/investment_score_single_da_xbrl_refresh_v897.csv"
+          V897_JSON = ROOT / "latest/investment_score_single_da_xbrl_refresh_v897_summary_latest.json"
+          FIN_CACHE = ROOT / "latest/financial_valuation_cache_latest.csv"
+          SRC_CACHE = ROOT / "latest/investment_score_source_cache_latest.csv"
+
+          OUT_CSV = ROOT / "latest/investment_score_da_full_account_v898.csv"
+          OUT_JSON = ROOT / "latest/investment_score_da_full_account_v898_summary_latest.json"
+          OUT_LOG = ROOT / "latest/investment_score_da_full_account_v898_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_da_full_account_v898.md"
+
+          APPROVED = {
+              "ifrs-full_AdjustmentsForDepreciationExpense",
+              "ifrs-full_AdjustmentsForAmortisationExpense",
+          }
+          LOCAL_TO_FULL = {
+              "AdjustmentsForDepreciationExpense":
+                  "ifrs-full_AdjustmentsForDepreciationExpense",
+              "AdjustmentsForAmortisationExpense":
+                  "ifrs-full_AdjustmentsForAmortisationExpense",
+          }
+          EXPECTED = {"012450", "017670", "022100"}
+
+          def load_json(path):
+              return json.loads(path.read_text(encoding="utf-8-sig"))
+
+          def load_csv(path):
+              with path.open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
+
+          def parse_list(value):
+              try:
+                  data = json.loads(str(value or ""))
+              except Exception:
+                  return []
+              return data if isinstance(data, list) else []
+
+          def number(value):
+              try:
+                  if value in (None, "", "null", "None"):
+                      return None
+                  return float(value)
+              except Exception:
+                  return None
+
+          def exact_stats(candidates):
+              grouped = defaultdict(list)
+              for item in candidates:
+                  aid = str(item.get("account_id") or "").strip()
+                  if aid in APPROVED:
+                      grouped[aid].append(item)
+
+              out = {}
+              for aid in sorted(APPROVED):
+                  rows = grouped.get(aid, [])
+                  nums = [
+                      number(r.get("amount"))
+                      for r in rows
+                      if number(r.get("amount")) is not None
+                  ]
+                  out[aid] = {
+                      "occurrence_count": len(rows),
+                      "unique_numeric_values": sorted(set(nums)),
+                      "account_names": sorted({
+                          str(r.get("account_nm") or "").strip()
+                          for r in rows
+                          if str(r.get("account_nm") or "").strip()
+                      }),
+                  }
+              return out
+
+          def classify(stats):
+              present = {
+                  aid for aid, x in stats.items()
+                  if x["occurrence_count"] > 0
+              }
+              unique = {
+                  aid for aid, x in stats.items()
+                  if len(x["unique_numeric_values"]) == 1
+              }
+              conflict = {
+                  aid for aid, x in stats.items()
+                  if len(x["unique_numeric_values"]) > 1
+              }
+              if conflict:
+                  return "APPROVED_EXACT_VALUE_CONFLICT"
+              if present == APPROVED and unique == APPROVED:
+                  return "BOTH_APPROVED_EXACT_UNIQUE_NUMERIC"
+              if present and unique == present:
+                  return "PARTIAL_APPROVED_EXACT_UNIQUE_NUMERIC"
+              if present:
+                  return "APPROVED_EXACT_PRESENT_NONUNIQUE_OR_NONNUMERIC"
+              return "NO_APPROVED_EXACT"
+
+          def main():
+              api_key = os.environ.get("DART_API_KEY", "").strip()
+              if not api_key:
+                  raise RuntimeError("DART_API_KEY_MISSING")
+
+              for path in (V897_CSV, V897_JSON, FIN_CACHE, SRC_CACHE):
+                  if not path.is_file():
+                      raise RuntimeError("MISSING_REQUIRED_SOURCE:" + str(path))
+
+              s897 = load_json(V897_JSON)
+              if s897.get("version") != V897_VERSION or s897.get("status") != "AUDIT_ONLY":
+                  raise RuntimeError("V897_CONTRACT_MISMATCH")
+
+              rows897 = load_csv(V897_CSV)
+              partial = {
+                  str(r.get("ticker") or "").zfill(6): r
+                  for r in rows897
+                  if r.get("refresh_classification") == "PARTIAL_APPROVED_EXACT_ONLY"
+              }
+              if set(partial) != EXPECTED:
+                  raise RuntimeError("V897_PARTIAL_SET_CHANGED:" + repr(sorted(partial)))
+
+              financial_df = src.read_csv(FIN_CACHE)
+              all_targets = src.load_targets(financial_df)
+              dominant_year, dominant_code = src.dominant_period(all_targets)
+              annual_year = dominant_year - 1
+              target_map = {t["ticker"]: t for t in all_targets}
+              cache = src.load_existing_cache(SRC_CACHE)
+
+              client = src.OpenDartClient(api_key, timeout=30)
+              rows = []
+              recovered = []
+              both_ready = []
+
+              for code in sorted(EXPECTED):
+                  v897 = partial[code]
+                  target = target_map.get(code)
+                  if not target:
+                      raise RuntimeError("V854_TARGET_NOT_AVAILABLE:" + code)
+                  if target["corp_code"] != str(v897.get("corp_code") or ""):
+                      raise RuntimeError("CORP_CODE_MISMATCH:" + code)
+
+                  xbrl_local = {
+                      x for x in str(v897.get("best_approved_exact_local_names") or "").split("|")
+                      if x
+                  }
+                  xbrl_full = {
+                      LOCAL_TO_FULL[x] for x in xbrl_local if x in LOCAL_TO_FULL
+                  }
+                  missing = APPROVED - xbrl_full
+                  if len(xbrl_full) != 1 or len(missing) != 1:
+                      raise RuntimeError("V897_EXPECTED_ONE_EXISTING_ONE_MISSING:" + code)
+
+                  old = cache.get(code, {})
+                  old_candidates = parse_list(
+                      old.get("depreciation_amortization_candidates_json")
+                  )
+                  old_stats = exact_stats(old_candidates)
+
+                  fresh = src.fetch_deep_one(client, target, annual_year)
+                  fresh_candidates = parse_list(fresh.get("da_json"))
+                  fresh_stats = exact_stats(fresh_candidates)
+                  fresh_class = classify(fresh_stats)
+
+                  missing_id = next(iter(missing))
+                  existing_id = next(iter(xbrl_full))
+                  missing_values = fresh_stats[missing_id]["unique_numeric_values"]
+                  existing_values = fresh_stats[existing_id]["unique_numeric_values"]
+
+                  missing_ok = len(missing_values) == 1
+                  if missing_ok:
+                      recovered.append(code)
+                  if fresh_class == "BOTH_APPROVED_EXACT_UNIQUE_NUMERIC":
+                      both_ready.append(code)
+
+                  rows.append({
+                      "ticker": code,
+                      "name": v897.get("name") or target.get("name") or "",
+                      "market": v897.get("market") or target.get("market") or "",
+                      "corp_code": target["corp_code"],
+                      "dominant_financial_period": f"{dominant_year}_{dominant_code}",
+                      "annual_source_year": annual_year,
+                      "preferred_fs_div": target["preferred_fs_div"],
+                      "fresh_deep_status": fresh.get("status") or "",
+                      "fresh_deep_fs_div": fresh.get("fs_div") or "",
+                      "fresh_deep_message": fresh.get("message") or "",
+                      "v897_existing_exact_id": existing_id,
+                      "v897_missing_exact_id": missing_id,
+                      "current_cache_deep_source_year": old.get("deep_source_year") or "",
+                      "current_cache_deep_fs_div": old.get("deep_fs_div") or "",
+                      "current_cache_exact_classification": classify(old_stats),
+                      "current_cache_exact_stats_json": json.dumps(
+                          old_stats, ensure_ascii=False, separators=(",", ":")
+                      ),
+                      "fresh_exact_classification": fresh_class,
+                      "fresh_existing_exact_unique_values": "|".join(map(str, existing_values)),
+                      "fresh_missing_exact_unique_values": "|".join(map(str, missing_values)),
+                      "fresh_missing_exact_recovered": "TRUE" if missing_ok else "FALSE",
+                      "fresh_exact_stats_json": json.dumps(
+                          fresh_stats, ensure_ascii=False, separators=(",", ":")
+                      ),
+                      "fresh_da_candidates_json": json.dumps(
+                          fresh_candidates, ensure_ascii=False, separators=(",", ":")
+                      ),
+                  })
+                  time.sleep(0.25)
+
+              recovered = sorted(recovered)
+              both_ready = sorted(both_ready)
+              next_step = (
+                  "AUDIT_V898_BOTH_EXACT_VALUES_FOR_SOURCE_PROMOTION_WITHOUT_CHANGING_APPROVED_IDS"
+                  if both_ready
+                  else "MOVE_TO_FINANCIAL_VALUATION_CACHE_SINGLE_BLOCKERS"
+              )
+
+              OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+              with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+                  w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+                  w.writeheader()
+                  w.writerows(rows)
+
+              summary = {
+                  "version": VERSION,
+                  "v897_version": V897_VERSION,
+                  "v854_script_version": src.SCRIPT_VERSION,
+                  "v854_source_contract_version": src.SOURCE_CONTRACT_VERSION,
+                  "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+                  "status": "AUDIT_ONLY",
+                  "target_count": 3,
+                  "target_tickers": sorted(EXPECTED),
+                  "dominant_financial_period": f"{dominant_year}_{dominant_code}",
+                  "annual_source_year": annual_year,
+                  "official_source": {
+                      "endpoint": src.FULL_ACCOUNT_URL,
+                      "selection_policy": "V854 preferred FS -> CFS -> OFS",
+                      "candidate_extractor": "V854 deep_candidates",
+                  },
+                  "missing_exact_recovered_count": len(recovered),
+                  "missing_exact_recovered_tickers": recovered,
+                  "both_approved_exact_unique_numeric_count": len(both_ready),
+                  "both_approved_exact_unique_numeric_tickers": both_ready,
+                  "api_telemetry": {
+                      "attempted": client.attempted,
+                      "successful": client.successful,
+                      "transport_failures": client.transport_failures,
+                      "dart_status_failures": client.dart_status_failures,
+                  },
+                  "automatic_promotion": {
+                      "allowed": False,
+                      "promoted_ticker_count": 0,
+                  },
+                  "hard_guards": {
+                      "production_api_changed": False,
+                      "production_investment_score_written": False,
+                      "scoring_policy_changed": False,
+                      "approved_da_ids_changed": False,
+                      "source_cache_mutated": False,
+                      "v894_da_source_mutated": False,
+                      "v897_evidence_mutated": False,
+                      "missing_da_assumed_zero": False,
+                  },
+                  "next_step": next_step,
+              }
+              OUT_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+
+              OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+              OUT_DOC.write_text(
+                  "\n".join([
+                      "# V8.9.8 targeted OpenDART full-account D&A audit",
+                      "",
+                      f"- Version: `{VERSION}`",
+                      "- Status: AUDIT_ONLY",
+                      "- Targets: 012450, 017670, 022100",
+                      "",
+                      "## Source",
+                      "",
+                      "- Reuses V8.5.4 official full-account source path.",
+                      "- Reuses V8.5.4 preferred FS -> CFS -> OFS selection.",
+                      "- Reuses V8.5.4 D&A raw-candidate extraction.",
+                      "",
+                      "## Safety",
+                      "",
+                      "- No new D&A account ID is approved.",
+                      "- No partial fact is promoted.",
+                      "- Missing D&A is never assumed to be zero.",
+                      "- Source cache and production score are not modified.",
+                      "",
+                      "## Next",
+                      "",
+                      f"`{next_step}`",
+                      "",
+                  ]),
+                  encoding="utf-8",
+              )
+
+              log = [
+                  f"VERSION={VERSION}",
+                  "TARGET_COUNT=3",
+                  "TARGET_TICKERS=" + ",".join(sorted(EXPECTED)),
+                  f"DOMINANT_FINANCIAL_PERIOD={dominant_year}_{dominant_code}",
+                  f"ANNUAL_SOURCE_YEAR={annual_year}",
+                  f"MISSING_EXACT_RECOVERED={len(recovered)}",
+                  "MISSING_EXACT_RECOVERED_TICKERS=" + ",".join(recovered),
+                  f"BOTH_APPROVED_EXACT_UNIQUE_NUMERIC={len(both_ready)}",
+                  "BOTH_EXACT_TICKERS=" + ",".join(both_ready),
+                  f"DART_API_ATTEMPTED={client.attempted}",
+                  f"DART_API_SUCCESSFUL={client.successful}",
+                  f"DART_TRANSPORT_FAILURES={len(client.transport_failures)}",
+                  f"DART_STATUS_FAILURES={len(client.dart_status_failures)}",
+                  "AUTO_PROMOTION=false",
+                  "PRODUCTION_DATA_CHANGED=false",
+                  "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+                  "SCORING_POLICY_CHANGED=false",
+                  "APPROVED_DA_IDS_CHANGED=false",
+                  "SOURCE_CACHE_MUTATED=false",
+                  "MISSING_DA_ASSUMED_ZERO=false",
+                  "STATUS=OK",
+                  f"NEXT_STEP={next_step}",
+              ]
+              OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+
+              print("V898_FULL_ACCOUNT_DA_AUDIT=PASS")
+              print("\n".join(log))
+
+          if __name__ == "__main__":
+              main()
+
+          PY
+      - name: Run official OpenDART full-account audit
+        shell: bash
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: |
+          set -euo pipefail
+          python -m py_compile investment_score_da_full_account_v898.py
+          python investment_score_da_full_account_v898.py
+          grep -q '^STATUS=OK$' latest/investment_score_da_full_account_v898_run_log_latest.txt
+      - name: Validate V8.9.8 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import csv, json
+          from pathlib import Path
+          s = json.loads(
+              Path("latest/investment_score_da_full_account_v898_summary_latest.json")
+              .read_text(encoding="utf-8")
+          )
+          with Path("latest/investment_score_da_full_account_v898.csv").open(
+              encoding="utf-8-sig", newline=""
+          ) as f:
+              rows = list(csv.DictReader(f))
+          expected = {"012450","017670","022100"}
+          assert s["status"] == "AUDIT_ONLY"
+          assert s["target_count"] == 3
+          assert set(s["target_tickers"]) == expected
+          assert len(rows) == 3 and {r["ticker"] for r in rows} == expected
+          assert s["automatic_promotion"] == {"allowed": False, "promoted_ticker_count": 0}
+          assert all(v is False for v in s["hard_guards"].values())
+          print("V898_VALIDATION=PASS")
+          print("MISSING_EXACT_RECOVERED=" + str(s["missing_exact_recovered_count"]))
+          print("MISSING_EXACT_RECOVERED_TICKERS=" + ",".join(s["missing_exact_recovered_tickers"]))
+          print("BOTH_APPROVED_EXACT_UNIQUE_NUMERIC=" + str(s["both_approved_exact_unique_numeric_count"]))
+          print("BOTH_EXACT_TICKERS=" + ",".join(s["both_approved_exact_unique_numeric_tickers"]))
+          print("NEXT_STEP=" + s["next_step"])
+          PY
+
+      - name: Verify protected files unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git status --porcelain -- \
+            api/two_table_v1 \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_da_source_v894.csv \
+            latest/investment_score_da_source_v894_summary_latest.json \
+            latest/investment_score_remaining_blockers_v895.csv \
+            latest/investment_score_remaining_blockers_v895_summary_latest.json \
+            latest/investment_score_supply_evidence_v896_summary_latest.json \
+            latest/investment_score_single_da_xbrl_refresh_v897.csv \
+            latest/investment_score_single_da_xbrl_refresh_v897_summary_latest.json | grep -q .; then
+            echo "::error::Protected source/production/evidence files changed"
+            git status --short
+            exit 1
+          fi
+          echo "V898_PROTECTED_FILES_UNCHANGED=PASS"
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+          allowed = {
+              "investment_score_da_full_account_v898.py",
+              "docs/investment_score_da_full_account_v898.md",
+              "latest/investment_score_da_full_account_v898.csv",
+              "latest/investment_score_da_full_account_v898_summary_latest.json",
+              "latest/investment_score_da_full_account_v898_run_log_latest.txt",
+          }
+          for p in allowed:
+              if not Path(p).exists():
+                  raise SystemExit("EXPECTED_OUTPUT_MISSING=" + p)
+          out = subprocess.check_output(["git","status","--porcelain"], text=True)
+          changed = set()
+          for line in out.splitlines():
+              if line.strip():
+                  p = line[3:]
+                  if " -> " in p:
+                      p = p.split(" -> ",1)[1]
+                  changed.add(p)
+          unexpected = changed - allowed
+          if unexpected:
+              raise SystemExit("CHANGE_SCOPE_UNEXPECTED=" + repr(sorted(unexpected)))
+          if not changed:
+              raise SystemExit("NO_CHANGES_DETECTED")
+          print("CHANGE_SCOPE=PASS")
+          print("CHANGED_FILES=" + ",".join(sorted(changed)))
+          PY
+
+      - name: Commit and push audit results
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add \
+            investment_score_da_full_account_v898.py \
+            docs/investment_score_da_full_account_v898.md \
+            latest/investment_score_da_full_account_v898.csv \
+            latest/investment_score_da_full_account_v898_summary_latest.json \
+            latest/investment_score_da_full_account_v898_run_log_latest.txt
+          git commit -m "Audit full-account D&A source v8.9.8"
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          fi
+          git push origin HEAD:main
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "PRODUCTION_DATA_CHANGED=false"
+          echo "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false"
+          echo "SCORING_POLICY_CHANGED=false"
+          echo "SOURCE_CACHE_MUTATED=false"
+          echo "NEXT_STEP=READ_V898_SUMMARY"
+

@@ -1,4 +1,4 @@
-name: Promote source-only D&A layer v8.8.8
+name: Dry-run EV EBITDA with V8.8.8 D&A v8.8.9
 
 on:
   workflow_dispatch:
@@ -12,11 +12,11 @@ permissions:
   contents: write
 
 concurrency:
-  group: v888-source-only-da-promotion
+  group: v889-ev-ebitda-da-merge-dry-run
   cancel-in-progress: false
 
 jobs:
-  promote:
+  dryrun:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -37,55 +37,49 @@ jobs:
         run: |
           set -euo pipefail
           echo "BASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
-          echo "V888_BASE_SHA=$(git rev-parse HEAD)"
+          echo "V889_BASE_SHA=$(git rev-parse HEAD)"
 
-      - name: Create V8.8.8 source-only D&A promoter
+      - name: Create V8.8.9 EV EBITDA merge dry-run
         shell: bash
         run: |
           set -euo pipefail
 
-          cat > investment_score_da_source_v888.py <<'PY'
+          cat > investment_score_ev_ebitda_merge_dry_run_v889.py <<'PY'
           #!/usr/bin/env python3
           from __future__ import annotations
 
           import csv
-          import hashlib
           import json
           import math
-          from collections import Counter, defaultdict
+          from collections import Counter
           from datetime import datetime
           from pathlib import Path
+          from statistics import median
           from zoneinfo import ZoneInfo
 
-          VERSION = "2026-09-15-v8.8.8-source-only-da-promotion"
+          import investment_score_v880_dry_run_v882 as scorer
+
+          VERSION = "2026-09-15-v8.8.9-ev-ebitda-da-merge-dry-run"
           POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
-          V887_VERSION = "2026-09-15-v8.8.7-xbrl-cfs-ofs-selection-audit"
+          V882_VERSION = "2026-09-13-v8.8.2-investment-score-dry-run-gate-reconciliation"
+          V883_VERSION = "2026-09-13-v8.8.3-da-exact-id-audit"
+          V888_VERSION = "2026-09-15-v8.8.8-source-only-da-promotion"
 
           KST = ZoneInfo("Asia/Seoul")
           ROOT = Path(".")
-          V887_CSV = ROOT / "latest/investment_score_xbrl_cfs_ofs_v887.csv"
-          V887_JSON = ROOT / "latest/investment_score_xbrl_cfs_ofs_v887_summary_latest.json"
-          POLICY_JSON = ROOT / "config/investment_score_policy_v880.json"
-          FINANCIAL_ENRICHER = ROOT / "financial_valuation_enricher.py"
-          OUT_CSV = ROOT / "latest/investment_score_da_source_v888.csv"
-          OUT_JSON = ROOT / "latest/investment_score_da_source_v888_summary_latest.json"
-          OUT_LOG = ROOT / "latest/investment_score_da_source_v888_run_log_latest.txt"
-          OUT_DOC = ROOT / "docs/investment_score_da_source_promotion_v888.md"
 
-          REQUIRED_NEXT_STEP = (
-              "FREEZE_CFS_OFS_CONTEXT_MAPPING_AND_PROMOTE_ONLY_BOTH_UNIQUE_"
-              "EXACT_FACTS_TO_A_SOURCE_ONLY_DA_LAYER"
-          )
-          REQUIRED_POLICY_TEXT = (
-              "연결재무제표(CFS)를 우선하고, 없을 때만 개별재무제표(OFS)를 쓴다."
-          )
-          EXPECTED_MEMBER = {"CFS": "ConsolidatedMember", "OFS": "SeparateMember"}
-          PROMOTION_CLASS = "MATCHED_FS_MEMBER_BOTH_FACTS_UNIQUE"
-          SOURCE_STATUS = "READY_SOURCE_ONLY_BOTH_EXACT_UNIQUE"
-          APPROVED = {
-              "AdjustmentsForDepreciationExpense": "ifrs-full_AdjustmentsForDepreciationExpense",
-              "AdjustmentsForAmortisationExpense": "ifrs-full_AdjustmentsForAmortisationExpense",
-          }
+          V882_SUMMARY = ROOT / "latest/investment_score_v880_dry_run_v882_summary_latest.json"
+          V883_SUMMARY = ROOT / "latest/investment_score_da_exact_id_audit_v883_summary_latest.json"
+          V888_CSV = ROOT / "latest/investment_score_da_source_v888.csv"
+          V888_SUMMARY = ROOT / "latest/investment_score_da_source_v888_summary_latest.json"
+
+          OUT_CSV = ROOT / "latest/investment_score_ev_ebitda_merge_v889.csv"
+          OUT_JSON = ROOT / "latest/investment_score_ev_ebitda_merge_v889_summary_latest.json"
+          OUT_LOG = ROOT / "latest/investment_score_ev_ebitda_merge_v889_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_ev_ebitda_merge_dry_run_v889.md"
+
+          DEP_ID = "ifrs-full_AdjustmentsForDepreciationExpense"
+          AMO_ID = "ifrs-full_AdjustmentsForAmortisationExpense"
 
           def read_json(path):
               return json.loads(path.read_text(encoding="utf-8-sig"))
@@ -94,294 +88,508 @@ jobs:
               with path.open(encoding="utf-8-sig", newline="") as f:
                   return list(csv.DictReader(f))
 
-          def sha256(path):
-              h = hashlib.sha256()
-              with path.open("rb") as f:
-                  for chunk in iter(lambda: f.read(1024 * 1024), b""):
-                      h.update(chunk)
-              return h.hexdigest()
-
-          def clean_ticker(v):
-              s = "".join(ch for ch in str(v or "") if ch.isdigit())
-              return s.zfill(6) if s else ""
-
           def finite(v):
+              if v is None or isinstance(v, bool):
+                  return None
               try:
                   x = float(v)
               except Exception:
                   return None
               return x if math.isfinite(x) else None
 
-          def is_true(v):
-              return str(v or "").strip().upper() == "TRUE"
+          def close_enough(a, b):
+              if a is None or b is None:
+                  return False
+              return abs(a - b) <= max(1.0, abs(b) * 1e-12)
 
-          def jlist(v):
-              obj = json.loads(str(v or ""))
-              if not isinstance(obj, list):
-                  raise RuntimeError("EXPECTED_JSON_LIST")
-              return obj
+          def ratio_and_status(fin, raw, is_fin):
+              if is_fin:
+                  return None, "FINANCIAL_SECTOR_NEUTRAL"
 
-          def canon(x):
-              if abs(x - round(x)) < 1e-9:
-                  return str(int(round(x)))
-              return format(x, ".15g")
+              cap = scorer.num(fin.get("market_cap"))
+              cash = scorer.num(raw.get("cash_and_cash_equivalents"))
+              op = scorer.num(raw.get("annual_operating_profit_y0"))
+              debt, ds, da, das = scorer.derived_debt_da(raw)
+
+              if cap is None:
+                  return None, "MISSING_MARKET_CAP"
+              if cash is None:
+                  return None, "MISSING_CASH"
+              if op is None:
+                  return None, "MISSING_OPERATING_PROFIT"
+              if debt is None:
+                  return None, "DEBT:" + ds
+              if da is None:
+                  return None, "DA:" + das
+
+              ebitda = op + da
+              if ebitda <= 0:
+                  return None, "NONPOSITIVE_EBITDA"
+
+              return (cap + debt - cash) / ebitda, "OK"
 
           def main():
-              for path in (V887_CSV, V887_JSON, POLICY_JSON, FINANCIAL_ENRICHER):
-                  if not path.is_file():
+              required = [
+                  V882_SUMMARY,
+                  V883_SUMMARY,
+                  V888_CSV,
+                  V888_SUMMARY,
+                  scorer.POLICY,
+                  scorer.FIN,
+                  scorer.RAW,
+              ]
+              for path in required:
+                  if not Path(path).is_file():
                       raise RuntimeError("MISSING_REQUIRED_SOURCE:" + str(path))
 
-              v887 = read_json(V887_JSON)
-              rows = read_csv(V887_CSV)
-              policy = read_json(POLICY_JSON)
-              enricher = FINANCIAL_ENRICHER.read_text(encoding="utf-8")
+              v882 = read_json(V882_SUMMARY)
+              v883 = read_json(V883_SUMMARY)
+              v888_summary = read_json(V888_SUMMARY)
+              v888_rows = read_csv(V888_CSV)
+              policy = read_json(scorer.POLICY)
 
-              if v887.get("version") != V887_VERSION: raise RuntimeError("V887_VERSION_MISMATCH")
-              if v887.get("status") != "SELECTION_AUDIT_ONLY": raise RuntimeError("V887_STATUS_MISMATCH")
-              if v887.get("target_count") != 57 or len(rows) != 57: raise RuntimeError("V887_TARGET_COUNT_MISMATCH")
-              if v887.get("source_fs_mismatch_count") != 0: raise RuntimeError("V887_SOURCE_FS_MISMATCH_NOT_ZERO")
-              if v887.get("both_approved_facts_unique_ticker_count") != 52: raise RuntimeError("V887_BOTH_UNIQUE_COUNT_MISMATCH")
-              if v887.get("partial_one_fact_ticker_count") != 4: raise RuntimeError("V887_PARTIAL_COUNT_MISMATCH")
-              if v887.get("no_matching_fs_member_ticker_count") != 1: raise RuntimeError("V887_NO_MEMBER_COUNT_MISMATCH")
-              if v887.get("remaining_value_conflict_ticker_count") != 0: raise RuntimeError("V887_VALUE_CONFLICT_NOT_ZERO")
-              if v887.get("remaining_multi_context_ticker_count") != 0: raise RuntimeError("V887_CONTEXT_CONFLICT_NOT_ZERO")
-              if v887.get("next_step") != REQUIRED_NEXT_STEP: raise RuntimeError("V887_NEXT_STEP_MISMATCH")
+              # Freeze all upstream contracts used in this dry-run.
+              if scorer.VERSION != V882_VERSION:
+                  raise RuntimeError("SCORER_V882_VERSION_MISMATCH")
+              if v882.get("version") != V882_VERSION:
+                  raise RuntimeError("V882_SUMMARY_VERSION_MISMATCH")
+              if v883.get("version") != V883_VERSION:
+                  raise RuntimeError("V883_SUMMARY_VERSION_MISMATCH")
+              if v883.get("approved_exact_ready_count") != 14:
+                  raise RuntimeError("V883_EXACT_READY_14_MISMATCH")
+              if v888_summary.get("version") != V888_VERSION:
+                  raise RuntimeError("V888_VERSION_MISMATCH")
+              if v888_summary.get("status") != "READY_SOURCE_ONLY":
+                  raise RuntimeError("V888_STATUS_MISMATCH")
+              if v888_summary.get("source_only_ready_count") != 52:
+                  raise RuntimeError("V888_READY_52_MISMATCH")
+              if not v888_summary.get("decision", {}).get("ready_for_ev_ebitda_dry_run"):
+                  raise RuntimeError("V888_NOT_READY_FOR_EV_EBITDA_DRY_RUN")
+              if v888_summary.get("decision", {}).get("ready_for_production_da_use") is not False:
+                  raise RuntimeError("V888_PRODUCTION_DA_GUARD_MISMATCH")
+              if policy.get("version") != POLICY_VERSION:
+                  raise RuntimeError("POLICY_VERSION_MISMATCH")
+              if policy.get("status") != "APPROVED_DESIGN_NOT_PRODUCTION":
+                  raise RuntimeError("POLICY_STATUS_MISMATCH")
 
-              mapping = v887.get("mapping_under_test") or {}
-              if mapping.get("axis") != "ifrs-full:ConsolidatedAndSeparateFinancialStatementsAxis": raise RuntimeError("V887_FS_AXIS_MISMATCH")
-              if mapping.get("CFS") != "ifrs-full:ConsolidatedMember": raise RuntimeError("V887_CFS_MEMBER_MISMATCH")
-              if mapping.get("OFS") != "ifrs-full:SeparateMember": raise RuntimeError("V887_OFS_MEMBER_MISMATCH")
-              if policy.get("version") != POLICY_VERSION: raise RuntimeError("V880_POLICY_VERSION_MISMATCH")
-              if policy.get("status") != "APPROVED_DESIGN_NOT_PRODUCTION": raise RuntimeError("V880_POLICY_STATUS_MISMATCH")
-              if REQUIRED_POLICY_TEXT not in enricher: raise RuntimeError("CFS_OFS_POLICY_TEXT_NOT_FOUND")
+              v888 = {}
+              for row in v888_rows:
+                  code = scorer.ticker(row.get("ticker"))
+                  if not code or code in v888:
+                      raise RuntimeError("V888_INVALID_OR_DUPLICATE_TICKER:" + code)
+                  if row.get("source_status") != "READY_SOURCE_ONLY_BOTH_EXACT_UNIQUE":
+                      raise RuntimeError("V888_SOURCE_STATUS_MISMATCH:" + code)
+                  dep = finite(row.get("depreciation_value"))
+                  amo = finite(row.get("amortisation_value"))
+                  total = finite(row.get("depreciation_amortization_total"))
+                  if None in (dep, amo, total):
+                      raise RuntimeError("V888_NONNUMERIC_DA:" + code)
+                  if not close_enough(dep + amo, total):
+                      raise RuntimeError("V888_DA_SUM_MISMATCH:" + code)
+                  v888[code] = {
+                      "dep": dep,
+                      "amo": amo,
+                      "total": total,
+                      "row": row,
+                  }
 
-              promoted, held, seen = [], [], set()
-              for row in rows:
-                  code = clean_ticker(row.get("ticker"))
-                  if not code or code in seen: raise RuntimeError("INVALID_OR_DUPLICATE_TICKER:" + code)
-                  seen.add(code)
-                  cls = str(row.get("selection_classification") or "")
-                  if cls != PROMOTION_CLASS:
-                      held.append((code, cls))
-                      continue
+              if len(v888) != 52:
+                  raise RuntimeError("V888_MAP_COUNT_MISMATCH")
 
-                  if str(row.get("source_fs_status") or "") != "CONSISTENT": raise RuntimeError("SOURCE_FS_NOT_CONSISTENT:" + code)
-                  fs = str(row.get("source_fs_div") or "")
-                  if fs not in EXPECTED_MEMBER: raise RuntimeError("FS_DIV_INVALID:" + code)
-                  if str(row.get("target_member") or "") != EXPECTED_MEMBER[fs]: raise RuntimeError("TARGET_MEMBER_MISMATCH:" + code)
-                  if str(row.get("xbrl_status") or "") != "OK": raise RuntimeError("XBRL_NOT_OK:" + code)
-                  if not is_true(row.get("both_approved_facts_unique")): raise RuntimeError("BOTH_UNIQUE_FALSE:" + code)
-                  if is_true(row.get("selected_value_conflict")): raise RuntimeError("VALUE_CONFLICT:" + code)
-                  if is_true(row.get("selected_context_conflict")): raise RuntimeError("CONTEXT_CONFLICT:" + code)
-                  if int(row.get("selected_depreciation_unique_values") or 0) != 1: raise RuntimeError("DEP_UNIQUE_COUNT:" + code)
-                  if int(row.get("selected_amortisation_unique_values") or 0) != 1: raise RuntimeError("AMO_UNIQUE_COUNT:" + code)
-                  if int(row.get("selected_unit_signature_count") or 0) != 1: raise RuntimeError("UNIT_SIGNATURE_COUNT:" + code)
-                  if jlist(row.get("selected_unit_signatures_json")) != ["iso4217:KRW"]: raise RuntimeError("UNIT_NOT_KRW:" + code)
+              prod = scorer.production_rows()
+              fin_map = scorer.read_csv_map(scorer.FIN)
+              raw_map = scorer.read_csv_map(scorer.RAW)
 
-                  values = defaultdict(set)
-                  units = set()
-                  for fact in jlist(row.get("selected_facts_json")):
-                      local = str(fact.get("local_name") or "")
-                      if local not in APPROVED:
-                          continue
-                      if str(fact.get("value_status") or "") != "OK": raise RuntimeError("FACT_VALUE_NOT_OK:" + code)
-                      value = finite(fact.get("normalized_value"))
-                      if value is None: raise RuntimeError("FACT_VALUE_NONNUMERIC:" + code)
-                      values[local].add(value)
-                      measures = tuple(sorted((fact.get("unit") or {}).get("measures") or []))
-                      if measures: units.add(measures)
+              if len(prod) != 112:
+                  raise RuntimeError(f"PRODUCTION_UNIQUE_TICKER_MISMATCH:{len(prod)}")
 
-                  dep_set = values["AdjustmentsForDepreciationExpense"]
-                  amo_set = values["AdjustmentsForAmortisationExpense"]
-                  if len(dep_set) != 1 or len(amo_set) != 1: raise RuntimeError("FACT_VALUE_SET_MISMATCH:" + code)
-                  if units != {("iso4217:KRW",)}: raise RuntimeError("FACT_UNIT_SET_MISMATCH:" + code)
+              result_rows = []
+              overlap = []
+              overlap_conflicts = []
+              source_counts = Counter()
+              old_ratio_status = Counter()
+              new_ratio_status = Counter()
+              improved_codes = []
+              old_ready = 0
+              new_ready = 0
+              financial_neutral = 0
+              baseline_da_ok = 0
+              merged_da_ok = 0
 
-                  dep, amo = next(iter(dep_set)), next(iter(amo_set))
-                  total = dep + amo
-                  evidence = finite(row.get("evidence_da_sum"))
-                  if evidence is None: raise RuntimeError("EVIDENCE_SUM_MISSING:" + code)
-                  if abs(total - evidence) > max(1.0, abs(total) * 1e-12): raise RuntimeError("EVIDENCE_SUM_MISMATCH:" + code)
+              for code in sorted(prod):
+                  prod_row = prod[code]
+                  fin = fin_map.get(code) or {}
+                  raw, raw_mode = scorer.get_common_raw(code, raw_map, prod_row)
 
-                  promoted.append({
+                  metrics = prod_row.get("metrics") or {}
+                  bench = metrics.get("sector_benchmark") or {}
+                  benchmark = scorer.ticker(bench.get("benchmark_ticker"))
+                  is_fin = benchmark in scorer.FINANCIAL_BENCHMARKS
+                  if is_fin:
+                      financial_neutral += 1
+
+                  old_debt, old_ds, old_da, old_das = scorer.derived_debt_da(raw)
+                  if not is_fin and old_da is not None and old_das == "OK":
+                      baseline_da_ok += 1
+
+                  merged_raw = dict(raw)
+                  merge_source = "RAW_EXISTING"
+                  overlap_status = "NOT_APPLICABLE"
+                  v888_da = None
+
+                  if code in v888:
+                      item = v888[code]
+                      v888_da = item["total"]
+
+                      if old_da is not None and old_das == "OK":
+                          overlap_status = (
+                              "MATCH"
+                              if close_enough(old_da, v888_da)
+                              else "CONFLICT"
+                          )
+                          overlap.append(code)
+                          if overlap_status == "CONFLICT":
+                              overlap_conflicts.append({
+                                  "ticker": code,
+                                  "name": str(prod_row.get("name") or ""),
+                                  "raw_da": old_da,
+                                  "v888_da": v888_da,
+                              })
+
+                      # V8.8.9 dry-run priority:
+                      # context-validated V8.8.8 exact CFS/OFS source overrides
+                      # legacy raw exact-candidate D&A only inside this dry-run.
+                      merged_raw["depreciation_amortization_candidates_json"] = json.dumps(
+                          [
+                              {
+                                  "account_id": DEP_ID,
+                                  "account_nm": "V8.8.8 validated XBRL depreciation",
+                                  "amount": item["dep"],
+                              },
+                              {
+                                  "account_id": AMO_ID,
+                                  "account_nm": "V8.8.8 validated XBRL amortisation",
+                                  "amount": item["amo"],
+                              },
+                          ],
+                          ensure_ascii=False,
+                          separators=(",", ":"),
+                      )
+                      merge_source = "V888_CONTEXT_VALIDATED_BOTH_EXACT"
+                  else:
+                      overlap_status = "NO_V888_SOURCE"
+
+                  new_debt, new_ds, new_da, new_das = scorer.derived_debt_da(merged_raw)
+                  if not is_fin and new_da is not None and new_das == "OK":
+                      merged_da_ok += 1
+
+                  old_ratio, old_status = ratio_and_status(fin, raw, is_fin)
+                  new_ratio, new_status = ratio_and_status(fin, merged_raw, is_fin)
+                  old_points, old_reason = scorer.s_ev_ebitda(fin, raw, is_fin)
+                  new_points, new_reason = scorer.s_ev_ebitda(fin, merged_raw, is_fin)
+
+                  old_ratio_status[old_status] += 1
+                  new_ratio_status[new_status] += 1
+                  source_counts[merge_source] += 1
+
+                  if old_status == "OK":
+                      old_ready += 1
+                  if new_status == "OK":
+                      new_ready += 1
+                  if old_status != "OK" and new_status == "OK":
+                      improved_codes.append(code)
+
+                  result_rows.append({
                       "ticker": code,
-                      "name": str(row.get("name") or ""),
-                      "market": str(row.get("market") or ""),
-                      "target_year": str(row.get("target_year") or ""),
-                      "rcept_no": str(row.get("rcept_no") or ""),
-                      "source_fs_selected_from": str(row.get("source_fs_selected_from") or ""),
-                      "source_fs_div": fs,
-                      "target_member": str(row.get("target_member") or ""),
-                      "depreciation_account_id": APPROVED["AdjustmentsForDepreciationExpense"],
-                      "depreciation_value": canon(dep),
-                      "amortisation_account_id": APPROVED["AdjustmentsForAmortisationExpense"],
-                      "amortisation_value": canon(amo),
-                      "depreciation_amortization_total": canon(total),
-                      "unit": "KRW",
-                      "source_status": SOURCE_STATUS,
-                      "source_contract": VERSION,
-                      "source_evidence_version": V887_VERSION,
+                      "name": str(prod_row.get("name") or ""),
+                      "market": str(prod_row.get("market") or ""),
+                      "benchmark_ticker": benchmark,
+                      "financial_sector_neutral": "TRUE" if is_fin else "FALSE",
+                      "raw_source_mode": raw_mode,
+                      "baseline_da_status": old_das,
+                      "baseline_da_value": "" if old_da is None else old_da,
+                      "v888_da_value": "" if v888_da is None else v888_da,
+                      "overlap_status": overlap_status,
+                      "merged_da_source": merge_source,
+                      "merged_da_status": new_das,
+                      "merged_da_value": "" if new_da is None else new_da,
+                      "debt_status": new_ds,
+                      "ev_ebitda_before_status": old_status,
+                      "ev_ebitda_before": "" if old_ratio is None else old_ratio,
+                      "ev_ebitda_before_points": "" if old_points is None else old_points,
+                      "ev_ebitda_before_reason": old_reason,
+                      "ev_ebitda_after_status": new_status,
+                      "ev_ebitda_after": "" if new_ratio is None else new_ratio,
+                      "ev_ebitda_after_points": "" if new_points is None else new_points,
+                      "ev_ebitda_after_reason": new_reason,
+                      "became_ev_ebitda_ready": (
+                          "TRUE" if old_status != "OK" and new_status == "OK" else "FALSE"
+                      ),
                   })
 
-              promoted.sort(key=lambda x: x["ticker"])
-              held.sort()
-              if len(promoted) != 52: raise RuntimeError(f"PROMOTED_COUNT_MISMATCH:{len(promoted)}")
-              held_counts = Counter(cls for _, cls in held)
-              expected_held = Counter({"MATCHED_FS_MEMBER_PARTIAL_ONE_FACT": 4, "NO_MATCHING_FS_MEMBER": 1})
-              if held_counts != expected_held: raise RuntimeError("HELD_CLASSIFICATION_COUNTS_MISMATCH")
+              # Any disagreement between legacy exact D&A and the new
+              # context-validated source is a hard stop, not an averaging case.
+              if overlap_conflicts:
+                  raise RuntimeError(
+                      "DA_SOURCE_CONFLICTS=" + json.dumps(
+                          overlap_conflicts,
+                          ensure_ascii=False,
+                          separators=(",", ":"),
+                      )
+                  )
 
-              fields = list(promoted[0].keys())
+              if financial_neutral != 15:
+                  raise RuntimeError(
+                      f"FINANCIAL_NEUTRAL_COUNT_MISMATCH:{financial_neutral}"
+                  )
+              if baseline_da_ok != 14:
+                  raise RuntimeError(
+                      f"BASELINE_DA_OK_COUNT_MISMATCH:{baseline_da_ok}"
+                  )
+              if merged_da_ok < baseline_da_ok:
+                  raise RuntimeError("MERGED_DA_COVERAGE_REGRESSED")
+              if new_ready < old_ready:
+                  raise RuntimeError("EV_EBITDA_READY_COVERAGE_REGRESSED")
+
+              fields = list(result_rows[0].keys())
               with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
                   w = csv.DictWriter(f, fieldnames=fields)
-                  w.writeheader(); w.writerows(promoted)
+                  w.writeheader()
+                  w.writerows(result_rows)
 
-              fs_counts = Counter(x["source_fs_div"] for x in promoted)
-              market_counts = Counter(x["market"] for x in promoted)
+              old_values = [
+                  float(r["ev_ebitda_before"])
+                  for r in result_rows
+                  if r["ev_ebitda_before_status"] == "OK"
+              ]
+              new_values = [
+                  float(r["ev_ebitda_after"])
+                  for r in result_rows
+                  if r["ev_ebitda_after_status"] == "OK"
+              ]
+
               summary = {
                   "version": VERSION,
                   "policy_version": POLICY_VERSION,
-                  "source_evidence_version": V887_VERSION,
+                  "v882_version": V882_VERSION,
+                  "v883_version": V883_VERSION,
+                  "v888_version": V888_VERSION,
                   "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
-                  "status": "READY_SOURCE_ONLY",
-                  "promotion_scope": "SOURCE_ONLY_DA_LAYER",
-                  "eligibility_contract": {
-                      "approved_account_ids": list(APPROVED.values()),
-                      "requires_both_approved_facts": True,
-                      "requires_each_fact_unique_after_fs_selection": True,
-                      "requires_source_fs_consistent": True,
-                      "requires_single_selected_context": True,
-                      "requires_krw_unit": True,
-                      "partial_one_fact_is_not_promoted": True,
-                      "no_matching_fs_member_is_not_promoted": True,
-                  },
-                  "frozen_fs_mapping": {
-                      "axis": "ifrs-full:ConsolidatedAndSeparateFinancialStatementsAxis",
-                      "CFS": "ifrs-full:ConsolidatedMember",
-                      "OFS": "ifrs-full:SeparateMember",
-                      "financial_policy_text": REQUIRED_POLICY_TEXT,
-                  },
-                  "source_target_count": 57,
-                  "source_only_ready_count": 52,
-                  "held_count": 5,
-                  "held_classification_counts": dict(held_counts),
-                  "promoted_fs_div_counts": dict(fs_counts),
-                  "promoted_market_counts": dict(market_counts),
-                  "source_hashes": {
-                      str(V887_CSV): sha256(V887_CSV),
-                      str(V887_JSON): sha256(V887_JSON),
-                      str(POLICY_JSON): sha256(POLICY_JSON),
-                  },
+                  "status": "DRY_RUN_ONLY",
+                  "production_unique_tickers": len(prod),
+                  "financial_sector_neutral_count": financial_neutral,
+                  "nonfinancial_applicable_count": len(prod) - financial_neutral,
+                  "merge_priority_under_test": [
+                      "V888_CONTEXT_VALIDATED_BOTH_EXACT",
+                      "RAW_EXISTING_EXACT_CANDIDATES",
+                      "MISSING",
+                  ],
+                  "baseline_nonfinancial_da_ready_count": baseline_da_ok,
+                  "merged_nonfinancial_da_ready_count": merged_da_ok,
+                  "da_ready_gain": merged_da_ok - baseline_da_ok,
+                  "v888_source_only_count": len(v888),
+                  "overlap_with_existing_exact_da_count": len(overlap),
+                  "overlap_consistent_count": len(overlap),
+                  "overlap_conflict_count": 0,
+                  "ev_ebitda_ready_before_count": old_ready,
+                  "ev_ebitda_ready_after_count": new_ready,
+                  "ev_ebitda_ready_gain": new_ready - old_ready,
+                  "became_ev_ebitda_ready_count": len(improved_codes),
+                  "became_ev_ebitda_ready_tickers": improved_codes,
+                  "ev_ebitda_before_median": median(old_values) if old_values else None,
+                  "ev_ebitda_after_median": median(new_values) if new_values else None,
+                  "baseline_status_counts": dict(old_ratio_status),
+                  "merged_status_counts": dict(new_ratio_status),
+                  "merge_source_counts": dict(source_counts),
                   "decision": {
-                      "source_only_da_layer_ready": True,
-                      "ready_for_ev_ebitda_dry_run": True,
-                      "ready_for_production_da_use": False,
-                      "ready_for_production_score_write": False,
+                      "merge_priority_has_value_conflict": False,
+                      "da_coverage_regressed": False,
+                      "ev_ebitda_coverage_regressed": False,
+                      "ready_for_merge_priority_freeze_review": True,
+                      "ready_for_production_write": False,
+                      "ready_for_score_production_write": False,
                   },
                   "hard_guards": {
                       "production_api_changed": False,
                       "production_investment_score_written": False,
+                      "production_da_source_cache_changed": False,
                       "scoring_policy_changed": False,
-                      "new_da_id_approved": False,
-                      "production_da_value_promoted": False,
-                      "ev_ebitda_recalculated": False,
+                      "v888_source_changed": False,
                       "standalone_swing_changed": False,
                   },
-                  "next_step": "DRY_RUN_EV_EBITDA_WITH_V888_SOURCE_ONLY_DA_AND_NO_PRODUCTION_WRITE",
+                  "next_step": (
+                      "REVIEW_V889_RESULTS_AND_FREEZE_DA_MERGE_PRIORITY_"
+                      "BEFORE_ANY_SCORE_RERUN"
+                  ),
               }
-              OUT_JSON.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+              OUT_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
 
-              OUT_DOC.write_text("\n".join([
-                  "# V8.8.8 source-only D&A 승격 계약", "",
-                  f"- 버전: `{VERSION}`", "- 상태: `READY_SOURCE_ONLY`",
-                  "- 목적: V8.8.7에서 검증된 D&A 값을 production과 분리된 source-only 층으로 고정한다.", "",
-                  "## 승격 조건", "",
-                  "- V8.8.0에서 승인된 정확한 두 IFRS 계정 ID만 사용한다.",
-                  "- 기존 재무정책과 동일한 CFS/OFS member를 사용한다.",
-                  "- 감가상각과 무형자산상각 값이 각각 유일하고 두 fact가 모두 있어야 한다.",
-                  "- 값/context 충돌이 없고 단위가 KRW이어야 한다.", "",
-                  "## 결과", "", "- 57개 중 52개만 source-only D&A READY로 승격한다.",
-                  "- partial one fact 4개와 matching FS member가 없는 1개는 보류한다.", "",
-                  "## 이번 단계에서 하지 않는 것", "",
-                  "- 기존 V8.8.3의 14개 exact-ready와 병합하지 않는다.",
-                  "- production source cache를 수정하지 않는다.",
-                  "- EV/EBITDA를 재계산하지 않는다.",
-                  "- 100점 투자점수를 기록하지 않는다.",
-                  "- 새로운 D&A 계정 ID를 승인하지 않는다.", "",
-                  "## 다음 단계", "",
-                  "- V8.8.9에서 기존 raw D&A와 V8.8.8 source-only D&A의 병합 우선순위를 dry-run으로 검증한다.",
-                  "- production 반영은 별도 승인 단계까지 금지한다.", "",
-              ]), encoding="utf-8")
+              doc = [
+                  "# V8.8.9 EV/EBITDA D&A 병합 dry-run",
+                  "",
+                  f"- 버전: `{VERSION}`",
+                  "- 상태: `DRY_RUN_ONLY`",
+                  "",
+                  "## 목적",
+                  "",
+                  "- V8.8.8의 context-validated D&A 52개를 기존 V8.8.2 scorer에 가상 병합한다.",
+                  "- production source cache와 production 투자점수는 수정하지 않는다.",
+                  "- EV/EBITDA 계산 가능 종목 수가 얼마나 증가하는지만 측정한다.",
+                  "",
+                  "## dry-run 병합 우선순위",
+                  "",
+                  "1. V8.8.8 CFS/OFS context 검증 + 두 exact fact 유일값",
+                  "2. 기존 raw exact D&A candidate",
+                  "3. 둘 다 없으면 missing 유지",
+                  "",
+                  "## 충돌 원칙",
+                  "",
+                  "- 기존 exact D&A와 V8.8.8이 동시에 있으면 값을 비교한다.",
+                  "- 1원 또는 상대 1e-12를 넘는 차이는 conflict로 보고 workflow를 실패시킨다.",
+                  "- 충돌값을 평균하거나 임의 보정하지 않는다.",
+                  "",
+                  "## 이번 단계에서 하지 않는 것",
+                  "",
+                  "- `latest/investment_score_source_cache_latest.csv`를 수정하지 않는다.",
+                  "- `api/two_table_v1`을 수정하지 않는다.",
+                  "- 100점 투자점수를 production에 기록하지 않는다.",
+                  "- scoring policy/threshold를 변경하지 않는다.",
+                  "",
+                  "## 다음 단계",
+                  "",
+                  "- 충돌 0이고 coverage가 개선되면 병합 우선순위를 별도 단계에서 동결한다.",
+                  "- 그 뒤 전체 100점 scorer를 다시 dry-run한다.",
+                  "",
+              ]
+              OUT_DOC.write_text("\n".join(doc), encoding="utf-8")
 
               log = [
-                  f"VERSION={VERSION}", "STATUS=READY_SOURCE_ONLY", "SOURCE_TARGETS=57",
-                  "SOURCE_ONLY_DA_READY=52", "HELD_TOTAL=5",
-                  f"HELD_PARTIAL_ONE_FACT={held_counts['MATCHED_FS_MEMBER_PARTIAL_ONE_FACT']}",
-                  f"HELD_NO_MATCHING_FS_MEMBER={held_counts['NO_MATCHING_FS_MEMBER']}",
-                  f"PROMOTED_CFS={fs_counts['CFS']}", f"PROMOTED_OFS={fs_counts['OFS']}",
-                  "CFS_OFS_MAPPING_FROZEN=true", "BOTH_APPROVED_FACTS_REQUIRED=true",
-                  "SOURCE_ONLY_DA_VALUE_PROMOTED=true", "PRODUCTION_DA_VALUE_PROMOTED=false",
-                  "EV_EBITDA_RECALCULATED=false", "PRODUCTION_DATA_CHANGED=false",
-                  "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false", "SCORING_POLICY_CHANGED=false",
-                  "NEW_DA_ID_APPROVED=false", "STANDALONE_SWING_CHANGED=false",
-                  "READY_FOR_EV_EBITDA_DRY_RUN=true", "STATUS_OK=true",
+                  f"VERSION={VERSION}",
+                  "STATUS=DRY_RUN_ONLY",
+                  f"PRODUCTION_UNIQUE_TICKERS={len(prod)}",
+                  f"FINANCIAL_SECTOR_NEUTRAL={financial_neutral}",
+                  f"BASELINE_DA_READY={baseline_da_ok}",
+                  f"MERGED_DA_READY={merged_da_ok}",
+                  f"DA_READY_GAIN={merged_da_ok - baseline_da_ok}",
+                  f"V888_SOURCE_ONLY_COUNT={len(v888)}",
+                  f"OVERLAP_EXISTING_EXACT_DA={len(overlap)}",
+                  "OVERLAP_CONFLICTS=0",
+                  f"EV_EBITDA_READY_BEFORE={old_ready}",
+                  f"EV_EBITDA_READY_AFTER={new_ready}",
+                  f"EV_EBITDA_READY_GAIN={new_ready - old_ready}",
+                  f"BECAME_EV_EBITDA_READY={len(improved_codes)}",
+                  "PRODUCTION_DATA_CHANGED=false",
+                  "PRODUCTION_DA_SOURCE_CACHE_CHANGED=false",
+                  "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+                  "SCORING_POLICY_CHANGED=false",
+                  "V888_SOURCE_CHANGED=false",
+                  "STANDALONE_SWING_CHANGED=false",
+                  "READY_FOR_MERGE_PRIORITY_FREEZE_REVIEW=true",
+                  "STATUS_OK=true",
               ]
               OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
-              print("V888_SOURCE_ONLY_DA_PROMOTION=PASS")
+
+              print("V889_EV_EBITDA_DA_MERGE_DRY_RUN=PASS")
               print("\n".join(log))
 
           if __name__ == "__main__":
               main()
           PY
 
-          python -m py_compile investment_score_da_source_v888.py
+          python -m py_compile investment_score_ev_ebitda_merge_dry_run_v889.py
 
-      - name: Run V8.8.8 source-only promotion
+      - name: Run V8.8.9 dry-run
         shell: bash
         run: |
           set -euo pipefail
-          python investment_score_da_source_v888.py
-          grep -q '^STATUS_OK=true$' latest/investment_score_da_source_v888_run_log_latest.txt
-          grep -q '^SOURCE_ONLY_DA_READY=52$' latest/investment_score_da_source_v888_run_log_latest.txt
-          grep -q '^SOURCE_ONLY_DA_VALUE_PROMOTED=true$' latest/investment_score_da_source_v888_run_log_latest.txt
-          grep -q '^PRODUCTION_DA_VALUE_PROMOTED=false$' latest/investment_score_da_source_v888_run_log_latest.txt
-          grep -q '^EV_EBITDA_RECALCULATED=false$' latest/investment_score_da_source_v888_run_log_latest.txt
 
-      - name: Validate V8.8.8 outputs
+          python investment_score_ev_ebitda_merge_dry_run_v889.py
+
+          grep -q '^STATUS_OK=true$' \
+            latest/investment_score_ev_ebitda_merge_v889_run_log_latest.txt
+          grep -q '^OVERLAP_CONFLICTS=0$' \
+            latest/investment_score_ev_ebitda_merge_v889_run_log_latest.txt
+          grep -q '^PRODUCTION_DATA_CHANGED=false$' \
+            latest/investment_score_ev_ebitda_merge_v889_run_log_latest.txt
+          grep -q '^PRODUCTION_DA_SOURCE_CACHE_CHANGED=false$' \
+            latest/investment_score_ev_ebitda_merge_v889_run_log_latest.txt
+          grep -q '^PRODUCTION_INVESTMENT_SCORE_WRITTEN=false$' \
+            latest/investment_score_ev_ebitda_merge_v889_run_log_latest.txt
+
+      - name: Validate V8.8.9 outputs
         shell: bash
         run: |
           set -euo pipefail
+
           python - <<'PY'
-          import csv, json
+          import csv
+          import json
           from pathlib import Path
-          summary = json.loads(Path("latest/investment_score_da_source_v888_summary_latest.json").read_text(encoding="utf-8"))
-          with Path("latest/investment_score_da_source_v888.csv").open(encoding="utf-8-sig", newline="") as f:
+
+          summary = json.loads(
+              Path("latest/investment_score_ev_ebitda_merge_v889_summary_latest.json")
+              .read_text(encoding="utf-8")
+          )
+          with Path("latest/investment_score_ev_ebitda_merge_v889.csv").open(
+              encoding="utf-8-sig",
+              newline="",
+          ) as f:
               rows = list(csv.DictReader(f))
-          assert summary["version"] == "2026-09-15-v8.8.8-source-only-da-promotion"
-          assert summary["status"] == "READY_SOURCE_ONLY"
-          assert summary["source_only_ready_count"] == 52 and len(rows) == 52
-          assert len({r["ticker"] for r in rows}) == 52
-          assert summary["held_classification_counts"] == {"MATCHED_FS_MEMBER_PARTIAL_ONE_FACT": 4, "NO_MATCHING_FS_MEMBER": 1}
-          assert summary["decision"]["ready_for_ev_ebitda_dry_run"] is True
-          assert summary["decision"]["ready_for_production_da_use"] is False
-          assert summary["decision"]["ready_for_production_score_write"] is False
-          assert all(value is False for value in summary["hard_guards"].values())
-          for row in rows:
-              assert row["depreciation_account_id"] == "ifrs-full_AdjustmentsForDepreciationExpense"
-              assert row["amortisation_account_id"] == "ifrs-full_AdjustmentsForAmortisationExpense"
-              assert row["unit"] == "KRW"
-              assert row["source_status"] == "READY_SOURCE_ONLY_BOTH_EXACT_UNIQUE"
-          print("V888_SOURCE_ONLY_52=PASS")
-          print("V888_BOTH_FACTS_REQUIRED=PASS")
-          print("V888_PARTIAL_4_HELD=PASS")
-          print("V888_NO_MEMBER_1_HELD=PASS")
-          print("V888_NO_PRODUCTION_DA_USE=PASS")
-          print("V888_NO_EV_EBITDA_RECALC=PASS")
-          print("V888_NO_SCORE_WRITE=PASS")
+
+          assert summary["version"] == "2026-09-15-v8.8.9-ev-ebitda-da-merge-dry-run"
+          assert summary["status"] == "DRY_RUN_ONLY"
+          assert summary["production_unique_tickers"] == 112
+          assert summary["financial_sector_neutral_count"] == 15
+          assert summary["nonfinancial_applicable_count"] == 97
+          assert summary["baseline_nonfinancial_da_ready_count"] == 14
+          assert summary["v888_source_only_count"] == 52
+          assert summary["overlap_conflict_count"] == 0
+          assert summary["merged_nonfinancial_da_ready_count"] >= 14
+          assert summary["ev_ebitda_ready_after_count"] >= \
+              summary["ev_ebitda_ready_before_count"]
+          assert len(rows) == 112
+          assert len({r["ticker"] for r in rows}) == 112
+
+          decision = summary["decision"]
+          assert decision["merge_priority_has_value_conflict"] is False
+          assert decision["da_coverage_regressed"] is False
+          assert decision["ev_ebitda_coverage_regressed"] is False
+          assert decision["ready_for_merge_priority_freeze_review"] is True
+          assert decision["ready_for_production_write"] is False
+          assert decision["ready_for_score_production_write"] is False
+
+          guards = summary["hard_guards"]
+          assert all(value is False for value in guards.values())
+
+          print("V889_PRODUCTION_112=PASS")
+          print("V889_FINANCIAL_NEUTRAL_15=PASS")
+          print("V889_BASELINE_DA_14=PASS")
+          print("V889_V888_SOURCE_52=PASS")
+          print("V889_DA_OVERLAP_CONFLICT_0=PASS")
+          print(
+              "V889_MERGED_DA_READY="
+              + str(summary["merged_nonfinancial_da_ready_count"])
+          )
+          print(
+              "V889_EV_EBITDA_READY_BEFORE="
+              + str(summary["ev_ebitda_ready_before_count"])
+          )
+          print(
+              "V889_EV_EBITDA_READY_AFTER="
+              + str(summary["ev_ebitda_ready_after_count"])
+          )
+          print("V889_NO_PRODUCTION_WRITE=PASS")
+          print("V889_NO_SCORE_WRITE=PASS")
           PY
 
-      - name: Guard production and upstream evidence
+      - name: Guard production and upstream sources
         shell: bash
         run: |
           set -euo pipefail
+
           git diff --exit-code -- \
             api/two_table_v1 \
             config/two_table_release.json \
@@ -389,91 +597,112 @@ jobs:
             latest/investment_score_source_cache_latest.csv \
             latest/investment_score_v880_dry_run_v882_latest.csv \
             latest/investment_score_v880_dry_run_v882_summary_latest.json \
-            latest/investment_score_xbrl_cfs_ofs_v887.csv \
-            latest/investment_score_xbrl_cfs_ofs_v887_summary_latest.json \
+            latest/investment_score_da_source_v888.csv \
+            latest/investment_score_da_source_v888_summary_latest.json \
             latest/standalone_swing_integrated_latest.json \
             latest/standalone_swing_preproduction_readiness_latest.json
-          echo "V888_PRODUCTION_POLICY_SCORE_UNCHANGED=PASS"
-          echo "V888_V887_EVIDENCE_UNCHANGED=PASS"
-          echo "V888_STANDALONE_SWING_UNCHANGED=PASS"
+
+          echo "V889_PRODUCTION_POLICY_SOURCE_UNCHANGED=PASS"
+          echo "V889_V888_SOURCE_UNCHANGED=PASS"
+          echo "V889_STANDALONE_SWING_UNCHANGED=PASS"
 
       - name: Restrict changed files
         shell: bash
         run: |
           set -euo pipefail
+
           python - <<'PY'
           import subprocess
+
           allowed = {
-              "investment_score_da_source_v888.py",
-              "docs/investment_score_da_source_promotion_v888.md",
-              "latest/investment_score_da_source_v888.csv",
-              "latest/investment_score_da_source_v888_summary_latest.json",
-              "latest/investment_score_da_source_v888_run_log_latest.txt",
+              "investment_score_ev_ebitda_merge_dry_run_v889.py",
+              "docs/investment_score_ev_ebitda_merge_dry_run_v889.md",
+              "latest/investment_score_ev_ebitda_merge_v889.csv",
+              "latest/investment_score_ev_ebitda_merge_v889_summary_latest.json",
+              "latest/investment_score_ev_ebitda_merge_v889_run_log_latest.txt",
           }
-          status = subprocess.check_output(["git", "status", "--porcelain"], text=True)
+
+          status = subprocess.check_output(
+              ["git", "status", "--porcelain"],
+              text=True,
+          )
+
           changed = set()
           for line in status.splitlines():
-              if not line.strip(): continue
+              if not line.strip():
+                  continue
               path = line[3:]
-              if " -> " in path: path = path.split(" -> ", 1)[1]
+              if " -> " in path:
+                  path = path.split(" -> ", 1)[1]
               changed.add(path)
+
           if changed != allowed:
-              raise SystemExit("CHANGE_SCOPE_MISMATCH=" + repr(sorted(changed)))
-          print("V888_CHANGE_SCOPE=PASS")
+              raise SystemExit(
+                  "CHANGE_SCOPE_MISMATCH=" + repr(sorted(changed))
+              )
+
+          print("V889_CHANGE_SCOPE=PASS")
           PY
 
-      - name: Commit and push V8.8.8 source-only D&A layer
+      - name: Commit and push V8.8.9 dry-run evidence
         shell: bash
         run: |
           set -euo pipefail
+
           git fetch origin main
           if [[ "$(git rev-parse origin/main)" != "$BASE_SHA" ]]; then
-            echo "::error::Remote main changed after checkout. Rerun V8.8.8."
+            echo "::error::Remote main changed after checkout. Rerun V8.8.9."
             echo "BASE_SHA=$BASE_SHA"
             echo "ORIGIN_MAIN=$(git rev-parse origin/main)"
             exit 1
           fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add -- \
-            investment_score_da_source_v888.py \
-            docs/investment_score_da_source_promotion_v888.md \
-            latest/investment_score_da_source_v888.csv \
-            latest/investment_score_da_source_v888_summary_latest.json \
-            latest/investment_score_da_source_v888_run_log_latest.txt
+            investment_score_ev_ebitda_merge_dry_run_v889.py \
+            docs/investment_score_ev_ebitda_merge_dry_run_v889.md \
+            latest/investment_score_ev_ebitda_merge_v889.csv \
+            latest/investment_score_ev_ebitda_merge_v889_summary_latest.json \
+            latest/investment_score_ev_ebitda_merge_v889_run_log_latest.txt
+
           mapfile -t staged < <(git diff --cached --name-only | sort)
-          echo "V888_STAGED_FILES_BEGIN"
+
+          echo "V889_STAGED_FILES_BEGIN"
           printf '%s\n' "${staged[@]}"
-          echo "V888_STAGED_FILES_END"
+          echo "V889_STAGED_FILES_END"
+
           if [[ "${#staged[@]}" -ne 5 ]]; then
             echo "::error::Expected exactly 5 staged files, got ${#staged[@]}"
             exit 1
           fi
+
           if printf '%s\n' "${staged[@]}" | grep -q '^\.github/workflows/'; then
             echo "::error::Workflow file staged unexpectedly"
             exit 1
           fi
-          git commit -m "Promote source-only D&A values v8.8.8"
+
+          git commit -m "Dry-run V8.8.9 EV EBITDA D&A merge"
           git push origin HEAD:main
+
           echo "COMMIT_SHA=$(git rev-parse HEAD)"
           echo "PUSH_SUCCESS=true"
-          echo "V888_SOURCE_ONLY_DA_PROMOTION_RELEASE=PASS"
-          echo "SOURCE_ONLY_DA_VALUE_PROMOTED=true"
-          echo "PRODUCTION_DA_VALUE_PROMOTED=false"
+          echo "V889_EV_EBITDA_DA_MERGE_DRY_RUN_RELEASE=PASS"
           echo "PRODUCTION_DATA_CHANGED=false"
+          echo "PRODUCTION_DA_SOURCE_CACHE_CHANGED=false"
           echo "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false"
           echo "SCORING_POLICY_CHANGED=false"
-          echo "NEW_DA_ID_APPROVED=false"
-          echo "EV_EBITDA_RECALCULATED=false"
+          echo "V888_SOURCE_CHANGED=false"
           echo "STANDALONE_SWING_CHANGED=false"
 
-      - name: Upload V8.8.8 source-only evidence
+      - name: Upload V8.8.9 dry-run evidence
         uses: actions/upload-artifact@v6
         with:
-          name: investment-score-da-source-v888
+          name: investment-score-ev-ebitda-merge-v889
           path: |
-            latest/investment_score_da_source_v888_summary_latest.json
-            latest/investment_score_da_source_v888.csv
-            docs/investment_score_da_source_promotion_v888.md
+            latest/investment_score_ev_ebitda_merge_v889_summary_latest.json
+            latest/investment_score_ev_ebitda_merge_v889.csv
+            docs/investment_score_ev_ebitda_merge_dry_run_v889.md
           if-no-files-found: error
           retention-days: 14

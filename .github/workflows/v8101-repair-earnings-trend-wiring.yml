@@ -1,0 +1,651 @@
+name: Repair earnings trend source wiring v8.10.1
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8101-repair-earnings-trend-wiring.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8101-earnings-trend-wiring-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Create V8.10.1 repairer
+        shell: bash
+        run: |
+          cat > investment_score_earnings_trend_repair_v8101.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import csv
+          import json
+          import subprocess
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_dry_run_v882 as scorer
+          import investment_score_dry_run_v895 as v895
+
+          VERSION = "2026-09-15-v8.10.1-repair-earnings-trend-wiring"
+          POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          BASE_SCORER_VERSION = "2026-09-13-v8.8.2-investment-score-dry-run-gate-reconciliation"
+          V899_AUDIT_VERSION = "2026-09-15-v8.9.9-per-loss-earnings-trend-wiring-audit"
+          V899_SCORE_VERSION = V899_AUDIT_VERSION
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+
+          SOURCE = ROOT / "financial_valuation_enricher.py"
+          FIN = ROOT / "latest/financial_valuation_cache_latest.csv"
+          V899_AUDIT = ROOT / "latest/investment_score_per_loss_audit_v899_summary_latest.json"
+          V899_SCORE_CSV = ROOT / "latest/investment_score_v880_dry_run_v899_latest.csv"
+          V899_SCORE_JSON = ROOT / "latest/investment_score_v880_dry_run_v899_summary_latest.json"
+
+          OUT_SCORE_CSV = ROOT / "latest/investment_score_v880_dry_run_v8101_latest.csv"
+          OUT_SCORE_JSON = ROOT / "latest/investment_score_v880_dry_run_v8101_summary_latest.json"
+          OUT_SCORE_LOG = ROOT / "latest/investment_score_v880_dry_run_v8101_run_log_latest.txt"
+          OUT_SCORE_DOC = ROOT / "docs/investment_score_v880_dry_run_v8101.md"
+
+          OUT_JSON = ROOT / "latest/investment_score_earnings_trend_repair_v8101_summary_latest.json"
+          OUT_LOG = ROOT / "latest/investment_score_earnings_trend_repair_v8101_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_earnings_trend_repair_v8101.md"
+
+          OLD_SCRIPT_VERSION = 'SCRIPT_VERSION = "financial_valuation_enricher.py v1.3.0-production-two-table-targets"'
+          NEW_SCRIPT_VERSION = 'SCRIPT_VERSION = "financial_valuation_enricher.py v1.3.1-earnings-trend-net-income-fix"'
+
+          OLD_WIRING = '''        "earnings_trend": determine_earnings_trend(
+                      operating_profit,
+                      previous_operating_profit,
+                  ),'''
+          NEW_WIRING = '''        "earnings_trend": determine_earnings_trend(
+                      net_income,
+                      previous_net_income,
+                  ),'''
+
+          SELFTEST_ANCHOR = '''    assert (
+                  loss_metrics["valuation_data_status"]
+                  == "PARTIAL_LOSS_PER_NA"
+              )
+          '''
+          SELFTEST_REPLACEMENT = '''    assert (
+                  loss_metrics["valuation_data_status"]
+                  == "PARTIAL_LOSS_PER_NA"
+              )
+              assert loss_metrics["earnings_trend"] == "적자전환"
+          '''
+
+          def ticker(value):
+              text = "".join(ch for ch in str(value or "") if ch.isdigit())
+              return text.zfill(6) if text else ""
+
+          def num(value):
+              try:
+                  text = str(value or "").strip().replace(",", "")
+                  if text in {"", "-", "None", "null", "nan", "NaN"}:
+                      return None
+                  return float(text)
+              except Exception:
+                  return None
+
+          def trend(current, previous):
+              if current is None or previous is None:
+                  return "확인제한"
+              if current >= 0 and previous >= 0:
+                  return "흑자지속"
+              if current >= 0 and previous < 0:
+                  return "흑자전환"
+              if current < 0 and previous >= 0:
+                  return "적자전환"
+              return "적자지속"
+
+          def read_json(path):
+              return json.loads(path.read_text(encoding="utf-8-sig"))
+
+          def read_csv_rows(path):
+              with path.open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
+
+          def write_csv(path, rows, fields):
+              path.parent.mkdir(parents=True, exist_ok=True)
+              with path.open("w", encoding="utf-8-sig", newline="") as f:
+                  w = csv.DictWriter(f, fieldnames=fields)
+                  w.writeheader()
+                  w.writerows(rows)
+
+          def patch_source():
+              text = SOURCE.read_text(encoding="utf-8")
+
+              if text.count(OLD_WIRING) != 1:
+                  raise RuntimeError(f"OLD_WIRING_COUNT:{text.count(OLD_WIRING)}")
+              if text.count(OLD_SCRIPT_VERSION) != 1:
+                  raise RuntimeError(f"OLD_SCRIPT_VERSION_COUNT:{text.count(OLD_SCRIPT_VERSION)}")
+              if text.count(SELFTEST_ANCHOR) != 1:
+                  raise RuntimeError(f"SELFTEST_ANCHOR_COUNT:{text.count(SELFTEST_ANCHOR)}")
+
+              text = text.replace(OLD_WIRING, NEW_WIRING, 1)
+              text = text.replace(OLD_SCRIPT_VERSION, NEW_SCRIPT_VERSION, 1)
+              text = text.replace(SELFTEST_ANCHOR, SELFTEST_REPLACEMENT, 1)
+
+              if OLD_WIRING in text:
+                  raise RuntimeError("OLD_WIRING_STILL_PRESENT")
+              if NEW_WIRING not in text:
+                  raise RuntimeError("NEW_WIRING_MISSING")
+              if NEW_SCRIPT_VERSION not in text:
+                  raise RuntimeError("NEW_SCRIPT_VERSION_MISSING")
+              if 'assert loss_metrics["earnings_trend"] == "적자전환"' not in text:
+                  raise RuntimeError("NEW_SELFTEST_ASSERT_MISSING")
+
+              SOURCE.write_text(text, encoding="utf-8")
+
+          def patch_financial_cache(expected_codes):
+              rows = read_csv_rows(FIN)
+              if not rows:
+                  raise RuntimeError("FINANCIAL_CACHE_EMPTY")
+              fields = list(rows[0].keys())
+              if "earnings_trend" not in fields:
+                  raise RuntimeError("EARNINGS_TREND_COLUMN_MISSING")
+
+              before_map = {ticker(r.get("ticker")): dict(r) for r in rows if ticker(r.get("ticker"))}
+              changed = []
+
+              for row in rows:
+                  code = ticker(row.get("ticker"))
+                  if code not in expected_codes:
+                      continue
+
+                  current = num(row.get("net_income"))
+                  previous = num(row.get("previous_net_income"))
+                  if current is None or previous is None:
+                      raise RuntimeError(f"V8101_TARGET_NET_INCOME_NOT_COMPARABLE:{code}")
+
+                  expected = trend(current, previous)
+                  stored = str(row.get("earnings_trend") or "").strip()
+                  if stored == expected:
+                      raise RuntimeError(f"V8101_TARGET_ALREADY_CORRECT:{code}:{stored}")
+
+                  row["earnings_trend"] = expected
+                  changed.append(code)
+
+              changed = sorted(changed)
+              if changed != sorted(expected_codes):
+                  raise RuntimeError(
+                      "V8101_CHANGED_TICKERS_MISMATCH:"
+                      + json.dumps(changed, ensure_ascii=False)
+                  )
+
+              write_csv(FIN, rows, fields)
+
+              after_rows = read_csv_rows(FIN)
+              after_map = {ticker(r.get("ticker")): dict(r) for r in after_rows if ticker(r.get("ticker"))}
+
+              if set(before_map) != set(after_map):
+                  raise RuntimeError("FINANCIAL_CACHE_TICKER_SET_CHANGED")
+
+              nontrend_changes = []
+              trend_changes = []
+              for code in sorted(before_map):
+                  b = dict(before_map[code])
+                  a = dict(after_map[code])
+                  old_trend = b.pop("earnings_trend", "")
+                  new_trend = a.pop("earnings_trend", "")
+                  if b != a:
+                      nontrend_changes.append(code)
+                  if old_trend != new_trend:
+                      trend_changes.append(code)
+
+              if nontrend_changes:
+                  raise RuntimeError(
+                      "FINANCIAL_CACHE_NON_TREND_FIELDS_CHANGED:"
+                      + ",".join(nontrend_changes)
+                  )
+              if sorted(trend_changes) != sorted(expected_codes):
+                  raise RuntimeError(
+                      "FINANCIAL_CACHE_TREND_CHANGE_SCOPE:"
+                      + ",".join(trend_changes)
+                  )
+
+              return {
+                  "cache_row_count": len(rows),
+                  "changed_tickers": changed,
+                  "changed_count": len(changed),
+                  "nontrend_changed_count": 0,
+              }
+
+          def rerun_score_and_compare():
+              if scorer.VERSION != BASE_SCORER_VERSION:
+                  raise RuntimeError("BASE_SCORER_VERSION_MISMATCH")
+              if scorer.POLICY_VERSION != POLICY_VERSION:
+                  raise RuntimeError("POLICY_VERSION_MISMATCH")
+
+              shadow_stats = v895.build_shadow_raw()
+
+              scorer.VERSION = VERSION
+              scorer.FIN = FIN
+              scorer.RAW = v895.SHADOW_RAW
+              scorer.OUT_CSV = OUT_SCORE_CSV
+              scorer.OUT_JSON = OUT_SCORE_JSON
+              scorer.OUT_LOG = OUT_SCORE_LOG
+              scorer.OUT_DOC = OUT_SCORE_DOC
+
+              rc = scorer.main()
+              if rc not in (None, 0):
+                  raise RuntimeError(f"SCORER_FAILED:{rc}")
+
+              expected_rows = read_csv_rows(V899_SCORE_CSV)
+              actual_rows = read_csv_rows(OUT_SCORE_CSV)
+
+              expected_map = {ticker(r.get("ticker")): r for r in expected_rows}
+              actual_map = {ticker(r.get("ticker")): r for r in actual_rows}
+
+              if len(expected_map) != 112 or len(actual_map) != 112:
+                  raise RuntimeError(
+                      f"SCORE_ROW_COUNT:expected={len(expected_map)}:actual={len(actual_map)}"
+                  )
+              if set(expected_map) != set(actual_map):
+                  raise RuntimeError("SCORE_TICKER_SET_CHANGED")
+
+              row_diffs = []
+              for code in sorted(expected_map):
+                  if expected_map[code] != actual_map[code]:
+                      row_diffs.append(code)
+
+              if row_diffs:
+                  raise RuntimeError(
+                      "V8101_SCORE_NOT_IDENTICAL_TO_V899_SHADOW:"
+                      + ",".join(row_diffs)
+                  )
+
+              summary = read_json(OUT_SCORE_JSON)
+              if int(summary.get("ready_count") or 0) != 45:
+                  raise RuntimeError(f"READY_COUNT_NOT_45:{summary.get('ready_count')}")
+              if int(summary.get("limited_count") or 0) != 67:
+                  raise RuntimeError(f"LIMITED_COUNT_NOT_67:{summary.get('limited_count')}")
+
+              target_expected = {
+                  "003490": ("READY", 53.5),
+                  "009420": ("READY", 44.0),
+                  "139480": ("READY", 37.0),
+              }
+              for code, (status, score) in target_expected.items():
+                  row = actual_map[code]
+                  if row.get("score_status") != status:
+                      raise RuntimeError(f"TARGET_STATUS:{code}:{row.get('score_status')}")
+                  if num(row.get("score_total")) != score:
+                      raise RuntimeError(f"TARGET_SCORE:{code}:{row.get('score_total')}")
+                  if str(row.get("missing_components") or ""):
+                      raise RuntimeError(f"TARGET_STILL_MISSING:{code}:{row.get('missing_components')}")
+
+              summary["version"] = VERSION
+              summary["status"] = "DRY_RUN_ONLY"
+              summary["repair_revalidation"] = {
+                  "reference_v899_shadow_version": V899_SCORE_VERSION,
+                  "score_rows_exactly_match_v899_shadow": True,
+                  "score_row_diff_count": 0,
+                  "ready_count": 45,
+                  "limited_count": 67,
+                  "target_tickers": ["003490", "009420", "139480"],
+                  "target_results_match_v899_shadow": True,
+                  "v895_da_shadow_reproduction": shadow_stats,
+              }
+              summary["hard_guards"] = {
+                  "production_api_changed": False,
+                  "production_investment_score_written": False,
+                  "scoring_policy_changed": False,
+                  "raw_source_cache_mutated": False,
+                  "approved_da_ids_changed": False,
+                  "new_value_imputed": False,
+                  "financial_valuation_source_wiring_changed": True,
+                  "financial_valuation_cache_earnings_trend_only_repaired": True,
+              }
+              OUT_SCORE_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+              return shadow_stats
+
+          def main():
+              audit = read_json(V899_AUDIT)
+              if audit.get("version") != V899_AUDIT_VERSION:
+                  raise RuntimeError("V899_AUDIT_VERSION_MISMATCH")
+              if audit.get("status") != "AUDIT_AND_SHADOW_DRY_RUN_ONLY":
+                  raise RuntimeError("V899_AUDIT_STATUS_MISMATCH")
+
+              expected_codes = sorted(audit["trend_audit"]["mismatch_tickers"])
+              if int(audit["trend_audit"]["mismatch_count"]) != 17:
+                  raise RuntimeError("V899_MISMATCH_COUNT_NOT_17")
+              if len(expected_codes) != 17:
+                  raise RuntimeError("V899_MISMATCH_TICKER_LEN_NOT_17")
+
+              v899_score = read_json(V899_SCORE_JSON)
+              if v899_score.get("version") != V899_SCORE_VERSION:
+                  raise RuntimeError("V899_SCORE_VERSION_MISMATCH")
+              if int(v899_score.get("ready_count") or 0) != 45:
+                  raise RuntimeError("V899_SCORE_READY_NOT_45")
+              if int(v899_score.get("limited_count") or 0) != 67:
+                  raise RuntimeError("V899_SCORE_LIMITED_NOT_67")
+
+              patch_source()
+
+              subprocess.run(
+                  ["python", "-m", "py_compile", str(SOURCE)],
+                  check=True,
+              )
+              subprocess.run(
+                  ["python", str(SOURCE), "--self-test"],
+                  check=True,
+              )
+
+              cache_stats = patch_financial_cache(expected_codes)
+              shadow_stats = rerun_score_and_compare()
+
+              summary = {
+                  "version": VERSION,
+                  "policy_version": POLICY_VERSION,
+                  "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+                  "status": "SOURCE_WIRING_REPAIRED_AND_DRY_RUN_REVALIDATED",
+                  "repair": {
+                      "source_file": str(SOURCE),
+                      "script_version_before": "financial_valuation_enricher.py v1.3.0-production-two-table-targets",
+                      "script_version_after": "financial_valuation_enricher.py v1.3.1-earnings-trend-net-income-fix",
+                      "earnings_trend_before_inputs": [
+                          "operating_profit",
+                          "previous_operating_profit",
+                      ],
+                      "earnings_trend_after_inputs": [
+                          "net_income",
+                          "previous_net_income",
+                      ],
+                      "self_test_extended_for_loss_trend": True,
+                  },
+                  "cache_repair": {
+                      **cache_stats,
+                      "scope_source": "V8.9.9 confirmed mismatch tickers only",
+                      "all_non_earnings_trend_fields_unchanged": True,
+                  },
+                  "score_revalidation": {
+                      "reference_v899_shadow_version": V899_SCORE_VERSION,
+                      "score_rows_exactly_match_v899_shadow": True,
+                      "ready_count": 45,
+                      "limited_count": 67,
+                      "newly_ready_from_pre_v899_baseline": [
+                          "003490",
+                          "009420",
+                          "139480",
+                      ],
+                      "target_scores": {
+                          "003490": 53.5,
+                          "009420": 44.0,
+                          "139480": 37.0,
+                      },
+                      "v895_da_shadow_reproduction": shadow_stats,
+                  },
+                  "hard_guards": {
+                      "production_api_changed": False,
+                      "production_investment_score_written": False,
+                      "scoring_policy_changed": False,
+                      "raw_source_cache_mutated": False,
+                      "approved_da_ids_changed": False,
+                      "new_value_imputed": False,
+                      "financial_valuation_cache_nontrend_fields_changed": False,
+                  },
+                  "next_step": "REFRESH_REMAINING_INVESTMENT_SCORE_BLOCKERS_AFTER_V8101_REPAIR",
+              }
+
+              OUT_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+
+              OUT_LOG.write_text(
+                  "\n".join([
+                      f"VERSION={VERSION}",
+                      "STATUS=OK",
+                      "SOURCE_WIRING_PATCHED=true",
+                      "SOURCE_INPUT_BEFORE=operating_profit,previous_operating_profit",
+                      "SOURCE_INPUT_AFTER=net_income,previous_net_income",
+                      f"CACHE_ROW_COUNT={cache_stats['cache_row_count']}",
+                      f"CACHE_TREND_REPAIRED_COUNT={cache_stats['changed_count']}",
+                      "CACHE_TREND_REPAIRED_TICKERS=" + ",".join(cache_stats["changed_tickers"]),
+                      "CACHE_NON_TREND_CHANGED_COUNT=0",
+                      "SCORE_ROWS_MATCH_V899_SHADOW=true",
+                      "READY_COUNT=45",
+                      "LIMITED_COUNT=67",
+                      "TARGET_READY=003490,009420,139480",
+                      "TARGET_SCORES=003490:53.5,009420:44.0,139480:37.0",
+                      "PRODUCTION_API_CHANGED=false",
+                      "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+                      "SCORING_POLICY_CHANGED=false",
+                      "RAW_SOURCE_CACHE_MUTATED=false",
+                      "NEW_VALUE_IMPUTED=false",
+                      "NEXT_STEP=REFRESH_REMAINING_INVESTMENT_SCORE_BLOCKERS_AFTER_V8101_REPAIR",
+                  ]) + "\n",
+                  encoding="utf-8",
+              )
+
+              OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+              OUT_DOC.write_text(
+                  "\n".join([
+                      "# V8.10.1 earnings-trend source wiring repair",
+                      "",
+                      f"- Version: `{VERSION}`",
+                      "- Status: source wiring repaired; score remains dry-run only",
+                      "",
+                      "## Repair",
+                      "",
+                      "- `earnings_trend` now uses `net_income` and `previous_net_income`.",
+                      "- The 17 V8.9.9-confirmed cache mismatches were repaired surgically.",
+                      "- No other financial-cache fields were changed.",
+                      "- A loss-company self-test now verifies `적자전환` semantics.",
+                      "",
+                      "## Revalidation",
+                      "",
+                      "- 112 score rows exactly match the V8.9.9 shadow dry-run.",
+                      "- READY = 45, LIMITED = 67.",
+                      "- 003490, 009420, 139480 are READY with no remaining PER blocker.",
+                      "",
+                      "## Safety",
+                      "",
+                      "- Production API untouched.",
+                      "- Production investment score not written.",
+                      "- Scoring policy unchanged.",
+                      "- Raw source cache unchanged.",
+                      "- No value imputation.",
+                      "",
+                      "## Next",
+                      "",
+                      "`REFRESH_REMAINING_INVESTMENT_SCORE_BLOCKERS_AFTER_V8101_REPAIR`",
+                      "",
+                  ]),
+                  encoding="utf-8",
+              )
+
+              print("V8101_REPAIR=PASS")
+              print(OUT_LOG.read_text(encoding="utf-8"))
+
+          if __name__ == "__main__":
+              main()
+
+          PY
+
+      - name: Repair source wiring and revalidate score
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile investment_score_earnings_trend_repair_v8101.py
+          python investment_score_earnings_trend_repair_v8101.py
+          grep -q '^STATUS=OK$' latest/investment_score_earnings_trend_repair_v8101_run_log_latest.txt
+
+      - name: Validate V8.10.1 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import csv, json
+          from pathlib import Path
+
+          summary = json.loads(
+              Path("latest/investment_score_earnings_trend_repair_v8101_summary_latest.json")
+              .read_text(encoding="utf-8")
+          )
+          score = json.loads(
+              Path("latest/investment_score_v880_dry_run_v8101_summary_latest.json")
+              .read_text(encoding="utf-8")
+          )
+
+          assert summary["status"] == "SOURCE_WIRING_REPAIRED_AND_DRY_RUN_REVALIDATED"
+          assert summary["cache_repair"]["changed_count"] == 17
+          assert summary["cache_repair"]["all_non_earnings_trend_fields_unchanged"] is True
+          assert summary["score_revalidation"]["score_rows_exactly_match_v899_shadow"] is True
+          assert summary["score_revalidation"]["ready_count"] == 45
+          assert summary["score_revalidation"]["limited_count"] == 67
+          assert score["status"] == "DRY_RUN_ONLY"
+          assert score["repair_revalidation"]["score_rows_exactly_match_v899_shadow"] is True
+
+          with Path("latest/investment_score_v880_dry_run_v8101_latest.csv").open(
+              encoding="utf-8-sig", newline=""
+          ) as f:
+              rows = list(csv.DictReader(f))
+          assert len(rows) == 112
+
+          targets = {r["ticker"]: r for r in rows if r["ticker"] in {"003490","009420","139480"}}
+          assert set(targets) == {"003490","009420","139480"}
+          assert all(r["score_status"] == "READY" for r in targets.values())
+          assert all((r["missing_components"] or "") == "" for r in targets.values())
+
+          print("V8101_VALIDATION=PASS")
+          print("CACHE_TREND_REPAIRED_COUNT=17")
+          print("READY_COUNT=45")
+          print("LIMITED_COUNT=67")
+          print("TARGET_READY=003490,009420,139480")
+          print("NEXT_STEP=" + summary["next_step"])
+          PY
+
+
+      - name: Verify protected files unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git status --porcelain -- \
+            api/two_table_v1 \
+            config/investment_score_policy_v880.json \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_v880_dry_run_v895_latest.csv \
+            latest/investment_score_v880_dry_run_v895_summary_latest.json \
+            latest/investment_score_v880_dry_run_v899_latest.csv \
+            latest/investment_score_v880_dry_run_v899_summary_latest.json \
+            latest/investment_score_per_loss_audit_v899_summary_latest.json | grep -q .; then
+            echo "::error::Protected production/policy/raw/baseline files changed"
+            git status --short
+            exit 1
+          fi
+          echo "V8101_PROTECTED_FILES_UNCHANGED=PASS"
+
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          allowed = {
+              "financial_valuation_enricher.py",
+              "investment_score_earnings_trend_repair_v8101.py",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/investment_score_earnings_trend_repair_v8101_summary_latest.json",
+              "latest/investment_score_earnings_trend_repair_v8101_run_log_latest.txt",
+              "latest/investment_score_v880_dry_run_v8101_latest.csv",
+              "latest/investment_score_v880_dry_run_v8101_summary_latest.json",
+              "latest/investment_score_v880_dry_run_v8101_run_log_latest.txt",
+              "docs/investment_score_earnings_trend_repair_v8101.md",
+              "docs/investment_score_v880_dry_run_v8101.md",
+          }
+
+          for path in allowed:
+              if not Path(path).exists():
+                  raise SystemExit("EXPECTED_OUTPUT_MISSING=" + path)
+
+          out = subprocess.check_output(["git", "status", "--porcelain"], text=True)
+          changed = set()
+          for line in out.splitlines():
+              if not line.strip():
+                  continue
+              path = line[3:]
+              if " -> " in path:
+                  path = path.split(" -> ", 1)[1]
+              changed.add(path)
+
+          unexpected = changed - allowed
+          if unexpected:
+              raise SystemExit("CHANGE_SCOPE_UNEXPECTED=" + repr(sorted(unexpected)))
+          if not changed:
+              raise SystemExit("NO_CHANGES_DETECTED")
+
+          print("CHANGE_SCOPE=PASS")
+          print("CHANGED_FILES=" + ",".join(sorted(changed)))
+          PY
+
+
+      - name: Commit and push repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            financial_valuation_enricher.py \
+            investment_score_earnings_trend_repair_v8101.py \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_earnings_trend_repair_v8101_summary_latest.json \
+            latest/investment_score_earnings_trend_repair_v8101_run_log_latest.txt \
+            latest/investment_score_v880_dry_run_v8101_latest.csv \
+            latest/investment_score_v880_dry_run_v8101_summary_latest.json \
+            latest/investment_score_v880_dry_run_v8101_run_log_latest.txt \
+            docs/investment_score_earnings_trend_repair_v8101.md \
+            docs/investment_score_v880_dry_run_v8101.md
+
+          git commit -m "Repair earnings trend source wiring v8.10.1"
+
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          fi
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "PRODUCTION_API_CHANGED=false"
+          echo "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false"
+          echo "SCORING_POLICY_CHANGED=false"
+          echo "FINANCIAL_CACHE_TREND_REPAIR_COUNT=17"
+

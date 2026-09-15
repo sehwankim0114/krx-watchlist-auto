@@ -1,0 +1,61 @@
+{
+  "version": "2026-09-15-v8.9.2-official-dart-xbrl-da-retry",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v891_version": "2026-09-15-v8.9.1-remaining-exact-da-recoverability-audit",
+  "v885_version": "2026-09-14-v8.8.5-expanded-xbrl-da-audit",
+  "generated_at_kst": "2026-09-15T15:46:02+09:00",
+  "status": "AUDIT_ONLY",
+  "target_count": 11,
+  "single_blocker_target_count": 3,
+  "corp_code_resolved_count": 5,
+  "corp_code_unresolved_count": 6,
+  "valid_xbrl_zip_count": 5,
+  "fallback_receipt_used_count": 5,
+  "approved_exact_fact_ticker_count": 4,
+  "both_approved_exact_names_ticker_count": 2,
+  "single_blocker_approved_exact_fact_count": 2,
+  "approved_exact_fact_tickers": [
+    "001530",
+    "002380",
+    "002450",
+    "012450"
+  ],
+  "single_blocker_approved_exact_fact_tickers": [
+    "002450",
+    "012450"
+  ],
+  "unresolved_tickers": [
+    "001527",
+    "004545",
+    "005385",
+    "005387",
+    "005389",
+    "051905"
+  ],
+  "result_counts": {
+    "CORP_CODE_UNRESOLVED": 6,
+    "RETRY_APPROVED_EXACT_FACT_FOUND": 4,
+    "RETRY_XBRL_NO_DA_FACT": 1
+  },
+  "corp_code_source_counts": {
+    "UNRESOLVED_EXACT_STOCK_CODE": 6,
+    "DART_CORPCODE_EXACT_STOCK": 2,
+    "V885_EXISTING": 3
+  },
+  "automatic_promotion": {
+    "allowed": false,
+    "promoted_ticker_count": 0,
+    "reason": "V8.9.2는 공식 DART/XBRL 재조회 결과만 감사한다. 승인 exact fact가 다시 확인돼도 CFS/OFS context와 값 유일성을 다음 단계에서 재검증하기 전에는 V8.8.8 source layer 또는 점수를 바꾸지 않는다."
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "new_da_id_approved": false,
+    "v888_source_layer_mutated": false,
+    "missing_da_assumed_zero": false,
+    "preferred_share_da_value_inherited": false,
+    "new_preferred_common_mapping_created": false
+  },
+  "next_step": "AUDIT_V892_APPROVED_EXACT_CONTEXT_AND_UNRESOLVED_CORP_CODE_ISSUER_MAPPING"
+}

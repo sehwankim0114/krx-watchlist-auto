@@ -1,0 +1,532 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import csv
+import io
+import json
+import os
+import urllib.parse
+import urllib.request
+import zipfile
+from collections import Counter
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+import xml.etree.ElementTree as ET
+
+import investment_score_xbrl_da_expand_v885 as base
+
+VERSION = "2026-09-15-v8.9.2-official-dart-xbrl-da-retry"
+POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+V891_VERSION = "2026-09-15-v8.9.1-remaining-exact-da-recoverability-audit"
+V885_VERSION = "2026-09-14-v8.8.5-expanded-xbrl-da-audit"
+
+ROOT = Path(".")
+KST = ZoneInfo("Asia/Seoul")
+
+V891_CSV = ROOT / "latest/investment_score_da_recoverability_v891.csv"
+V891_JSON = ROOT / "latest/investment_score_da_recoverability_v891_summary_latest.json"
+V885_CSV = ROOT / "latest/investment_score_xbrl_da_expand_v885.csv"
+RAW_CSV = ROOT / "latest/investment_score_source_cache_latest.csv"
+
+OUT_CSV = ROOT / "latest/investment_score_da_official_retry_v892.csv"
+OUT_JSON = ROOT / "latest/investment_score_da_official_retry_v892_summary_latest.json"
+OUT_LOG = ROOT / "latest/investment_score_da_official_retry_v892_run_log_latest.txt"
+OUT_DOC = ROOT / "docs/investment_score_da_official_retry_v892.md"
+
+CORP_CODE_URL = "https://opendart.fss.or.kr/api/corpCode.xml"
+LIST_URL = "https://opendart.fss.or.kr/api/list.json"
+XBRL_URL = "https://opendart.fss.or.kr/api/fnlttXbrl.xml"
+
+APPROVED_LOCAL_NAMES = {
+    "AdjustmentsForDepreciationExpense",
+    "AdjustmentsForAmortisationExpense",
+}
+
+RETRY_LANES = {
+    "RETRY_OFFICIAL_DART_REPORT_LOOKUP",
+    "RETRY_OFFICIAL_XBRL",
+}
+
+# V8.9.2에서는 새로운 preferred/common issuer mapping을 만들지 않는다.
+# DART corpCode.xml의 정확한 stock_code 매칭만 사용한다.
+
+
+def read_json(path: Path):
+    return json.loads(path.read_text(encoding="utf-8-sig"))
+
+def read_csv(path: Path):
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+def ticker(v):
+    s = "".join(ch for ch in str(v or "") if ch.isdigit())
+    return s.zfill(6) if s else ""
+
+def corp_code(v):
+    s = "".join(ch for ch in str(v or "") if ch.isdigit())
+    return s.zfill(8) if s else ""
+
+def bool_text(v):
+    return str(v or "").strip().upper() == "TRUE"
+
+def request(url, params, *, want_json=False, timeout=75, attempts=5):
+    query = urllib.parse.urlencode(params)
+    full = url + "?" + query
+    last = None
+    for attempt in range(1, attempts + 1):
+        req = urllib.request.Request(
+            full,
+            headers={
+                "User-Agent": "krx-watchlist-v892-official-da-retry",
+                "Accept": "application/json" if want_json else "*/*",
+                "Cache-Control": "no-cache",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                blob = r.read(80_000_000)
+            if want_json:
+                return json.loads(blob.decode("utf-8"))
+            return blob
+        except Exception as exc:
+            last = exc
+            if attempt == attempts:
+                break
+            import time
+            time.sleep(min(1.5 * attempt, 6.0))
+    raise RuntimeError(f"REQUEST_FAILED:{type(last).__name__}:{last}")
+
+def load_official_corp_code_map(api_key):
+    blob = request(
+        CORP_CODE_URL,
+        {"crtfc_key": api_key},
+        want_json=False,
+        timeout=90,
+        attempts=5,
+    )
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(blob))
+    except zipfile.BadZipFile as exc:
+        head = blob[:250].decode("utf-8", errors="ignore").replace("\n", " ")
+        raise RuntimeError("CORP_CODE_NOT_ZIP:" + head) from exc
+
+    xml_names = [n for n in zf.namelist() if n.lower().endswith(".xml")]
+    if not xml_names:
+        raise RuntimeError("CORP_CODE_XML_MISSING")
+
+    root = ET.fromstring(zf.read(xml_names[0]))
+    stock_map = {}
+    name_map = {}
+    for item in root.findall(".//list"):
+        cc = corp_code(item.findtext("corp_code"))
+        sc = ticker(item.findtext("stock_code"))
+        cn = str(item.findtext("corp_name") or "").strip()
+        if cc and sc:
+            stock_map[sc] = cc
+        if cc and cn:
+            name_map.setdefault(cn, cc)
+    if not stock_map:
+        raise RuntimeError("CORP_CODE_STOCK_MAP_EMPTY")
+    return stock_map, name_map
+
+def list_business_reports(api_key, cc):
+    payload = request(
+        LIST_URL,
+        {
+            "crtfc_key": api_key,
+            "corp_code": cc,
+            "bgn_de": "20260101",
+            "end_de": "20260915",
+            "pblntf_ty": "A",
+            "sort": "date",
+            "sort_mth": "desc",
+            "page_no": "1",
+            "page_count": "100",
+        },
+        want_json=True,
+        timeout=40,
+        attempts=5,
+    )
+    status = str(payload.get("status") or "")
+    if status != "000":
+        return [], f"LIST_STATUS_{status}:{payload.get('message') or ''}"
+
+    out = []
+    for item in payload.get("list") or []:
+        report_nm = str(item.get("report_nm") or "")
+        if "사업보고서" not in report_nm:
+            continue
+        out.append(
+            {
+                "rcept_no": str(item.get("rcept_no") or ""),
+                "rcept_dt": str(item.get("rcept_dt") or ""),
+                "report_nm": report_nm,
+            }
+        )
+    return out, "OK" if out else "NO_BUSINESS_REPORT"
+
+def try_xbrl_candidates(api_key, reports):
+    tries = []
+    for rep in reports:
+        rcept_no = rep["rcept_no"]
+        if not rcept_no:
+            continue
+        try:
+            blob = request(
+                XBRL_URL,
+                {
+                    "crtfc_key": api_key,
+                    "rcept_no": rcept_no,
+                    "reprt_code": "11011",
+                },
+                want_json=False,
+                timeout=100,
+                attempts=5,
+            )
+        except Exception as exc:
+            tries.append(
+                {
+                    **rep,
+                    "transport_status": f"REQUEST_FAILED:{type(exc).__name__}",
+                    "parse_status": "",
+                    "response_head": "",
+                }
+            )
+            continue
+
+        parsed = base.parse_xbrl(blob)
+        if parsed.get("status") == "OK":
+            tries.append(
+                {
+                    **rep,
+                    "transport_status": "OK",
+                    "parse_status": "OK",
+                    "response_head": "",
+                }
+            )
+            return rep, parsed, tries
+
+        tries.append(
+            {
+                **rep,
+                "transport_status": "OK",
+                "parse_status": str(parsed.get("status") or ""),
+                "response_head": str(parsed.get("detail") or "")[:180],
+            }
+        )
+
+    return None, None, tries
+
+def resolve_corp_code(code, old, raw, stock_map):
+    old_cc = corp_code(old.get("corp_code"))
+    if old_cc:
+        return old_cc, "V885_EXISTING"
+
+    raw_cc = corp_code(raw.get("corp_code"))
+    if raw_cc:
+        return raw_cc, "RAW_SOURCE"
+
+    exact = corp_code(stock_map.get(code))
+    if exact:
+        return exact, "DART_CORPCODE_EXACT_STOCK"
+
+    return "", "UNRESOLVED_EXACT_STOCK_CODE"
+
+
+def main():
+    api_key = os.environ.get("DART_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("DART_API_KEY_MISSING")
+
+    for p in (V891_CSV, V891_JSON, V885_CSV, RAW_CSV):
+        if not p.is_file():
+            raise RuntimeError("MISSING_REQUIRED_SOURCE:" + str(p))
+
+    s891 = read_json(V891_JSON)
+    if s891.get("version") != V891_VERSION:
+        raise RuntimeError("V891_VERSION_MISMATCH")
+    if s891.get("policy_version") != POLICY_VERSION:
+        raise RuntimeError("POLICY_VERSION_MISMATCH")
+    if s891.get("status") != "AUDIT_ONLY":
+        raise RuntimeError("V891_STATUS_MISMATCH")
+
+    rows891 = read_csv(V891_CSV)
+    rows885 = read_csv(V885_CSV)
+    raw_rows = read_csv(RAW_CSV)
+
+    targets = [
+        r for r in rows891
+        if str(r.get("recovery_lane") or "") in RETRY_LANES
+    ]
+    if len(targets) != 11:
+        raise RuntimeError(f"V892_TARGET_COUNT:{len(targets)}")
+
+    single_targets = [r for r in targets if bool_text(r.get("single_blocker_ticker"))]
+    if len(single_targets) != 3:
+        raise RuntimeError(f"V892_SINGLE_TARGET_COUNT:{len(single_targets)}")
+
+    m885 = {ticker(r.get("ticker")): r for r in rows885 if ticker(r.get("ticker"))}
+    raw_map = {ticker(r.get("ticker")): r for r in raw_rows if ticker(r.get("ticker"))}
+
+    stock_map, _ = load_official_corp_code_map(api_key)
+
+    results = []
+    counters = Counter()
+
+    for t in sorted(targets, key=lambda r: ticker(r.get("ticker"))):
+        code = ticker(t.get("ticker"))
+        old = m885.get(code) or {}
+        raw = raw_map.get(code) or {}
+
+        cc, cc_source = resolve_corp_code(
+            code, old, raw, stock_map
+        )
+
+        row = {
+            "ticker": code,
+            "name": t.get("name") or old.get("name") or raw.get("name") or "",
+            "market": t.get("market") or old.get("market") or raw.get("market") or "",
+            "single_blocker_ticker": "TRUE" if bool_text(t.get("single_blocker_ticker")) else "FALSE",
+            "prior_recovery_lane": t.get("recovery_lane") or "",
+            "prior_v885_report_status": old.get("report_status") or "",
+            "prior_v885_rcept_no": old.get("rcept_no") or "",
+            "prior_v885_report_nm": old.get("report_nm") or "",
+            "prior_v885_xbrl_status": old.get("xbrl_status") or "",
+            "corp_code": cc,
+            "corp_code_source": cc_source,
+            "corp_code_resolution_note": (
+                ""
+                if cc
+                else "DART corpCode.xml exact stock_code 매칭 실패; issuer/preferred mapping 별도 감사 필요"
+            ),
+            "report_list_status": "",
+            "report_candidate_count": 0,
+            "selected_rcept_no": "",
+            "selected_rcept_dt": "",
+            "selected_report_nm": "",
+            "used_prior_rcept_no": "FALSE",
+            "xbrl_status": "",
+            "xbrl_member_count": 0,
+            "da_fact_count": 0,
+            "approved_exact_fact_count": 0,
+            "approved_exact_local_names": "",
+            "both_approved_exact_local_names_present": "FALSE",
+            "tried_receipts_json": "[]",
+            "audit_result": "",
+        }
+
+        if not cc:
+            row["audit_result"] = "CORP_CODE_UNRESOLVED"
+            counters["corp_code_unresolved"] += 1
+            results.append(row)
+            continue
+
+        counters["corp_code_resolved"] += 1
+        reports, list_status = list_business_reports(api_key, cc)
+        row["report_list_status"] = list_status
+        row["report_candidate_count"] = len(reports)
+
+        if not reports:
+            row["audit_result"] = list_status
+            counters["report_list_failed_or_empty"] += 1
+            results.append(row)
+            continue
+
+        selected, parsed, tries = try_xbrl_candidates(api_key, reports)
+        row["tried_receipts_json"] = json.dumps(
+            tries, ensure_ascii=False, separators=(",", ":")
+        )
+
+        if not selected or not parsed:
+            row["xbrl_status"] = "NO_VALID_XBRL_ZIP"
+            row["audit_result"] = "NO_VALID_XBRL_ZIP"
+            counters["no_valid_xbrl_zip"] += 1
+            results.append(row)
+            continue
+
+        row["selected_rcept_no"] = selected["rcept_no"]
+        row["selected_rcept_dt"] = selected["rcept_dt"]
+        row["selected_report_nm"] = selected["report_nm"]
+        row["used_prior_rcept_no"] = (
+            "TRUE"
+            if selected["rcept_no"] == str(old.get("rcept_no") or "")
+            else "FALSE"
+        )
+        row["xbrl_status"] = "OK"
+        row["xbrl_member_count"] = int(parsed.get("member_count") or 0)
+        counters["valid_xbrl_zip"] += 1
+
+        facts = parsed.get("facts") or []
+        row["da_fact_count"] = len(facts)
+
+        exact = [
+            f for f in facts
+            if f.get("namespace_kind") == "IFRS_NAMESPACE"
+            and f.get("local_name") in APPROVED_LOCAL_NAMES
+        ]
+        exact_names = sorted({str(f.get("local_name") or "") for f in exact})
+        row["approved_exact_fact_count"] = len(exact)
+        row["approved_exact_local_names"] = "|".join(exact_names)
+        row["both_approved_exact_local_names_present"] = (
+            "TRUE" if set(exact_names) == APPROVED_LOCAL_NAMES else "FALSE"
+        )
+
+        if exact:
+            row["audit_result"] = "RETRY_APPROVED_EXACT_FACT_FOUND"
+            counters["approved_exact_found"] += 1
+            if set(exact_names) == APPROVED_LOCAL_NAMES:
+                counters["both_approved_exact_names_found"] += 1
+            if row["single_blocker_ticker"] == "TRUE":
+                counters["single_blocker_approved_exact_found"] += 1
+        elif facts:
+            row["audit_result"] = "RETRY_DA_FACT_FOUND_NO_APPROVED_EXACT"
+            counters["da_fact_no_approved_exact"] += 1
+        else:
+            row["audit_result"] = "RETRY_XBRL_NO_DA_FACT"
+            counters["xbrl_no_da_fact"] += 1
+
+        if row["used_prior_rcept_no"] == "FALSE":
+            counters["fallback_receipt_used"] += 1
+
+        results.append(row)
+
+    results.sort(key=lambda r: r["ticker"])
+
+    fields = list(results[0].keys())
+    OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+    with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
+        w.writeheader()
+        w.writerows(results)
+
+    approved_tickers = [
+        r["ticker"]
+        for r in results
+        if r["audit_result"] == "RETRY_APPROVED_EXACT_FACT_FOUND"
+    ]
+    single_approved_tickers = [
+        r["ticker"]
+        for r in results
+        if r["audit_result"] == "RETRY_APPROVED_EXACT_FACT_FOUND"
+        and r["single_blocker_ticker"] == "TRUE"
+    ]
+    unresolved_tickers = [
+        r["ticker"]
+        for r in results
+        if r["audit_result"] not in {
+            "RETRY_APPROVED_EXACT_FACT_FOUND",
+            "RETRY_DA_FACT_FOUND_NO_APPROVED_EXACT",
+            "RETRY_XBRL_NO_DA_FACT",
+        }
+    ]
+
+    summary = {
+        "version": VERSION,
+        "policy_version": POLICY_VERSION,
+        "v891_version": V891_VERSION,
+        "v885_version": V885_VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+        "status": "AUDIT_ONLY",
+        "target_count": len(results),
+        "single_blocker_target_count": len(single_targets),
+        "corp_code_resolved_count": counters["corp_code_resolved"],
+        "corp_code_unresolved_count": counters["corp_code_unresolved"],
+        "valid_xbrl_zip_count": counters["valid_xbrl_zip"],
+        "fallback_receipt_used_count": counters["fallback_receipt_used"],
+        "approved_exact_fact_ticker_count": counters["approved_exact_found"],
+        "both_approved_exact_names_ticker_count": counters["both_approved_exact_names_found"],
+        "single_blocker_approved_exact_fact_count": counters["single_blocker_approved_exact_found"],
+        "approved_exact_fact_tickers": approved_tickers,
+        "single_blocker_approved_exact_fact_tickers": single_approved_tickers,
+        "unresolved_tickers": unresolved_tickers,
+        "result_counts": dict(Counter(r["audit_result"] for r in results)),
+        "corp_code_source_counts": dict(Counter(r["corp_code_source"] for r in results)),
+        "automatic_promotion": {
+            "allowed": False,
+            "promoted_ticker_count": 0,
+            "reason": (
+                "V8.9.2는 공식 DART/XBRL 재조회 결과만 감사한다. "
+                "승인 exact fact가 다시 확인돼도 CFS/OFS context와 값 유일성을 "
+                "다음 단계에서 재검증하기 전에는 V8.8.8 source layer 또는 점수를 바꾸지 않는다."
+            ),
+        },
+        "hard_guards": {
+            "production_api_changed": False,
+            "production_investment_score_written": False,
+            "scoring_policy_changed": False,
+            "new_da_id_approved": False,
+            "v888_source_layer_mutated": False,
+            "missing_da_assumed_zero": False,
+            "preferred_share_da_value_inherited": False,
+            "new_preferred_common_mapping_created": False,
+        },
+        "next_step": (
+            "AUDIT_V892_APPROVED_EXACT_CONTEXT_AND_UNRESOLVED_CORP_CODE_ISSUER_MAPPING"
+            if approved_tickers or unresolved_tickers
+            else "MOVE_REMAINING_DA_TARGETS_TO_ALTERNATE_OFFICIAL_SOURCE_AUDIT"
+        ),
+    }
+    OUT_JSON.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    log = [
+        f"VERSION={VERSION}",
+        "STATUS=AUDIT_ONLY",
+        f"TARGET_COUNT={len(results)}",
+        f"SINGLE_BLOCKER_TARGET_COUNT={len(single_targets)}",
+        f"CORP_CODE_RESOLVED_COUNT={counters['corp_code_resolved']}",
+        f"CORP_CODE_UNRESOLVED_COUNT={counters['corp_code_unresolved']}",
+        f"VALID_XBRL_ZIP_COUNT={counters['valid_xbrl_zip']}",
+        f"FALLBACK_RECEIPT_USED_COUNT={counters['fallback_receipt_used']}",
+        f"APPROVED_EXACT_FACT_TICKER_COUNT={counters['approved_exact_found']}",
+        f"BOTH_APPROVED_EXACT_NAMES_TICKER_COUNT={counters['both_approved_exact_names_found']}",
+        f"SINGLE_BLOCKER_APPROVED_EXACT_FACT_COUNT={counters['single_blocker_approved_exact_found']}",
+        "PRODUCTION_DATA_CHANGED=false",
+        "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+        "SCORING_POLICY_CHANGED=false",
+        "NEW_DA_ID_APPROVED=false",
+        "V888_SOURCE_LAYER_MUTATED=false",
+        "MISSING_DA_ASSUMED_ZERO=false",
+        "STATUS_OK=true",
+        f"NEXT_STEP={summary['next_step']}",
+    ]
+    OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+
+    doc = [
+        "# V8.9.2 공식 DART/XBRL D&A 재조회 감사",
+        "",
+        f"- 버전: `{VERSION}`",
+        "- 상태: AUDIT_ONLY",
+        "- 대상: V8.9.1의 공식 재조회 lane 11종목",
+        "",
+        "## 변경점",
+        "",
+        "- NO_CORP_CODE 종목은 DART 공식 corpCode.xml에서 고유번호를 복구한다.",
+        "- 우선주를 포함해 DART corpCode.xml의 정확한 stock_code 매칭만 사용하며, 미매칭 발행사는 별도 issuer mapping 감사로 넘긴다.",
+        "- NOT_ZIP 종목은 최신 정정 접수번호 하나에 고정하지 않고 사업보고서 후보를 최신순으로 검사한다.",
+        "- 실제 XBRL ZIP을 반환하는 접수번호가 발견되면 그 원본에서 승인 exact D&A fact 존재 여부만 감사한다.",
+        "",
+        "## 안전 원칙",
+        "",
+        "- 새 D&A account ID를 승인하지 않는다.",
+        "- partial fact를 0으로 보완하지 않는다.",
+        "- production API와 investment_score_100을 수정하지 않는다.",
+        "- V8.8.8 source layer를 수정하지 않는다.",
+        "- 승인 exact fact가 발견돼도 CFS/OFS context/value uniqueness 검증 전 자동 승격하지 않는다.",
+        "",
+        "## 다음 단계",
+        "",
+        "승인 exact fact가 복구된 종목만 별도 CFS/OFS context/value uniqueness 감사로 넘긴다.",
+        "",
+    ]
+    OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+    OUT_DOC.write_text("\n".join(doc), encoding="utf-8")
+
+    print("V892_OFFICIAL_DART_XBRL_DA_RETRY=PASS")
+    print("\n".join(log))
+
+if __name__ == "__main__":
+    main()

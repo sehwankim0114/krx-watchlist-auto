@@ -1,0 +1,340 @@
+name: Expand original XBRL D&A audit v8.8.5
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v885-xbrl-da-full-expansion
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Create V8.8.5 expansion auditor
+        shell: bash
+        run: |
+          cat > investment_score_xbrl_da_expand_v885.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import csv
+          import json
+          import time
+          from pathlib import Path
+
+          import investment_score_xbrl_da_probe_v884 as base
+
+          VERSION = "2026-09-15-v8.8.5-xbrl-da-full-expansion-audit"
+          ROOT = Path(".")
+
+          OUT_CSV = ROOT / "latest/investment_score_xbrl_da_expansion_v885.csv"
+          OUT_JSON = ROOT / "latest/investment_score_xbrl_da_expansion_v885_summary_latest.json"
+          OUT_LOG = ROOT / "latest/investment_score_xbrl_da_expansion_v885_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_xbrl_da_expansion_v885.md"
+
+          APPROVED_LOCAL_NAMES = {
+              "AdjustmentsForDepreciationExpense",
+              "AdjustmentsForAmortisationExpense",
+          }
+
+          def retry(fn, *args, **kwargs):
+              last = None
+              for attempt, delay in enumerate((0, 1.5, 3.0), start=1):
+                  if delay:
+                      time.sleep(delay)
+                  try:
+                      return fn(*args, **kwargs)
+                  except Exception as exc:
+                      last = exc
+                      if attempt == 3:
+                          raise
+              raise last
+
+          def main():
+              original_json = base.request_json
+              original_bytes = base.request_bytes
+              original_pick = base.pick_samples
+
+              base.VERSION = VERSION
+              base.OUT_CSV = OUT_CSV
+              base.OUT_JSON = OUT_JSON
+              base.OUT_LOG = OUT_LOG
+              base.OUT_DOC = OUT_DOC
+
+              base.request_json = lambda *a, **k: retry(original_json, *a, **k)
+              base.request_bytes = lambda *a, **k: retry(original_bytes, *a, **k)
+              base.pick_samples = (
+                  lambda audit_rows, raw_map, limit=12:
+                  original_pick(audit_rows, raw_map, limit=999)
+              )
+
+              base.main()
+
+              with OUT_CSV.open(encoding="utf-8-sig", newline="") as f:
+                  rows = list(csv.DictReader(f))
+
+              exact_any = 0
+              exact_both = 0
+              exact_none = 0
+              zip_failed = 0
+              exact_by_name = {name: 0 for name in APPROVED_LOCAL_NAMES}
+
+              for row in rows:
+                  names = set(filter(None, (row.get("da_local_names") or "").split("|")))
+                  approved = names & APPROVED_LOCAL_NAMES
+                  if approved:
+                      exact_any += 1
+                      for name in approved:
+                          exact_by_name[name] += 1
+                  else:
+                      exact_none += 1
+
+                  if APPROVED_LOCAL_NAMES.issubset(names):
+                      exact_both += 1
+
+                  if row.get("xbrl_status") != "OK":
+                      zip_failed += 1
+
+              s = json.loads(OUT_JSON.read_text(encoding="utf-8"))
+              s["version"] = VERSION
+              s["status"] = "AUDIT_ONLY"
+              s["sample_strategy"] = "ALL_ELIGIBLE_V883_NONFINANCIAL_NO_DA_CANDIDATE"
+              s["target_count"] = len(rows)
+              s["approved_exact_local_names"] = sorted(APPROVED_LOCAL_NAMES)
+              s["approved_exact_xbrl_ticker_count"] = exact_any
+              s["approved_exact_xbrl_both_ticker_count"] = exact_both
+              s["approved_exact_xbrl_none_ticker_count"] = exact_none
+              s["approved_exact_xbrl_by_local_name"] = exact_by_name
+              s["xbrl_failed_ticker_count"] = zip_failed
+              s["approved_exact_xbrl_coverage_pct"] = round(
+                  exact_any / len(rows) * 100, 2
+              ) if rows else 0
+              s["hard_guards"] = {
+                  "production_api_changed": False,
+                  "production_investment_score_written": False,
+                  "scoring_policy_changed": False,
+                  "new_da_id_approved": False,
+                  "dry_run_score_changed": False,
+                  "unapproved_xbrl_fact_used_for_score": False,
+              }
+              s["next_step"] = (
+                  "VALIDATE_CURRENT_YEAR_CONSOLIDATED_CONTEXT_SELECTION_FOR_APPROVED_"
+                  "EXACT_XBRL_FACTS_BEFORE_SOURCE_CONNECTION"
+              )
+              OUT_JSON.write_text(
+                  json.dumps(s, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+
+              doc = [
+                  "# V8.8.5 원본 XBRL D&A 전체 확대 감사",
+                  "",
+                  f"- 버전: `{VERSION}`",
+                  "- 상태: AUDIT_ONLY",
+                  "- 대상: V8.8.3 비금융 NO_DA_CANDIDATE 전체",
+                  "- V8.8.4에서 검증한 OpenDART 원본 XBRL 경로를 전체 대상에 확대",
+                  "- 기존 V8.8.0 승인 exact local name만 별도 집계",
+                  "- 미승인 XBRL fact는 점수에 사용하지 않음",
+                  "- production/점수정책/dry-run 점수 변경 없음",
+                  "",
+                  "## 승인 exact local name",
+                  "",
+                  "- `AdjustmentsForDepreciationExpense`",
+                  "- `AdjustmentsForAmortisationExpense`",
+                  "",
+                  "## 다음 단계",
+                  "",
+                  "승인 exact fact가 발견된 종목에서 현재연도·연결(CFS) context를 "
+                  "유일하게 선택할 수 있는지 검증한 뒤 source 연결 여부를 판단한다.",
+                  "",
+              ]
+              OUT_DOC.write_text("\n".join(doc), encoding="utf-8")
+
+              log = [
+                  f"VERSION={VERSION}",
+                  f"TARGET_COUNT={len(rows)}",
+                  f"REPORT_FOUND={s.get('report_found_count')}",
+                  f"XBRL_ZIP_SUCCESS={s.get('xbrl_zip_success_count')}",
+                  f"XBRL_FAILED={zip_failed}",
+                  f"APPROVED_EXACT_XBRL_TICKERS={exact_any}",
+                  f"APPROVED_EXACT_XBRL_BOTH_TICKERS={exact_both}",
+                  f"APPROVED_EXACT_XBRL_NONE_TICKERS={exact_none}",
+                  f"APPROVED_EXACT_XBRL_COVERAGE_PCT={s['approved_exact_xbrl_coverage_pct']}",
+                  "UNAPPROVED_XBRL_FACT_USED_FOR_SCORE=false",
+                  "PRODUCTION_DATA_CHANGED=false",
+                  "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+                  "SCORING_POLICY_CHANGED=false",
+                  "NEW_DA_ID_APPROVED=false",
+                  "STATUS=OK",
+                  "NEXT_STEP=VALIDATE_APPROVED_XBRL_CONTEXT_SELECTION",
+              ]
+              OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+
+              print("V885_XBRL_DA_FULL_EXPANSION_AUDIT=PASS")
+              print("\n".join(log))
+
+          if __name__ == "__main__":
+              main()
+
+          PY
+
+      - name: Run full XBRL D&A expansion audit
+        shell: bash
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: |
+          set -euo pipefail
+          python -m py_compile investment_score_xbrl_da_expand_v885.py
+          python investment_score_xbrl_da_expand_v885.py
+          grep -q '^STATUS=OK$' latest/investment_score_xbrl_da_expansion_v885_run_log_latest.txt
+
+      - name: Validate V8.8.5 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import csv, json
+          from pathlib import Path
+
+          s = json.loads(
+              Path("latest/investment_score_xbrl_da_expansion_v885_summary_latest.json")
+              .read_text(encoding="utf-8")
+          )
+          with Path("latest/investment_score_xbrl_da_expansion_v885.csv").open(
+              encoding="utf-8-sig", newline=""
+          ) as f:
+              rows = list(csv.DictReader(f))
+
+          assert s["status"] == "AUDIT_ONLY"
+          assert s["target_count"] == len(rows)
+          assert s["target_count"] > 12
+          assert s["approved_exact_xbrl_ticker_count"] <= s["target_count"]
+          assert s["xbrl_failed_ticker_count"] <= s["target_count"]
+
+          g = s["hard_guards"]
+          assert g["production_api_changed"] is False
+          assert g["production_investment_score_written"] is False
+          assert g["scoring_policy_changed"] is False
+          assert g["new_da_id_approved"] is False
+          assert g["dry_run_score_changed"] is False
+          assert g["unapproved_xbrl_fact_used_for_score"] is False
+
+          print("V885_XBRL_DA_EXPANSION_VALIDATION=PASS")
+          print("TARGET_COUNT=" + str(s["target_count"]))
+          print("REPORT_FOUND=" + str(s["report_found_count"]))
+          print("XBRL_ZIP_SUCCESS=" + str(s["xbrl_zip_success_count"]))
+          print("XBRL_FAILED=" + str(s["xbrl_failed_ticker_count"]))
+          print("APPROVED_EXACT_XBRL_TICKERS=" + str(s["approved_exact_xbrl_ticker_count"]))
+          print("APPROVED_EXACT_XBRL_COVERAGE_PCT=" + str(s["approved_exact_xbrl_coverage_pct"]))
+          PY
+
+
+      - name: Verify protected files unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git status --porcelain -- \
+            api/two_table_v1 \
+            config/two_table_release.json \
+            config/investment_score_policy_v880.json \
+            latest/investment_score_v880_dry_run_v882_latest.csv \
+            latest/investment_score_v880_dry_run_v882_summary_latest.json | grep -q .; then
+            echo "::error::Protected production/policy/dry-run files changed"
+            git status --short
+            exit 1
+          fi
+          echo "V885_PROTECTED_FILES_UNCHANGED=PASS"
+
+
+      - name: Restrict changed files idempotently
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          allowed = {
+              "investment_score_xbrl_da_expand_v885.py",
+              "docs/investment_score_xbrl_da_expansion_v885.md",
+              "latest/investment_score_xbrl_da_expansion_v885.csv",
+              "latest/investment_score_xbrl_da_expansion_v885_summary_latest.json",
+              "latest/investment_score_xbrl_da_expansion_v885_run_log_latest.txt",
+          }
+
+          for path in allowed:
+              if not Path(path).exists():
+                  raise SystemExit("EXPECTED_OUTPUT_MISSING=" + path)
+
+          out = subprocess.check_output(["git", "status", "--porcelain"], text=True)
+          changed = set()
+          for line in out.splitlines():
+              if not line.strip():
+                  continue
+              path = line[3:]
+              if " -> " in path:
+                  path = path.split(" -> ", 1)[1]
+              changed.add(path)
+
+          unexpected = changed - allowed
+          if unexpected:
+              raise SystemExit("CHANGE_SCOPE_UNEXPECTED=" + repr(sorted(unexpected)))
+          if not changed:
+              raise SystemExit("NO_CHANGES_DETECTED")
+
+          print("CHANGE_SCOPE=PASS")
+          print("CHANGED_FILES=" + ",".join(sorted(changed)))
+          PY
+
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_xbrl_da_expand_v885.py \
+            docs/investment_score_xbrl_da_expansion_v885.md \
+            latest/investment_score_xbrl_da_expansion_v885.csv \
+            latest/investment_score_xbrl_da_expansion_v885_summary_latest.json \
+            latest/investment_score_xbrl_da_expansion_v885_run_log_latest.txt
+
+          if git diff --cached --quiet; then
+            echo "NO_COMMIT_NEEDED=true"
+            echo "PUSH_SUCCESS=true"
+          else
+            git commit -m "Expand XBRL D&A source audit"
+            git fetch origin main
+            if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+              git rebase origin/main
+            fi
+            git push origin HEAD:main
+            echo "COMMIT_SHA=$(git rev-parse HEAD)"
+            echo "PUSH_SUCCESS=true"
+          fi
+
+          echo "PRODUCTION_DATA_CHANGED=false"
+          echo "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false"
+          echo "SCORING_POLICY_CHANGED=false"
+          echo "NEW_DA_ID_APPROVED=false"
+          echo "NEXT_STEP=VALIDATE_APPROVED_XBRL_CONTEXT_SELECTION"
+

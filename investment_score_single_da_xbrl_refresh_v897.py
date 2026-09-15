@@ -1,0 +1,423 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import csv
+import json
+import os
+import time
+from collections import Counter
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import investment_score_xbrl_retry_v892 as retry
+
+VERSION = "2026-09-15-v8.9.7-refresh-single-blocker-da-xbrl"
+V895_VERSION = "2026-09-15-v8.9.5-refresh-remaining-blocker-audit"
+V891_VERSION = "2026-09-15-v8.9.1-remaining-exact-da-recoverability-audit"
+V892_VERSION = "2026-09-15-v8.9.2-retry-failed-official-xbrl"
+V885_VERSION = "2026-09-14-v8.8.5-expanded-xbrl-da-audit"
+POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+
+ROOT = Path(".")
+KST = ZoneInfo("Asia/Seoul")
+
+V895_CSV = ROOT / "latest/investment_score_remaining_blockers_v895.csv"
+V895_JSON = ROOT / "latest/investment_score_remaining_blockers_v895_summary_latest.json"
+V891_CSV = ROOT / "latest/investment_score_da_recoverability_v891.csv"
+V891_JSON = ROOT / "latest/investment_score_da_recoverability_v891_summary_latest.json"
+V885_CSV = ROOT / "latest/investment_score_xbrl_da_expand_v885.csv"
+V885_JSON = ROOT / "latest/investment_score_xbrl_da_expand_v885_summary_latest.json"
+
+OUT_CSV = ROOT / "latest/investment_score_single_da_xbrl_refresh_v897.csv"
+OUT_JSON = ROOT / "latest/investment_score_single_da_xbrl_refresh_v897_summary_latest.json"
+OUT_LOG = ROOT / "latest/investment_score_single_da_xbrl_refresh_v897_run_log_latest.txt"
+OUT_DOC = ROOT / "docs/investment_score_single_da_xbrl_refresh_v897.md"
+
+APPROVED = {
+    "AdjustmentsForDepreciationExpense",
+    "AdjustmentsForAmortisationExpense",
+}
+EXPECTED_TARGETS = {
+    "001560",  # 제일연마
+    "012450",  # 한화에어로스페이스
+    "017670",  # SK텔레콤
+    "020560",  # 아시아나항공
+    "022100",  # 포스코DX
+    "023960",  # 에쓰씨엔지니어링
+    "078520",  # 에이블씨엔씨
+    "483650",  # 달바글로벌
+}
+
+def read_json(path):
+    return json.loads(path.read_text(encoding="utf-8-sig"))
+
+def read_csv(path):
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+def ticker(v):
+    s = "".join(ch for ch in str(v or "") if ch.isdigit())
+    return s.zfill(6) if s else ""
+
+def parse_names(value):
+    if isinstance(value, list):
+        return {str(x) for x in value if str(x)}
+    return {x for x in str(value or "").split("|") if x}
+
+def classify_attempts(attempts):
+    zip_rows = [x for x in attempts if x.get("zip_status") == "ZIP_OK"]
+    both = []
+    partial = []
+    no_exact = []
+
+    for item in zip_rows:
+        names = set(item.get("approved_exact_local_names") or [])
+        if APPROVED.issubset(names):
+            both.append(item)
+        elif names:
+            partial.append(item)
+        else:
+            no_exact.append(item)
+
+    if both:
+        classification = "BOTH_APPROVED_EXACT_RECOVERED"
+    elif partial:
+        classification = "PARTIAL_APPROVED_EXACT_ONLY"
+    elif no_exact:
+        classification = "ZIP_OK_NO_APPROVED_EXACT"
+    elif attempts:
+        classification = "NO_VALID_XBRL_ZIP"
+    else:
+        classification = "NO_REPORT_CANDIDATE"
+
+    return classification, both, partial, no_exact
+
+def choose_best(rows):
+    if not rows:
+        return {}
+    rows = list(rows)
+    rows.sort(
+        key=lambda x: (
+            str(x.get("rcept_dt") or ""),
+            str(x.get("rcept_no") or ""),
+        ),
+        reverse=True,
+    )
+    return rows[0]
+
+def main():
+    api_key = os.environ.get("DART_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("DART_API_KEY_MISSING")
+
+    for path in (
+        V895_CSV, V895_JSON,
+        V891_CSV, V891_JSON,
+        V885_CSV, V885_JSON,
+    ):
+        if not path.is_file():
+            raise RuntimeError("MISSING_REQUIRED_SOURCE:" + str(path))
+
+    s895 = read_json(V895_JSON)
+    s891 = read_json(V891_JSON)
+    s885 = read_json(V885_JSON)
+
+    if s895.get("version") != V895_VERSION:
+        raise RuntimeError("V895_VERSION_MISMATCH")
+    if s895.get("policy_version") != POLICY_VERSION:
+        raise RuntimeError("POLICY_VERSION_MISMATCH")
+    if s895.get("ready_count") != 42 or s895.get("limited_count") != 70:
+        raise RuntimeError("V895_READY_LIMITED_MISMATCH")
+
+    if s891.get("version") != V891_VERSION:
+        raise RuntimeError("V891_VERSION_MISMATCH")
+    if s885.get("version") != V885_VERSION:
+        raise RuntimeError("V885_VERSION_MISMATCH")
+
+    if retry.VERSION != V892_VERSION:
+        raise RuntimeError("V892_HELPER_VERSION_MISMATCH")
+
+    rows895 = read_csv(V895_CSV)
+    rows891 = read_csv(V891_CSV)
+    rows885 = read_csv(V885_CSV)
+
+    current_targets = {
+        ticker(r.get("ticker"))
+        for r in rows895
+        if r.get("source_group") == "EXACT_DA_SOURCE"
+        and str(r.get("single_blocker_ticker") or "").upper() == "TRUE"
+    }
+    if current_targets != EXPECTED_TARGETS:
+        raise RuntimeError(
+            "CURRENT_SINGLE_DA_TARGET_SET_CHANGED:"
+            + repr(sorted(current_targets))
+        )
+
+    m895 = {
+        ticker(r.get("ticker")): r
+        for r in rows895
+        if ticker(r.get("ticker"))
+    }
+    m891 = {
+        ticker(r.get("ticker")): r
+        for r in rows891
+        if ticker(r.get("ticker"))
+    }
+    m885 = {
+        ticker(r.get("ticker")): r
+        for r in rows885
+        if ticker(r.get("ticker"))
+    }
+
+    outputs = []
+    class_counts = Counter()
+
+    for code in sorted(EXPECTED_TARGETS):
+        b = m895.get(code) or {}
+        prior891 = m891.get(code) or {}
+        prior885 = m885.get(code) or {}
+
+        corp_code = str(prior885.get("corp_code") or "").strip()
+        prior_rcept = str(prior885.get("rcept_no") or "").strip()
+
+        if not corp_code:
+            raise RuntimeError("TARGET_CORP_CODE_MISSING:" + code)
+        if not prior_rcept:
+            raise RuntimeError("TARGET_PRIOR_RCEPT_MISSING:" + code)
+
+        report_list = retry.list_business_reports(api_key, corp_code)
+
+        candidates = []
+        seen = set()
+
+        def add_candidate(rcept_no, source, rcept_dt="", report_nm=""):
+            if not rcept_no or rcept_no in seen:
+                return
+            seen.add(rcept_no)
+            candidates.append({
+                "rcept_no": rcept_no,
+                "candidate_source": source,
+                "rcept_dt": rcept_dt,
+                "report_nm": report_nm,
+            })
+
+        add_candidate(
+            prior_rcept,
+            "V885_PRIOR",
+            str(prior885.get("rcept_dt") or ""),
+            str(prior885.get("report_nm") or ""),
+        )
+
+        for item in report_list.get("reports") or []:
+            add_candidate(
+                str(item.get("rcept_no") or ""),
+                "DART_LIST_REFRESH",
+                str(item.get("rcept_dt") or ""),
+                str(item.get("report_nm") or ""),
+            )
+
+        attempts = []
+        for cand in candidates:
+            result = retry.try_xbrl(api_key, cand["rcept_no"])
+            attempts.append({**cand, **result})
+            time.sleep(0.35)
+
+        classification, both, partial, no_exact = classify_attempts(attempts)
+        class_counts[classification] += 1
+
+        best_both = choose_best(both)
+        best_partial = choose_best(partial)
+
+        if best_both:
+            best = best_both
+        elif best_partial:
+            best = best_partial
+        else:
+            best = choose_best(no_exact)
+
+        prior_provenance = str(prior891.get("provenance_class") or "")
+        prior_lane = str(prior891.get("recovery_lane") or "")
+
+        outputs.append({
+            "ticker": code,
+            "name": b.get("name") or prior891.get("name") or "",
+            "market": b.get("market") or prior891.get("market") or "",
+            "single_blocker_ticker": "TRUE",
+            "corp_code": corp_code,
+            "prior_provenance_class": prior_provenance,
+            "prior_recovery_lane": prior_lane,
+            "prior_rcept_no": prior_rcept,
+            "refreshed_list_status": report_list.get("status") or "",
+            "refreshed_list_message": report_list.get("message") or "",
+            "candidate_rcept_count": len(candidates),
+            "zip_success_count": sum(
+                1 for x in attempts if x.get("zip_status") == "ZIP_OK"
+            ),
+            "both_exact_candidate_count": len(both),
+            "partial_exact_candidate_count": len(partial),
+            "zip_no_exact_candidate_count": len(no_exact),
+            "refresh_classification": classification,
+            "best_rcept_no": best.get("rcept_no") or "",
+            "best_rcept_dt": best.get("rcept_dt") or "",
+            "best_report_nm": best.get("report_nm") or "",
+            "best_approved_exact_local_names": "|".join(
+                sorted(set(best.get("approved_exact_local_names") or []))
+            ),
+            "best_all_da_local_names": "|".join(
+                sorted(set(best.get("all_da_local_names") or []))
+            ),
+            "candidate_attempts_json": json.dumps(
+                attempts,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+        })
+
+    OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+    fields = list(outputs[0].keys())
+    with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
+        w.writeheader()
+        w.writerows(outputs)
+
+    both_tickers = sorted(
+        r["ticker"]
+        for r in outputs
+        if r["refresh_classification"] == "BOTH_APPROVED_EXACT_RECOVERED"
+    )
+    partial_tickers = sorted(
+        r["ticker"]
+        for r in outputs
+        if r["refresh_classification"] == "PARTIAL_APPROVED_EXACT_ONLY"
+    )
+    no_exact_tickers = sorted(
+        r["ticker"]
+        for r in outputs
+        if r["refresh_classification"] == "ZIP_OK_NO_APPROVED_EXACT"
+    )
+    no_zip_tickers = sorted(
+        r["ticker"]
+        for r in outputs
+        if r["refresh_classification"] in {
+            "NO_VALID_XBRL_ZIP",
+            "NO_REPORT_CANDIDATE",
+        }
+    )
+
+    if both_tickers:
+        next_step = "AUDIT_V897_BOTH_EXACT_RECOVERED_CONTEXTS_BEFORE_SOURCE_PROMOTION"
+    elif partial_tickers:
+        next_step = "AUDIT_ALTERNATE_OFFICIAL_SOURCE_FOR_V897_PARTIAL_EXACT_CASES"
+    else:
+        next_step = "MOVE_TO_FINANCIAL_VALUATION_CACHE_RECOVERY"
+
+    summary = {
+        "version": VERSION,
+        "policy_version": POLICY_VERSION,
+        "v895_version": V895_VERSION,
+        "v891_version": V891_VERSION,
+        "v892_helper_version": V892_VERSION,
+        "v885_version": V885_VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+        "status": "AUDIT_ONLY",
+        "target_count": len(outputs),
+        "target_tickers": sorted(EXPECTED_TARGETS),
+        "refresh_classification_counts": dict(class_counts),
+        "both_approved_exact_recovered_count": len(both_tickers),
+        "both_approved_exact_recovered_tickers": both_tickers,
+        "partial_approved_exact_count": len(partial_tickers),
+        "partial_approved_exact_tickers": partial_tickers,
+        "zip_ok_no_approved_exact_count": len(no_exact_tickers),
+        "zip_ok_no_approved_exact_tickers": no_exact_tickers,
+        "no_valid_zip_count": len(no_zip_tickers),
+        "no_valid_zip_tickers": no_zip_tickers,
+        "supply_route_deferred": {
+            "reason": (
+                "production requests 180d but current supply producer caps "
+                "whole-market DART scan at 90d; absence completeness cannot "
+                "be promoted without a contract decision"
+            ),
+            "automatic_supply_status_change_allowed": False,
+        },
+        "automatic_promotion": {
+            "allowed": False,
+            "promoted_ticker_count": 0,
+        },
+        "hard_guards": {
+            "production_api_changed": False,
+            "production_investment_score_written": False,
+            "scoring_policy_changed": False,
+            "new_da_id_approved": False,
+            "v894_da_source_mutated": False,
+            "partial_xbrl_fact_promoted": False,
+            "missing_da_assumed_zero": False,
+            "supply_contract_changed": False,
+        },
+        "next_step": next_step,
+    }
+    OUT_JSON.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+    OUT_DOC.write_text(
+        "\n".join([
+            "# V8.9.7 남은 D&A single-blocker XBRL 재탐색",
+            "",
+            f"- 버전: `{VERSION}`",
+            "- 대상: 현재 EXACT_DA_SOURCE 단일 blocker 8종목",
+            "- 상태: AUDIT_ONLY",
+            "",
+            "## 배경",
+            "",
+            "V8.9.6에서 supply 단일 blocker 8종목은 production이 180일을 요청하지만 "
+            "현재 producer가 whole-market DART 조회를 90일로 제한하는 계약 충돌 때문에 "
+            "`LIMITED + 없음`으로 남는 것이 확인되었다. 90일을 임의로 완전한 부재 증거로 "
+            "간주하지 않고 supply 경로는 보류한다.",
+            "",
+            "## 이번 감사",
+            "",
+            "- V8.9.2의 검증된 DART 사업보고서 재탐색/XBRL 검사 함수를 재사용한다.",
+            "- 정정·원본 사업보고서 접수번호 후보를 모두 다시 확인한다.",
+            "- 두 승인 exact D&A fact가 모두 복구된 종목만 다음 context 감사 대상으로 넘긴다.",
+            "- partial fact, 미승인 fact, no-fact는 자동 승격하지 않는다.",
+            "",
+            "## 다음 단계",
+            "",
+            f"`{next_step}`",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+
+    log = [
+        f"VERSION={VERSION}",
+        f"TARGET_COUNT={len(outputs)}",
+        "TARGET_TICKERS=" + ",".join(sorted(EXPECTED_TARGETS)),
+        f"BOTH_EXACT_RECOVERED={len(both_tickers)}",
+        "BOTH_EXACT_TICKERS=" + ",".join(both_tickers),
+        f"PARTIAL_EXACT={len(partial_tickers)}",
+        "PARTIAL_EXACT_TICKERS=" + ",".join(partial_tickers),
+        f"ZIP_OK_NO_EXACT={len(no_exact_tickers)}",
+        f"NO_VALID_ZIP={len(no_zip_tickers)}",
+        "SUPPLY_ROUTE_DEFERRED=true",
+        "AUTO_PROMOTION=false",
+        "PRODUCTION_DATA_CHANGED=false",
+        "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+        "SCORING_POLICY_CHANGED=false",
+        "NEW_DA_ID_APPROVED=false",
+        "MISSING_DA_ASSUMED_ZERO=false",
+        "SUPPLY_CONTRACT_CHANGED=false",
+        "STATUS=OK",
+        f"NEXT_STEP={next_step}",
+    ]
+    OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+
+    print("V897_SINGLE_DA_XBRL_REFRESH=PASS")
+    print("\n".join(log))
+
+if __name__ == "__main__":
+    main()
+

@@ -1,0 +1,62 @@
+{
+  "version": "2026-09-15-v8.9.7-refresh-single-blocker-da-xbrl",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v895_version": "2026-09-15-v8.9.5-refresh-remaining-blocker-audit",
+  "v891_version": "2026-09-15-v8.9.1-remaining-exact-da-recoverability-audit",
+  "v892_helper_version": "2026-09-15-v8.9.2-retry-failed-official-xbrl",
+  "v885_version": "2026-09-14-v8.8.5-expanded-xbrl-da-audit",
+  "generated_at_kst": "2026-09-15T16:42:19+09:00",
+  "status": "AUDIT_ONLY",
+  "target_count": 8,
+  "target_tickers": [
+    "001560",
+    "012450",
+    "017670",
+    "020560",
+    "022100",
+    "023960",
+    "078520",
+    "483650"
+  ],
+  "refresh_classification_counts": {
+    "ZIP_OK_NO_APPROVED_EXACT": 5,
+    "PARTIAL_APPROVED_EXACT_ONLY": 3
+  },
+  "both_approved_exact_recovered_count": 0,
+  "both_approved_exact_recovered_tickers": [],
+  "partial_approved_exact_count": 3,
+  "partial_approved_exact_tickers": [
+    "012450",
+    "017670",
+    "022100"
+  ],
+  "zip_ok_no_approved_exact_count": 5,
+  "zip_ok_no_approved_exact_tickers": [
+    "001560",
+    "020560",
+    "023960",
+    "078520",
+    "483650"
+  ],
+  "no_valid_zip_count": 0,
+  "no_valid_zip_tickers": [],
+  "supply_route_deferred": {
+    "reason": "production requests 180d but current supply producer caps whole-market DART scan at 90d; absence completeness cannot be promoted without a contract decision",
+    "automatic_supply_status_change_allowed": false
+  },
+  "automatic_promotion": {
+    "allowed": false,
+    "promoted_ticker_count": 0
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "new_da_id_approved": false,
+    "v894_da_source_mutated": false,
+    "partial_xbrl_fact_promoted": false,
+    "missing_da_assumed_zero": false,
+    "supply_contract_changed": false
+  },
+  "next_step": "AUDIT_ALTERNATE_OFFICIAL_SOURCE_FOR_V897_PARTIAL_EXACT_CASES"
+}

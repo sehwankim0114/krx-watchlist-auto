@@ -1,0 +1,398 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import csv
+import json
+from collections import Counter
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+VERSION = "2026-09-15-v8.9.6-supply-evidence-completeness-audit"
+V895_VERSION = "2026-09-15-v8.9.5-refresh-remaining-blocker-audit"
+POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+
+ROOT = Path(".")
+KST = ZoneInfo("Asia/Seoul")
+
+V895_CSV = ROOT / "latest/investment_score_remaining_blockers_v895.csv"
+V895_JSON = ROOT / "latest/investment_score_remaining_blockers_v895_summary_latest.json"
+
+OUT_CSV = ROOT / "latest/investment_score_supply_evidence_v896.csv"
+OUT_JSON = ROOT / "latest/investment_score_supply_evidence_v896_summary_latest.json"
+OUT_REFS = ROOT / "latest/investment_score_supply_producer_refs_v896.txt"
+OUT_LOG = ROOT / "latest/investment_score_supply_evidence_v896_run_log_latest.txt"
+OUT_DOC = ROOT / "docs/investment_score_supply_evidence_v896.md"
+
+TARGET_SOURCE_GROUP = "PRODUCTION_ANALYSIS_SUPPLY"
+EXPECTED_BLOCKER_COUNT = 33
+EXPECTED_SINGLE_COUNT = 8
+EXPECTED_SINGLE_TICKERS = {
+    "003280", "063160", "066570", "071840",
+    "081000", "086280", "100250", "286940",
+}
+
+def read_json(path):
+    return json.loads(path.read_text(encoding="utf-8-sig"))
+
+def read_csv(path):
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+def ticker(v):
+    s = "".join(ch for ch in str(v or "") if ch.isdigit())
+    return s.zfill(6) if s else ""
+
+def production_rows():
+    out = {}
+    source_table = {}
+    for table in ("kospi", "decliners", "decliners24"):
+        path = ROOT / f"api/two_table_v1/{table}.json"
+        if not path.is_file():
+            raise RuntimeError("PRODUCTION_TABLE_MISSING:" + str(path))
+        payload = read_json(path)
+        for row in payload.get("rows") or []:
+            code = ticker(row.get("ticker"))
+            if not code:
+                continue
+            out[code] = row
+            source_table[code] = table
+    return out, source_table
+
+def flatten_scalars(obj, prefix=""):
+    out = {}
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            p = f"{prefix}.{key}" if prefix else str(key)
+            out.update(flatten_scalars(value, p))
+    elif isinstance(obj, list):
+        # Preserve lists compactly instead of indexing arbitrary lengths.
+        out[prefix] = obj
+    else:
+        out[prefix] = obj
+    return out
+
+def candidate_completeness_paths(flat):
+    tokens = (
+        "complete", "completeness", "coverage", "source",
+        "status", "evidence", "available", "availability",
+        "count", "checked", "fetched",
+    )
+    return sorted(
+        path for path in flat
+        if any(tok in path.lower() for tok in tokens)
+    )
+
+def scan_supply_producer_sources():
+    matches = []
+    allowed_suffixes = {".py", ".yml", ".yaml"}
+    skip_parts = {".git", ".venv", "venv", "__pycache__"}
+
+    for path in ROOT.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in allowed_suffixes:
+            continue
+        if any(part in skip_parts for part in path.parts):
+            continue
+        try:
+            if path.stat().st_size > 2_000_000:
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+
+        lines = text.splitlines()
+        hit_indexes = [
+            i for i, line in enumerate(lines)
+            if "supply_status" in line or "supply_level" in line
+        ]
+        if not hit_indexes:
+            continue
+
+        for idx in hit_indexes:
+            lo = max(0, idx - 6)
+            hi = min(len(lines), idx + 7)
+            excerpt = "\n".join(
+                f"{n+1:04d}: {lines[n]}"
+                for n in range(lo, hi)
+            )
+            matches.append({
+                "path": path.as_posix(),
+                "line": idx + 1,
+                "excerpt": excerpt,
+            })
+
+    matches.sort(key=lambda x: (x["path"], x["line"]))
+    return matches
+
+def main():
+    for path in (V895_CSV, V895_JSON):
+        if not path.is_file():
+            raise RuntimeError("MISSING_REQUIRED_SOURCE:" + str(path))
+
+    s895 = read_json(V895_JSON)
+    if s895.get("version") != V895_VERSION:
+        raise RuntimeError("V895_VERSION_MISMATCH")
+    if s895.get("policy_version") != POLICY_VERSION:
+        raise RuntimeError("POLICY_VERSION_MISMATCH")
+    if s895.get("status") != "AUDIT_ONLY":
+        raise RuntimeError("V895_STATUS_MISMATCH")
+    if s895.get("ready_count") != 42 or s895.get("limited_count") != 70:
+        raise RuntimeError("V895_READY_LIMITED_MISMATCH")
+
+    rows895 = read_csv(V895_CSV)
+    blockers = [
+        row for row in rows895
+        if row.get("source_group") == TARGET_SOURCE_GROUP
+    ]
+
+    blocker_codes = [ticker(r.get("ticker")) for r in blockers]
+    unique_codes = sorted(set(blocker_codes))
+    single_codes = sorted({
+        ticker(r.get("ticker"))
+        for r in blockers
+        if str(r.get("single_blocker_ticker") or "").upper() == "TRUE"
+    })
+
+    if len(blockers) != EXPECTED_BLOCKER_COUNT:
+        raise RuntimeError(
+            f"SUPPLY_BLOCKER_OCCURRENCE_COUNT:{len(blockers)}"
+        )
+    if len(unique_codes) != EXPECTED_BLOCKER_COUNT:
+        raise RuntimeError(
+            f"SUPPLY_BLOCKER_UNIQUE_COUNT:{len(unique_codes)}"
+        )
+    if len(single_codes) != EXPECTED_SINGLE_COUNT:
+        raise RuntimeError(
+            f"SUPPLY_SINGLE_COUNT:{len(single_codes)}"
+        )
+    if set(single_codes) != EXPECTED_SINGLE_TICKERS:
+        raise RuntimeError(
+            "SUPPLY_SINGLE_TICKER_SET_CHANGED:" + repr(single_codes)
+        )
+
+    prod, source_table = production_rows()
+    missing_prod = sorted(set(unique_codes) - set(prod))
+    if missing_prod:
+        raise RuntimeError(
+            "SUPPLY_BLOCKER_MISSING_FROM_PRODUCTION:" + ",".join(missing_prod)
+        )
+
+    blocker_map = {ticker(r.get("ticker")): r for r in blockers}
+    out_rows = []
+    status_counts = Counter()
+    level_counts = Counter()
+    classification_counts = Counter()
+    completeness_path_counts = Counter()
+    analysis_key_counts = Counter()
+
+    for code in unique_codes:
+        prow = prod[code]
+        analysis = prow.get("analysis") or {}
+        if not isinstance(analysis, dict):
+            raise RuntimeError(f"ANALYSIS_NOT_OBJECT:{code}")
+
+        status = str(analysis.get("supply_status") or "")
+        level = str(analysis.get("supply_level") or "")
+
+        if status == "OK":
+            classification = "EXPLICIT_COMPLETE_STATUS"
+        elif status == "LIMITED" and level == "없음":
+            classification = "LIMITED_NO_POSITIVE_EVIDENCE"
+        elif status == "LIMITED" and level in {"주의", "경계", "위험"}:
+            classification = "LIMITED_POSITIVE_EVIDENCE"
+        else:
+            classification = "OTHER_OR_MISSING_STATUS"
+
+        status_counts[status or "MISSING"] += 1
+        level_counts[level or "MISSING"] += 1
+        classification_counts[classification] += 1
+
+        flat = flatten_scalars(analysis)
+        completeness_paths = candidate_completeness_paths(flat)
+        for path in completeness_paths:
+            completeness_path_counts[path] += 1
+        for key in analysis:
+            analysis_key_counts[str(key)] += 1
+
+        b = blocker_map[code]
+        out_rows.append({
+            "ticker": code,
+            "name": b.get("name") or prow.get("name") or "",
+            "market": b.get("market") or prow.get("market") or "",
+            "production_table": source_table.get(code) or "",
+            "single_blocker_ticker": b.get("single_blocker_ticker") or "",
+            "supply_status": status,
+            "supply_level": level,
+            "supply_classification": classification,
+            "analysis_top_level_keys_json": json.dumps(
+                sorted(str(k) for k in analysis.keys()),
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+            "candidate_completeness_paths_json": json.dumps(
+                completeness_paths,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+            "analysis_flat_json": json.dumps(
+                flat,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        })
+
+    # Scorer contract implies all current blockers in this source group must be
+    # LIMITED + 없음. Anything else means the dry-run/source audit disagrees.
+    if classification_counts != {
+        "LIMITED_NO_POSITIVE_EVIDENCE": EXPECTED_BLOCKER_COUNT
+    }:
+        raise RuntimeError(
+            "SUPPLY_BLOCKER_CLASSIFICATION_INCONSISTENT:" +
+            repr(dict(classification_counts))
+        )
+
+    OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+    fields = list(out_rows[0].keys())
+    with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
+        w.writeheader()
+        w.writerows(out_rows)
+
+    producer_matches = scan_supply_producer_sources()
+    ref_lines = [
+        f"VERSION={VERSION}",
+        f"MATCH_COUNT={len(producer_matches)}",
+        "",
+    ]
+    for match in producer_matches:
+        ref_lines.extend([
+            "=" * 88,
+            f"FILE={match['path']}",
+            f"LINE={match['line']}",
+            match["excerpt"],
+            "",
+        ])
+    OUT_REFS.write_text("\n".join(ref_lines), encoding="utf-8")
+
+    candidate_paths = [
+        {
+            "path": path,
+            "ticker_count": count,
+        }
+        for path, count in completeness_path_counts.most_common()
+    ]
+    top_analysis_keys = [
+        {
+            "key": key,
+            "ticker_count": count,
+        }
+        for key, count in analysis_key_counts.most_common()
+    ]
+    producer_paths = sorted({m["path"] for m in producer_matches})
+
+    next_step = (
+        "AUDIT_SUPPLY_PRODUCER_COMPLETENESS_CONTRACT"
+        if producer_matches
+        else
+        "DISCOVER_SUPPLY_PRODUCER_BEFORE_ANY_SCORE_CHANGE"
+    )
+
+    summary = {
+        "version": VERSION,
+        "policy_version": POLICY_VERSION,
+        "v895_version": V895_VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+        "status": "AUDIT_ONLY",
+        "supply_blocker_ticker_count": len(unique_codes),
+        "supply_single_blocker_ticker_count": len(single_codes),
+        "supply_single_blocker_tickers": single_codes,
+        "supply_status_counts": dict(status_counts),
+        "supply_level_counts": dict(level_counts),
+        "supply_classification_counts": dict(classification_counts),
+        "candidate_completeness_paths": candidate_paths,
+        "analysis_top_level_keys": top_analysis_keys,
+        "producer_source_match_count": len(producer_matches),
+        "producer_source_paths": producer_paths,
+        "contract_observation": {
+            "current_scorer_rule": (
+                "OK+없음은 점수화 가능, LIMITED+없음은 "
+                "SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE로 LIMITED 유지"
+            ),
+            "absence_can_be_promoted_without_explicit_completeness": False,
+        },
+        "automatic_score_change": {
+            "allowed": False,
+            "promoted_ticker_count": 0,
+        },
+        "hard_guards": {
+            "production_api_changed": False,
+            "production_investment_score_written": False,
+            "scoring_policy_changed": False,
+            "supply_status_overridden": False,
+            "limited_absence_treated_as_complete": False,
+            "new_source_value_imputed": False,
+        },
+        "next_step": next_step,
+    }
+    OUT_JSON.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+    OUT_DOC.write_text(
+        "\n".join([
+            "# V8.9.6 수급·공시 evidence completeness 감사",
+            "",
+            f"- 버전: `{VERSION}`",
+            f"- supply blocker: {len(unique_codes)}종목",
+            f"- supply만 해결되면 READY: {len(single_codes)}종목",
+            "- 상태: AUDIT_ONLY",
+            "",
+            "## 목적",
+            "",
+            "현재 production `analysis.supply_status/supply_level`을 직접 확인하고, "
+            "`LIMITED + 없음`을 `OK + 없음`으로 바꿀 근거가 실제로 존재하는지 조사한다.",
+            "",
+            "## 안전 원칙",
+            "",
+            "- LIMITED 상태를 임의로 OK로 바꾸지 않는다.",
+            "- '부담 근거가 발견되지 않음'을 '부담 없음이 완전하게 확인됨'으로 간주하지 않는다.",
+            "- production score와 점수정책은 변경하지 않는다.",
+            "- producer 소스코드에서 supply_status/supply_level 생성 위치를 함께 추적한다.",
+            "",
+            "## 다음 단계",
+            "",
+            f"`{next_step}`",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+
+    log = [
+        f"VERSION={VERSION}",
+        f"SUPPLY_BLOCKER_TICKERS={len(unique_codes)}",
+        f"SUPPLY_SINGLE_BLOCKER_TICKERS={len(single_codes)}",
+        "SUPPLY_SINGLE_TICKER_SET=" + ",".join(single_codes),
+        "SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE="
+        + str(classification_counts["LIMITED_NO_POSITIVE_EVIDENCE"]),
+        f"PRODUCER_SOURCE_MATCH_COUNT={len(producer_matches)}",
+        "PRODUCER_SOURCE_PATHS=" + ",".join(producer_paths),
+        "AUTO_SCORE_CHANGE=false",
+        "PRODUCTION_DATA_CHANGED=false",
+        "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+        "SCORING_POLICY_CHANGED=false",
+        "SUPPLY_STATUS_OVERRIDDEN=false",
+        "LIMITED_ABSENCE_TREATED_AS_COMPLETE=false",
+        "STATUS=OK",
+        f"NEXT_STEP={next_step}",
+    ]
+    OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+
+    print("V896_SUPPLY_EVIDENCE_COMPLETENESS_AUDIT=PASS")
+    print("\n".join(log))
+
+if __name__ == "__main__":
+    main()
+

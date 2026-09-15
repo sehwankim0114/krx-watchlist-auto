@@ -1,0 +1,114 @@
+{
+  "version": "2026-09-15-v8.9.6-supply-evidence-completeness-audit",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v895_version": "2026-09-15-v8.9.5-refresh-remaining-blocker-audit",
+  "generated_at_kst": "2026-09-15T16:02:42+09:00",
+  "status": "AUDIT_ONLY",
+  "supply_blocker_ticker_count": 33,
+  "supply_single_blocker_ticker_count": 8,
+  "supply_single_blocker_tickers": [
+    "003280",
+    "063160",
+    "066570",
+    "071840",
+    "081000",
+    "086280",
+    "100250",
+    "286940"
+  ],
+  "supply_status_counts": {
+    "LIMITED": 33
+  },
+  "supply_level_counts": {
+    "없음": 33
+  },
+  "supply_classification_counts": {
+    "LIMITED_NO_POSITIVE_EVIDENCE": 33
+  },
+  "candidate_completeness_paths": [
+    {
+      "path": "supply_status",
+      "ticker_count": 33
+    }
+  ],
+  "analysis_top_level_keys": [
+    {
+      "key": "basis_date",
+      "ticker_count": 33
+    },
+    {
+      "key": "value_buy_range",
+      "ticker_count": 33
+    },
+    {
+      "key": "first_sell_target_range",
+      "ticker_count": 33
+    },
+    {
+      "key": "operating_profit",
+      "ticker_count": 33
+    },
+    {
+      "key": "earnings_trend",
+      "ticker_count": 33
+    },
+    {
+      "key": "per",
+      "ticker_count": 33
+    },
+    {
+      "key": "pbr",
+      "ticker_count": 33
+    },
+    {
+      "key": "supply_status",
+      "ticker_count": 33
+    },
+    {
+      "key": "supply_level",
+      "ticker_count": 33
+    },
+    {
+      "key": "supply_keywords",
+      "ticker_count": 33
+    },
+    {
+      "key": "legacy_score_not_100_scale",
+      "ticker_count": 33
+    }
+  ],
+  "producer_source_match_count": 55,
+  "producer_source_paths": [
+    ".github/workflows/v871-audit-investment-score-readiness.yml",
+    ".github/workflows/v878-build-investment-score-calibration-evidence.yml",
+    ".github/workflows/v880-define-explicit-100-point-scoring-contract.yml",
+    ".github/workflows/v881-dry-run-approved-investment-score-contract.yml",
+    ".github/workflows/v882-reconcile-investment-score-dry-run-gates.yml",
+    ".github/workflows/v883-audit-exact-da-account-ids.yml",
+    ".github/workflows/v896-audit-supply-evidence-completeness.yml",
+    "build_stock_table_preview_v850.py",
+    "docs/workflow_archive/2026-07-15/v6-supply-burden-status-separation-test.yml",
+    "investment_score_calibration_evidence_v878.py",
+    "investment_score_dry_run_v881.py",
+    "investment_score_dry_run_v882.py",
+    "investment_score_readiness_v871.py",
+    "investment_score_supply_evidence_audit_v896.py"
+  ],
+  "contract_observation": {
+    "current_scorer_rule": "OK+없음은 점수화 가능, LIMITED+없음은 SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE로 LIMITED 유지",
+    "absence_can_be_promoted_without_explicit_completeness": false
+  },
+  "automatic_score_change": {
+    "allowed": false,
+    "promoted_ticker_count": 0
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "supply_status_overridden": false,
+    "limited_absence_treated_as_complete": false,
+    "new_source_value_imputed": false
+  },
+  "next_step": "AUDIT_SUPPLY_PRODUCER_COMPLETENESS_CONTRACT"
+}

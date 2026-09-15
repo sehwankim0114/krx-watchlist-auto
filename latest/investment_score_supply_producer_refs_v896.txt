@@ -1,0 +1,937 @@
+VERSION=2026-09-15-v8.9.6-supply-evidence-completeness-audit
+MATCH_COUNT=55
+
+========================================================================================
+FILE=.github/workflows/v871-audit-investment-score-readiness.yml
+LINE=87
+0081:               ("price_position", "기간 저가·고가 대비 현재위치", 5, "metrics.range_3m.position_pct", "TWO_TABLE_METRIC"),
+0082:               ("price_position", "과열·급락 위험", 3, "metrics.swing/returns/atr14", "INPUT_READY_THRESHOLD_UNDEFINED"),
+0083: 
+0084:               ("liquidity_elasticity", "20일 평균 거래대금과 거래량", 6, "metrics.activity", "TWO_TABLE_METRIC"),
+0085:               ("liquidity_elasticity", "하루평균 절대등락률", 4, "avg_daily_range_20_pct는 고저폭이라 동일 지표 아님", "SOURCE_NOT_CONNECTED"),
+0086: 
+0087:               ("supply_disclosure", "수급·공시부담", 10, "analysis.supply_level/status/keywords", "RANGE_POLICY_ONLY"),
+0088:           ]
+0089: 
+0090:           EXPECTED_AREA_MAX = {
+0091:               "financial": 30,
+0092:               "valuation": 20,
+0093:               "growth_value": 15,
+
+========================================================================================
+FILE=.github/workflows/v871-audit-investment-score-readiness.yml
+LINE=186
+0180:                   return bool(row and (row.get("metrics") or {}).get("status") == "OK")
+0181:               if kind == "INPUT_READY_THRESHOLD_UNDEFINED":
+0182:                   metrics = (row or {}).get("metrics") or {}
+0183:                   return bool(metrics.get("swing") and metrics.get("returns") and metrics.get("atr14"))
+0184:               if kind == "RANGE_POLICY_ONLY":
+0185:                   analysis = (row or {}).get("analysis") or {}
+0186:                   return bool(str(analysis.get("supply_level") or "").strip())
+0187:               raise RuntimeError("UNKNOWN_COMPONENT_TYPE:" + kind)
+0188: 
+0189:           def status_label(kind, ready_count, universe_count):
+0190:               if kind == "SOURCE_NOT_CONNECTED":
+0191:                   return "SOURCE_NOT_CONNECTED"
+0192:               if kind in {
+
+========================================================================================
+FILE=.github/workflows/v878-build-investment-score-calibration-evidence.yml
+LINE=87
+0081:               "volume_vs_20d": "20일 평균 대비 거래량 배율",
+0082:               "elasticity_20d_pct": "최근 20거래일 하루평균 절대등락률",
+0083:           }
+0084: 
+0085:           CATEGORICAL_FIELDS = {
+0086:               "earnings_trend": "이익 추세",
+0087:               "supply_level": "수급부담 수준",
+0088:               "swing_phase": "스윙 국면",
+0089:           }
+0090: 
+0091:           def clean_ticker(value):
+0092:               text = "".join(ch for ch in str(value or "").strip() if ch.isdigit())
+0093:               return text.zfill(6) if text else ""
+
+========================================================================================
+FILE=.github/workflows/v878-build-investment-score-calibration-evidence.yml
+LINE=231
+0225:                       "return_3m_pct": number((returns.get("3") or {}).get("pct")),
+0226:                       "position_3m_pct": number(range_3m.get("position_pct")),
+0227:                       "atr14_pct": number(atr14.get("pct")),
+0228:                       "avg20_trading_value_krw": number(activity.get("avg20_trading_value_krw")),
+0229:                       "volume_vs_20d": number(activity.get("volume_vs_20d")),
+0230:                       "elasticity_20d_pct": number(e.get("avg_daily_move_pct")),
+0231:                       "supply_level": str(analysis.get("supply_level") or ""),
+0232:                       "swing_phase": str(swing.get("phase") or ""),
+0233:                   })
+0234: 
+0235:               distributions = {}
+0236:               for field, label in NUMERIC_FIELDS.items():
+0237:                   values = [row[field] for row in rows if row[field] is not None]
+
+========================================================================================
+FILE=.github/workflows/v880-define-explicit-100-point-scoring-contract.yml
+LINE=109
+0103:                   "min": 0,
+0104:                   "max": 54.9,
+0105:                   "label": "주의"
+0106:                 }
+0107:               ],
+0108:               "recommendation_caps": [
+0109:                 "supply_level=위험",
+0110:                 "operating_loss_flag=true",
+0111:                 "current_position_label=고점권과열",
+0112:                 "trading_activity_label=매우부족",
+0113:                 "basis_date_mismatch",
+0114:                 "request_time_price_unavailable"
+0115:               ]
+
+========================================================================================
+FILE=.github/workflows/v880-define-explicit-100-point-scoring-contract.yml
+LINE=996
+0990:               },
+0991:               {
+0992:                 "area": "supply_disclosure",
+0993:                 "item": "수급·공시부담",
+0994:                 "max_points": 10,
+0995:                 "inputs": [
+0996:                   "supply_level"
+0997:                 ],
+0998:                 "score_rule": {
+0999:                   "없음": 10,
+1000:                   "주의": 7,
+1001:                   "경계": 4,
+1002:                   "위험": 1
+
+========================================================================================
+FILE=.github/workflows/v881-dry-run-approved-investment-score-contract.yml
+LINE=453
+0447:               if x<3:return 4,""
+0448:               if x<5:return 3,""
+0449:               if x<8:return 1.5,""
+0450:               return .5,""
+0451: 
+0452:           def s_supply(analysis):
+0453:               status=str(analysis.get("supply_status") or "")
+0454:               level=str(analysis.get("supply_level") or "")
+0455:               if status != "OK":
+0456:                   return None, f"SUPPLY_STATUS_{status or 'MISSING'}"
+0457:               m={"없음":10,"주의":7,"경계":4,"위험":1}
+0458:               return (m.get(level), "") if level in m else (None,"MISSING_SUPPLY_LEVEL")
+0459: 
+
+========================================================================================
+FILE=.github/workflows/v881-dry-run-approved-investment-score-contract.yml
+LINE=454
+0448:               if x<5:return 3,""
+0449:               if x<8:return 1.5,""
+0450:               return .5,""
+0451: 
+0452:           def s_supply(analysis):
+0453:               status=str(analysis.get("supply_status") or "")
+0454:               level=str(analysis.get("supply_level") or "")
+0455:               if status != "OK":
+0456:                   return None, f"SUPPLY_STATUS_{status or 'MISSING'}"
+0457:               m={"없음":10,"주의":7,"경계":4,"위험":1}
+0458:               return (m.get(level), "") if level in m else (None,"MISSING_SUPPLY_LEVEL")
+0459: 
+0460:           def main():
+
+========================================================================================
+FILE=.github/workflows/v881-dry-run-approved-investment-score-contract.yml
+LINE=612
+0606:                   "",
+0607:                   "V8.8.0 승인 계약을 production에 쓰지 않고 현재 production 112종목에 시험 계산한다.",
+0608:                   "",
+0609:                   "## 안전장치",
+0610:                   "",
+0611:                   "- LIMITED 종목은 score_total=null",
+0612:                   "- supply_status가 OK가 아니면 수급점수 확정 금지",
+0613:                   "- EV/EBITDA·순현금은 정확한 원천만 사용",
+0614:                   "- legacy_market_score 재환산 금지",
+0615:                   "- api/two_table_v1 변경 금지",
+0616:                   "",
+0617:                   "## 다음 단계",
+0618:                   "",
+
+========================================================================================
+FILE=.github/workflows/v882-reconcile-investment-score-dry-run-gates.yml
+LINE=88
+0082:           """
+0083:           if old_per not in t:
+0084:               raise SystemExit("PER_PATCH_ANCHOR_NOT_FOUND")
+0085:           t = t.replace(old_per, new_per, 1)
+0086: 
+0087:           old_supply = """def s_supply(analysis):
+0088:               status=str(analysis.get("supply_status") or "")
+0089:               level=str(analysis.get("supply_level") or "")
+0090:               if status != "OK":
+0091:                   return None, f"SUPPLY_STATUS_{status or 'MISSING'}"
+0092:               m={"없음":10,"주의":7,"경계":4,"위험":1}
+0093:               return (m.get(level), "") if level in m else (None,"MISSING_SUPPLY_LEVEL")
+0094:           """
+
+========================================================================================
+FILE=.github/workflows/v882-reconcile-investment-score-dry-run-gates.yml
+LINE=89
+0083:           if old_per not in t:
+0084:               raise SystemExit("PER_PATCH_ANCHOR_NOT_FOUND")
+0085:           t = t.replace(old_per, new_per, 1)
+0086: 
+0087:           old_supply = """def s_supply(analysis):
+0088:               status=str(analysis.get("supply_status") or "")
+0089:               level=str(analysis.get("supply_level") or "")
+0090:               if status != "OK":
+0091:                   return None, f"SUPPLY_STATUS_{status or 'MISSING'}"
+0092:               m={"없음":10,"주의":7,"경계":4,"위험":1}
+0093:               return (m.get(level), "") if level in m else (None,"MISSING_SUPPLY_LEVEL")
+0094:           """
+0095:           new_supply = """def s_supply(analysis):
+
+========================================================================================
+FILE=.github/workflows/v882-reconcile-investment-score-dry-run-gates.yml
+LINE=96
+0090:               if status != "OK":
+0091:                   return None, f"SUPPLY_STATUS_{status or 'MISSING'}"
+0092:               m={"없음":10,"주의":7,"경계":4,"위험":1}
+0093:               return (m.get(level), "") if level in m else (None,"MISSING_SUPPLY_LEVEL")
+0094:           """
+0095:           new_supply = """def s_supply(analysis):
+0096:               status=str(analysis.get("supply_status") or "")
+0097:               level=str(analysis.get("supply_level") or "")
+0098:               m={"없음":10,"주의":7,"경계":4,"위험":1}
+0099: 
+0100:               # Check completeness and detected burden are separate source concepts.
+0101:               if status == "OK":
+0102:                   return (m.get(level), "") if level in m else (None,"MISSING_SUPPLY_LEVEL")
+
+========================================================================================
+FILE=.github/workflows/v882-reconcile-investment-score-dry-run-gates.yml
+LINE=97
+0091:                   return None, f"SUPPLY_STATUS_{status or 'MISSING'}"
+0092:               m={"없음":10,"주의":7,"경계":4,"위험":1}
+0093:               return (m.get(level), "") if level in m else (None,"MISSING_SUPPLY_LEVEL")
+0094:           """
+0095:           new_supply = """def s_supply(analysis):
+0096:               status=str(analysis.get("supply_status") or "")
+0097:               level=str(analysis.get("supply_level") or "")
+0098:               m={"없음":10,"주의":7,"경계":4,"위험":1}
+0099: 
+0100:               # Check completeness and detected burden are separate source concepts.
+0101:               if status == "OK":
+0102:                   return (m.get(level), "") if level in m else (None,"MISSING_SUPPLY_LEVEL")
+0103:               if status == "LIMITED" and level in {"주의","경계","위험"}:
+
+========================================================================================
+FILE=.github/workflows/v883-audit-exact-da-account-ids.yml
+LINE=40
+0034:           python - <<'PY'
+0035:           from pathlib import Path
+0036: 
+0037:           p = Path("docs/investment_score_v880_dry_run_gate_reconciliation_v882.md")
+0038:           t = p.read_text(encoding="utf-8")
+0039: 
+0040:           old = "- supply_status가 OK가 아니면 수급점수 확정 금지"
+0041:           new = (
+0042:               "- supply_status=OK는 기존 등급을 사용하고, "
+0043:               "LIMITED라도 주의·경계·위험의 실제 부담 증거가 있으면 그 등급을 사용한다. "
+0044:               "LIMITED+없음은 완전 무부담으로 단정하지 않고 LIMITED를 유지한다."
+0045:           )
+0046: 
+
+========================================================================================
+FILE=.github/workflows/v883-audit-exact-da-account-ids.yml
+LINE=42
+0036: 
+0037:           p = Path("docs/investment_score_v880_dry_run_gate_reconciliation_v882.md")
+0038:           t = p.read_text(encoding="utf-8")
+0039: 
+0040:           old = "- supply_status가 OK가 아니면 수급점수 확정 금지"
+0041:           new = (
+0042:               "- supply_status=OK는 기존 등급을 사용하고, "
+0043:               "LIMITED라도 주의·경계·위험의 실제 부담 증거가 있으면 그 등급을 사용한다. "
+0044:               "LIMITED+없음은 완전 무부담으로 단정하지 않고 LIMITED를 유지한다."
+0045:           )
+0046: 
+0047:           if old not in t:
+0048:               raise SystemExit("V882_DOC_PATCH_ANCHOR_NOT_FOUND")
+
+========================================================================================
+FILE=.github/workflows/v896-audit-supply-evidence-completeness.yml
+LINE=144
+0138:                   except Exception:
+0139:                       continue
+0140: 
+0141:                   lines = text.splitlines()
+0142:                   hit_indexes = [
+0143:                       i for i, line in enumerate(lines)
+0144:                       if "supply_status" in line or "supply_level" in line
+0145:                   ]
+0146:                   if not hit_indexes:
+0147:                       continue
+0148: 
+0149:                   for idx in hit_indexes:
+0150:                       lo = max(0, idx - 6)
+
+========================================================================================
+FILE=.github/workflows/v896-audit-supply-evidence-completeness.yml
+LINE=232
+0226:               for code in unique_codes:
+0227:                   prow = prod[code]
+0228:                   analysis = prow.get("analysis") or {}
+0229:                   if not isinstance(analysis, dict):
+0230:                       raise RuntimeError(f"ANALYSIS_NOT_OBJECT:{code}")
+0231: 
+0232:                   status = str(analysis.get("supply_status") or "")
+0233:                   level = str(analysis.get("supply_level") or "")
+0234: 
+0235:                   if status == "OK":
+0236:                       classification = "EXPLICIT_COMPLETE_STATUS"
+0237:                   elif status == "LIMITED" and level == "없음":
+0238:                       classification = "LIMITED_NO_POSITIVE_EVIDENCE"
+
+========================================================================================
+FILE=.github/workflows/v896-audit-supply-evidence-completeness.yml
+LINE=233
+0227:                   prow = prod[code]
+0228:                   analysis = prow.get("analysis") or {}
+0229:                   if not isinstance(analysis, dict):
+0230:                       raise RuntimeError(f"ANALYSIS_NOT_OBJECT:{code}")
+0231: 
+0232:                   status = str(analysis.get("supply_status") or "")
+0233:                   level = str(analysis.get("supply_level") or "")
+0234: 
+0235:                   if status == "OK":
+0236:                       classification = "EXPLICIT_COMPLETE_STATUS"
+0237:                   elif status == "LIMITED" and level == "없음":
+0238:                       classification = "LIMITED_NO_POSITIVE_EVIDENCE"
+0239:                   elif status == "LIMITED" and level in {"주의", "경계", "위험"}:
+
+========================================================================================
+FILE=.github/workflows/v896-audit-supply-evidence-completeness.yml
+LINE=262
+0256:                   out_rows.append({
+0257:                       "ticker": code,
+0258:                       "name": b.get("name") or prow.get("name") or "",
+0259:                       "market": b.get("market") or prow.get("market") or "",
+0260:                       "production_table": source_table.get(code) or "",
+0261:                       "single_blocker_ticker": b.get("single_blocker_ticker") or "",
+0262:                       "supply_status": status,
+0263:                       "supply_level": level,
+0264:                       "supply_classification": classification,
+0265:                       "analysis_top_level_keys_json": json.dumps(
+0266:                           sorted(str(k) for k in analysis.keys()),
+0267:                           ensure_ascii=False,
+0268:                           separators=(",", ":"),
+
+========================================================================================
+FILE=.github/workflows/v896-audit-supply-evidence-completeness.yml
+LINE=263
+0257:                       "ticker": code,
+0258:                       "name": b.get("name") or prow.get("name") or "",
+0259:                       "market": b.get("market") or prow.get("market") or "",
+0260:                       "production_table": source_table.get(code) or "",
+0261:                       "single_blocker_ticker": b.get("single_blocker_ticker") or "",
+0262:                       "supply_status": status,
+0263:                       "supply_level": level,
+0264:                       "supply_classification": classification,
+0265:                       "analysis_top_level_keys_json": json.dumps(
+0266:                           sorted(str(k) for k in analysis.keys()),
+0267:                           ensure_ascii=False,
+0268:                           separators=(",", ":"),
+0269:                       ),
+
+========================================================================================
+FILE=.github/workflows/v896-audit-supply-evidence-completeness.yml
+LINE=348
+0342:                   "v895_version": V895_VERSION,
+0343:                   "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+0344:                   "status": "AUDIT_ONLY",
+0345:                   "supply_blocker_ticker_count": len(unique_codes),
+0346:                   "supply_single_blocker_ticker_count": len(single_codes),
+0347:                   "supply_single_blocker_tickers": single_codes,
+0348:                   "supply_status_counts": dict(status_counts),
+0349:                   "supply_level_counts": dict(level_counts),
+0350:                   "supply_classification_counts": dict(classification_counts),
+0351:                   "candidate_completeness_paths": candidate_paths,
+0352:                   "analysis_top_level_keys": top_analysis_keys,
+0353:                   "producer_source_match_count": len(producer_matches),
+0354:                   "producer_source_paths": producer_paths,
+
+========================================================================================
+FILE=.github/workflows/v896-audit-supply-evidence-completeness.yml
+LINE=349
+0343:                   "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+0344:                   "status": "AUDIT_ONLY",
+0345:                   "supply_blocker_ticker_count": len(unique_codes),
+0346:                   "supply_single_blocker_ticker_count": len(single_codes),
+0347:                   "supply_single_blocker_tickers": single_codes,
+0348:                   "supply_status_counts": dict(status_counts),
+0349:                   "supply_level_counts": dict(level_counts),
+0350:                   "supply_classification_counts": dict(classification_counts),
+0351:                   "candidate_completeness_paths": candidate_paths,
+0352:                   "analysis_top_level_keys": top_analysis_keys,
+0353:                   "producer_source_match_count": len(producer_matches),
+0354:                   "producer_source_paths": producer_paths,
+0355:                   "contract_observation": {
+
+========================================================================================
+FILE=.github/workflows/v896-audit-supply-evidence-completeness.yml
+LINE=370
+0364:                       "promoted_ticker_count": 0,
+0365:                   },
+0366:                   "hard_guards": {
+0367:                       "production_api_changed": False,
+0368:                       "production_investment_score_written": False,
+0369:                       "scoring_policy_changed": False,
+0370:                       "supply_status_overridden": False,
+0371:                       "limited_absence_treated_as_complete": False,
+0372:                       "new_source_value_imputed": False,
+0373:                   },
+0374:                   "next_step": next_step,
+0375:               }
+0376:               OUT_JSON.write_text(
+
+========================================================================================
+FILE=.github/workflows/v896-audit-supply-evidence-completeness.yml
+LINE=393
+0387:                       f"- supply blocker: {len(unique_codes)}종목",
+0388:                       f"- supply만 해결되면 READY: {len(single_codes)}종목",
+0389:                       "- 상태: AUDIT_ONLY",
+0390:                       "",
+0391:                       "## 목적",
+0392:                       "",
+0393:                       "현재 production `analysis.supply_status/supply_level`을 직접 확인하고, "
+0394:                       "`LIMITED + 없음`을 `OK + 없음`으로 바꿀 근거가 실제로 존재하는지 조사한다.",
+0395:                       "",
+0396:                       "## 안전 원칙",
+0397:                       "",
+0398:                       "- LIMITED 상태를 임의로 OK로 바꾸지 않는다.",
+0399:                       "- '부담 근거가 발견되지 않음'을 '부담 없음이 완전하게 확인됨'으로 간주하지 않는다.",
+
+========================================================================================
+FILE=.github/workflows/v896-audit-supply-evidence-completeness.yml
+LINE=401
+0395:                       "",
+0396:                       "## 안전 원칙",
+0397:                       "",
+0398:                       "- LIMITED 상태를 임의로 OK로 바꾸지 않는다.",
+0399:                       "- '부담 근거가 발견되지 않음'을 '부담 없음이 완전하게 확인됨'으로 간주하지 않는다.",
+0400:                       "- production score와 점수정책은 변경하지 않는다.",
+0401:                       "- producer 소스코드에서 supply_status/supply_level 생성 위치를 함께 추적한다.",
+0402:                       "",
+0403:                       "## 다음 단계",
+0404:                       "",
+0405:                       f"`{next_step}`",
+0406:                       "",
+0407:                   ]),
+
+========================================================================================
+FILE=.github/workflows/v896-audit-supply-evidence-completeness.yml
+LINE=483
+0477:           assert s["automatic_score_change"]["promoted_ticker_count"] == 0
+0478: 
+0479:           g = s["hard_guards"]
+0480:           assert g["production_api_changed"] is False
+0481:           assert g["production_investment_score_written"] is False
+0482:           assert g["scoring_policy_changed"] is False
+0483:           assert g["supply_status_overridden"] is False
+0484:           assert g["limited_absence_treated_as_complete"] is False
+0485:           assert g["new_source_value_imputed"] is False
+0486: 
+0487:           print("V896_VALIDATION=PASS")
+0488:           print("SUPPLY_BLOCKERS=33")
+0489:           print("SUPPLY_SINGLE_BLOCKERS=8")
+
+========================================================================================
+FILE=build_stock_table_preview_v850.py
+LINE=70
+0064:         [m["range_3m"][k] for k in ("low", "high", "position_pct")],
+0065:         [m["swing"].get(k) for k in ("phase", "from_trough_pct", "from_peak_pct", "trough_date", "peak_date")],
+0066:         [[m["ma"][str(p)][k] for k in ("value", "direction")] for p in (5,20,60,120)],
+0067:         [m["returns"][str(p)]["pct"] for p in (1,3)], [m["rs_kospi_pp"][str(p)] for p in (1,3)],
+0068:         [m["atr14"]["krw"],m["atr14"]["pct"],m["avg_daily_range_20_pct"]],
+0069:         [m["activity"]["volume_vs_20d"],m["activity"]["avg20_trading_value_krw"]],
+0070:         [a.get(k) for k in ("value_buy_range", "first_sell_target_range", "operating_profit", "earnings_trend", "per", "pbr", "supply_status", "supply_level", "supply_keywords")],
+0071:         row["sector_theme"]]
+0072:     return result
+0073: 
+0074: 
+0075: def build(repo, output):
+0076:     repo, output = repo.resolve(), output.resolve()
+
+========================================================================================
+FILE=build_stock_table_preview_v850.py
+LINE=153
+0147:             "sector_theme": legacy.get("sector_theme"),
+0148:             "analysis": {"basis_date": source.get("last_date"),
+0149:                 "value_buy_range": legacy.get("value_buy_range") or source_range("split_buy_low_ref", "split_buy_high_ref"),
+0150:                 "first_sell_target_range": legacy.get("first_sell_target_range") or source_range("target1_ref", "target2_ref"),
+0151:                 "operating_profit": legacy.get("operating_profit_text") or source.get("operating_profit"),
+0152:                 "earnings_trend": legacy.get("earnings_trend"), "per": legacy.get("per_annualized"), "pbr": legacy.get("pbr"),
+0153:                 "supply_status": legacy.get("supply_check_status") or source.get("supply_check_status"),
+0154:                 "supply_level": legacy.get("supply_burden_level") or source.get("supply_burden_level"),
+0155:                 "supply_keywords": legacy.get("supply_burden_keywords") or source.get("supply_burden_keywords"),
+0156:                 "legacy_score_not_100_scale": legacy.get("score")}}
+0157:         if source.get("last_date") != basis:
+0158:             rows[code]["analysis"] = {"basis_date": source.get("last_date"), "status": "STALE_SUMMARY_NOT_USED"}
+0159:     missing_selected = set(selected) - set(rows)
+
+========================================================================================
+FILE=build_stock_table_preview_v850.py
+LINE=154
+0148:             "analysis": {"basis_date": source.get("last_date"),
+0149:                 "value_buy_range": legacy.get("value_buy_range") or source_range("split_buy_low_ref", "split_buy_high_ref"),
+0150:                 "first_sell_target_range": legacy.get("first_sell_target_range") or source_range("target1_ref", "target2_ref"),
+0151:                 "operating_profit": legacy.get("operating_profit_text") or source.get("operating_profit"),
+0152:                 "earnings_trend": legacy.get("earnings_trend"), "per": legacy.get("per_annualized"), "pbr": legacy.get("pbr"),
+0153:                 "supply_status": legacy.get("supply_check_status") or source.get("supply_check_status"),
+0154:                 "supply_level": legacy.get("supply_burden_level") or source.get("supply_burden_level"),
+0155:                 "supply_keywords": legacy.get("supply_burden_keywords") or source.get("supply_burden_keywords"),
+0156:                 "legacy_score_not_100_scale": legacy.get("score")}}
+0157:         if source.get("last_date") != basis:
+0158:             rows[code]["analysis"] = {"basis_date": source.get("last_date"), "status": "STALE_SUMMARY_NOT_USED"}
+0159:     missing_selected = set(selected) - set(rows)
+0160:     if missing_selected:
+
+========================================================================================
+FILE=docs/workflow_archive/2026-07-15/v6-supply-burden-status-separation-test.yml
+LINE=528
+0522:         shell: bash
+0523:         run: |
+0524:           set -euo pipefail
+0525: 
+0526:           cp \
+0527:             .test_supply/supply_burden_summary_latest.csv \
+0528:             latest/supply_status_separation_test_sample_latest.csv
+0529: 
+0530:           cp \
+0531:             .test_supply/supply_burden_run_log_latest.txt \
+0532:             latest/supply_status_separation_test_report_latest.txt
+0533: 
+0534:           {
+
+========================================================================================
+FILE=docs/workflow_archive/2026-07-15/v6-supply-burden-status-separation-test.yml
+LINE=532
+0526:           cp \
+0527:             .test_supply/supply_burden_summary_latest.csv \
+0528:             latest/supply_status_separation_test_sample_latest.csv
+0529: 
+0530:           cp \
+0531:             .test_supply/supply_burden_run_log_latest.txt \
+0532:             latest/supply_status_separation_test_report_latest.txt
+0533: 
+0534:           {
+0535:             echo
+0536:             echo "TEST_WORKFLOW_VERSION=v2.0-status-separated"
+0537:             echo "TEST_SCOPE=isolated_five_tickers"
+0538:             echo "REQUESTED_LOOKBACK_DAYS=180"
+
+========================================================================================
+FILE=docs/workflow_archive/2026-07-15/v6-supply-burden-status-separation-test.yml
+LINE=546
+0540:             echo "EXPECTED_CHECK_STATUS=LIMITED"
+0541:             echo "CHECK_LIMITED_IN_BURDEN_FLAG=0"
+0542:             echo "BURDEN_FLAG_ALLOWED_VALUES=TRUE,FALSE"
+0543:             echo "PRODUCTION_TABLES_CHANGED=false"
+0544:             echo "LIVE_TEST_STATUS=OK"
+0545:           } >> \
+0546:             latest/supply_status_separation_test_report_latest.txt
+0547: 
+0548:           echo "----- supply status separation test report -----"
+0549:           cat \
+0550:             latest/supply_status_separation_test_report_latest.txt
+0551: 
+0552:       - name: Commit and push isolated test evidence
+
+========================================================================================
+FILE=docs/workflow_archive/2026-07-15/v6-supply-burden-status-separation-test.yml
+LINE=550
+0544:             echo "LIVE_TEST_STATUS=OK"
+0545:           } >> \
+0546:             latest/supply_status_separation_test_report_latest.txt
+0547: 
+0548:           echo "----- supply status separation test report -----"
+0549:           cat \
+0550:             latest/supply_status_separation_test_report_latest.txt
+0551: 
+0552:       - name: Commit and push isolated test evidence
+0553:         shell: bash
+0554:         run: |
+0555:           set -euo pipefail
+0556: 
+
+========================================================================================
+FILE=docs/workflow_archive/2026-07-15/v6-supply-burden-status-separation-test.yml
+LINE=562
+0556: 
+0557:           git config user.name "github-actions"
+0558:           git config user.email \
+0559:             "github-actions@users.noreply.github.com"
+0560: 
+0561:           git add \
+0562:             latest/supply_status_separation_test_sample_latest.csv \
+0563:             latest/supply_status_separation_test_report_latest.txt
+0564: 
+0565:           if git diff --cached --quiet; then
+0566:             echo "NO_CHANGES_TO_COMMIT=true"
+0567:             echo "PUSH_SUCCESS=true"
+0568:             exit 0
+
+========================================================================================
+FILE=docs/workflow_archive/2026-07-15/v6-supply-burden-status-separation-test.yml
+LINE=563
+0557:           git config user.name "github-actions"
+0558:           git config user.email \
+0559:             "github-actions@users.noreply.github.com"
+0560: 
+0561:           git add \
+0562:             latest/supply_status_separation_test_sample_latest.csv \
+0563:             latest/supply_status_separation_test_report_latest.txt
+0564: 
+0565:           if git diff --cached --quiet; then
+0566:             echo "NO_CHANGES_TO_COMMIT=true"
+0567:             echo "PUSH_SUCCESS=true"
+0568:             exit 0
+0569:           fi
+
+========================================================================================
+FILE=investment_score_calibration_evidence_v878.py
+LINE=52
+0046:     "volume_vs_20d": "20일 평균 대비 거래량 배율",
+0047:     "elasticity_20d_pct": "최근 20거래일 하루평균 절대등락률",
+0048: }
+0049: 
+0050: CATEGORICAL_FIELDS = {
+0051:     "earnings_trend": "이익 추세",
+0052:     "supply_level": "수급부담 수준",
+0053:     "swing_phase": "스윙 국면",
+0054: }
+0055: 
+0056: def clean_ticker(value):
+0057:     text = "".join(ch for ch in str(value or "").strip() if ch.isdigit())
+0058:     return text.zfill(6) if text else ""
+
+========================================================================================
+FILE=investment_score_calibration_evidence_v878.py
+LINE=196
+0190:             "return_3m_pct": number((returns.get("3") or {}).get("pct")),
+0191:             "position_3m_pct": number(range_3m.get("position_pct")),
+0192:             "atr14_pct": number(atr14.get("pct")),
+0193:             "avg20_trading_value_krw": number(activity.get("avg20_trading_value_krw")),
+0194:             "volume_vs_20d": number(activity.get("volume_vs_20d")),
+0195:             "elasticity_20d_pct": number(e.get("avg_daily_move_pct")),
+0196:             "supply_level": str(analysis.get("supply_level") or ""),
+0197:             "swing_phase": str(swing.get("phase") or ""),
+0198:         })
+0199: 
+0200:     distributions = {}
+0201:     for field, label in NUMERIC_FIELDS.items():
+0202:         values = [row[field] for row in rows if row[field] is not None]
+
+========================================================================================
+FILE=investment_score_dry_run_v881.py
+LINE=418
+0412:     if x<3:return 4,""
+0413:     if x<5:return 3,""
+0414:     if x<8:return 1.5,""
+0415:     return .5,""
+0416: 
+0417: def s_supply(analysis):
+0418:     status=str(analysis.get("supply_status") or "")
+0419:     level=str(analysis.get("supply_level") or "")
+0420:     if status != "OK":
+0421:         return None, f"SUPPLY_STATUS_{status or 'MISSING'}"
+0422:     m={"없음":10,"주의":7,"경계":4,"위험":1}
+0423:     return (m.get(level), "") if level in m else (None,"MISSING_SUPPLY_LEVEL")
+0424: 
+
+========================================================================================
+FILE=investment_score_dry_run_v881.py
+LINE=419
+0413:     if x<5:return 3,""
+0414:     if x<8:return 1.5,""
+0415:     return .5,""
+0416: 
+0417: def s_supply(analysis):
+0418:     status=str(analysis.get("supply_status") or "")
+0419:     level=str(analysis.get("supply_level") or "")
+0420:     if status != "OK":
+0421:         return None, f"SUPPLY_STATUS_{status or 'MISSING'}"
+0422:     m={"없음":10,"주의":7,"경계":4,"위험":1}
+0423:     return (m.get(level), "") if level in m else (None,"MISSING_SUPPLY_LEVEL")
+0424: 
+0425: def main():
+
+========================================================================================
+FILE=investment_score_dry_run_v881.py
+LINE=577
+0571:         "",
+0572:         "V8.8.0 승인 계약을 production에 쓰지 않고 현재 production 112종목에 시험 계산한다.",
+0573:         "",
+0574:         "## 안전장치",
+0575:         "",
+0576:         "- LIMITED 종목은 score_total=null",
+0577:         "- supply_status가 OK가 아니면 수급점수 확정 금지",
+0578:         "- EV/EBITDA·순현금은 정확한 원천만 사용",
+0579:         "- legacy_market_score 재환산 금지",
+0580:         "- api/two_table_v1 변경 금지",
+0581:         "",
+0582:         "## 다음 단계",
+0583:         "",
+
+========================================================================================
+FILE=investment_score_dry_run_v882.py
+LINE=420
+0414:     if x<3:return 4,""
+0415:     if x<5:return 3,""
+0416:     if x<8:return 1.5,""
+0417:     return .5,""
+0418: 
+0419: def s_supply(analysis):
+0420:     status=str(analysis.get("supply_status") or "")
+0421:     level=str(analysis.get("supply_level") or "")
+0422:     m={"없음":10,"주의":7,"경계":4,"위험":1}
+0423: 
+0424:     # Check completeness and detected burden are separate source concepts.
+0425:     if status == "OK":
+0426:         return (m.get(level), "") if level in m else (None,"MISSING_SUPPLY_LEVEL")
+
+========================================================================================
+FILE=investment_score_dry_run_v882.py
+LINE=421
+0415:     if x<5:return 3,""
+0416:     if x<8:return 1.5,""
+0417:     return .5,""
+0418: 
+0419: def s_supply(analysis):
+0420:     status=str(analysis.get("supply_status") or "")
+0421:     level=str(analysis.get("supply_level") or "")
+0422:     m={"없음":10,"주의":7,"경계":4,"위험":1}
+0423: 
+0424:     # Check completeness and detected burden are separate source concepts.
+0425:     if status == "OK":
+0426:         return (m.get(level), "") if level in m else (None,"MISSING_SUPPLY_LEVEL")
+0427:     if status == "LIMITED" and level in {"주의","경계","위험"}:
+
+========================================================================================
+FILE=investment_score_dry_run_v882.py
+LINE=592
+0586:         "",
+0587:         "V8.8.0 승인 계약을 production에 쓰지 않고 현재 production 112종목에 시험 계산한다.",
+0588:         "",
+0589:         "## 안전장치",
+0590:         "",
+0591:         "- LIMITED 종목은 score_total=null",
+0592:         "- supply_status가 OK가 아니면 수급점수 확정 금지",
+0593:         "- EV/EBITDA·순현금은 정확한 원천만 사용",
+0594:         "- legacy_market_score 재환산 금지",
+0595:         "- api/two_table_v1 변경 금지",
+0596:         "",
+0597:         "## 다음 단계",
+0598:         "",
+
+========================================================================================
+FILE=investment_score_readiness_v871.py
+LINE=53
+0047:     ("price_position", "기간 저가·고가 대비 현재위치", 5, "metrics.range_3m.position_pct", "TWO_TABLE_METRIC"),
+0048:     ("price_position", "과열·급락 위험", 3, "metrics.swing/returns/atr14", "INPUT_READY_THRESHOLD_UNDEFINED"),
+0049: 
+0050:     ("liquidity_elasticity", "20일 평균 거래대금과 거래량", 6, "metrics.activity", "TWO_TABLE_METRIC"),
+0051:     ("liquidity_elasticity", "하루평균 절대등락률", 4, "avg_daily_range_20_pct는 고저폭이라 동일 지표 아님", "SOURCE_NOT_CONNECTED"),
+0052: 
+0053:     ("supply_disclosure", "수급·공시부담", 10, "analysis.supply_level/status/keywords", "RANGE_POLICY_ONLY"),
+0054: ]
+0055: 
+0056: EXPECTED_AREA_MAX = {
+0057:     "financial": 30,
+0058:     "valuation": 20,
+0059:     "growth_value": 15,
+
+========================================================================================
+FILE=investment_score_readiness_v871.py
+LINE=152
+0146:         return bool(row and (row.get("metrics") or {}).get("status") == "OK")
+0147:     if kind == "INPUT_READY_THRESHOLD_UNDEFINED":
+0148:         metrics = (row or {}).get("metrics") or {}
+0149:         return bool(metrics.get("swing") and metrics.get("returns") and metrics.get("atr14"))
+0150:     if kind == "RANGE_POLICY_ONLY":
+0151:         analysis = (row or {}).get("analysis") or {}
+0152:         return bool(str(analysis.get("supply_level") or "").strip())
+0153:     raise RuntimeError("UNKNOWN_COMPONENT_TYPE:" + kind)
+0154: 
+0155: def status_label(kind, ready_count, universe_count):
+0156:     if kind == "SOURCE_NOT_CONNECTED":
+0157:         return "SOURCE_NOT_CONNECTED"
+0158:     if kind in {
+
+========================================================================================
+FILE=investment_score_supply_evidence_audit_v896.py
+LINE=106
+0100:         except Exception:
+0101:             continue
+0102: 
+0103:         lines = text.splitlines()
+0104:         hit_indexes = [
+0105:             i for i, line in enumerate(lines)
+0106:             if "supply_status" in line or "supply_level" in line
+0107:         ]
+0108:         if not hit_indexes:
+0109:             continue
+0110: 
+0111:         for idx in hit_indexes:
+0112:             lo = max(0, idx - 6)
+
+========================================================================================
+FILE=investment_score_supply_evidence_audit_v896.py
+LINE=194
+0188:     for code in unique_codes:
+0189:         prow = prod[code]
+0190:         analysis = prow.get("analysis") or {}
+0191:         if not isinstance(analysis, dict):
+0192:             raise RuntimeError(f"ANALYSIS_NOT_OBJECT:{code}")
+0193: 
+0194:         status = str(analysis.get("supply_status") or "")
+0195:         level = str(analysis.get("supply_level") or "")
+0196: 
+0197:         if status == "OK":
+0198:             classification = "EXPLICIT_COMPLETE_STATUS"
+0199:         elif status == "LIMITED" and level == "없음":
+0200:             classification = "LIMITED_NO_POSITIVE_EVIDENCE"
+
+========================================================================================
+FILE=investment_score_supply_evidence_audit_v896.py
+LINE=195
+0189:         prow = prod[code]
+0190:         analysis = prow.get("analysis") or {}
+0191:         if not isinstance(analysis, dict):
+0192:             raise RuntimeError(f"ANALYSIS_NOT_OBJECT:{code}")
+0193: 
+0194:         status = str(analysis.get("supply_status") or "")
+0195:         level = str(analysis.get("supply_level") or "")
+0196: 
+0197:         if status == "OK":
+0198:             classification = "EXPLICIT_COMPLETE_STATUS"
+0199:         elif status == "LIMITED" and level == "없음":
+0200:             classification = "LIMITED_NO_POSITIVE_EVIDENCE"
+0201:         elif status == "LIMITED" and level in {"주의", "경계", "위험"}:
+
+========================================================================================
+FILE=investment_score_supply_evidence_audit_v896.py
+LINE=224
+0218:         out_rows.append({
+0219:             "ticker": code,
+0220:             "name": b.get("name") or prow.get("name") or "",
+0221:             "market": b.get("market") or prow.get("market") or "",
+0222:             "production_table": source_table.get(code) or "",
+0223:             "single_blocker_ticker": b.get("single_blocker_ticker") or "",
+0224:             "supply_status": status,
+0225:             "supply_level": level,
+0226:             "supply_classification": classification,
+0227:             "analysis_top_level_keys_json": json.dumps(
+0228:                 sorted(str(k) for k in analysis.keys()),
+0229:                 ensure_ascii=False,
+0230:                 separators=(",", ":"),
+
+========================================================================================
+FILE=investment_score_supply_evidence_audit_v896.py
+LINE=225
+0219:             "ticker": code,
+0220:             "name": b.get("name") or prow.get("name") or "",
+0221:             "market": b.get("market") or prow.get("market") or "",
+0222:             "production_table": source_table.get(code) or "",
+0223:             "single_blocker_ticker": b.get("single_blocker_ticker") or "",
+0224:             "supply_status": status,
+0225:             "supply_level": level,
+0226:             "supply_classification": classification,
+0227:             "analysis_top_level_keys_json": json.dumps(
+0228:                 sorted(str(k) for k in analysis.keys()),
+0229:                 ensure_ascii=False,
+0230:                 separators=(",", ":"),
+0231:             ),
+
+========================================================================================
+FILE=investment_score_supply_evidence_audit_v896.py
+LINE=310
+0304:         "v895_version": V895_VERSION,
+0305:         "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+0306:         "status": "AUDIT_ONLY",
+0307:         "supply_blocker_ticker_count": len(unique_codes),
+0308:         "supply_single_blocker_ticker_count": len(single_codes),
+0309:         "supply_single_blocker_tickers": single_codes,
+0310:         "supply_status_counts": dict(status_counts),
+0311:         "supply_level_counts": dict(level_counts),
+0312:         "supply_classification_counts": dict(classification_counts),
+0313:         "candidate_completeness_paths": candidate_paths,
+0314:         "analysis_top_level_keys": top_analysis_keys,
+0315:         "producer_source_match_count": len(producer_matches),
+0316:         "producer_source_paths": producer_paths,
+
+========================================================================================
+FILE=investment_score_supply_evidence_audit_v896.py
+LINE=311
+0305:         "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+0306:         "status": "AUDIT_ONLY",
+0307:         "supply_blocker_ticker_count": len(unique_codes),
+0308:         "supply_single_blocker_ticker_count": len(single_codes),
+0309:         "supply_single_blocker_tickers": single_codes,
+0310:         "supply_status_counts": dict(status_counts),
+0311:         "supply_level_counts": dict(level_counts),
+0312:         "supply_classification_counts": dict(classification_counts),
+0313:         "candidate_completeness_paths": candidate_paths,
+0314:         "analysis_top_level_keys": top_analysis_keys,
+0315:         "producer_source_match_count": len(producer_matches),
+0316:         "producer_source_paths": producer_paths,
+0317:         "contract_observation": {
+
+========================================================================================
+FILE=investment_score_supply_evidence_audit_v896.py
+LINE=332
+0326:             "promoted_ticker_count": 0,
+0327:         },
+0328:         "hard_guards": {
+0329:             "production_api_changed": False,
+0330:             "production_investment_score_written": False,
+0331:             "scoring_policy_changed": False,
+0332:             "supply_status_overridden": False,
+0333:             "limited_absence_treated_as_complete": False,
+0334:             "new_source_value_imputed": False,
+0335:         },
+0336:         "next_step": next_step,
+0337:     }
+0338:     OUT_JSON.write_text(
+
+========================================================================================
+FILE=investment_score_supply_evidence_audit_v896.py
+LINE=355
+0349:             f"- supply blocker: {len(unique_codes)}종목",
+0350:             f"- supply만 해결되면 READY: {len(single_codes)}종목",
+0351:             "- 상태: AUDIT_ONLY",
+0352:             "",
+0353:             "## 목적",
+0354:             "",
+0355:             "현재 production `analysis.supply_status/supply_level`을 직접 확인하고, "
+0356:             "`LIMITED + 없음`을 `OK + 없음`으로 바꿀 근거가 실제로 존재하는지 조사한다.",
+0357:             "",
+0358:             "## 안전 원칙",
+0359:             "",
+0360:             "- LIMITED 상태를 임의로 OK로 바꾸지 않는다.",
+0361:             "- '부담 근거가 발견되지 않음'을 '부담 없음이 완전하게 확인됨'으로 간주하지 않는다.",
+
+========================================================================================
+FILE=investment_score_supply_evidence_audit_v896.py
+LINE=363
+0357:             "",
+0358:             "## 안전 원칙",
+0359:             "",
+0360:             "- LIMITED 상태를 임의로 OK로 바꾸지 않는다.",
+0361:             "- '부담 근거가 발견되지 않음'을 '부담 없음이 완전하게 확인됨'으로 간주하지 않는다.",
+0362:             "- production score와 점수정책은 변경하지 않는다.",
+0363:             "- producer 소스코드에서 supply_status/supply_level 생성 위치를 함께 추적한다.",
+0364:             "",
+0365:             "## 다음 단계",
+0366:             "",
+0367:             f"`{next_step}`",
+0368:             "",
+0369:         ]),

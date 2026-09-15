@@ -101,60 +101,116 @@ jobs:
               if len(source_map) != 66:
                   raise RuntimeError(f"V888_UNIQUE_SOURCE_COUNT:{len(source_map)}")
 
+              raw_targets = {}
+              preferred_inheritance = {}
+
+              for code, src in source_map.items():
+                  evidence = str(src.get("evidence_ref") or "")
+                  raw_code = code
+                  marker = "#PREFERRED_COMMON:"
+
+                  if marker in evidence:
+                      inherited = ticker(evidence.split(marker, 1)[1].split("#", 1)[0])
+                      if not inherited:
+                          raise RuntimeError(
+                              f"V888_INVALID_PREFERRED_COMMON_REF:{code}:{evidence}"
+                          )
+                      raw_code = inherited
+                      preferred_inheritance[code] = raw_code
+
+                  dep = num(src.get("depreciation_value"))
+                  amo = num(src.get("amortisation_value"))
+                  if dep is None and amo is None:
+                      raise RuntimeError(f"V888_SOURCE_WITHOUT_DA_VALUE:{code}")
+
+                  signature = (dep, amo)
+
+                  if raw_code in raw_targets:
+                      prior = raw_targets[raw_code]
+                      if prior["signature"] != signature:
+                          raise RuntimeError(
+                              f"V888_SHARED_RAW_DA_CONFLICT:{raw_code}:"
+                              f"{prior['source_tickers']}:{code}"
+                          )
+                      prior["source_tickers"].append(code)
+                  else:
+                      raw_targets[raw_code] = {
+                          "signature": signature,
+                          "source_tickers": [code],
+                      }
+
               raw_rows = read_csv(RAW)
               if not raw_rows:
                   raise RuntimeError("RAW_SOURCE_EMPTY")
+
               fields = list(raw_rows[0].keys())
               if "depreciation_amortization_candidates_json" not in fields:
                   raise RuntimeError("RAW_DA_FIELD_MISSING")
 
-              seen = set()
-              patched_ready_direct = 0
-              patched_nonready_direct = 0
+              seen_raw_targets = set()
+              patched_ready_raw_count = 0
+              patched_nonready_raw_count = 0
 
               for row in raw_rows:
-                  code = ticker(row.get("ticker"))
-                  src = source_map.get(code)
-                  if not src:
+                  raw_code = ticker(row.get("ticker"))
+                  target = raw_targets.get(raw_code)
+                  if not target:
                       continue
 
+                  dep, amo = target["signature"]
                   candidates = []
-                  dep = num(src.get("depreciation_value"))
-                  amo = num(src.get("amortisation_value"))
+
                   if dep is not None:
                       candidates.append({
                           "account_id": DEP_ID,
                           "account_nm": "V8.8.8 validated exact depreciation",
                           "amount": dep,
                       })
+
                   if amo is not None:
                       candidates.append({
                           "account_id": AMO_ID,
                           "account_nm": "V8.8.8 validated exact amortisation",
                           "amount": amo,
                       })
-                  if not candidates:
-                      raise RuntimeError(f"V888_SOURCE_WITHOUT_DA_VALUE:{code}")
 
                   row["depreciation_amortization_candidates_json"] = json.dumps(
-                      candidates, ensure_ascii=False, separators=(",", ":")
+                      candidates,
+                      ensure_ascii=False,
+                      separators=(",", ":"),
                   )
-                  seen.add(code)
+                  seen_raw_targets.add(raw_code)
 
                   if row.get("source_cache_status") == "READY_RAW_SOURCE":
-                      patched_ready_direct += 1
+                      patched_ready_raw_count += 1
                   else:
-                      patched_nonready_direct += 1
+                      patched_nonready_raw_count += 1
 
-              missing = sorted(set(source_map) - seen)
-              if missing:
-                  raise RuntimeError("V888_TICKER_MISSING_FROM_RAW:" + ",".join(missing))
+              missing_raw = sorted(set(raw_targets) - seen_raw_targets)
+              if missing_raw:
+                  raise RuntimeError(
+                      "V888_RAW_TARGET_MISSING_FROM_RAW:" + ",".join(missing_raw)
+                  )
+
+              if preferred_inheritance != {"003495": "003490"}:
+                  raise RuntimeError(
+                      "V888_PREFERRED_INHERITANCE_UNEXPECTED:" +
+                      json.dumps(
+                          preferred_inheritance,
+                          ensure_ascii=False,
+                          sort_keys=True,
+                      )
+                  )
 
               write_csv(SHADOW_RAW, raw_rows, fields)
+
               return {
                   "v888_source_count": len(source_map),
-                  "shadow_patched_ready_direct_count": patched_ready_direct,
-                  "shadow_patched_nonready_direct_count": patched_nonready_direct,
+                  "shadow_unique_raw_target_count": len(raw_targets),
+                  "shadow_patched_ready_raw_count": patched_ready_raw_count,
+                  "shadow_patched_nonready_raw_count": patched_nonready_raw_count,
+                  "preferred_inheritance_count": len(preferred_inheritance),
+                  "preferred_inheritance": preferred_inheritance,
               }
 
           def count_ev_blockers(rows):
@@ -244,10 +300,16 @@ jobs:
                   "base_scorer_version": BASE_V882_VERSION,
                   "v888_da_source_version": V888_VERSION,
                   "v888_source_count": shadow_stats["v888_source_count"],
-                  "shadow_patched_ready_direct_count":
-                      shadow_stats["shadow_patched_ready_direct_count"],
-                  "shadow_patched_nonready_direct_count":
-                      shadow_stats["shadow_patched_nonready_direct_count"],
+                  "shadow_unique_raw_target_count":
+                      shadow_stats["shadow_unique_raw_target_count"],
+                  "shadow_patched_ready_raw_count":
+                      shadow_stats["shadow_patched_ready_raw_count"],
+                  "shadow_patched_nonready_raw_count":
+                      shadow_stats["shadow_patched_nonready_raw_count"],
+                  "preferred_inheritance_count":
+                      shadow_stats["preferred_inheritance_count"],
+                  "preferred_inheritance":
+                      shadow_stats["preferred_inheritance"],
                   "baseline_ready_count": len(old_ready),
                   "new_ready_count": len(new_ready),
                   "ready_delta": len(new_ready) - len(old_ready),
@@ -287,6 +349,9 @@ jobs:
                   f"BASE_SCORER_VERSION={BASE_V882_VERSION}",
                   f"V888_DA_SOURCE_VERSION={V888_VERSION}",
                   f"V888_SOURCE_COUNT={shadow_stats['v888_source_count']}",
+                  f"SHADOW_UNIQUE_RAW_TARGET_COUNT={shadow_stats['shadow_unique_raw_target_count']}",
+                  f"PREFERRED_INHERITANCE_COUNT={shadow_stats['preferred_inheritance_count']}",
+                  "PREFERRED_INHERITANCE_003495=003490",
                   f"BASELINE_READY={len(old_ready)}",
                   f"DRY_RUN_READY={len(new_ready)}",
                   f"DRY_RUN_LIMITED={112-len(new_ready)}",
@@ -371,6 +436,9 @@ jobs:
           assert len(rows) == 112
           assert s["production_unique_tickers"] == 112
           assert s["source_recheck"]["v888_source_count"] == 66
+          assert s["source_recheck"]["shadow_unique_raw_target_count"] == 65
+          assert s["source_recheck"]["preferred_inheritance_count"] == 1
+          assert s["source_recheck"]["preferred_inheritance"] == {"003495": "003490"}
           assert s["source_recheck"]["baseline_ready_count"] == 13
           assert s["source_recheck"]["new_ready_count"] >= 13
           assert s["source_recheck"]["ready_delta"] >= 0

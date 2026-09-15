@@ -1,0 +1,53 @@
+{
+  "version": "2026-09-15-v8.9.2-retry-failed-official-xbrl",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v891_version": "2026-09-15-v8.9.1-remaining-exact-da-recoverability-audit",
+  "v885_version": "2026-09-14-v8.8.5-expanded-xbrl-da-audit",
+  "generated_at_kst": "2026-09-15T15:41:23+09:00",
+  "status": "AUDIT_ONLY",
+  "target_count": 3,
+  "target_tickers": [
+    "002450",
+    "012450",
+    "023960"
+  ],
+  "recovery_classification_counts": {
+    "ALTERNATE_RCEPT_ZIP_FOUND": 3
+  },
+  "zip_recovered_ticker_count": 3,
+  "zip_recovered_tickers": [
+    "002450",
+    "012450",
+    "023960"
+  ],
+  "approved_exact_recovered_ticker_count": 2,
+  "approved_exact_recovered_tickers": [
+    "002450",
+    "012450"
+  ],
+  "all_candidates_no_data_or_file_ticker_count": 0,
+  "all_candidates_no_data_or_file_tickers": [],
+  "official_dart_contract_checked": {
+    "endpoint": "https://opendart.fss.or.kr/api/fnlttXbrl.xml",
+    "reprt_code": "11011",
+    "expected_success_format": "ZIP binary",
+    "known_no_data_or_file_statuses": [
+      "013",
+      "014"
+    ]
+  },
+  "automatic_promotion": {
+    "allowed": false,
+    "promoted_ticker_count": 0
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "new_da_id_approved": false,
+    "v888_source_layer_mutated": false,
+    "recovered_xbrl_value_promoted": false,
+    "missing_da_assumed_zero": false
+  },
+  "next_step": "AUDIT_RECOVERED_XBRL_CONTEXTS_BEFORE_ANY_DA_SOURCE_PROMOTION"
+}

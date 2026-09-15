@@ -1,0 +1,80 @@
+{
+  "version": "2026-09-15-v8.10.5-investment-source-cache-root-cause-audit",
+  "v8102_version": "2026-09-15-v8.10.2-combined-validated-source-reconciliation",
+  "v8104_version": "2026-09-15-v8.10.4-next-single-source-recoverability-audit",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "source_contract_version": "2026-09-10-v8.5.4-investment-score-source-contract",
+  "generated_at_kst": "2026-09-15T18:08:15+09:00",
+  "status": "AUDIT_ONLY",
+  "source_group": "INVESTMENT_SCORE_SOURCE_CACHE",
+  "blocker_occurrence_count": 62,
+  "target_ticker_count": 20,
+  "blocker_reason_counts": {
+    "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT": 17,
+    "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT": 19,
+    "최근 3년 매출 성장률:MISSING_3Y_REVENUE": 16,
+    "최근 3년 영업이익 성장률:MISSING_3Y_OP": 10
+  },
+  "cache_status_counts": {
+    "LIMITED_RAW_SOURCE": 7
+  },
+  "cache_reason_token_counts": {
+    "3Y_ANNUAL_LIMITED": 6,
+    "QUARTER_LIMITED": 7
+  },
+  "three_year_source_status_counts": {
+    "LIMITED": 6,
+    "READY": 1
+  },
+  "quarter_source_status_counts": {
+    "LIMITED": 7
+  },
+  "recovery_lane_counts": {
+    "ANNUAL_AND_QUARTER_OFFICIAL_REAUDIT": 6,
+    "SOURCE_CACHE_ROW_MISSING": 13,
+    "V8104_OFFICIAL_FULL_ACCOUNT_EXHAUSTED": 1
+  },
+  "recovery_lane_blocker_occurrences": {
+    "ANNUAL_AND_QUARTER_OFFICIAL_REAUDIT": 18,
+    "SOURCE_CACHE_ROW_MISSING": 43,
+    "V8104_OFFICIAL_FULL_ACCOUNT_EXHAUSTED": 1
+  },
+  "recovery_priority": [
+    {
+      "recovery_lane": "SOURCE_CACHE_ROW_MISSING",
+      "target_tickers": 13,
+      "blocker_occurrences": 43
+    },
+    {
+      "recovery_lane": "ANNUAL_AND_QUARTER_OFFICIAL_REAUDIT",
+      "target_tickers": 6,
+      "blocker_occurrences": 18
+    },
+    {
+      "recovery_lane": "V8104_OFFICIAL_FULL_ACCOUNT_EXHAUSTED",
+      "target_tickers": 1,
+      "blocker_occurrences": 1
+    }
+  ],
+  "highest_actionable_recovery_lane": "SOURCE_CACHE_ROW_MISSING",
+  "highest_actionable_recovery_lane_ticker_count": 13,
+  "highest_actionable_recovery_lane_blocker_occurrences": 43,
+  "v8104_exhausted_overlap_count": 1,
+  "v8104_exhausted_overlap_tickers": [
+    "357250"
+  ],
+  "automatic_promotion": {
+    "allowed": false,
+    "promoted_ticker_count": 0
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "source_cache_mutated": false,
+    "financial_cache_mutated": false,
+    "source_value_imputed": false,
+    "v8104_exhausted_target_retried": false
+  },
+  "next_step": "AUDIT_HIGHEST_ACTIONABLE_V8105_SOURCE_LANE_WITH_OFFICIAL_DATA"
+}

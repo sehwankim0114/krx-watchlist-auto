@@ -1,0 +1,39 @@
+{
+  "version": "2026-09-15-v8.8.8-freeze-xbrl-da-source-layer",
+  "status": "FROZEN_SOURCE_ONLY_NOT_PRODUCTION",
+  "score_policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "evidence": {
+    "v883": "2026-09-13-v8.8.3-da-exact-id-audit",
+    "v887": "2026-09-15-v8.8.7-xbrl-cfs-ofs-selection-audit"
+  },
+  "approved_exact_account_ids": [
+    "ifrs-full_AdjustmentsForAmortisationExpense",
+    "ifrs-full_AdjustmentsForDepreciationExpense"
+  ],
+  "approved_exact_local_names": [
+    "AdjustmentsForAmortisationExpense",
+    "AdjustmentsForDepreciationExpense"
+  ],
+  "xbrl_context_mapping": {
+    "axis": "ifrs-full:ConsolidatedAndSeparateFinancialStatementsAxis",
+    "CFS": "ifrs-full:ConsolidatedMember",
+    "OFS": "ifrs-full:SeparateMember",
+    "financial_statement_policy": "CFS_FIRST_OFS_FALLBACK",
+    "source_fs_div_precedence": [
+      "deep_fs_div when deep_source_year equals target_year",
+      "annual_fs_div when annual_source_year equals target_year",
+      "preferred_fs_div"
+    ],
+    "annual_duration_rule": "start/end both in target year and inclusive duration 330..370 days"
+  },
+  "promotion_rules": {
+    "existing_v883_exact_ready": "preserve already validated exact raw candidates",
+    "new_xbrl": "promote only MATCHED_FS_MEMBER_BOTH_FACTS_UNIQUE with both_approved_facts_unique=TRUE and no value/context conflict",
+    "partial_one_fact_xbrl": "DO_NOT_PROMOTE",
+    "no_matching_fs_member": "DO_NOT_PROMOTE",
+    "unapproved_fact_ids": "DO_NOT_PROMOTE"
+  },
+  "production_activation": false,
+  "investment_score_100_write": false,
+  "ev_ebitda_recalculation": false
+}

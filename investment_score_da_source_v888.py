@@ -2,43 +2,39 @@
 from __future__ import annotations
 
 import csv
-import hashlib
 import json
-import math
-from collections import Counter, defaultdict
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-VERSION = "2026-09-15-v8.8.8-source-only-da-promotion"
+VERSION = "2026-09-15-v8.8.8-freeze-xbrl-da-source-layer"
 POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+V883_VERSION = "2026-09-13-v8.8.3-da-exact-id-audit"
 V887_VERSION = "2026-09-15-v8.8.7-xbrl-cfs-ofs-selection-audit"
 
 KST = ZoneInfo("Asia/Seoul")
 ROOT = Path(".")
+
+V883_CSV = ROOT / "latest/investment_score_da_exact_id_audit_v883.csv"
+V883_JSON = ROOT / "latest/investment_score_da_exact_id_audit_v883_summary_latest.json"
 V887_CSV = ROOT / "latest/investment_score_xbrl_cfs_ofs_v887.csv"
 V887_JSON = ROOT / "latest/investment_score_xbrl_cfs_ofs_v887_summary_latest.json"
-POLICY_JSON = ROOT / "config/investment_score_policy_v880.json"
-FINANCIAL_ENRICHER = ROOT / "financial_valuation_enricher.py"
+RAW_CSV = ROOT / "latest/investment_score_source_cache_latest.csv"
+
+OUT_POLICY = ROOT / "config/investment_score_da_source_policy_v888.json"
 OUT_CSV = ROOT / "latest/investment_score_da_source_v888.csv"
 OUT_JSON = ROOT / "latest/investment_score_da_source_v888_summary_latest.json"
 OUT_LOG = ROOT / "latest/investment_score_da_source_v888_run_log_latest.txt"
-OUT_DOC = ROOT / "docs/investment_score_da_source_promotion_v888.md"
+OUT_DOC = ROOT / "docs/investment_score_da_source_layer_v888.md"
 
-REQUIRED_NEXT_STEP = (
-    "FREEZE_CFS_OFS_CONTEXT_MAPPING_AND_PROMOTE_ONLY_BOTH_UNIQUE_"
-    "EXACT_FACTS_TO_A_SOURCE_ONLY_DA_LAYER"
-)
-REQUIRED_POLICY_TEXT = (
-    "연결재무제표(CFS)를 우선하고, 없을 때만 개별재무제표(OFS)를 쓴다."
-)
-EXPECTED_MEMBER = {"CFS": "ConsolidatedMember", "OFS": "SeparateMember"}
-PROMOTION_CLASS = "MATCHED_FS_MEMBER_BOTH_FACTS_UNIQUE"
-SOURCE_STATUS = "READY_SOURCE_ONLY_BOTH_EXACT_UNIQUE"
-APPROVED = {
-    "AdjustmentsForDepreciationExpense": "ifrs-full_AdjustmentsForDepreciationExpense",
-    "AdjustmentsForAmortisationExpense": "ifrs-full_AdjustmentsForAmortisationExpense",
+APPROVED_IDS = {
+    "ifrs-full_AdjustmentsForDepreciationExpense":
+        "AdjustmentsForDepreciationExpense",
+    "ifrs-full_AdjustmentsForAmortisationExpense":
+        "AdjustmentsForAmortisationExpense",
 }
+APPROVED_LOCALS = set(APPROVED_IDS.values())
 
 def read_json(path):
     return json.loads(path.read_text(encoding="utf-8-sig"))
@@ -47,239 +43,344 @@ def read_csv(path):
     with path.open(encoding="utf-8-sig", newline="") as f:
         return list(csv.DictReader(f))
 
-def sha256(path):
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-def clean_ticker(v):
+def ticker(v):
     s = "".join(ch for ch in str(v or "") if ch.isdigit())
     return s.zfill(6) if s else ""
 
-def finite(v):
+def as_float(v):
     try:
-        x = float(v)
+        if v in (None, "", "null"):
+            return None
+        return float(v)
     except Exception:
         return None
-    return x if math.isfinite(x) else None
 
-def is_true(v):
-    return str(v or "").strip().upper() == "TRUE"
+def parse_json_list(v):
+    try:
+        data = json.loads(str(v or ""))
+    except Exception:
+        return []
+    return data if isinstance(data, list) else []
 
-def jlist(v):
-    obj = json.loads(str(v or ""))
-    if not isinstance(obj, list):
-        raise RuntimeError("EXPECTED_JSON_LIST")
-    return obj
+def unique_exact_amounts(candidates):
+    values = defaultdict(set)
+    for item in candidates:
+        aid = str(item.get("account_id") or "").strip()
+        if aid not in APPROVED_IDS:
+            continue
+        amount = as_float(item.get("amount"))
+        if amount is not None:
+            values[aid].add(amount)
+    if any(len(s) > 1 for s in values.values()):
+        return None, "CONFLICT"
+    exact = {
+        aid: next(iter(vals))
+        for aid, vals in values.items()
+        if len(vals) == 1
+    }
+    return exact, "OK"
 
-def canon(x):
-    if abs(x - round(x)) < 1e-9:
-        return str(int(round(x)))
-    return format(x, ".15g")
-
-def main():
-    for path in (V887_CSV, V887_JSON, POLICY_JSON, FINANCIAL_ENRICHER):
-        if not path.is_file():
-            raise RuntimeError("MISSING_REQUIRED_SOURCE:" + str(path))
-
-    v887 = read_json(V887_JSON)
-    rows = read_csv(V887_CSV)
-    policy = read_json(POLICY_JSON)
-    enricher = FINANCIAL_ENRICHER.read_text(encoding="utf-8")
-
-    if v887.get("version") != V887_VERSION: raise RuntimeError("V887_VERSION_MISMATCH")
-    if v887.get("status") != "SELECTION_AUDIT_ONLY": raise RuntimeError("V887_STATUS_MISMATCH")
-    if v887.get("target_count") != 57 or len(rows) != 57: raise RuntimeError("V887_TARGET_COUNT_MISMATCH")
-    if v887.get("source_fs_mismatch_count") != 0: raise RuntimeError("V887_SOURCE_FS_MISMATCH_NOT_ZERO")
-    if v887.get("both_approved_facts_unique_ticker_count") != 52: raise RuntimeError("V887_BOTH_UNIQUE_COUNT_MISMATCH")
-    if v887.get("partial_one_fact_ticker_count") != 4: raise RuntimeError("V887_PARTIAL_COUNT_MISMATCH")
-    if v887.get("no_matching_fs_member_ticker_count") != 1: raise RuntimeError("V887_NO_MEMBER_COUNT_MISMATCH")
-    if v887.get("remaining_value_conflict_ticker_count") != 0: raise RuntimeError("V887_VALUE_CONFLICT_NOT_ZERO")
-    if v887.get("remaining_multi_context_ticker_count") != 0: raise RuntimeError("V887_CONTEXT_CONFLICT_NOT_ZERO")
-    if v887.get("next_step") != REQUIRED_NEXT_STEP: raise RuntimeError("V887_NEXT_STEP_MISMATCH")
-
-    mapping = v887.get("mapping_under_test") or {}
-    if mapping.get("axis") != "ifrs-full:ConsolidatedAndSeparateFinancialStatementsAxis": raise RuntimeError("V887_FS_AXIS_MISMATCH")
-    if mapping.get("CFS") != "ifrs-full:ConsolidatedMember": raise RuntimeError("V887_CFS_MEMBER_MISMATCH")
-    if mapping.get("OFS") != "ifrs-full:SeparateMember": raise RuntimeError("V887_OFS_MEMBER_MISMATCH")
-    if policy.get("version") != POLICY_VERSION: raise RuntimeError("V880_POLICY_VERSION_MISMATCH")
-    if policy.get("status") != "APPROVED_DESIGN_NOT_PRODUCTION": raise RuntimeError("V880_POLICY_STATUS_MISMATCH")
-    if REQUIRED_POLICY_TEXT not in enricher: raise RuntimeError("CFS_OFS_POLICY_TEXT_NOT_FOUND")
-
-    promoted, held, seen = [], [], set()
-    for row in rows:
-        code = clean_ticker(row.get("ticker"))
-        if not code or code in seen: raise RuntimeError("INVALID_OR_DUPLICATE_TICKER:" + code)
-        seen.add(code)
-        cls = str(row.get("selection_classification") or "")
-        if cls != PROMOTION_CLASS:
-            held.append((code, cls))
+def build_existing_rows(v883_rows, raw_map):
+    out = []
+    for row in v883_rows:
+        if row.get("audit_status") != "APPROVED_EXACT_READY":
             continue
 
-        if str(row.get("source_fs_status") or "") != "CONSISTENT": raise RuntimeError("SOURCE_FS_NOT_CONSISTENT:" + code)
-        fs = str(row.get("source_fs_div") or "")
-        if fs not in EXPECTED_MEMBER: raise RuntimeError("FS_DIV_INVALID:" + code)
-        if str(row.get("target_member") or "") != EXPECTED_MEMBER[fs]: raise RuntimeError("TARGET_MEMBER_MISMATCH:" + code)
-        if str(row.get("xbrl_status") or "") != "OK": raise RuntimeError("XBRL_NOT_OK:" + code)
-        if not is_true(row.get("both_approved_facts_unique")): raise RuntimeError("BOTH_UNIQUE_FALSE:" + code)
-        if is_true(row.get("selected_value_conflict")): raise RuntimeError("VALUE_CONFLICT:" + code)
-        if is_true(row.get("selected_context_conflict")): raise RuntimeError("CONTEXT_CONFLICT:" + code)
-        if int(row.get("selected_depreciation_unique_values") or 0) != 1: raise RuntimeError("DEP_UNIQUE_COUNT:" + code)
-        if int(row.get("selected_amortisation_unique_values") or 0) != 1: raise RuntimeError("AMO_UNIQUE_COUNT:" + code)
-        if int(row.get("selected_unit_signature_count") or 0) != 1: raise RuntimeError("UNIT_SIGNATURE_COUNT:" + code)
-        if jlist(row.get("selected_unit_signatures_json")) != ["iso4217:KRW"]: raise RuntimeError("UNIT_NOT_KRW:" + code)
+        code = ticker(row.get("ticker"))
+        raw_mode = str(row.get("raw_source_mode") or "")
+        raw_code = code
 
-        values = defaultdict(set)
-        units = set()
-        for fact in jlist(row.get("selected_facts_json")):
-            local = str(fact.get("local_name") or "")
-            if local not in APPROVED:
-                continue
-            if str(fact.get("value_status") or "") != "OK": raise RuntimeError("FACT_VALUE_NOT_OK:" + code)
-            value = finite(fact.get("normalized_value"))
-            if value is None: raise RuntimeError("FACT_VALUE_NONNUMERIC:" + code)
-            values[local].add(value)
-            measures = tuple(sorted((fact.get("unit") or {}).get("measures") or []))
-            if measures: units.add(measures)
+        # Reproduce the already-audited V8.8.3 preferred-share inheritance.
+        # Example: 003495 -> PREFERRED_COMMON:003490.
+        if raw_mode.startswith("PREFERRED_COMMON:"):
+            inherited_code = ticker(raw_mode.split(":", 1)[1])
+            if not inherited_code:
+                raise RuntimeError(
+                    f"V883_PREFERRED_COMMON_CODE_INVALID:{code}:{raw_mode}"
+                )
+            raw_code = inherited_code
 
-        dep_set = values["AdjustmentsForDepreciationExpense"]
-        amo_set = values["AdjustmentsForAmortisationExpense"]
-        if len(dep_set) != 1 or len(amo_set) != 1: raise RuntimeError("FACT_VALUE_SET_MISMATCH:" + code)
-        if units != {("iso4217:KRW",)}: raise RuntimeError("FACT_UNIT_SET_MISMATCH:" + code)
+        raw = raw_map.get(raw_code) or {}
+        if raw.get("source_cache_status") != "READY_RAW_SOURCE":
+            raise RuntimeError(
+                f"V883_EXACT_RAW_NOT_READY:{code}:RAW={raw_code}:MODE={raw_mode}"
+            )
 
-        dep, amo = next(iter(dep_set)), next(iter(amo_set))
-        total = dep + amo
-        evidence = finite(row.get("evidence_da_sum"))
-        if evidence is None: raise RuntimeError("EVIDENCE_SUM_MISSING:" + code)
-        if abs(total - evidence) > max(1.0, abs(total) * 1e-12): raise RuntimeError("EVIDENCE_SUM_MISMATCH:" + code)
+        candidates = parse_json_list(
+            raw.get("depreciation_amortization_candidates_json")
+        )
+        exact, status = unique_exact_amounts(candidates)
+        if status != "OK" or not exact:
+            raise RuntimeError(
+                f"V883_EXACT_ROW_NOT_REPRODUCIBLE:"
+                f"{code}:RAW={raw_code}:MODE={raw_mode}:{status}"
+            )
 
-        promoted.append({
+        dep = exact.get("ifrs-full_AdjustmentsForDepreciationExpense")
+        amo = exact.get("ifrs-full_AdjustmentsForAmortisationExpense")
+        total = sum(v for v in (dep, amo) if v is not None)
+
+        out.append({
             "ticker": code,
-            "name": str(row.get("name") or ""),
-            "market": str(row.get("market") or ""),
-            "target_year": str(row.get("target_year") or ""),
-            "rcept_no": str(row.get("rcept_no") or ""),
-            "source_fs_selected_from": str(row.get("source_fs_selected_from") or ""),
-            "source_fs_div": fs,
-            "target_member": str(row.get("target_member") or ""),
-            "depreciation_account_id": APPROVED["AdjustmentsForDepreciationExpense"],
-            "depreciation_value": canon(dep),
-            "amortisation_account_id": APPROVED["AdjustmentsForAmortisationExpense"],
-            "amortisation_value": canon(amo),
-            "depreciation_amortization_total": canon(total),
-            "unit": "KRW",
-            "source_status": SOURCE_STATUS,
-            "source_contract": VERSION,
-            "source_evidence_version": V887_VERSION,
+            "name": row.get("name") or raw.get("name") or "",
+            "market": row.get("market") or raw.get("market") or "",
+            "target_year": raw.get("deep_source_year") or raw.get("annual_source_year") or "",
+            "fs_div": raw.get("deep_fs_div") or raw.get("annual_fs_div") or raw.get("preferred_fs_div") or "",
+            "source_layer": "V883_EXISTING_EXACT_RAW",
+            "source_status": "READY_EXACT_DA_SOURCE",
+            "depreciation_value": "" if dep is None else dep,
+            "amortisation_value": "" if amo is None else amo,
+            "da_total": total,
+            "approved_exact_fact_count": len(exact),
+            "both_exact_facts_present": "TRUE" if len(exact) == 2 else "FALSE",
+            "evidence_ref": (
+                "latest/investment_score_source_cache_latest.csv"
+                if raw_code == code
+                else f"latest/investment_score_source_cache_latest.csv#PREFERRED_COMMON:{raw_code}"
+            ),
         })
+    return out
 
-    promoted.sort(key=lambda x: x["ticker"])
-    held.sort()
-    if len(promoted) != 52: raise RuntimeError(f"PROMOTED_COUNT_MISMATCH:{len(promoted)}")
-    held_counts = Counter(cls for _, cls in held)
-    expected_held = Counter({"MATCHED_FS_MEMBER_PARTIAL_ONE_FACT": 4, "NO_MATCHING_FS_MEMBER": 1})
-    if held_counts != expected_held: raise RuntimeError("HELD_CLASSIFICATION_COUNTS_MISMATCH")
+def build_xbrl_rows(v887_rows):
+    out = []
+    for row in v887_rows:
+        if row.get("selection_classification") != "MATCHED_FS_MEMBER_BOTH_FACTS_UNIQUE":
+            continue
+        if str(row.get("both_approved_facts_unique") or "").upper() != "TRUE":
+            continue
+        if str(row.get("selected_value_conflict") or "").upper() != "FALSE":
+            continue
+        if str(row.get("selected_context_conflict") or "").upper() != "FALSE":
+            continue
 
-    fields = list(promoted[0].keys())
-    with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=fields)
-        w.writeheader(); w.writerows(promoted)
+        facts = parse_json_list(row.get("selected_facts_json"))
+        by_local = defaultdict(list)
+        for fact in facts:
+            local = str(fact.get("local_name") or "")
+            if local not in APPROVED_LOCALS:
+                continue
+            value = as_float(fact.get("normalized_value"))
+            if value is not None:
+                by_local[local].append(value)
 
-    fs_counts = Counter(x["source_fs_div"] for x in promoted)
-    market_counts = Counter(x["market"] for x in promoted)
-    summary = {
+        if set(by_local) != APPROVED_LOCALS:
+            raise RuntimeError(
+                f"V887_BOTH_UNIQUE_MISSING_FACT:{ticker(row.get('ticker'))}"
+            )
+        if any(len(set(vals)) != 1 for vals in by_local.values()):
+            raise RuntimeError(
+                f"V887_BOTH_UNIQUE_REPRO_CONFLICT:{ticker(row.get('ticker'))}"
+            )
+
+        dep = by_local["AdjustmentsForDepreciationExpense"][0]
+        amo = by_local["AdjustmentsForAmortisationExpense"][0]
+        total = dep + amo
+        evidence_total = as_float(row.get("evidence_da_sum"))
+        if evidence_total is None or abs(total - evidence_total) > 0.5:
+            raise RuntimeError(
+                f"V887_DA_SUM_MISMATCH:{ticker(row.get('ticker'))}:"
+                f"{total}:{evidence_total}"
+            )
+
+        out.append({
+            "ticker": ticker(row.get("ticker")),
+            "name": row.get("name") or "",
+            "market": row.get("market") or "",
+            "target_year": row.get("target_year") or "",
+            "fs_div": row.get("source_fs_div") or "",
+            "source_layer": "V887_XBRL_BOTH_UNIQUE_EXACT",
+            "source_status": "READY_EXACT_DA_SOURCE",
+            "depreciation_value": dep,
+            "amortisation_value": amo,
+            "da_total": total,
+            "approved_exact_fact_count": 2,
+            "both_exact_facts_present": "TRUE",
+            "evidence_ref": "latest/investment_score_xbrl_cfs_ofs_v887.csv",
+        })
+    return out
+
+def main():
+    v883_summary = read_json(V883_JSON)
+    v887_summary = read_json(V887_JSON)
+    v883_rows = read_csv(V883_CSV)
+    v887_rows = read_csv(V887_CSV)
+    raw_rows = read_csv(RAW_CSV)
+    raw_map = {
+        ticker(r.get("ticker")): r for r in raw_rows if ticker(r.get("ticker"))
+    }
+
+    if v883_summary.get("version") != V883_VERSION:
+        raise RuntimeError("V883_VERSION_MISMATCH")
+    if v887_summary.get("version") != V887_VERSION:
+        raise RuntimeError("V887_VERSION_MISMATCH")
+    if v887_summary.get("decision", {}).get("mapping_semantically_exact") is not True:
+        raise RuntimeError("V887_MAPPING_NOT_EXACT")
+    if v887_summary.get("decision", {}).get("mapping_matches_existing_financial_policy") is not True:
+        raise RuntimeError("V887_MAPPING_POLICY_MISMATCH")
+    if v887_summary.get("remaining_value_conflict_ticker_count") != 0:
+        raise RuntimeError("V887_REMAINING_VALUE_CONFLICT")
+    if v887_summary.get("remaining_multi_context_ticker_count") != 0:
+        raise RuntimeError("V887_REMAINING_CONTEXT_CONFLICT")
+
+    existing = build_existing_rows(v883_rows, raw_map)
+    xbrl = build_xbrl_rows(v887_rows)
+
+    if len(existing) != v883_summary.get("approved_exact_ready_count"):
+        raise RuntimeError(
+            f"EXISTING_COUNT_MISMATCH:{len(existing)}:"
+            f"{v883_summary.get('approved_exact_ready_count')}"
+        )
+    if len(xbrl) != v887_summary.get("both_approved_facts_unique_ticker_count"):
+        raise RuntimeError(
+            f"XBRL_COUNT_MISMATCH:{len(xbrl)}:"
+            f"{v887_summary.get('both_approved_facts_unique_ticker_count')}"
+        )
+
+    all_rows = existing + xbrl
+    by_ticker = defaultdict(list)
+    for row in all_rows:
+        by_ticker[row["ticker"]].append(row)
+    dupes = sorted(k for k, vals in by_ticker.items() if len(vals) > 1)
+    if dupes:
+        raise RuntimeError("DUPLICATE_PROMOTED_TICKERS:" + ",".join(dupes))
+
+    all_rows.sort(key=lambda r: r["ticker"])
+
+    frozen_policy = {
         "version": VERSION,
-        "policy_version": POLICY_VERSION,
-        "source_evidence_version": V887_VERSION,
-        "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
-        "status": "READY_SOURCE_ONLY",
-        "promotion_scope": "SOURCE_ONLY_DA_LAYER",
-        "eligibility_contract": {
-            "approved_account_ids": list(APPROVED.values()),
-            "requires_both_approved_facts": True,
-            "requires_each_fact_unique_after_fs_selection": True,
-            "requires_source_fs_consistent": True,
-            "requires_single_selected_context": True,
-            "requires_krw_unit": True,
-            "partial_one_fact_is_not_promoted": True,
-            "no_matching_fs_member_is_not_promoted": True,
+        "status": "FROZEN_SOURCE_ONLY_NOT_PRODUCTION",
+        "score_policy_version": POLICY_VERSION,
+        "evidence": {
+            "v883": V883_VERSION,
+            "v887": V887_VERSION,
         },
-        "frozen_fs_mapping": {
+        "approved_exact_account_ids": sorted(APPROVED_IDS),
+        "approved_exact_local_names": sorted(APPROVED_LOCALS),
+        "xbrl_context_mapping": {
             "axis": "ifrs-full:ConsolidatedAndSeparateFinancialStatementsAxis",
             "CFS": "ifrs-full:ConsolidatedMember",
             "OFS": "ifrs-full:SeparateMember",
-            "financial_policy_text": REQUIRED_POLICY_TEXT,
+            "financial_statement_policy": "CFS_FIRST_OFS_FALLBACK",
+            "source_fs_div_precedence": [
+                "deep_fs_div when deep_source_year equals target_year",
+                "annual_fs_div when annual_source_year equals target_year",
+                "preferred_fs_div",
+            ],
+            "annual_duration_rule": "start/end both in target year and inclusive duration 330..370 days",
         },
-        "source_target_count": 57,
-        "source_only_ready_count": 52,
-        "held_count": 5,
-        "held_classification_counts": dict(held_counts),
-        "promoted_fs_div_counts": dict(fs_counts),
-        "promoted_market_counts": dict(market_counts),
-        "source_hashes": {
-            str(V887_CSV): sha256(V887_CSV),
-            str(V887_JSON): sha256(V887_JSON),
-            str(POLICY_JSON): sha256(POLICY_JSON),
+        "promotion_rules": {
+            "existing_v883_exact_ready": "preserve already validated exact raw candidates",
+            "new_xbrl": (
+                "promote only MATCHED_FS_MEMBER_BOTH_FACTS_UNIQUE with "
+                "both_approved_facts_unique=TRUE and no value/context conflict"
+            ),
+            "partial_one_fact_xbrl": "DO_NOT_PROMOTE",
+            "no_matching_fs_member": "DO_NOT_PROMOTE",
+            "unapproved_fact_ids": "DO_NOT_PROMOTE",
         },
-        "decision": {
-            "source_only_da_layer_ready": True,
-            "ready_for_ev_ebitda_dry_run": True,
-            "ready_for_production_da_use": False,
-            "ready_for_production_score_write": False,
+        "production_activation": False,
+        "investment_score_100_write": False,
+        "ev_ebitda_recalculation": False,
+    }
+    OUT_POLICY.parent.mkdir(parents=True, exist_ok=True)
+    OUT_POLICY.write_text(
+        json.dumps(frozen_policy, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+    fields = [
+        "ticker","name","market","target_year","fs_div","source_layer",
+        "source_status","depreciation_value","amortisation_value","da_total",
+        "approved_exact_fact_count","both_exact_facts_present","evidence_ref",
+    ]
+    with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(all_rows)
+
+    summary = {
+        "version": VERSION,
+        "policy_version": POLICY_VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+        "status": "SOURCE_ONLY_READY",
+        "existing_v883_exact_ready_count": len(existing),
+        "new_v887_xbrl_both_unique_promoted_count": len(xbrl),
+        "source_only_ready_count": len(all_rows),
+        "source_layer_counts": {
+            "V883_EXISTING_EXACT_RAW": len(existing),
+            "V887_XBRL_BOTH_UNIQUE_EXACT": len(xbrl),
         },
+        "v887_partial_one_fact_not_promoted_count":
+            v887_summary.get("partial_one_fact_ticker_count"),
+        "v887_no_matching_fs_member_not_promoted_count":
+            v887_summary.get("no_matching_fs_member_ticker_count"),
         "hard_guards": {
             "production_api_changed": False,
             "production_investment_score_written": False,
             "scoring_policy_changed": False,
             "new_da_id_approved": False,
-            "production_da_value_promoted": False,
             "ev_ebitda_recalculated": False,
-            "standalone_swing_changed": False,
+            "dry_run_score_changed": False,
+            "partial_xbrl_fact_promoted": False,
         },
-        "next_step": "DRY_RUN_EV_EBITDA_WITH_V888_SOURCE_ONLY_DA_AND_NO_PRODUCTION_WRITE",
+        "next_step": (
+            "DRY_RUN_EV_EBITDA_WITH_V888_DA_SOURCE_LAYER_AND_RECHECK_"
+            "INVESTMENT_SCORE_READY_LIMITED"
+        ),
     }
-    OUT_JSON.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    OUT_JSON.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
-    OUT_DOC.write_text("\n".join([
-        "# V8.8.8 source-only D&A 승격 계약", "",
-        f"- 버전: `{VERSION}`", "- 상태: `READY_SOURCE_ONLY`",
-        "- 목적: V8.8.7에서 검증된 D&A 값을 production과 분리된 source-only 층으로 고정한다.", "",
-        "## 승격 조건", "",
-        "- V8.8.0에서 승인된 정확한 두 IFRS 계정 ID만 사용한다.",
-        "- 기존 재무정책과 동일한 CFS/OFS member를 사용한다.",
-        "- 감가상각과 무형자산상각 값이 각각 유일하고 두 fact가 모두 있어야 한다.",
-        "- 값/context 충돌이 없고 단위가 KRW이어야 한다.", "",
-        "## 결과", "", "- 57개 중 52개만 source-only D&A READY로 승격한다.",
-        "- partial one fact 4개와 matching FS member가 없는 1개는 보류한다.", "",
-        "## 이번 단계에서 하지 않는 것", "",
-        "- 기존 V8.8.3의 14개 exact-ready와 병합하지 않는다.",
-        "- production source cache를 수정하지 않는다.",
-        "- EV/EBITDA를 재계산하지 않는다.",
-        "- 100점 투자점수를 기록하지 않는다.",
-        "- 새로운 D&A 계정 ID를 승인하지 않는다.", "",
-        "## 다음 단계", "",
-        "- V8.8.9에서 기존 raw D&A와 V8.8.8 source-only D&A의 병합 우선순위를 dry-run으로 검증한다.",
-        "- production 반영은 별도 승인 단계까지 금지한다.", "",
-    ]), encoding="utf-8")
+    doc = [
+        "# V8.8.8 D&A source-only 계층 동결",
+        "",
+        f"- 버전: `{VERSION}`",
+        "- 상태: SOURCE_ONLY_READY",
+        "- production 미적용",
+        "",
+        "## 동결 규칙",
+        "",
+        "- 재무제표 기준: CFS 우선, 없을 때 OFS.",
+        "- XBRL 축: ConsolidatedAndSeparateFinancialStatementsAxis.",
+        "- CFS member: ConsolidatedMember.",
+        "- OFS member: SeparateMember.",
+        "- 기존 V8.8.0 승인 exact D&A ID만 사용.",
+        "- V8.8.7 신규 XBRL 값은 두 승인 fact가 모두 유일한 52종목만 승격.",
+        "- partial one fact 4종목, member 미매칭 1종목은 승격하지 않음.",
+        "- EV/EBITDA와 investment_score_100은 이 단계에서 재계산하지 않음.",
+        "",
+        "## 다음 단계",
+        "",
+        "V8.8.8 source-only D&A 계층을 사용해 EV/EBITDA와 100점 점수를 "
+        "다시 dry-run하고 READY/LIMITED 분포를 재검증한다.",
+        "",
+    ]
+    OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+    OUT_DOC.write_text("\n".join(doc), encoding="utf-8")
 
     log = [
-        f"VERSION={VERSION}", "STATUS=READY_SOURCE_ONLY", "SOURCE_TARGETS=57",
-        "SOURCE_ONLY_DA_READY=52", "HELD_TOTAL=5",
-        f"HELD_PARTIAL_ONE_FACT={held_counts['MATCHED_FS_MEMBER_PARTIAL_ONE_FACT']}",
-        f"HELD_NO_MATCHING_FS_MEMBER={held_counts['NO_MATCHING_FS_MEMBER']}",
-        f"PROMOTED_CFS={fs_counts['CFS']}", f"PROMOTED_OFS={fs_counts['OFS']}",
-        "CFS_OFS_MAPPING_FROZEN=true", "BOTH_APPROVED_FACTS_REQUIRED=true",
-        "SOURCE_ONLY_DA_VALUE_PROMOTED=true", "PRODUCTION_DA_VALUE_PROMOTED=false",
-        "EV_EBITDA_RECALCULATED=false", "PRODUCTION_DATA_CHANGED=false",
-        "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false", "SCORING_POLICY_CHANGED=false",
-        "NEW_DA_ID_APPROVED=false", "STANDALONE_SWING_CHANGED=false",
-        "READY_FOR_EV_EBITDA_DRY_RUN=true", "STATUS_OK=true",
+        f"VERSION={VERSION}",
+        f"EXISTING_V883_EXACT_READY={len(existing)}",
+        f"NEW_V887_XBRL_BOTH_UNIQUE_PROMOTED={len(xbrl)}",
+        f"SOURCE_ONLY_READY={len(all_rows)}",
+        f"V887_PARTIAL_ONE_FACT_NOT_PROMOTED={v887_summary.get('partial_one_fact_ticker_count')}",
+        f"V887_NO_MATCHING_FS_MEMBER_NOT_PROMOTED={v887_summary.get('no_matching_fs_member_ticker_count')}",
+        "PRODUCTION_DATA_CHANGED=false",
+        "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+        "SCORING_POLICY_CHANGED=false",
+        "NEW_DA_ID_APPROVED=false",
+        "EV_EBITDA_RECALCULATED=false",
+        "STATUS=OK",
+        "NEXT_STEP=DRY_RUN_EV_EBITDA_WITH_V888_DA_SOURCE_LAYER",
     ]
     OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
-    print("V888_SOURCE_ONLY_DA_PROMOTION=PASS")
+
+    print("V888_DA_SOURCE_LAYER_FREEZE=PASS")
     print("\n".join(log))
 
 if __name__ == "__main__":
     main()
+

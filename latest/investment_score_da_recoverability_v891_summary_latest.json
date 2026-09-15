@@ -1,0 +1,93 @@
+{
+  "version": "2026-09-15-v8.9.1-remaining-exact-da-recoverability-audit",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v890_version": "2026-09-15-v8.9.0-investment-score-remaining-blocker-audit",
+  "v885_version": "2026-09-14-v8.8.5-expanded-xbrl-da-audit",
+  "v887_version": "2026-09-15-v8.8.7-xbrl-cfs-ofs-selection-audit",
+  "v888_version": "2026-09-15-v8.8.8-freeze-xbrl-da-source-layer",
+  "generated_at_kst": "2026-09-15T14:59:43+09:00",
+  "status": "AUDIT_ONLY",
+  "exact_da_blocker_ticker_count": 28,
+  "exact_da_single_blocker_ticker_count": 9,
+  "exact_da_single_blocker_tickers": [
+    "001560",
+    "002450",
+    "012450",
+    "017670",
+    "020560",
+    "022100",
+    "023960",
+    "078520",
+    "483650"
+  ],
+  "provenance_class_counts": {
+    "XBRL_NO_DA_FACT": 9,
+    "XBRL_DOWNLOAD_OR_PARSE_FAILURE": 3,
+    "V887_PARTIAL_ONE_FACT": 4,
+    "XBRL_DA_FACTS_BUT_NO_APPROVED_EXACT": 4,
+    "REPORT_LOOKUP_FAILURE_OR_MISSING": 8
+  },
+  "recovery_lane_counts": {
+    "ALTERNATE_OFFICIAL_DA_SOURCE": 13,
+    "RETRY_OFFICIAL_XBRL": 3,
+    "ALTERNATE_OFFICIAL_SOURCE_FOR_MISSING_FACT": 4,
+    "RETRY_OFFICIAL_DART_REPORT_LOOKUP": 8
+  },
+  "recovery_lane_single_blocker_counts": {
+    "ALTERNATE_OFFICIAL_DA_SOURCE": 4,
+    "RETRY_OFFICIAL_XBRL": 3,
+    "ALTERNATE_OFFICIAL_SOURCE_FOR_MISSING_FACT": 2
+  },
+  "recovery_lane_priority": [
+    {
+      "recovery_lane": "ALTERNATE_OFFICIAL_DA_SOURCE",
+      "ticker_count": 13,
+      "single_blocker_ticker_count": 4
+    },
+    {
+      "recovery_lane": "RETRY_OFFICIAL_XBRL",
+      "ticker_count": 3,
+      "single_blocker_ticker_count": 3
+    },
+    {
+      "recovery_lane": "ALTERNATE_OFFICIAL_SOURCE_FOR_MISSING_FACT",
+      "ticker_count": 4,
+      "single_blocker_ticker_count": 2
+    },
+    {
+      "recovery_lane": "RETRY_OFFICIAL_DART_REPORT_LOOKUP",
+      "ticker_count": 8,
+      "single_blocker_ticker_count": 0
+    }
+  ],
+  "recovery_rollup": {
+    "official_retry_ticker_count": 11,
+    "official_retry_single_blocker_count": 3,
+    "context_or_pipeline_audit_ticker_count": 0,
+    "context_or_pipeline_single_blocker_count": 0,
+    "alternate_official_source_ticker_count": 17,
+    "alternate_official_source_single_blocker_count": 6,
+    "target_coverage_audit_ticker_count": 0,
+    "target_coverage_single_blocker_count": 0
+  },
+  "anomaly_checks": {
+    "already_promoted_but_still_blocked_count": 0,
+    "v887_both_unique_not_in_v888_count": 0
+  },
+  "automatic_promotion": {
+    "allowed": false,
+    "promoted_ticker_count": 0,
+    "reason": "V8.9.1은 증거 계보와 복구 경로만 감사하며 partial fact, 미매칭 member, 미승인 fact를 자동 승격하지 않는다."
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "new_da_id_approved": false,
+    "v888_source_layer_mutated": false,
+    "partial_xbrl_fact_promoted": false,
+    "no_matching_fs_member_promoted": false,
+    "missing_da_assumed_zero": false
+  },
+  "next_step": "RETRY_FAILED_OFFICIAL_DART_XBRL_TARGETS_THEN_RECHECK"
+}

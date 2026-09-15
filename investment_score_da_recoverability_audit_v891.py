@@ -1,0 +1,465 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import csv
+import json
+from collections import Counter
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+VERSION = "2026-09-15-v8.9.1-remaining-exact-da-recoverability-audit"
+V890_VERSION = "2026-09-15-v8.9.0-investment-score-remaining-blocker-audit"
+V885_VERSION = "2026-09-14-v8.8.5-expanded-xbrl-da-audit"
+V887_VERSION = "2026-09-15-v8.8.7-xbrl-cfs-ofs-selection-audit"
+V888_VERSION = "2026-09-15-v8.8.8-freeze-xbrl-da-source-layer"
+POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+
+ROOT = Path(".")
+KST = ZoneInfo("Asia/Seoul")
+
+V890_CSV = ROOT / "latest/investment_score_remaining_blockers_v890.csv"
+V890_JSON = ROOT / "latest/investment_score_remaining_blockers_v890_summary_latest.json"
+V885_CSV = ROOT / "latest/investment_score_xbrl_da_expand_v885.csv"
+V885_JSON = ROOT / "latest/investment_score_xbrl_da_expand_v885_summary_latest.json"
+V887_CSV = ROOT / "latest/investment_score_xbrl_cfs_ofs_v887.csv"
+V887_JSON = ROOT / "latest/investment_score_xbrl_cfs_ofs_v887_summary_latest.json"
+V888_CSV = ROOT / "latest/investment_score_da_source_v888.csv"
+V888_JSON = ROOT / "latest/investment_score_da_source_v888_summary_latest.json"
+
+OUT_CSV = ROOT / "latest/investment_score_da_recoverability_v891.csv"
+OUT_JSON = ROOT / "latest/investment_score_da_recoverability_v891_summary_latest.json"
+OUT_LOG = ROOT / "latest/investment_score_da_recoverability_v891_run_log_latest.txt"
+OUT_DOC = ROOT / "docs/investment_score_da_recoverability_v891.md"
+
+APPROVED_LOCALS = {
+    "AdjustmentsForDepreciationExpense",
+    "AdjustmentsForAmortisationExpense",
+}
+
+def read_json(path: Path):
+    return json.loads(path.read_text(encoding="utf-8-sig"))
+
+def read_csv(path: Path):
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+def ticker(v):
+    s = "".join(ch for ch in str(v or "") if ch.isdigit())
+    return s.zfill(6) if s else ""
+
+def as_int(v):
+    try:
+        return int(float(str(v or "").strip()))
+    except Exception:
+        return 0
+
+def bool_text(v):
+    return str(v or "").strip().upper() == "TRUE"
+
+def classify(code, blocker_row, v885, v887, promoted):
+    single = bool_text(blocker_row.get("single_blocker_ticker"))
+
+    if code in promoted:
+        return {
+            "provenance_class": "ALREADY_PROMOTED_BUT_STILL_BLOCKED",
+            "recovery_lane": "PLUMBING_REPAIR_REQUIRED",
+            "safe_auto_promotion": "FALSE",
+            "next_action": (
+                "V8.8.8 source가 이미 승격됐는데 V8.9.0에서 D&A blocker가 남았으므로 "
+                "shadow/raw 연결 오류를 먼저 조사"
+            ),
+            "single_blocker": single,
+        }
+
+    if v887:
+        sel = str(v887.get("selection_classification") or "")
+        both = bool_text(v887.get("both_approved_facts_unique"))
+        value_conflict = bool_text(v887.get("selected_value_conflict"))
+        context_conflict = bool_text(v887.get("selected_context_conflict"))
+
+        if sel == "MATCHED_FS_MEMBER_PARTIAL_ONE_FACT":
+            return {
+                "provenance_class": "V887_PARTIAL_ONE_FACT",
+                "recovery_lane": "ALTERNATE_OFFICIAL_SOURCE_FOR_MISSING_FACT",
+                "safe_auto_promotion": "FALSE",
+                "next_action": (
+                    "승인 exact fact 한쪽만 있으므로 누락된 다른 fact를 공식 소스에서 추가 확인; "
+                    "0으로 간주하거나 partial을 자동 승격하지 않음"
+                ),
+                "single_blocker": single,
+            }
+
+        if sel == "NO_MATCHING_FS_MEMBER":
+            return {
+                "provenance_class": "V887_NO_MATCHING_FS_MEMBER",
+                "recovery_lane": "TARGET_CONTEXT_MEMBER_AUDIT",
+                "safe_auto_promotion": "FALSE",
+                "next_action": (
+                    "승인 exact fact는 있으나 기존 CFS/OFS member와 매칭되지 않음; "
+                    "context/member 증거를 추가 감사"
+                ),
+                "single_blocker": single,
+            }
+
+        if sel == "MATCHED_FS_MEMBER_BOTH_FACTS_UNIQUE" and both:
+            return {
+                "provenance_class": "V887_BOTH_UNIQUE_NOT_IN_V888",
+                "recovery_lane": "PROMOTION_PIPELINE_ANOMALY",
+                "safe_auto_promotion": "FALSE",
+                "next_action": "V8.8.8 승격 누락 여부 조사",
+                "single_blocker": single,
+            }
+
+        return {
+            "provenance_class": "V887_EXACT_CONTEXT_OR_SELECTION_BLOCKED",
+            "recovery_lane": "TARGET_CONTEXT_MEMBER_AUDIT",
+            "safe_auto_promotion": "FALSE",
+            "next_action": (
+                f"selection={sel or 'MISSING'}, value_conflict={value_conflict}, "
+                f"context_conflict={context_conflict} 추가 감사"
+            ),
+            "single_blocker": single,
+        }
+
+    if v885:
+        audit_result = str(v885.get("audit_result") or "")
+        report_status = str(v885.get("report_status") or "")
+        xbrl_status = str(v885.get("xbrl_status") or "")
+        exact_count = as_int(v885.get("approved_exact_fact_count"))
+        exact_names = set(
+            x for x in str(v885.get("approved_exact_local_names") or "").split("|") if x
+        )
+
+        if audit_result == "XBRL_APPROVED_EXACT_FACT_FOUND" or exact_count > 0:
+            return {
+                "provenance_class": "V885_APPROVED_EXACT_NOT_CARRIED_TO_V887",
+                "recovery_lane": "PIPELINE_EVIDENCE_GAP_AUDIT",
+                "safe_auto_promotion": "FALSE",
+                "next_action": (
+                    "V8.8.5에서 승인 exact fact가 있으나 V8.8.7 행이 없음; "
+                    "V8.8.6/7 대상 전달 누락 여부 감사"
+                ),
+                "single_blocker": single,
+            }
+
+        if report_status != "OK":
+            return {
+                "provenance_class": "REPORT_LOOKUP_FAILURE_OR_MISSING",
+                "recovery_lane": "RETRY_OFFICIAL_DART_REPORT_LOOKUP",
+                "safe_auto_promotion": "FALSE",
+                "next_action": f"공식 DART 사업보고서 조회 재시도: {report_status or audit_result}",
+                "single_blocker": single,
+            }
+
+        if xbrl_status != "OK":
+            return {
+                "provenance_class": "XBRL_DOWNLOAD_OR_PARSE_FAILURE",
+                "recovery_lane": "RETRY_OFFICIAL_XBRL",
+                "safe_auto_promotion": "FALSE",
+                "next_action": f"공식 원본 XBRL 재조회/파싱 감사: {xbrl_status or audit_result}",
+                "single_blocker": single,
+            }
+
+        if audit_result == "XBRL_DA_FACT_FOUND_NO_APPROVED_EXACT":
+            return {
+                "provenance_class": "XBRL_DA_FACTS_BUT_NO_APPROVED_EXACT",
+                "recovery_lane": "ALTERNATE_OFFICIAL_DA_SOURCE",
+                "safe_auto_promotion": "FALSE",
+                "next_action": (
+                    "D&A 관련 fact는 있으나 현재 승인 exact ID가 아님; "
+                    "새 ID 자동 승인 없이 다른 공식 D&A 소스 조사"
+                ),
+                "single_blocker": single,
+            }
+
+        if audit_result == "XBRL_NO_DA_FACT":
+            return {
+                "provenance_class": "XBRL_NO_DA_FACT",
+                "recovery_lane": "ALTERNATE_OFFICIAL_DA_SOURCE",
+                "safe_auto_promotion": "FALSE",
+                "next_action": "원본 XBRL에 D&A fact가 없어 다른 공식 소스 조사",
+                "single_blocker": single,
+            }
+
+        return {
+            "provenance_class": "V885_NO_APPROVED_EXACT_OTHER",
+            "recovery_lane": "ALTERNATE_OFFICIAL_DA_SOURCE",
+            "safe_auto_promotion": "FALSE",
+            "next_action": f"V8.8.5 상태 재검토: {audit_result or 'UNKNOWN'}",
+            "single_blocker": single,
+        }
+
+    return {
+        "provenance_class": "NOT_IN_PRIOR_XBRL_TARGET",
+        "recovery_lane": "SOURCE_TARGET_COVERAGE_AUDIT",
+        "safe_auto_promotion": "FALSE",
+        "next_action": "V8.8.5 대상에서 빠진 이유(corp_code/raw mode 등) 감사",
+        "single_blocker": single,
+    }
+
+def main():
+    for p in (V890_CSV, V890_JSON, V885_CSV, V885_JSON, V887_CSV, V887_JSON, V888_CSV, V888_JSON):
+        if not p.is_file():
+            raise RuntimeError("MISSING_REQUIRED_SOURCE:" + str(p))
+
+    s890 = read_json(V890_JSON)
+    s885 = read_json(V885_JSON)
+    s887 = read_json(V887_JSON)
+    s888 = read_json(V888_JSON)
+
+    if s890.get("version") != V890_VERSION:
+        raise RuntimeError("V890_VERSION_MISMATCH")
+    if s885.get("version") != V885_VERSION:
+        raise RuntimeError("V885_VERSION_MISMATCH")
+    if s887.get("version") != V887_VERSION:
+        raise RuntimeError("V887_VERSION_MISMATCH")
+    if s888.get("version") != V888_VERSION:
+        raise RuntimeError("V888_VERSION_MISMATCH")
+    if s890.get("policy_version") != POLICY_VERSION:
+        raise RuntimeError("POLICY_VERSION_MISMATCH")
+
+    rows890 = read_csv(V890_CSV)
+    rows885 = read_csv(V885_CSV)
+    rows887 = read_csv(V887_CSV)
+    rows888 = read_csv(V888_CSV)
+
+    blockers = [
+        r for r in rows890
+        if str(r.get("source_group") or "") == "EXACT_DA_SOURCE"
+    ]
+    blocker_codes = sorted({ticker(r.get("ticker")) for r in blockers if ticker(r.get("ticker"))})
+
+    if len(blockers) != 28:
+        raise RuntimeError(f"EXACT_DA_BLOCKER_OCCURRENCE_COUNT:{len(blockers)}")
+    if len(blocker_codes) != 28:
+        raise RuntimeError(f"EXACT_DA_UNIQUE_TICKER_COUNT:{len(blocker_codes)}")
+
+    single_codes = sorted({
+        ticker(r.get("ticker"))
+        for r in blockers
+        if bool_text(r.get("single_blocker_ticker"))
+    })
+    if len(single_codes) != 9:
+        raise RuntimeError(f"EXACT_DA_SINGLE_BLOCKER_COUNT:{len(single_codes)}")
+
+    m885 = {ticker(r.get("ticker")): r for r in rows885 if ticker(r.get("ticker"))}
+    m887 = {ticker(r.get("ticker")): r for r in rows887 if ticker(r.get("ticker"))}
+    promoted = {ticker(r.get("ticker")) for r in rows888 if ticker(r.get("ticker"))}
+
+    out = []
+    class_counts = Counter()
+    lane_counts = Counter()
+    lane_single_counts = Counter()
+
+    for b in blockers:
+        code = ticker(b.get("ticker"))
+        r885 = m885.get(code) or {}
+        r887 = m887.get(code) or {}
+        c = classify(code, b, r885, r887, promoted)
+
+        pclass = c["provenance_class"]
+        lane = c["recovery_lane"]
+        single = c["single_blocker"]
+
+        class_counts[pclass] += 1
+        lane_counts[lane] += 1
+        if single:
+            lane_single_counts[lane] += 1
+
+        out.append({
+            "ticker": code,
+            "name": b.get("name") or "",
+            "market": b.get("market") or "",
+            "single_blocker_ticker": "TRUE" if single else "FALSE",
+            "current_blocker_reason": b.get("blocker_reason") or "",
+            "v888_already_promoted": "TRUE" if code in promoted else "FALSE",
+            "v885_present": "TRUE" if bool(r885) else "FALSE",
+            "v885_report_status": r885.get("report_status") or "",
+            "v885_xbrl_status": r885.get("xbrl_status") or "",
+            "v885_audit_result": r885.get("audit_result") or "",
+            "v885_approved_exact_fact_count": r885.get("approved_exact_fact_count") or "",
+            "v885_approved_exact_local_names": r885.get("approved_exact_local_names") or "",
+            "v885_all_da_local_names": r885.get("all_da_local_names") or "",
+            "v887_present": "TRUE" if bool(r887) else "FALSE",
+            "v887_source_fs_div": r887.get("source_fs_div") or "",
+            "v887_target_member": r887.get("target_member") or "",
+            "v887_selected_local_names": r887.get("selected_local_names") or "",
+            "v887_both_approved_facts_unique": r887.get("both_approved_facts_unique") or "",
+            "v887_selection_classification": r887.get("selection_classification") or "",
+            "provenance_class": pclass,
+            "recovery_lane": lane,
+            "safe_auto_promotion": c["safe_auto_promotion"],
+            "next_action": c["next_action"],
+        })
+
+    out.sort(key=lambda r: (r["recovery_lane"], r["ticker"]))
+
+    # This stage is audit-only. Any already-promoted current blocker is a plumbing defect,
+    # not a license to alter the score.
+    promoted_blocked = class_counts.get("ALREADY_PROMOTED_BUT_STILL_BLOCKED", 0)
+    both_unique_not_promoted = class_counts.get("V887_BOTH_UNIQUE_NOT_IN_V888", 0)
+
+    retry_lanes = {
+        "RETRY_OFFICIAL_DART_REPORT_LOOKUP",
+        "RETRY_OFFICIAL_XBRL",
+    }
+    context_lanes = {
+        "TARGET_CONTEXT_MEMBER_AUDIT",
+        "PIPELINE_EVIDENCE_GAP_AUDIT",
+        "PROMOTION_PIPELINE_ANOMALY",
+        "PLUMBING_REPAIR_REQUIRED",
+    }
+    alternate_lanes = {
+        "ALTERNATE_OFFICIAL_SOURCE_FOR_MISSING_FACT",
+        "ALTERNATE_OFFICIAL_DA_SOURCE",
+    }
+
+    retry_count = sum(lane_counts[x] for x in retry_lanes)
+    context_count = sum(lane_counts[x] for x in context_lanes)
+    alternate_count = sum(lane_counts[x] for x in alternate_lanes)
+    coverage_audit_count = lane_counts["SOURCE_TARGET_COVERAGE_AUDIT"]
+
+    retry_single = sum(lane_single_counts[x] for x in retry_lanes)
+    context_single = sum(lane_single_counts[x] for x in context_lanes)
+    alternate_single = sum(lane_single_counts[x] for x in alternate_lanes)
+    coverage_single = lane_single_counts["SOURCE_TARGET_COVERAGE_AUDIT"]
+
+    # Decide next audit lane without changing policy or promoting any value.
+    if promoted_blocked or both_unique_not_promoted:
+        next_step = "FIX_DA_PROMOTION_OR_SHADOW_PLUMBING_BEFORE_ANY_NEW_SOURCE_WORK"
+    elif retry_count > 0:
+        next_step = "RETRY_FAILED_OFFICIAL_DART_XBRL_TARGETS_THEN_RECHECK"
+    elif context_count > 0:
+        next_step = "AUDIT_REMAINING_APPROVED_EXACT_CONTEXT_MEMBER_CASES"
+    elif alternate_count > 0:
+        next_step = "AUDIT_ALTERNATE_OFFICIAL_DA_SOURCE_FOR_NO_OR_PARTIAL_EXACT_FACTS"
+    else:
+        next_step = "AUDIT_DA_TARGET_COVERAGE_GAPS"
+
+    OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+    fields = list(out[0].keys())
+    with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
+        w.writeheader()
+        w.writerows(out)
+
+    lane_priority = [
+        {
+            "recovery_lane": lane,
+            "ticker_count": count,
+            "single_blocker_ticker_count": lane_single_counts.get(lane, 0),
+        }
+        for lane, count in sorted(
+            lane_counts.items(),
+            key=lambda kv: (-lane_single_counts.get(kv[0], 0), -kv[1], kv[0]),
+        )
+    ]
+
+    summary = {
+        "version": VERSION,
+        "policy_version": POLICY_VERSION,
+        "v890_version": V890_VERSION,
+        "v885_version": V885_VERSION,
+        "v887_version": V887_VERSION,
+        "v888_version": V888_VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+        "status": "AUDIT_ONLY",
+        "exact_da_blocker_ticker_count": len(blocker_codes),
+        "exact_da_single_blocker_ticker_count": len(single_codes),
+        "exact_da_single_blocker_tickers": single_codes,
+        "provenance_class_counts": dict(class_counts),
+        "recovery_lane_counts": dict(lane_counts),
+        "recovery_lane_single_blocker_counts": dict(lane_single_counts),
+        "recovery_lane_priority": lane_priority,
+        "recovery_rollup": {
+            "official_retry_ticker_count": retry_count,
+            "official_retry_single_blocker_count": retry_single,
+            "context_or_pipeline_audit_ticker_count": context_count,
+            "context_or_pipeline_single_blocker_count": context_single,
+            "alternate_official_source_ticker_count": alternate_count,
+            "alternate_official_source_single_blocker_count": alternate_single,
+            "target_coverage_audit_ticker_count": coverage_audit_count,
+            "target_coverage_single_blocker_count": coverage_single,
+        },
+        "anomaly_checks": {
+            "already_promoted_but_still_blocked_count": promoted_blocked,
+            "v887_both_unique_not_in_v888_count": both_unique_not_promoted,
+        },
+        "automatic_promotion": {
+            "allowed": False,
+            "promoted_ticker_count": 0,
+            "reason": (
+                "V8.9.1은 증거 계보와 복구 경로만 감사하며 partial fact, "
+                "미매칭 member, 미승인 fact를 자동 승격하지 않는다."
+            ),
+        },
+        "hard_guards": {
+            "production_api_changed": False,
+            "production_investment_score_written": False,
+            "scoring_policy_changed": False,
+            "new_da_id_approved": False,
+            "v888_source_layer_mutated": False,
+            "partial_xbrl_fact_promoted": False,
+            "no_matching_fs_member_promoted": False,
+            "missing_da_assumed_zero": False,
+        },
+        "next_step": next_step,
+    }
+    OUT_JSON.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    doc = [
+        "# V8.9.1 남은 exact D&A blocker 복구가능성 감사",
+        "",
+        f"- 버전: `{VERSION}`",
+        "- 상태: AUDIT_ONLY",
+        f"- 현재 exact D&A blocker: {len(blocker_codes)}종목",
+        f"- D&A 하나만 해결되면 READY인 종목: {len(single_codes)}종목",
+        "",
+        "## 감사 원칙",
+        "",
+        "- V8.9.0의 EXACT_DA_SOURCE blocker만 대상으로 한다.",
+        "- V8.8.5 원본 XBRL 발견 증거, V8.8.7 CFS/OFS 선택 결과, V8.8.8 승격 계층을 직접 대조한다.",
+        "- 새 D&A ID를 승인하지 않는다.",
+        "- partial one fact를 0 보정하거나 자동 승격하지 않는다.",
+        "- CFS/OFS member 미매칭을 임의로 다른 member에 연결하지 않는다.",
+        "- production score는 기록하지 않는다.",
+        "",
+        "## 다음 단계",
+        "",
+        f"`{next_step}`",
+        "",
+    ]
+    OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+    OUT_DOC.write_text("\n".join(doc), encoding="utf-8")
+
+    log = [
+        f"VERSION={VERSION}",
+        f"EXACT_DA_BLOCKER_TICKERS={len(blocker_codes)}",
+        f"EXACT_DA_SINGLE_BLOCKER_TICKERS={len(single_codes)}",
+        f"PROMOTED_BUT_STILL_BLOCKED={promoted_blocked}",
+        f"V887_BOTH_UNIQUE_NOT_IN_V888={both_unique_not_promoted}",
+        f"OFFICIAL_RETRY_TICKERS={retry_count}",
+        f"CONTEXT_OR_PIPELINE_AUDIT_TICKERS={context_count}",
+        f"ALTERNATE_OFFICIAL_SOURCE_TICKERS={alternate_count}",
+        f"TARGET_COVERAGE_AUDIT_TICKERS={coverage_audit_count}",
+        "AUTO_PROMOTION=false",
+        "PRODUCTION_DATA_CHANGED=false",
+        "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+        "SCORING_POLICY_CHANGED=false",
+        "NEW_DA_ID_APPROVED=false",
+        "MISSING_DA_ASSUMED_ZERO=false",
+        "STATUS=OK",
+        f"NEXT_STEP={next_step}",
+    ]
+    OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+
+    print("V891_EXACT_DA_RECOVERABILITY_AUDIT=PASS")
+    print("\n".join(log))
+
+if __name__ == "__main__":
+    main()
+

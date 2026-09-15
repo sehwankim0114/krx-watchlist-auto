@@ -1,0 +1,931 @@
+name: Audit targeted DART supply completeness v8.10.0
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8100-audit-targeted-dart-supply-completeness.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8100-targeted-dart-supply-completeness
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Capture protected file hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            supply_burden_enricher.py \
+            latest/investment_score_v880_dry_run_v895_latest.csv \
+            latest/investment_score_v880_dry_run_v895_summary_latest.json \
+            latest/investment_score_remaining_blockers_v896.csv \
+            latest/investment_score_remaining_blockers_v896_summary_latest.json \
+            > /tmp/v8100_protected.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -name '*.json' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > /tmp/v8100_two_table.before
+
+      - name: Create V8.10.0 targeted DART supply auditor
+        shell: bash
+        run: |
+          cat > investment_score_supply_targeted_dart_audit_v8100.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import ast
+          import csv
+          import io
+          import json
+          import os
+          import time
+          import urllib.parse
+          import urllib.request
+          import zipfile
+          from collections import Counter, defaultdict
+          from datetime import date, datetime, timedelta
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+          import xml.etree.ElementTree as ET
+
+          VERSION = "2026-09-15-v8.10.0-targeted-dart-supply-completeness-audit"
+          V896_VERSION = "2026-09-15-v8.9.6-investment-score-remaining-blocker-reaudit"
+          V895_VERSION = "2026-09-15-v8.9.5-v888-plus-v894-da-extension-dry-run"
+          POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          SUPPLY_POLICY_VERSION = "2026-07-01-v6.0-supply-status-separated"
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+
+          V896_CSV = ROOT / "latest/investment_score_remaining_blockers_v896.csv"
+          V896_JSON = ROOT / "latest/investment_score_remaining_blockers_v896_summary_latest.json"
+          V895_JSON = ROOT / "latest/investment_score_v880_dry_run_v895_summary_latest.json"
+          SUPPLY_ENRICHER = ROOT / "supply_burden_enricher.py"
+
+          OUT_CSV = ROOT / "latest/investment_score_supply_targeted_dart_v8100.csv"
+          OUT_JSON = ROOT / "latest/investment_score_supply_targeted_dart_v8100_summary_latest.json"
+          OUT_LOG = ROOT / "latest/investment_score_supply_targeted_dart_v8100_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_supply_targeted_dart_v8100.md"
+
+          CORP_CODE_URL = "https://opendart.fss.or.kr/api/corpCode.xml"
+          LIST_URL = "https://opendart.fss.or.kr/api/list.json"
+
+          TARGET_SOURCE_GROUP = "PRODUCTION_ANALYSIS_SUPPLY"
+          TARGET_REASON = "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+
+          REQUESTED_LOOKBACK_DAYS = 180
+          CHUNK_DAYS = 90
+          REQUEST_TIMEOUT = 35
+          REQUEST_ATTEMPTS = 4
+          PAGE_COUNT = 100
+
+          EXPECTED_SINGLE = {
+              "003280",
+              "063160",
+              "066570",
+              "071840",
+              "081000",
+              "086280",
+              "100250",
+              "286940",
+          }
+
+          def read_json(path: Path):
+              return json.loads(path.read_text(encoding="utf-8-sig"))
+
+          def read_csv(path: Path):
+              with path.open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
+
+          def ticker(v):
+              s = "".join(ch for ch in str(v or "") if ch.isdigit())
+              return s.zfill(6) if s else ""
+
+          def bool_text(v):
+              return str(v or "").strip().upper() == "TRUE"
+
+          def literal_constant_from_python(path: Path, name: str):
+              tree = ast.parse(path.read_text(encoding="utf-8"))
+              for node in tree.body:
+                  if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                      targets = []
+                      value = None
+                      if isinstance(node, ast.Assign):
+                          targets = node.targets
+                          value = node.value
+                      else:
+                          targets = [node.target]
+                          value = node.value
+                      for target in targets:
+                          if isinstance(target, ast.Name) and target.id == name:
+                              return ast.literal_eval(value)
+              raise RuntimeError(f"SUPPLY_CONTRACT_CONSTANT_NOT_FOUND:{name}")
+
+          def load_supply_contract():
+              text = SUPPLY_ENRICHER.read_text(encoding="utf-8")
+              if SUPPLY_POLICY_VERSION not in text:
+                  raise RuntimeError("SUPPLY_POLICY_VERSION_NOT_FOUND_IN_ENRICHER")
+              keyword_rules = literal_constant_from_python(SUPPLY_ENRICHER, "KEYWORD_RULES")
+              relief_keywords = literal_constant_from_python(SUPPLY_ENRICHER, "RELIEF_KEYWORDS")
+              if not keyword_rules:
+                  raise RuntimeError("SUPPLY_KEYWORD_RULES_EMPTY")
+              return keyword_rules, relief_keywords
+
+          def request_bytes(url: str, attempts=REQUEST_ATTEMPTS):
+              last = None
+              for attempt in range(1, attempts + 1):
+                  req = urllib.request.Request(
+                      url,
+                      headers={
+                          "User-Agent": "krx-watchlist-v8100-targeted-supply-audit",
+                          "Accept": "*/*",
+                          "Cache-Control": "no-cache",
+                      },
+                  )
+                  try:
+                      with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as response:
+                          return response.read()
+                  except Exception as exc:
+                      last = exc
+                      if attempt < attempts:
+                          time.sleep(0.8 * attempt)
+              raise RuntimeError(
+                  f"HTTP_REQUEST_FAILED:{type(last).__name__}:{last}"
+              )
+
+          def request_json(url: str):
+              blob = request_bytes(url)
+              try:
+                  return json.loads(blob.decode("utf-8", errors="replace"))
+              except Exception as exc:
+                  raise RuntimeError(
+                      f"JSON_DECODE_FAILED:{type(exc).__name__}:{exc}"
+                  )
+
+          def fetch_corp_code_map(api_key: str):
+              url = CORP_CODE_URL + "?" + urllib.parse.urlencode({"crtfc_key": api_key})
+              blob = request_bytes(url)
+              try:
+                  zf = zipfile.ZipFile(io.BytesIO(blob))
+              except zipfile.BadZipFile as exc:
+                  raise RuntimeError("DART_CORPCODE_NOT_ZIP") from exc
+
+              xml_names = [n for n in zf.namelist() if n.lower().endswith(".xml")]
+              if not xml_names:
+                  raise RuntimeError("DART_CORPCODE_XML_MISSING")
+
+              root = ET.fromstring(zf.read(xml_names[0]))
+              by_stock = {}
+              duplicates = defaultdict(list)
+
+              for item in root.findall(".//list"):
+                  stock = ticker(item.findtext("stock_code") or "")
+                  corp_code = str(item.findtext("corp_code") or "").strip()
+                  corp_name = str(item.findtext("corp_name") or "").strip()
+                  if not stock or not corp_code:
+                      continue
+                  duplicates[stock].append((corp_code, corp_name))
+
+              for stock, values in duplicates.items():
+                  unique = sorted(set(values))
+                  if len(unique) == 1:
+                      by_stock[stock] = {
+                          "corp_code": unique[0][0],
+                          "corp_name": unique[0][1],
+                          "exact_stock_match_count": 1,
+                      }
+                  else:
+                      by_stock[stock] = {
+                          "corp_code": "",
+                          "corp_name": "",
+                          "exact_stock_match_count": len(unique),
+                      }
+
+              return by_stock
+
+          def classify_report(report_name: str, keyword_rules, relief_keywords):
+              title = str(report_name or "")
+              matched = []
+              severity = 0
+              for keyword, label, level in keyword_rules:
+                  if keyword in title:
+                      matched.append(label)
+                      severity = max(severity, int(level))
+              relief = any(keyword in title for keyword in relief_keywords)
+              return bool(matched), sorted(set(matched)), severity, relief
+
+          def severity_to_level(severity: int, count: int):
+              if severity >= 3:
+                  return "위험"
+              if severity == 2:
+                  return "위험" if count >= 3 else "경계"
+              if severity == 1:
+                  return "경계" if count >= 3 else "주의"
+              return "없음"
+
+          def date_chunks(start: date, end: date, chunk_days=CHUNK_DAYS):
+              chunks = []
+              cur = start
+              while cur <= end:
+                  chunk_end = min(cur + timedelta(days=chunk_days - 1), end)
+                  chunks.append((cur, chunk_end))
+                  cur = chunk_end + timedelta(days=1)
+              return chunks
+
+          def fetch_corp_reports(
+              api_key: str,
+              corp_code: str,
+              start: date,
+              end: date,
+          ):
+              all_reports = []
+              calls = 0
+              chunk_summaries = []
+              api_errors = []
+
+              for chunk_start, chunk_end in date_chunks(start, end):
+                  page = 1
+                  chunk_reports = 0
+                  chunk_pages = 0
+                  chunk_complete = True
+                  total_page_seen = None
+
+                  while True:
+                      params = {
+                          "crtfc_key": api_key,
+                          "corp_code": corp_code,
+                          "bgn_de": chunk_start.strftime("%Y%m%d"),
+                          "end_de": chunk_end.strftime("%Y%m%d"),
+                          "page_no": page,
+                          "page_count": PAGE_COUNT,
+                      }
+                      url = LIST_URL + "?" + urllib.parse.urlencode(params)
+
+                      try:
+                          payload = request_json(url)
+                          calls += 1
+                      except Exception as exc:
+                          chunk_complete = False
+                          api_errors.append(
+                              f"{chunk_start}:{chunk_end}:page={page}:"
+                              f"{type(exc).__name__}:{exc}"
+                          )
+                          break
+
+                      status = str(payload.get("status") or "")
+                      if status == "013":
+                          # DART "조회된 데이터가 없습니다" is a complete empty result
+                          # for this exact issuer/date window.
+                          total_page_seen = 0
+                          break
+
+                      if status != "000":
+                          chunk_complete = False
+                          api_errors.append(
+                              f"{chunk_start}:{chunk_end}:page={page}:"
+                              f"DART_STATUS={status}:"
+                              f"{payload.get('message') or ''}"
+                          )
+                          break
+
+                      rows = payload.get("list") or []
+                      if not isinstance(rows, list):
+                          chunk_complete = False
+                          api_errors.append(
+                              f"{chunk_start}:{chunk_end}:page={page}:LIST_NOT_ARRAY"
+                          )
+                          break
+
+                      chunk_pages += 1
+                      chunk_reports += len(rows)
+                      all_reports.extend(rows)
+
+                      total_page = int(payload.get("total_page") or 1)
+                      total_page_seen = total_page
+                      if page >= total_page:
+                          break
+
+                      page += 1
+                      if page > 100:
+                          chunk_complete = False
+                          api_errors.append(
+                              f"{chunk_start}:{chunk_end}:PAGE_SAFETY_LIMIT"
+                          )
+                          break
+                      time.sleep(0.05)
+
+                  chunk_summaries.append({
+                      "start": chunk_start.isoformat(),
+                      "end": chunk_end.isoformat(),
+                      "complete": chunk_complete,
+                      "pages_fetched": chunk_pages,
+                      "total_page_seen": total_page_seen,
+                      "report_count": chunk_reports,
+                  })
+
+              complete = (
+                  len(chunk_summaries) == len(date_chunks(start, end))
+                  and all(x["complete"] for x in chunk_summaries)
+                  and not api_errors
+              )
+              return {
+                  "complete": complete,
+                  "reports": all_reports,
+                  "api_calls": calls,
+                  "chunks": chunk_summaries,
+                  "api_errors": api_errors,
+              }
+
+          def audit_one(target, corp_map, api_key, keyword_rules, relief_keywords, start, end):
+              code = target["ticker"]
+              corp = corp_map.get(code) or {}
+              corp_code = str(corp.get("corp_code") or "")
+              exact_count = int(corp.get("exact_stock_match_count") or 0)
+
+              result = {
+                  "ticker": code,
+                  "name": target["name"],
+                  "market": target["market"],
+                  "single_blocker_ticker":
+                      "TRUE" if target["single_blocker_ticker"] else "FALSE",
+                  "baseline_blocker_reason": TARGET_REASON,
+                  "corp_code": corp_code,
+                  "corp_name_dart": str(corp.get("corp_name") or ""),
+                  "corp_code_exact_stock_match_count": exact_count,
+                  "audit_start_date": start.isoformat(),
+                  "audit_end_date": end.isoformat(),
+                  "requested_lookback_days": REQUESTED_LOOKBACK_DAYS,
+                  "chunk_days": CHUNK_DAYS,
+                  "chunk_count": 0,
+                  "dart_list_api_calls": 0,
+                  "dart_report_count": 0,
+                  "risk_report_count": 0,
+                  "risk_level": "",
+                  "risk_keywords": "",
+                  "latest_risk_report_date": "",
+                  "latest_risk_report_name": "",
+                  "latest_risk_rcept_no": "",
+                  "relief_report_match_count": 0,
+                  "query_complete_180d": "FALSE",
+                  "audit_classification": "",
+                  "source_overlay_candidate": "FALSE",
+                  "proposed_supply_status": "",
+                  "proposed_supply_level": "",
+                  "evidence_reports_json": "[]",
+                  "chunk_summaries_json": "[]",
+                  "api_errors_json": "[]",
+                  "audit_note": "",
+              }
+
+              if not corp_code or exact_count != 1:
+                  result["audit_classification"] = "CORP_CODE_EXACT_STOCK_UNRESOLVED"
+                  result["audit_note"] = (
+                      "DART corpCode.xml exact stock_code match가 유일하지 않아 "
+                      "issuer mapping을 추정하지 않음"
+                  )
+                  return result
+
+              fetched = fetch_corp_reports(api_key, corp_code, start, end)
+              result["chunk_count"] = len(fetched["chunks"])
+              result["dart_list_api_calls"] = fetched["api_calls"]
+              result["dart_report_count"] = len(fetched["reports"])
+              result["chunk_summaries_json"] = json.dumps(
+                  fetched["chunks"], ensure_ascii=False, separators=(",", ":")
+              )
+              result["api_errors_json"] = json.dumps(
+                  fetched["api_errors"], ensure_ascii=False, separators=(",", ":")
+              )
+
+              if not fetched["complete"]:
+                  result["audit_classification"] = "TARGETED_DART_180D_INCOMPLETE"
+                  result["audit_note"] = (
+                      "180일 종목별 DART 조회 중 오류/불완전 구간이 있어 "
+                      "없음을 확정하지 않음"
+                  )
+                  return result
+
+              result["query_complete_180d"] = "TRUE"
+
+              evidence = []
+              max_severity = 0
+              keyword_set = set()
+              relief_count = 0
+
+              for item in fetched["reports"]:
+                  report_name = str(item.get("report_nm") or "")
+                  is_risk, labels, severity, relief = classify_report(
+                      report_name, keyword_rules, relief_keywords
+                  )
+                  if relief:
+                      relief_count += 1
+                  if not is_risk:
+                      continue
+
+                  max_severity = max(max_severity, severity)
+                  keyword_set.update(labels)
+                  evidence.append({
+                      "rcept_dt": str(item.get("rcept_dt") or ""),
+                      "rcept_no": str(item.get("rcept_no") or ""),
+                      "report_nm": report_name,
+                      "corp_name": str(item.get("corp_name") or ""),
+                      "keywords": labels,
+                      "severity": severity,
+                      "relief_flag": relief,
+                  })
+
+              evidence.sort(
+                  key=lambda x: (x["rcept_dt"], x["rcept_no"]),
+                  reverse=True,
+              )
+              risk_count = len(evidence)
+              level = severity_to_level(max_severity, risk_count)
+
+              result["risk_report_count"] = risk_count
+              result["risk_level"] = level
+              result["risk_keywords"] = ",".join(sorted(keyword_set))
+              result["relief_report_match_count"] = relief_count
+              result["evidence_reports_json"] = json.dumps(
+                  evidence[:50], ensure_ascii=False, separators=(",", ":")
+              )
+
+              if evidence:
+                  latest = evidence[0]
+                  result["latest_risk_report_date"] = latest["rcept_dt"]
+                  result["latest_risk_report_name"] = latest["report_nm"]
+                  result["latest_risk_rcept_no"] = latest["rcept_no"]
+                  result["audit_classification"] = "COMPLETE_180D_POSITIVE_BURDEN"
+                  result["proposed_supply_status"] = "OK"
+                  result["proposed_supply_level"] = level
+                  result["audit_note"] = (
+                      "종목별 180일 전 구간 조회 완료 + 기존 supply contract "
+                      "키워드에 해당하는 양성 공시 확인"
+                  )
+              else:
+                  result["audit_classification"] = "COMPLETE_180D_NO_POSITIVE_BURDEN"
+                  result["proposed_supply_status"] = "OK"
+                  result["proposed_supply_level"] = "없음"
+                  result["audit_note"] = (
+                      "종목별 180일 전 구간 조회가 모두 완료되었고 기존 supply "
+                      "contract 위험 키워드 공시가 발견되지 않음"
+                  )
+
+              # Audit-only candidate. This does NOT patch production.
+              result["source_overlay_candidate"] = "TRUE"
+              return result
+
+          def main():
+              api_key = os.environ.get("DART_API_KEY", "").strip()
+              if not api_key:
+                  raise RuntimeError("DART_API_KEY_MISSING")
+
+              for path in (V896_CSV, V896_JSON, V895_JSON, SUPPLY_ENRICHER):
+                  if not path.is_file():
+                      raise RuntimeError("MISSING_REQUIRED_SOURCE:" + str(path))
+
+              s896 = read_json(V896_JSON)
+              s895 = read_json(V895_JSON)
+              rows896 = read_csv(V896_CSV)
+
+              if s896.get("version") != V896_VERSION:
+                  raise RuntimeError("V896_VERSION_MISMATCH")
+              if s896.get("policy_version") != POLICY_VERSION:
+                  raise RuntimeError("V896_POLICY_VERSION_MISMATCH")
+              if s896.get("status") != "AUDIT_ONLY":
+                  raise RuntimeError("V896_STATUS_MISMATCH")
+              if int(s896.get("ready_count") or 0) != 42:
+                  raise RuntimeError("V896_READY_COUNT_NOT_42")
+              if int(s896.get("limited_count") or 0) != 70:
+                  raise RuntimeError("V896_LIMITED_COUNT_NOT_70")
+              if int(s896.get("source_group_counts", {}).get(TARGET_SOURCE_GROUP) or 0) != 33:
+                  raise RuntimeError("V896_SUPPLY_BLOCKER_COUNT_NOT_33")
+              if int(s896.get("single_blocker_impact", {}).get(TARGET_SOURCE_GROUP) or 0) != 8:
+                  raise RuntimeError("V896_SUPPLY_SINGLE_BLOCKER_COUNT_NOT_8")
+
+              if s895.get("version") != V895_VERSION:
+                  raise RuntimeError("V895_VERSION_MISMATCH")
+              if s895.get("status") != "DRY_RUN_ONLY":
+                  raise RuntimeError("V895_STATUS_MISMATCH")
+
+              target_rows = [
+                  r for r in rows896
+                  if r.get("source_group") == TARGET_SOURCE_GROUP
+                  and r.get("blocker_reason") == TARGET_REASON
+              ]
+              if len(target_rows) != 33:
+                  raise RuntimeError(f"V8100_TARGET_ROW_COUNT:{len(target_rows)}")
+
+              targets = []
+              seen = set()
+              for row in target_rows:
+                  code = ticker(row.get("ticker"))
+                  if not code or code in seen:
+                      raise RuntimeError(f"V8100_DUPLICATE_OR_INVALID_TARGET:{code}")
+                  seen.add(code)
+                  targets.append({
+                      "ticker": code,
+                      "name": str(row.get("name") or ""),
+                      "market": str(row.get("market") or ""),
+                      "single_blocker_ticker": bool_text(
+                          row.get("single_blocker_ticker")
+                      ),
+                  })
+
+              single_set = {
+                  x["ticker"] for x in targets if x["single_blocker_ticker"]
+              }
+              if single_set != EXPECTED_SINGLE:
+                  raise RuntimeError(
+                      "V8100_SINGLE_TARGET_SET_MISMATCH:" +
+                      ",".join(sorted(single_set))
+                  )
+
+              keyword_rules, relief_keywords = load_supply_contract()
+              corp_map = fetch_corp_code_map(api_key)
+
+              audit_end = datetime.now(KST).date()
+              audit_start = audit_end - timedelta(
+                  days=REQUESTED_LOOKBACK_DAYS - 1
+              )
+
+              results = []
+              for i, target in enumerate(sorted(targets, key=lambda x: x["ticker"]), 1):
+                  result = audit_one(
+                      target,
+                      corp_map,
+                      api_key,
+                      keyword_rules,
+                      relief_keywords,
+                      audit_start,
+                      audit_end,
+                  )
+                  results.append(result)
+                  print(
+                      f"V8100_PROGRESS={i}/33 "
+                      f"{target['ticker']} "
+                      f"{result['audit_classification']}"
+                  )
+                  time.sleep(0.05)
+
+              fields = list(results[0].keys())
+              OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+              with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+                  writer = csv.DictWriter(f, fieldnames=fields)
+                  writer.writeheader()
+                  writer.writerows(results)
+
+              classes = Counter(r["audit_classification"] for r in results)
+              resolved = [
+                  r["ticker"] for r in results
+                  if r["corp_code"] and int(r["corp_code_exact_stock_match_count"]) == 1
+              ]
+              complete = [
+                  r["ticker"] for r in results
+                  if r["query_complete_180d"] == "TRUE"
+              ]
+              positive = [
+                  r["ticker"] for r in results
+                  if r["audit_classification"] == "COMPLETE_180D_POSITIVE_BURDEN"
+              ]
+              no_positive = [
+                  r["ticker"] for r in results
+                  if r["audit_classification"] == "COMPLETE_180D_NO_POSITIVE_BURDEN"
+              ]
+              overlay = [
+                  r["ticker"] for r in results
+                  if r["source_overlay_candidate"] == "TRUE"
+              ]
+              unresolved = [
+                  r["ticker"] for r in results
+                  if r["audit_classification"] == "CORP_CODE_EXACT_STOCK_UNRESOLVED"
+              ]
+              incomplete = [
+                  r["ticker"] for r in results
+                  if r["audit_classification"] == "TARGETED_DART_180D_INCOMPLETE"
+              ]
+
+              single_complete = [
+                  r["ticker"] for r in results
+                  if r["single_blocker_ticker"] == "TRUE"
+                  and r["query_complete_180d"] == "TRUE"
+              ]
+              single_positive = [
+                  r["ticker"] for r in results
+                  if r["single_blocker_ticker"] == "TRUE"
+                  and r["audit_classification"] == "COMPLETE_180D_POSITIVE_BURDEN"
+              ]
+              single_no_positive = [
+                  r["ticker"] for r in results
+                  if r["single_blocker_ticker"] == "TRUE"
+                  and r["audit_classification"] == "COMPLETE_180D_NO_POSITIVE_BURDEN"
+              ]
+
+              total_api_calls = sum(int(r["dart_list_api_calls"] or 0) for r in results)
+              total_reports = sum(int(r["dart_report_count"] or 0) for r in results)
+              total_risk_reports = sum(int(r["risk_report_count"] or 0) for r in results)
+
+              summary = {
+                  "version": VERSION,
+                  "v896_version": V896_VERSION,
+                  "v895_version": V895_VERSION,
+                  "policy_version": POLICY_VERSION,
+                  "supply_policy_version": SUPPLY_POLICY_VERSION,
+                  "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+                  "status": "AUDIT_ONLY",
+                  "audit_contract": {
+                      "requested_lookback_days": REQUESTED_LOOKBACK_DAYS,
+                      "chunk_days": CHUNK_DAYS,
+                      "period_start": audit_start.isoformat(),
+                      "period_end": audit_end.isoformat(),
+                      "corp_code_resolution": "DART_CORPCODE_EXACT_STOCK_ONLY",
+                      "report_source": "DART_LIST_JSON_PER_CORP_CODE",
+                      "keyword_contract_source": "supply_burden_enricher.py",
+                      "absence_requires_all_chunks_complete": True,
+                  },
+                  "target_count": 33,
+                  "single_blocker_target_count": 8,
+                  "single_blocker_targets": sorted(EXPECTED_SINGLE),
+                  "corp_code_exact_resolved_count": len(resolved),
+                  "corp_code_unresolved_count": len(unresolved),
+                  "corp_code_unresolved_tickers": unresolved,
+                  "complete_180d_count": len(complete),
+                  "complete_180d_positive_burden_count": len(positive),
+                  "complete_180d_positive_burden_tickers": positive,
+                  "complete_180d_no_positive_burden_count": len(no_positive),
+                  "complete_180d_no_positive_burden_tickers": no_positive,
+                  "incomplete_180d_count": len(incomplete),
+                  "incomplete_180d_tickers": incomplete,
+                  "source_overlay_candidate_count": len(overlay),
+                  "source_overlay_candidate_tickers": overlay,
+                  "single_blocker_complete_180d_count": len(single_complete),
+                  "single_blocker_complete_180d_tickers": single_complete,
+                  "single_blocker_positive_burden_count": len(single_positive),
+                  "single_blocker_positive_burden_tickers": single_positive,
+                  "single_blocker_no_positive_burden_count": len(single_no_positive),
+                  "single_blocker_no_positive_burden_tickers": single_no_positive,
+                  "classification_counts": dict(classes),
+                  "dart_activity": {
+                      "corp_code_download_count": 1,
+                      "list_api_call_count": total_api_calls,
+                      "report_count": total_reports,
+                      "recognized_risk_report_count": total_risk_reports,
+                  },
+                  "automatic_production_patch": {
+                      "allowed": False,
+                      "patched_ticker_count": 0,
+                  },
+                  "hard_guards": {
+                      "production_api_changed": False,
+                      "production_investment_score_written": False,
+                      "scoring_policy_changed": False,
+                      "supply_policy_changed": False,
+                      "limited_absence_treated_as_complete": False,
+                      "incomplete_query_treated_as_absence": False,
+                      "issuer_mapping_guessed": False,
+                      "production_supply_status_overridden": False,
+                      "v896_audit_mutated": False,
+                      "v895_dry_run_mutated": False,
+                  },
+                  "next_step": (
+                      "FREEZE_COMPLETE_180D_SUPPLY_EVIDENCE_SOURCE_ONLY_THEN_DRY_RUN"
+                      if overlay
+                      else "REVIEW_UNRESOLVED_OR_INCOMPLETE_SUPPLY_TARGETS"
+                  ),
+              }
+
+              OUT_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+
+              log = [
+                  f"VERSION={VERSION}",
+                  "STATUS=AUDIT_ONLY",
+                  "TARGET_COUNT=33",
+                  "SINGLE_BLOCKER_TARGET_COUNT=8",
+                  f"CORP_CODE_EXACT_RESOLVED_COUNT={len(resolved)}",
+                  f"CORP_CODE_UNRESOLVED_COUNT={len(unresolved)}",
+                  f"COMPLETE_180D_COUNT={len(complete)}",
+                  f"COMPLETE_180D_POSITIVE_BURDEN_COUNT={len(positive)}",
+                  f"COMPLETE_180D_NO_POSITIVE_BURDEN_COUNT={len(no_positive)}",
+                  f"INCOMPLETE_180D_COUNT={len(incomplete)}",
+                  f"SOURCE_OVERLAY_CANDIDATE_COUNT={len(overlay)}",
+                  f"SINGLE_BLOCKER_COMPLETE_180D_COUNT={len(single_complete)}",
+                  f"SINGLE_BLOCKER_POSITIVE_BURDEN_COUNT={len(single_positive)}",
+                  f"SINGLE_BLOCKER_NO_POSITIVE_BURDEN_COUNT={len(single_no_positive)}",
+                  f"DART_LIST_API_CALL_COUNT={total_api_calls}",
+                  f"DART_REPORT_COUNT={total_reports}",
+                  f"RECOGNIZED_RISK_REPORT_COUNT={total_risk_reports}",
+                  "PRODUCTION_API_CHANGED=false",
+                  "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+                  "SCORING_POLICY_CHANGED=false",
+                  "SUPPLY_POLICY_CHANGED=false",
+                  "LIMITED_ABSENCE_TREATED_AS_COMPLETE=false",
+                  "INCOMPLETE_QUERY_TREATED_AS_ABSENCE=false",
+                  "ISSUER_MAPPING_GUESSED=false",
+                  "PRODUCTION_SUPPLY_STATUS_OVERRIDDEN=false",
+                  "STATUS_OK=true",
+                  f"NEXT_STEP={summary['next_step']}",
+              ]
+              OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+
+              doc = [
+                  "# V8.10.0 종목별 DART 180일 수급·공시 completeness 감사",
+                  "",
+                  f"- 버전: `{VERSION}`",
+                  f"- 기준 blocker audit: `{V896_VERSION}`",
+                  f"- 기존 supply 정책: `{SUPPLY_POLICY_VERSION}`",
+                  "- 상태: AUDIT_ONLY",
+                  "",
+                  "## 목적",
+                  "",
+                  "- V8.9.6의 PRODUCTION_ANALYSIS_SUPPLY blocker 33종목을 감사한다.",
+                  "- whole-market 90일 상한 대신 종목별 DART corp_code 조회를 사용한다.",
+                  "- 180일을 90일 이하 구간으로 나눠 각 구간의 모든 페이지를 확인한다.",
+                  "- 모든 구간이 완결된 경우에만 위험 공시 '없음'을 complete evidence 후보로 분류한다.",
+                  "",
+                  "## 판정",
+                  "",
+                  "- COMPLETE_180D_POSITIVE_BURDEN: 180일 완전조회 + 기존 위험 키워드 공시 있음.",
+                  "- COMPLETE_180D_NO_POSITIVE_BURDEN: 180일 완전조회 + 기존 위험 키워드 공시 없음.",
+                  "- TARGETED_DART_180D_INCOMPLETE: 일부 구간/페이지 실패. 없음으로 판정 금지.",
+                  "- CORP_CODE_EXACT_STOCK_UNRESOLVED: exact stock_code로 issuer가 유일하게 확인되지 않음.",
+                  "",
+                  "## 안전 원칙",
+                  "",
+                  "- production API와 investment_score_100을 수정하지 않는다.",
+                  "- scoring/supply 정책을 바꾸지 않는다.",
+                  "- corp_code는 DART exact stock_code만 사용하며 issuer mapping을 추정하지 않는다.",
+                  "- 불완전 조회를 '없음'으로 처리하지 않는다.",
+                  "- 이번 단계는 source overlay 후보만 만든다.",
+                  "",
+              ]
+              OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+              OUT_DOC.write_text("\n".join(doc), encoding="utf-8")
+
+              print("V8100_TARGETED_DART_SUPPLY_AUDIT=PASS")
+              print("\n".join(log))
+
+          if __name__ == "__main__":
+              main()
+          PY
+
+      - name: Run V8.10.0 targeted DART supply audit
+        shell: bash
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: |
+          set -euo pipefail
+          python -m py_compile investment_score_supply_targeted_dart_audit_v8100.py
+          python investment_score_supply_targeted_dart_audit_v8100.py
+          grep -q '^STATUS_OK=true$' latest/investment_score_supply_targeted_dart_v8100_run_log_latest.txt
+
+      - name: Validate V8.10.0 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          s = json.loads(
+              Path("latest/investment_score_supply_targeted_dart_v8100_summary_latest.json")
+              .read_text(encoding="utf-8")
+          )
+          with Path("latest/investment_score_supply_targeted_dart_v8100.csv").open(
+              encoding="utf-8-sig", newline=""
+          ) as f:
+              rows = list(csv.DictReader(f))
+
+          assert s["status"] == "AUDIT_ONLY"
+          assert s["target_count"] == 33
+          assert s["single_blocker_target_count"] == 8
+          assert len(rows) == 33
+          assert set(s["single_blocker_targets"]) == {
+              "003280", "063160", "066570", "071840",
+              "081000", "086280", "100250", "286940",
+          }
+          assert (
+              s["complete_180d_count"]
+              + s["incomplete_180d_count"]
+              + s["corp_code_unresolved_count"]
+              == 33
+          )
+          assert (
+              s["complete_180d_positive_burden_count"]
+              + s["complete_180d_no_positive_burden_count"]
+              == s["complete_180d_count"]
+          )
+          assert (
+              s["source_overlay_candidate_count"]
+              == s["complete_180d_count"]
+          )
+          assert s["automatic_production_patch"]["allowed"] is False
+          assert s["automatic_production_patch"]["patched_ticker_count"] == 0
+          assert s["audit_contract"]["absence_requires_all_chunks_complete"] is True
+          assert s["hard_guards"]["production_api_changed"] is False
+          assert s["hard_guards"]["production_investment_score_written"] is False
+          assert s["hard_guards"]["scoring_policy_changed"] is False
+          assert s["hard_guards"]["supply_policy_changed"] is False
+          assert s["hard_guards"]["limited_absence_treated_as_complete"] is False
+          assert s["hard_guards"]["incomplete_query_treated_as_absence"] is False
+          assert s["hard_guards"]["issuer_mapping_guessed"] is False
+          assert s["hard_guards"]["production_supply_status_overridden"] is False
+          print("V8100_OUTPUT_VALIDATION=PASS")
+          PY
+
+      - name: Verify protected files unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            supply_burden_enricher.py \
+            latest/investment_score_v880_dry_run_v895_latest.csv \
+            latest/investment_score_v880_dry_run_v895_summary_latest.json \
+            latest/investment_score_remaining_blockers_v896.csv \
+            latest/investment_score_remaining_blockers_v896_summary_latest.json \
+            > /tmp/v8100_protected.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -name '*.json' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > /tmp/v8100_two_table.after
+
+          diff -u /tmp/v8100_protected.before /tmp/v8100_protected.after
+          diff -u /tmp/v8100_two_table.before /tmp/v8100_two_table.after
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "investment_score_supply_targeted_dart_audit_v8100.py",
+              "latest/investment_score_supply_targeted_dart_v8100.csv",
+              "latest/investment_score_supply_targeted_dart_v8100_summary_latest.json",
+              "latest/investment_score_supply_targeted_dart_v8100_run_log_latest.txt",
+              "docs/investment_score_supply_targeted_dart_v8100.md",
+          }
+
+          changed = {
+              line[3:]
+              for line in subprocess.check_output(
+                  ["git", "status", "--porcelain"], text=True
+              ).splitlines()
+              if line
+          }
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit("UNEXPECTED_CHANGED_FILES:" + ",".join(unexpected))
+          print("V8100_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_supply_targeted_dart_audit_v8100.py \
+            latest/investment_score_supply_targeted_dart_v8100.csv \
+            latest/investment_score_supply_targeted_dart_v8100_summary_latest.json \
+            latest/investment_score_supply_targeted_dart_v8100_run_log_latest.txt \
+            docs/investment_score_supply_targeted_dart_v8100.md
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT"
+            exit 0
+          fi
+
+          git commit -m "Audit targeted DART supply completeness v8.10.0"
+          git pull --rebase origin main
+          git push origin HEAD:main

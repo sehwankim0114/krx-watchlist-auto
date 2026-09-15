@@ -1,0 +1,518 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import csv
+import json
+import os
+import time
+from collections import Counter, defaultdict
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import investment_score_source_enricher_v854 as src
+
+VERSION = "2026-09-15-v8.10.3-current-single-da-recoverability-audit"
+V8102_VERSION = "2026-09-15-v8.10.2-combined-validated-source-reconciliation"
+V897_VERSION = "2026-09-15-v8.9.7-refresh-single-blocker-da-xbrl"
+V898_VERSION = "2026-09-15-v8.9.8-targeted-full-account-da-audit"
+V891_VERSION = "2026-09-15-v8.9.1-remaining-exact-da-recoverability-audit"
+POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+
+ROOT = Path(".")
+KST = ZoneInfo("Asia/Seoul")
+
+BLOCK_CSV = ROOT / "latest/investment_score_remaining_blockers_v8102.csv"
+BLOCK_JSON = ROOT / "latest/investment_score_remaining_blockers_v8102_summary_latest.json"
+
+V897_JSON = ROOT / "latest/investment_score_single_da_xbrl_refresh_v897_summary_latest.json"
+V898_JSON = ROOT / "latest/investment_score_da_full_account_v898_summary_latest.json"
+V891_CSV = ROOT / "latest/investment_score_da_recoverability_v891.csv"
+V891_JSON = ROOT / "latest/investment_score_da_recoverability_v891_summary_latest.json"
+
+FIN = ROOT / "latest/financial_valuation_cache_latest.csv"
+
+OUT_CSV = ROOT / "latest/investment_score_da_current_single_recoverability_v8103.csv"
+OUT_JSON = ROOT / "latest/investment_score_da_current_single_recoverability_v8103_summary_latest.json"
+OUT_LOG = ROOT / "latest/investment_score_da_current_single_recoverability_v8103_run_log_latest.txt"
+OUT_DOC = ROOT / "docs/investment_score_da_current_single_recoverability_v8103.md"
+
+APPROVED = {
+    "ifrs-full_AdjustmentsForDepreciationExpense",
+    "ifrs-full_AdjustmentsForAmortisationExpense",
+}
+
+EXPECTED_CURRENT_SINGLE = {
+    "001560",
+    "011200",
+    "012450",
+    "012690",
+    "017670",
+    "020560",
+    "022100",
+    "023960",
+    "078520",
+    "483650",
+}
+
+EXPECTED_HISTORIC_EIGHT = {
+    "001560",
+    "012450",
+    "017670",
+    "020560",
+    "022100",
+    "023960",
+    "078520",
+    "483650",
+}
+
+EXPECTED_NEW_TWO = {"011200", "012690"}
+EXPECTED_HISTORIC_PARTIAL_THREE = {"012450", "017670", "022100"}
+EXPECTED_HISTORIC_NO_EXACT_FIVE = {
+    "001560", "020560", "023960", "078520", "483650"
+}
+
+
+def ticker(value):
+    text = "".join(ch for ch in str(value or "") if ch.isdigit())
+    return text.zfill(6) if text else ""
+
+
+def read_json(path):
+    return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
+def read_csv(path):
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def parse_list(value):
+    try:
+        data = json.loads(str(value or ""))
+    except Exception:
+        return []
+    return data if isinstance(data, list) else []
+
+
+def number(value):
+    try:
+        if value in (None, "", "null", "None"):
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+
+def exact_stats(candidates):
+    grouped = defaultdict(list)
+    for item in candidates:
+        aid = str(item.get("account_id") or "").strip()
+        if aid in APPROVED:
+            grouped[aid].append(item)
+
+    out = {}
+    for aid in sorted(APPROVED):
+        rows = grouped.get(aid, [])
+        nums = [
+            number(r.get("amount"))
+            for r in rows
+            if number(r.get("amount")) is not None
+        ]
+        out[aid] = {
+            "occurrence_count": len(rows),
+            "unique_numeric_values": sorted(set(nums)),
+            "account_names": sorted({
+                str(r.get("account_nm") or "").strip()
+                for r in rows
+                if str(r.get("account_nm") or "").strip()
+            }),
+        }
+    return out
+
+
+def classify(stats):
+    present = {
+        aid for aid, x in stats.items()
+        if x["occurrence_count"] > 0
+    }
+    unique = {
+        aid for aid, x in stats.items()
+        if len(x["unique_numeric_values"]) == 1
+    }
+    conflict = {
+        aid for aid, x in stats.items()
+        if len(x["unique_numeric_values"]) > 1
+    }
+    if conflict:
+        return "APPROVED_EXACT_VALUE_CONFLICT"
+    if present == APPROVED and unique == APPROVED:
+        return "BOTH_APPROVED_EXACT_UNIQUE_NUMERIC"
+    if present and unique == present:
+        return "PARTIAL_APPROVED_EXACT_UNIQUE_NUMERIC"
+    if present:
+        return "APPROVED_EXACT_PRESENT_NONUNIQUE_OR_NONNUMERIC"
+    return "NO_APPROVED_EXACT"
+
+
+def main():
+    api_key = os.environ.get("DART_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("DART_API_KEY_MISSING")
+
+    required = [
+        BLOCK_CSV, BLOCK_JSON,
+        V897_JSON, V898_JSON,
+        V891_CSV, V891_JSON,
+        FIN,
+    ]
+    for path in required:
+        if not path.is_file():
+            raise RuntimeError("MISSING_REQUIRED_SOURCE:" + str(path))
+
+    s8102 = read_json(BLOCK_JSON)
+    if s8102.get("version") != V8102_VERSION:
+        raise RuntimeError("V8102_VERSION_MISMATCH")
+    if s8102.get("status") != "AUDIT_ONLY":
+        raise RuntimeError("V8102_STATUS_MISMATCH")
+    if s8102.get("policy_version") != POLICY_VERSION:
+        raise RuntimeError("V8102_POLICY_VERSION_MISMATCH")
+    if int(s8102.get("ready_count") or 0) != 56:
+        raise RuntimeError("V8102_READY_NOT_56")
+    if int(s8102.get("limited_count") or 0) != 56:
+        raise RuntimeError("V8102_LIMITED_NOT_56")
+    if s8102.get("highest_impact_source_group") != "EXACT_DA_SOURCE":
+        raise RuntimeError("V8102_HIGHEST_IMPACT_NOT_EXACT_DA")
+    if int(s8102.get("highest_impact_single_blocker_ticker_count") or 0) != 10:
+        raise RuntimeError("V8102_EXACT_DA_SINGLE_NOT_10")
+    if int(s8102.get("highest_impact_blocker_occurrences") or 0) != 27:
+        raise RuntimeError("V8102_EXACT_DA_OCCURRENCES_NOT_27")
+
+    rows8102 = read_csv(BLOCK_CSV)
+    current_single = {
+        ticker(r.get("ticker"))
+        for r in rows8102
+        if r.get("source_group") == "EXACT_DA_SOURCE"
+        and str(r.get("single_blocker_ticker") or "").upper() == "TRUE"
+    }
+    if current_single != EXPECTED_CURRENT_SINGLE:
+        raise RuntimeError(
+            "V8103_CURRENT_SINGLE_SET_MISMATCH:" +
+            ",".join(sorted(current_single))
+        )
+
+    s897 = read_json(V897_JSON)
+    if s897.get("version") != V897_VERSION or s897.get("status") != "AUDIT_ONLY":
+        raise RuntimeError("V897_CONTRACT_MISMATCH")
+    historic_eight = set(s897.get("target_tickers") or [])
+    if historic_eight != EXPECTED_HISTORIC_EIGHT:
+        raise RuntimeError("V897_HISTORIC_EIGHT_MISMATCH")
+    if set(s897.get("partial_approved_exact_tickers") or []) != EXPECTED_HISTORIC_PARTIAL_THREE:
+        raise RuntimeError("V897_PARTIAL_THREE_MISMATCH")
+    if set(s897.get("zip_ok_no_approved_exact_tickers") or []) != EXPECTED_HISTORIC_NO_EXACT_FIVE:
+        raise RuntimeError("V897_NO_EXACT_FIVE_MISMATCH")
+
+    s898 = read_json(V898_JSON)
+    if s898.get("version") != V898_VERSION or s898.get("status") != "AUDIT_ONLY":
+        raise RuntimeError("V898_CONTRACT_MISMATCH")
+    if set(s898.get("target_tickers") or []) != EXPECTED_HISTORIC_PARTIAL_THREE:
+        raise RuntimeError("V898_TARGET_SET_MISMATCH")
+    if int(s898.get("missing_exact_recovered_count") or 0) != 0:
+        raise RuntimeError("V898_UNEXPECTED_MISSING_EXACT_RECOVERY")
+    if int(s898.get("both_approved_exact_unique_numeric_count") or 0) != 0:
+        raise RuntimeError("V898_UNEXPECTED_BOTH_EXACT_RECOVERY")
+
+    s891 = read_json(V891_JSON)
+    if s891.get("version") != V891_VERSION or s891.get("status") != "AUDIT_ONLY":
+        raise RuntimeError("V891_CONTRACT_MISMATCH")
+    rows891 = read_csv(V891_CSV)
+    m891 = {ticker(r.get("ticker")): r for r in rows891 if ticker(r.get("ticker"))}
+
+    new_two = current_single - historic_eight
+    if new_two != EXPECTED_NEW_TWO:
+        raise RuntimeError("V8103_NEW_TWO_MISMATCH:" + ",".join(sorted(new_two)))
+
+    for code in EXPECTED_CURRENT_SINGLE:
+        if code not in m891:
+            raise RuntimeError("V891_TARGET_MISSING:" + code)
+
+    # Historical lane sanity for the two newly-single targets.
+    if str(m891["011200"].get("recovery_lane") or "") != "ALTERNATE_OFFICIAL_DA_SOURCE":
+        raise RuntimeError("V891_HMM_LANE_MISMATCH")
+    if str(m891["012690"].get("recovery_lane") or "") != "ALTERNATE_OFFICIAL_DA_SOURCE":
+        raise RuntimeError("V891_MONARIZA_LANE_MISMATCH")
+
+    financial_df = src.read_csv(FIN)
+    all_targets = src.load_targets(financial_df)
+    dominant_year, dominant_code = src.dominant_period(all_targets)
+    annual_year = dominant_year - 1
+    target_map = {t["ticker"]: t for t in all_targets}
+
+    client = src.OpenDartClient(api_key, timeout=30)
+
+    fresh_rows = []
+    fresh_map = {}
+    for code in sorted(EXPECTED_NEW_TWO):
+        target = target_map.get(code)
+        if not target:
+            raise RuntimeError("V854_TARGET_NOT_AVAILABLE:" + code)
+
+        prior = m891[code]
+        prior_corp = str(prior.get("corp_code") or "").strip()
+        if prior_corp and target.get("corp_code") != prior_corp:
+            raise RuntimeError(
+                f"CORP_CODE_MISMATCH:{code}:{prior_corp}:{target.get('corp_code')}"
+            )
+
+        fresh = src.fetch_deep_one(client, target, annual_year)
+        candidates = parse_list(fresh.get("da_json"))
+        stats = exact_stats(candidates)
+        classification = classify(stats)
+
+        row = {
+            "ticker": code,
+            "name": prior.get("name") or target.get("name") or "",
+            "market": prior.get("market") or target.get("market") or "",
+            "corp_code": target.get("corp_code") or "",
+            "preferred_fs_div": target.get("preferred_fs_div") or "",
+            "dominant_financial_period": f"{dominant_year}_{dominant_code}",
+            "annual_source_year": annual_year,
+            "fresh_deep_status": fresh.get("status") or "",
+            "fresh_deep_fs_div": fresh.get("fs_div") or "",
+            "fresh_deep_message": fresh.get("message") or "",
+            "prior_provenance_class": prior.get("provenance_class") or "",
+            "prior_recovery_lane": prior.get("recovery_lane") or "",
+            "fresh_exact_classification": classification,
+            "fresh_exact_stats_json": json.dumps(
+                stats, ensure_ascii=False, separators=(",", ":")
+            ),
+            "fresh_da_candidates_json": json.dumps(
+                candidates, ensure_ascii=False, separators=(",", ":")
+            ),
+        }
+        fresh_rows.append(row)
+        fresh_map[code] = row
+        time.sleep(0.25)
+
+    full_rows = []
+    class_counts = Counter()
+
+    for code in sorted(EXPECTED_CURRENT_SINGLE):
+        prior = m891[code]
+        if code in EXPECTED_HISTORIC_PARTIAL_THREE:
+            current_class = (
+                "HISTORIC_PARTIAL_XBRL_AND_FULL_ACCOUNT_NO_MISSING_EXACT_RECOVERY"
+            )
+            current_lane = "DEFER_CURRENT_APPROVED_EXACT_SOURCE_PATH_EXHAUSTED"
+            fresh_class = ""
+        elif code in EXPECTED_HISTORIC_NO_EXACT_FIVE:
+            current_class = "HISTORIC_REFRESH_ZIP_OK_NO_APPROVED_EXACT"
+            current_lane = "DEFER_CURRENT_APPROVED_EXACT_SOURCE_PATH_EXHAUSTED"
+            fresh_class = ""
+        else:
+            fresh = fresh_map[code]
+            fresh_class = fresh["fresh_exact_classification"]
+            if fresh_class == "BOTH_APPROVED_EXACT_UNIQUE_NUMERIC":
+                current_class = "NEW_SINGLE_FULL_ACCOUNT_BOTH_APPROVED_EXACT"
+                current_lane = "CONTEXT_AUDIT_BEFORE_SOURCE_PROMOTION"
+            elif fresh_class == "PARTIAL_APPROVED_EXACT_UNIQUE_NUMERIC":
+                current_class = "NEW_SINGLE_FULL_ACCOUNT_PARTIAL_APPROVED_EXACT"
+                current_lane = "ALTERNATE_OFFICIAL_SOURCE_FOR_MISSING_FACT"
+            elif fresh_class == "APPROVED_EXACT_VALUE_CONFLICT":
+                current_class = "NEW_SINGLE_FULL_ACCOUNT_EXACT_VALUE_CONFLICT"
+                current_lane = "MANUAL_CONTEXT_CONFLICT_AUDIT"
+            elif fresh_class == "APPROVED_EXACT_PRESENT_NONUNIQUE_OR_NONNUMERIC":
+                current_class = "NEW_SINGLE_FULL_ACCOUNT_EXACT_NONUNIQUE_OR_NONNUMERIC"
+                current_lane = "MANUAL_CONTEXT_CONFLICT_AUDIT"
+            else:
+                current_class = "NEW_SINGLE_FULL_ACCOUNT_NO_APPROVED_EXACT"
+                current_lane = "DEFER_CURRENT_APPROVED_EXACT_SOURCE_PATH_EXHAUSTED"
+
+        class_counts[current_class] += 1
+        full_rows.append({
+            "ticker": code,
+            "name": prior.get("name") or "",
+            "market": prior.get("market") or "",
+            "current_single_blocker": "TRUE",
+            "v891_provenance_class": prior.get("provenance_class") or "",
+            "v891_recovery_lane": prior.get("recovery_lane") or "",
+            "v897_historic_target": "TRUE" if code in historic_eight else "FALSE",
+            "v898_full_account_partial_target": (
+                "TRUE" if code in EXPECTED_HISTORIC_PARTIAL_THREE else "FALSE"
+            ),
+            "v8103_fresh_full_account_target": (
+                "TRUE" if code in EXPECTED_NEW_TWO else "FALSE"
+            ),
+            "v8103_fresh_exact_classification": fresh_class,
+            "current_recoverability_classification": current_class,
+            "current_recovery_lane": current_lane,
+        })
+
+    both_now = sorted(
+        r["ticker"] for r in full_rows
+        if r["current_recoverability_classification"]
+        == "NEW_SINGLE_FULL_ACCOUNT_BOTH_APPROVED_EXACT"
+    )
+    partial_now = sorted(
+        r["ticker"] for r in full_rows
+        if r["current_recoverability_classification"]
+        == "NEW_SINGLE_FULL_ACCOUNT_PARTIAL_APPROVED_EXACT"
+    )
+    conflict_now = sorted(
+        r["ticker"] for r in full_rows
+        if "CONFLICT" in r["current_recoverability_classification"]
+        or "NONUNIQUE" in r["current_recoverability_classification"]
+    )
+    exhausted = sorted(
+        r["ticker"] for r in full_rows
+        if r["current_recovery_lane"]
+        == "DEFER_CURRENT_APPROVED_EXACT_SOURCE_PATH_EXHAUSTED"
+    )
+
+    if both_now:
+        next_step = "AUDIT_V8103_BOTH_EXACT_CONTEXT_BEFORE_SOURCE_FREEZE"
+    elif partial_now:
+        next_step = "AUDIT_ALTERNATE_OFFICIAL_SOURCE_FOR_V8103_PARTIAL_CASES"
+    elif conflict_now:
+        next_step = "AUDIT_V8103_EXACT_CONTEXT_CONFLICTS"
+    else:
+        next_step = (
+            "DEFER_EXACT_DA_SINGLE_BLOCKERS_AS_CURRENTLY_EXHAUSTED_"
+            "AND_AUDIT_NEXT_RECOVERABLE_SINGLE_SOURCE_GROUP"
+        )
+
+    OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+    fields = list(full_rows[0].keys())
+    with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
+        w.writeheader()
+        w.writerows(full_rows)
+
+    summary = {
+        "version": VERSION,
+        "v8102_version": V8102_VERSION,
+        "v897_version": V897_VERSION,
+        "v898_version": V898_VERSION,
+        "v891_version": V891_VERSION,
+        "policy_version": POLICY_VERSION,
+        "v854_script_version": src.SCRIPT_VERSION,
+        "v854_source_contract_version": src.SOURCE_CONTRACT_VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+        "status": "AUDIT_ONLY",
+        "current_single_exact_da_count": len(current_single),
+        "current_single_exact_da_tickers": sorted(current_single),
+        "historic_eight_count": len(historic_eight),
+        "historic_eight_tickers": sorted(historic_eight),
+        "new_single_since_historic_audit_count": len(new_two),
+        "new_single_since_historic_audit_tickers": sorted(new_two),
+        "fresh_full_account_target_count": len(EXPECTED_NEW_TWO),
+        "fresh_full_account_target_tickers": sorted(EXPECTED_NEW_TWO),
+        "dominant_financial_period": f"{dominant_year}_{dominant_code}",
+        "annual_source_year": annual_year,
+        "fresh_full_account_results": {
+            code: {
+                "classification": fresh_map[code]["fresh_exact_classification"],
+                "deep_status": fresh_map[code]["fresh_deep_status"],
+                "deep_fs_div": fresh_map[code]["fresh_deep_fs_div"],
+            }
+            for code in sorted(fresh_map)
+        },
+        "recoverability_classification_counts": dict(class_counts),
+        "both_approved_exact_recovered_now_count": len(both_now),
+        "both_approved_exact_recovered_now_tickers": both_now,
+        "partial_approved_exact_now_count": len(partial_now),
+        "partial_approved_exact_now_tickers": partial_now,
+        "conflict_or_nonunique_now_count": len(conflict_now),
+        "conflict_or_nonunique_now_tickers": conflict_now,
+        "currently_exhausted_count": len(exhausted),
+        "currently_exhausted_tickers": exhausted,
+        "api_telemetry": {
+            "attempted": client.attempted,
+            "successful": client.successful,
+            "transport_failures": client.transport_failures,
+            "dart_status_failures": client.dart_status_failures,
+        },
+        "automatic_promotion": {
+            "allowed": False,
+            "promoted_ticker_count": 0,
+        },
+        "hard_guards": {
+            "production_api_changed": False,
+            "production_investment_score_written": False,
+            "scoring_policy_changed": False,
+            "approved_da_ids_changed": False,
+            "source_cache_mutated": False,
+            "financial_cache_mutated": False,
+            "missing_da_assumed_zero": False,
+            "historic_evidence_mutated": False,
+            "partial_fact_promoted": False,
+        },
+        "next_step": next_step,
+    }
+    OUT_JSON.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    log = [
+        f"VERSION={VERSION}",
+        "STATUS=AUDIT_ONLY",
+        f"CURRENT_SINGLE_EXACT_DA_COUNT={len(current_single)}",
+        "CURRENT_SINGLE_EXACT_DA_TICKERS=" + ",".join(sorted(current_single)),
+        f"HISTORIC_EIGHT_COUNT={len(historic_eight)}",
+        f"NEW_SINGLE_SINCE_HISTORIC_AUDIT_COUNT={len(new_two)}",
+        "NEW_SINGLE_SINCE_HISTORIC_AUDIT_TICKERS=" + ",".join(sorted(new_two)),
+        f"BOTH_APPROVED_EXACT_RECOVERED_NOW={len(both_now)}",
+        "BOTH_APPROVED_EXACT_RECOVERED_NOW_TICKERS=" + ",".join(both_now),
+        f"PARTIAL_APPROVED_EXACT_NOW={len(partial_now)}",
+        "PARTIAL_APPROVED_EXACT_NOW_TICKERS=" + ",".join(partial_now),
+        f"CONFLICT_OR_NONUNIQUE_NOW={len(conflict_now)}",
+        f"CURRENTLY_EXHAUSTED_COUNT={len(exhausted)}",
+        "CURRENTLY_EXHAUSTED_TICKERS=" + ",".join(exhausted),
+        f"DART_API_ATTEMPTED={client.attempted}",
+        f"DART_API_SUCCESSFUL={client.successful}",
+        "PRODUCTION_API_CHANGED=false",
+        "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+        "SCORING_POLICY_CHANGED=false",
+        "APPROVED_DA_IDS_CHANGED=false",
+        "SOURCE_CACHE_MUTATED=false",
+        "FINANCIAL_CACHE_MUTATED=false",
+        "MISSING_DA_ASSUMED_ZERO=false",
+        "PARTIAL_FACT_PROMOTED=false",
+        "STATUS_OK=true",
+        "NEXT_STEP=" + next_step,
+    ]
+    OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+
+    OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+    OUT_DOC.write_text(
+        "\n".join([
+            "# V8.10.3 current single D&A recoverability audit",
+            "",
+            f"- Version: `{VERSION}`",
+            "- Status: AUDIT_ONLY",
+            "- Current V8.10.2 exact-D&A single blockers: 10",
+            "- Historical fully-audited single blockers: 8",
+            "- Newly-single targets audited through official full-account path: 011200, 012690",
+            "",
+            "## Safety",
+            "",
+            "- No new D&A account ID approval.",
+            "- No partial fact promotion.",
+            "- No missing D&A zero assumption.",
+            "- No source-cache or production-score mutation.",
+            "",
+            "## Next",
+            "",
+            f"`{next_step}`",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+
+    print("V8103_CURRENT_SINGLE_DA_RECOVERABILITY_AUDIT=PASS")
+    print("\n".join(log))
+
+
+if __name__ == "__main__":
+    main()

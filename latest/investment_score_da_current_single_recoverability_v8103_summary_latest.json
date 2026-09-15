@@ -1,0 +1,106 @@
+{
+  "version": "2026-09-15-v8.10.3-current-single-da-recoverability-audit",
+  "v8102_version": "2026-09-15-v8.10.2-combined-validated-source-reconciliation",
+  "v897_version": "2026-09-15-v8.9.7-refresh-single-blocker-da-xbrl",
+  "v898_version": "2026-09-15-v8.9.8-targeted-full-account-da-audit",
+  "v891_version": "2026-09-15-v8.9.1-remaining-exact-da-recoverability-audit",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v854_script_version": "investment_score_source_enricher_v854.py v1.0.1-transient-retention-guard",
+  "v854_source_contract_version": "2026-09-10-v8.5.4-investment-score-source-contract",
+  "generated_at_kst": "2026-09-15T17:34:33+09:00",
+  "status": "AUDIT_ONLY",
+  "current_single_exact_da_count": 10,
+  "current_single_exact_da_tickers": [
+    "001560",
+    "011200",
+    "012450",
+    "012690",
+    "017670",
+    "020560",
+    "022100",
+    "023960",
+    "078520",
+    "483650"
+  ],
+  "historic_eight_count": 8,
+  "historic_eight_tickers": [
+    "001560",
+    "012450",
+    "017670",
+    "020560",
+    "022100",
+    "023960",
+    "078520",
+    "483650"
+  ],
+  "new_single_since_historic_audit_count": 2,
+  "new_single_since_historic_audit_tickers": [
+    "011200",
+    "012690"
+  ],
+  "fresh_full_account_target_count": 2,
+  "fresh_full_account_target_tickers": [
+    "011200",
+    "012690"
+  ],
+  "dominant_financial_period": "2026_11012",
+  "annual_source_year": 2025,
+  "fresh_full_account_results": {
+    "011200": {
+      "classification": "NO_APPROVED_EXACT",
+      "deep_status": "OK",
+      "deep_fs_div": "CFS"
+    },
+    "012690": {
+      "classification": "NO_APPROVED_EXACT",
+      "deep_status": "OK",
+      "deep_fs_div": "OFS"
+    }
+  },
+  "recoverability_classification_counts": {
+    "HISTORIC_REFRESH_ZIP_OK_NO_APPROVED_EXACT": 5,
+    "NEW_SINGLE_FULL_ACCOUNT_NO_APPROVED_EXACT": 2,
+    "HISTORIC_PARTIAL_XBRL_AND_FULL_ACCOUNT_NO_MISSING_EXACT_RECOVERY": 3
+  },
+  "both_approved_exact_recovered_now_count": 0,
+  "both_approved_exact_recovered_now_tickers": [],
+  "partial_approved_exact_now_count": 0,
+  "partial_approved_exact_now_tickers": [],
+  "conflict_or_nonunique_now_count": 0,
+  "conflict_or_nonunique_now_tickers": [],
+  "currently_exhausted_count": 10,
+  "currently_exhausted_tickers": [
+    "001560",
+    "011200",
+    "012450",
+    "012690",
+    "017670",
+    "020560",
+    "022100",
+    "023960",
+    "078520",
+    "483650"
+  ],
+  "api_telemetry": {
+    "attempted": 2,
+    "successful": 2,
+    "transport_failures": [],
+    "dart_status_failures": []
+  },
+  "automatic_promotion": {
+    "allowed": false,
+    "promoted_ticker_count": 0
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "approved_da_ids_changed": false,
+    "source_cache_mutated": false,
+    "financial_cache_mutated": false,
+    "missing_da_assumed_zero": false,
+    "historic_evidence_mutated": false,
+    "partial_fact_promoted": false
+  },
+  "next_step": "DEFER_EXACT_DA_SINGLE_BLOCKERS_AS_CURRENTLY_EXHAUSTED_AND_AUDIT_NEXT_RECOVERABLE_SINGLE_SOURCE_GROUP"
+}

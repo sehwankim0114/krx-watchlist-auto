@@ -118,17 +118,41 @@ jobs:
               for row in v883_rows:
                   if row.get("audit_status") != "APPROVED_EXACT_READY":
                       continue
+
                   code = ticker(row.get("ticker"))
-                  raw = raw_map.get(code) or {}
+                  raw_mode = str(row.get("raw_source_mode") or "")
+                  raw_code = code
+
+                  # Reproduce the already-audited V8.8.3 preferred-share inheritance.
+                  # Example: 003495 -> PREFERRED_COMMON:003490.
+                  if raw_mode.startswith("PREFERRED_COMMON:"):
+                      inherited_code = ticker(raw_mode.split(":", 1)[1])
+                      if not inherited_code:
+                          raise RuntimeError(
+                              f"V883_PREFERRED_COMMON_CODE_INVALID:{code}:{raw_mode}"
+                          )
+                      raw_code = inherited_code
+
+                  raw = raw_map.get(raw_code) or {}
+                  if raw.get("source_cache_status") != "READY_RAW_SOURCE":
+                      raise RuntimeError(
+                          f"V883_EXACT_RAW_NOT_READY:{code}:RAW={raw_code}:MODE={raw_mode}"
+                      )
+
                   candidates = parse_json_list(
                       raw.get("depreciation_amortization_candidates_json")
                   )
                   exact, status = unique_exact_amounts(candidates)
                   if status != "OK" or not exact:
-                      raise RuntimeError(f"V883_EXACT_ROW_NOT_REPRODUCIBLE:{code}:{status}")
+                      raise RuntimeError(
+                          f"V883_EXACT_ROW_NOT_REPRODUCIBLE:"
+                          f"{code}:RAW={raw_code}:MODE={raw_mode}:{status}"
+                      )
+
                   dep = exact.get("ifrs-full_AdjustmentsForDepreciationExpense")
                   amo = exact.get("ifrs-full_AdjustmentsForAmortisationExpense")
                   total = sum(v for v in (dep, amo) if v is not None)
+
                   out.append({
                       "ticker": code,
                       "name": row.get("name") or raw.get("name") or "",
@@ -142,7 +166,11 @@ jobs:
                       "da_total": total,
                       "approved_exact_fact_count": len(exact),
                       "both_exact_facts_present": "TRUE" if len(exact) == 2 else "FALSE",
-                      "evidence_ref": "latest/investment_score_source_cache_latest.csv",
+                      "evidence_ref": (
+                          "latest/investment_score_source_cache_latest.csv"
+                          if raw_code == code
+                          else f"latest/investment_score_source_cache_latest.csv#PREFERRED_COMMON:{raw_code}"
+                      ),
                   })
               return out
 
@@ -426,6 +454,10 @@ jobs:
           assert s["existing_v883_exact_ready_count"] == 14
           assert s["new_v887_xbrl_both_unique_promoted_count"] == 52
           assert s["source_only_ready_count"] == 66
+          preferred = [r for r in rows if "PREFERRED_COMMON:" in r["evidence_ref"]]
+          assert len(preferred) == 1
+          assert preferred[0]["ticker"] == "003495"
+          assert "PREFERRED_COMMON:003490" in preferred[0]["evidence_ref"]
           assert s["v887_partial_one_fact_not_promoted_count"] == 4
           assert s["v887_no_matching_fs_member_not_promoted_count"] == 1
           assert len({r["ticker"] for r in rows}) == len(rows)

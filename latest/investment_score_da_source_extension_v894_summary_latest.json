@@ -1,0 +1,39 @@
+{
+  "version": "2026-09-15-v8.9.4-freeze-v893-da-source-extension",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v893_version": "2026-09-15-v8.9.3-v892-exact-context-audit",
+  "v888_version": "2026-09-15-v8.8.8-freeze-xbrl-da-source-layer",
+  "generated_at_kst": "2026-09-15T16:02:01+09:00",
+  "status": "SOURCE_EXTENSION_ONLY_READY",
+  "base_v888_source_count": 66,
+  "extension_source_count": 1,
+  "combined_source_count_if_shadow_merged": 67,
+  "extension_tickers": [
+    "002450"
+  ],
+  "extension_values": {
+    "002450": {
+      "target_year": "2025",
+      "fs_div": "CFS",
+      "depreciation_value": 16097082000.0,
+      "amortisation_value": 204762000.0,
+      "da_total": 16301844000.0
+    }
+  },
+  "automatic_production_activation": {
+    "allowed": false,
+    "activated_ticker_count": 0
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "new_da_id_approved": false,
+    "v888_source_layer_mutated": false,
+    "v893_evidence_mutated": false,
+    "missing_da_assumed_zero": false,
+    "preferred_issuer_mapping_created": false,
+    "duplicate_with_v888": false
+  },
+  "next_step": "DRY_RUN_V895_WITH_V888_PLUS_V894_EXTENSION"
+}

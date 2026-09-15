@@ -1,0 +1,176 @@
+{
+  "version": "2026-09-15-v8.9.9-per-loss-earnings-trend-wiring-audit",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "generated_at_kst": "2026-09-15T17:03:21+09:00",
+  "status": "AUDIT_AND_SHADOW_DRY_RUN_ONLY",
+  "production_unique_tickers": 112,
+  "financial_cache_missing_production_rows": [],
+  "earnings_trend_contract": {
+    "field_semantics": "순이익 흐름",
+    "expected_inputs": [
+      "net_income",
+      "previous_net_income"
+    ],
+    "current_source_wiring_observed": [
+      "operating_profit",
+      "previous_operating_profit"
+    ],
+    "source_wiring_mismatch_confirmed": true
+  },
+  "trend_audit": {
+    "comparable_count": 99,
+    "mismatch_count": 17,
+    "mismatch_tickers": [
+      "001420",
+      "001440",
+      "003490",
+      "006650",
+      "008770",
+      "009200",
+      "009420",
+      "012160",
+      "014160",
+      "029530",
+      "081000",
+      "139480",
+      "241590",
+      "271940",
+      "298000",
+      "403550",
+      "456040"
+    ],
+    "mismatch_class_counts": {
+      "적자지속->적자전환": 1,
+      "흑자지속->적자전환": 6,
+      "흑자전환->흑자지속": 3,
+      "흑자지속->흑자전환": 2,
+      "흑자전환->적자지속": 1,
+      "적자전환->흑자전환": 1,
+      "흑자지속->적자지속": 2,
+      "적자지속->흑자전환": 1
+    }
+  },
+  "per_loss_semantics": {
+    "scorer_checks_loss_trend_before_missing_per": true,
+    "per_missing_blocker_before": 22,
+    "per_missing_blocker_after_shadow_trend_fix": 13,
+    "single_blocker_targets": [
+      "003490",
+      "009420",
+      "139480"
+    ],
+    "target_results": {
+      "003490": {
+        "name": "대한항공",
+        "net_income": -566416729479.0,
+        "previous_net_income": 907135482401.0,
+        "eps_annualized": -3076.51,
+        "per_annualized": null,
+        "valuation_data_status": "PARTIAL_LOSS_PER_NA",
+        "stored_earnings_trend": "흑자지속",
+        "expected_net_income_trend": "적자전환",
+        "baseline_score_status": "LIMITED",
+        "shadow_score_status": "READY",
+        "baseline_missing_components": "PER:MISSING_PER",
+        "shadow_missing_components": "",
+        "baseline_score_total": null,
+        "shadow_score_total": 53.5
+      },
+      "009420": {
+        "name": "한올바이오파마",
+        "net_income": -18953504693.0,
+        "previous_net_income": 391257901.0,
+        "eps_annualized": -725.62,
+        "per_annualized": null,
+        "valuation_data_status": "PARTIAL_LOSS_PER_NA",
+        "stored_earnings_trend": "흑자지속",
+        "expected_net_income_trend": "적자전환",
+        "baseline_score_status": "LIMITED",
+        "shadow_score_status": "READY",
+        "baseline_missing_components": "PER:MISSING_PER",
+        "shadow_missing_components": "",
+        "baseline_score_total": null,
+        "shadow_score_total": 44.0
+      },
+      "139480": {
+        "name": "이마트",
+        "net_income": -57386933740.0,
+        "previous_net_income": 52250738689.0,
+        "eps_annualized": -4159.1,
+        "per_annualized": null,
+        "valuation_data_status": "PARTIAL_LOSS_PER_NA",
+        "stored_earnings_trend": "흑자지속",
+        "expected_net_income_trend": "적자전환",
+        "baseline_score_status": "LIMITED",
+        "shadow_score_status": "READY",
+        "baseline_missing_components": "PER:MISSING_PER",
+        "shadow_missing_components": "",
+        "baseline_score_total": null,
+        "shadow_score_total": 37.0
+      }
+    }
+  },
+  "score_impact": {
+    "baseline_ready_count": 42,
+    "shadow_ready_count": 45,
+    "ready_delta": 3,
+    "newly_ready_tickers": [
+      "003490",
+      "009420",
+      "139480"
+    ],
+    "lost_ready_tickers": [],
+    "status_changed_count": 3,
+    "status_changed_tickers": [
+      "003490",
+      "009420",
+      "139480"
+    ],
+    "score_changed_count": 5,
+    "score_changed_tickers": [
+      "003490",
+      "009420",
+      "029530",
+      "139480",
+      "456040"
+    ],
+    "missing_components_changed_count": 9,
+    "missing_components_changed_tickers": [
+      "001440",
+      "003490",
+      "009200",
+      "009420",
+      "012160",
+      "014160",
+      "139480",
+      "241590",
+      "403550"
+    ],
+    "target_newly_ready_tickers": [
+      "003490",
+      "009420",
+      "139480"
+    ]
+  },
+  "v895_da_shadow_reproduction": {
+    "combined_source_count": 67,
+    "shadow_unique_raw_target_count": 66,
+    "shadow_patched_ready_raw_count": 66,
+    "shadow_patched_nonready_raw_count": 0,
+    "preferred_inheritance_count": 1,
+    "preferred_inheritance": {
+      "003495": "003490"
+    }
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "financial_valuation_cache_mutated": false,
+    "financial_valuation_enricher_mutated": false,
+    "raw_source_cache_mutated": false,
+    "approved_da_ids_changed": false,
+    "new_value_imputed": false
+  },
+  "next_step": "PATCH_EARNINGS_TREND_SOURCE_WIRING_AND_REBUILD_FINANCIAL_CACHE_THEN_RERUN_DRY_RUN"
+}

@@ -1,0 +1,398 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import csv
+import json
+from collections import Counter
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import financial_valuation_enricher as finmod
+import investment_score_dry_run_v882 as scorer
+import investment_score_dry_run_v895 as v895
+
+VERSION = "2026-09-15-v8.9.9-per-loss-earnings-trend-wiring-audit"
+POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+BASE_SCORER_VERSION = "2026-09-13-v8.8.2-investment-score-dry-run-gate-reconciliation"
+BASELINE_VERSION = "2026-09-15-v8.9.5-v888-plus-v894-da-extension-dry-run"
+
+ROOT = Path(".")
+KST = ZoneInfo("Asia/Seoul")
+
+FIN = ROOT / "latest/financial_valuation_cache_latest.csv"
+BASELINE_CSV = ROOT / "latest/investment_score_v880_dry_run_v895_latest.csv"
+BASELINE_JSON = ROOT / "latest/investment_score_v880_dry_run_v895_summary_latest.json"
+SHADOW_FIN = Path("/tmp/financial_valuation_cache_v899_shadow.csv")
+
+OUT_CSV = ROOT / "latest/investment_score_per_loss_audit_v899.csv"
+OUT_JSON = ROOT / "latest/investment_score_per_loss_audit_v899_summary_latest.json"
+OUT_LOG = ROOT / "latest/investment_score_per_loss_audit_v899_run_log_latest.txt"
+OUT_SCORE_CSV = ROOT / "latest/investment_score_v880_dry_run_v899_latest.csv"
+OUT_SCORE_JSON = ROOT / "latest/investment_score_v880_dry_run_v899_summary_latest.json"
+OUT_SCORE_LOG = ROOT / "latest/investment_score_v880_dry_run_v899_run_log_latest.txt"
+OUT_SCORE_DOC = ROOT / "docs/investment_score_v880_dry_run_v899.md"
+OUT_DOC = ROOT / "docs/investment_score_per_loss_audit_v899.md"
+
+TARGETS = {"003490", "009420", "139480"}
+
+def ticker(value):
+    text = "".join(ch for ch in str(value or "") if ch.isdigit())
+    return text.zfill(6) if text else ""
+
+def num(value):
+    try:
+        text = str(value or "").strip().replace(",", "")
+        if text in {"", "-", "None", "null", "nan", "NaN"}:
+            return None
+        return float(text)
+    except Exception:
+        return None
+
+def read_json(path):
+    return json.loads(path.read_text(encoding="utf-8-sig"))
+
+def read_csv_rows(path):
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+def write_csv(path, rows, fields):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+
+def expected_trend(row):
+    current = num(row.get("net_income"))
+    previous = num(row.get("previous_net_income"))
+    if current is None or previous is None:
+        return ""
+    return finmod.determine_earnings_trend(current, previous)
+
+def missing_set(row):
+    return {
+        item for item in str(row.get("missing_components") or "").split(";")
+        if item
+    }
+
+def main():
+    if scorer.VERSION != BASE_SCORER_VERSION:
+        raise RuntimeError("BASE_SCORER_VERSION_MISMATCH")
+    if scorer.POLICY_VERSION != POLICY_VERSION:
+        raise RuntimeError("POLICY_VERSION_MISMATCH")
+
+    baseline_summary = read_json(BASELINE_JSON)
+    if baseline_summary.get("version") != BASELINE_VERSION:
+        raise RuntimeError("BASELINE_VERSION_MISMATCH")
+    if baseline_summary.get("status") != "DRY_RUN_ONLY":
+        raise RuntimeError("BASELINE_STATUS_MISMATCH")
+
+    baseline_rows = read_csv_rows(BASELINE_CSV)
+    if len(baseline_rows) != 112:
+        raise RuntimeError(f"BASELINE_ROW_COUNT:{len(baseline_rows)}")
+    before = {ticker(r.get("ticker")): r for r in baseline_rows}
+
+    production = scorer.production_rows()
+    if len(production) != 112:
+        raise RuntimeError(f"PRODUCTION_COUNT:{len(production)}")
+    prod_codes = set(production)
+
+    fin_rows = read_csv_rows(FIN)
+    if not fin_rows:
+        raise RuntimeError("FINANCIAL_CACHE_EMPTY")
+    fin_fields = list(fin_rows[0].keys())
+    fin_map = {ticker(r.get("ticker")): r for r in fin_rows if ticker(r.get("ticker"))}
+
+    missing_fin_rows = sorted(prod_codes - set(fin_map))
+    comparable = 0
+    mismatch_codes = []
+    mismatch_classes = Counter()
+    shadow_rows = []
+
+    for original in fin_rows:
+        row = dict(original)
+        code = ticker(row.get("ticker"))
+        if code in prod_codes:
+            expected = expected_trend(row)
+            stored = str(row.get("earnings_trend") or "").strip()
+            if expected:
+                comparable += 1
+                if stored != expected:
+                    mismatch_codes.append(code)
+                    mismatch_classes[f"{stored or 'BLANK'}->{expected}"] += 1
+                    row["earnings_trend"] = expected
+        shadow_rows.append(row)
+
+    mismatch_codes = sorted(set(mismatch_codes))
+    write_csv(SHADOW_FIN, shadow_rows, fin_fields)
+
+    # Reproduce the V8.9.5 validated D&A shadow layer exactly.
+    shadow_stats = v895.build_shadow_raw()
+
+    scorer.VERSION = VERSION
+    scorer.FIN = SHADOW_FIN
+    scorer.RAW = v895.SHADOW_RAW
+    scorer.OUT_CSV = OUT_SCORE_CSV
+    scorer.OUT_JSON = OUT_SCORE_JSON
+    scorer.OUT_LOG = OUT_SCORE_LOG
+    scorer.OUT_DOC = OUT_SCORE_DOC
+
+    rc = scorer.main()
+    if rc not in (None, 0):
+        raise RuntimeError(f"SCORER_FAILED:{rc}")
+
+    after_rows = read_csv_rows(OUT_SCORE_CSV)
+    if len(after_rows) != 112:
+        raise RuntimeError(f"AFTER_ROW_COUNT:{len(after_rows)}")
+    after = {ticker(r.get("ticker")): r for r in after_rows}
+    if set(after) != set(before):
+        raise RuntimeError("SCORER_TICKER_UNIVERSE_CHANGED")
+
+    ready_before = {c for c, r in before.items() if r.get("score_status") == "READY"}
+    ready_after = {c for c, r in after.items() if r.get("score_status") == "READY"}
+    newly_ready = sorted(ready_after - ready_before)
+    lost_ready = sorted(ready_before - ready_after)
+
+    status_changed = []
+    score_changed = []
+    missing_changed = []
+    for code in sorted(before):
+        b, a = before[code], after[code]
+        if b.get("score_status") != a.get("score_status"):
+            status_changed.append(code)
+        if b.get("score_total") != a.get("score_total"):
+            score_changed.append(code)
+        if b.get("missing_components") != a.get("missing_components"):
+            missing_changed.append(code)
+
+    audit_rows = []
+    for code in sorted(prod_codes):
+        f = fin_map.get(code, {})
+        b = before.get(code, {})
+        a = after.get(code, {})
+        expected = expected_trend(f)
+        stored = str(f.get("earnings_trend") or "").strip()
+        per = num(f.get("per_annualized"))
+        current_ni = num(f.get("net_income"))
+        previous_ni = num(f.get("previous_net_income"))
+        audit_rows.append({
+            "ticker": code,
+            "name": str((production.get(code) or {}).get("name") or f.get("name") or ""),
+            "market": str((production.get(code) or {}).get("market") or f.get("market") or ""),
+            "net_income": "" if current_ni is None else current_ni,
+            "previous_net_income": "" if previous_ni is None else previous_ni,
+            "stored_earnings_trend": stored,
+            "expected_net_income_trend": expected,
+            "trend_comparable": "TRUE" if expected else "FALSE",
+            "trend_mismatch": "TRUE" if expected and stored != expected else "FALSE",
+            "per_annualized": "" if per is None else per,
+            "valuation_data_status": str(f.get("valuation_data_status") or ""),
+            "baseline_score_status": str(b.get("score_status") or ""),
+            "shadow_score_status": str(a.get("score_status") or ""),
+            "baseline_score_total": str(b.get("score_total") or ""),
+            "shadow_score_total": str(a.get("score_total") or ""),
+            "baseline_missing_components": str(b.get("missing_components") or ""),
+            "shadow_missing_components": str(a.get("missing_components") or ""),
+            "single_per_blocker_target": "TRUE" if code in TARGETS else "FALSE",
+        })
+
+    target_results = {}
+    for code in sorted(TARGETS):
+        row = fin_map.get(code, {})
+        b = before.get(code, {})
+        a = after.get(code, {})
+        target_results[code] = {
+            "name": str(row.get("name") or ""),
+            "net_income": num(row.get("net_income")),
+            "previous_net_income": num(row.get("previous_net_income")),
+            "eps_annualized": num(row.get("eps_annualized")),
+            "per_annualized": num(row.get("per_annualized")),
+            "valuation_data_status": str(row.get("valuation_data_status") or ""),
+            "stored_earnings_trend": str(row.get("earnings_trend") or ""),
+            "expected_net_income_trend": expected_trend(row),
+            "baseline_score_status": str(b.get("score_status") or ""),
+            "shadow_score_status": str(a.get("score_status") or ""),
+            "baseline_missing_components": str(b.get("missing_components") or ""),
+            "shadow_missing_components": str(a.get("missing_components") or ""),
+            "baseline_score_total": num(b.get("score_total")),
+            "shadow_score_total": num(a.get("score_total")),
+        }
+
+    target_new_ready = sorted(TARGETS & set(newly_ready))
+    per_missing_before = sum(
+        1 for r in before.values()
+        if any(x == "PER:MISSING_PER" for x in missing_set(r))
+    )
+    per_missing_after = sum(
+        1 for r in after.values()
+        if any(x == "PER:MISSING_PER" for x in missing_set(r))
+    )
+
+    score_summary = read_json(OUT_SCORE_JSON)
+    score_summary["version"] = VERSION
+    score_summary["status"] = "DRY_RUN_ONLY"
+    score_summary["v899_shadow_change"] = {
+        "financial_cache_persisted": False,
+        "earnings_trend_shadow_only": True,
+        "trend_definition": "net_income vs previous_net_income",
+        "production_comparable_count": comparable,
+        "production_mismatch_count": len(mismatch_codes),
+        "production_mismatch_tickers": mismatch_codes,
+        "mismatch_class_counts": dict(mismatch_classes),
+        "baseline_ready_count": len(ready_before),
+        "shadow_ready_count": len(ready_after),
+        "newly_ready_tickers": newly_ready,
+        "lost_ready_tickers": lost_ready,
+        "status_changed_tickers": status_changed,
+        "score_changed_tickers": score_changed,
+        "missing_components_changed_tickers": missing_changed,
+        "per_missing_blocker_before": per_missing_before,
+        "per_missing_blocker_after": per_missing_after,
+        "target_single_per_blockers": sorted(TARGETS),
+        "target_newly_ready_tickers": target_new_ready,
+    }
+    score_summary["hard_guards"] = {
+        "production_api_changed": False,
+        "production_investment_score_written": False,
+        "scoring_policy_changed": False,
+        "financial_valuation_cache_mutated": False,
+        "financial_valuation_enricher_mutated": False,
+        "raw_source_cache_mutated": False,
+        "approved_da_ids_changed": False,
+        "new_value_imputed": False,
+        "base_v882_scorer_reused": True,
+        "v895_da_shadow_reused": True,
+    }
+    OUT_SCORE_JSON.write_text(
+        json.dumps(score_summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    summary = {
+        "version": VERSION,
+        "policy_version": POLICY_VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+        "status": "AUDIT_AND_SHADOW_DRY_RUN_ONLY",
+        "production_unique_tickers": len(prod_codes),
+        "financial_cache_missing_production_rows": missing_fin_rows,
+        "earnings_trend_contract": {
+            "field_semantics": "순이익 흐름",
+            "expected_inputs": ["net_income", "previous_net_income"],
+            "current_source_wiring_observed": [
+                "operating_profit",
+                "previous_operating_profit",
+            ],
+            "source_wiring_mismatch_confirmed": True,
+        },
+        "trend_audit": {
+            "comparable_count": comparable,
+            "mismatch_count": len(mismatch_codes),
+            "mismatch_tickers": mismatch_codes,
+            "mismatch_class_counts": dict(mismatch_classes),
+        },
+        "per_loss_semantics": {
+            "scorer_checks_loss_trend_before_missing_per": True,
+            "per_missing_blocker_before": per_missing_before,
+            "per_missing_blocker_after_shadow_trend_fix": per_missing_after,
+            "single_blocker_targets": sorted(TARGETS),
+            "target_results": target_results,
+        },
+        "score_impact": {
+            "baseline_ready_count": len(ready_before),
+            "shadow_ready_count": len(ready_after),
+            "ready_delta": len(ready_after) - len(ready_before),
+            "newly_ready_tickers": newly_ready,
+            "lost_ready_tickers": lost_ready,
+            "status_changed_count": len(status_changed),
+            "status_changed_tickers": status_changed,
+            "score_changed_count": len(score_changed),
+            "score_changed_tickers": score_changed,
+            "missing_components_changed_count": len(missing_changed),
+            "missing_components_changed_tickers": missing_changed,
+            "target_newly_ready_tickers": target_new_ready,
+        },
+        "v895_da_shadow_reproduction": shadow_stats,
+        "hard_guards": {
+            "production_api_changed": False,
+            "production_investment_score_written": False,
+            "scoring_policy_changed": False,
+            "financial_valuation_cache_mutated": False,
+            "financial_valuation_enricher_mutated": False,
+            "raw_source_cache_mutated": False,
+            "approved_da_ids_changed": False,
+            "new_value_imputed": False,
+        },
+        "next_step": (
+            "PATCH_EARNINGS_TREND_SOURCE_WIRING_AND_REBUILD_FINANCIAL_CACHE_THEN_RERUN_DRY_RUN"
+            if len(mismatch_codes) > 0
+            else "NO_EARNINGS_TREND_WIRING_PATCH_NEEDED"
+        ),
+    }
+
+    write_csv(OUT_CSV, audit_rows, list(audit_rows[0].keys()))
+    OUT_JSON.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+    OUT_DOC.write_text(
+        "\n".join([
+            "# V8.9.9 PER loss semantics and earnings-trend wiring audit",
+            "",
+            f"- Version: `{VERSION}`",
+            "- Status: audit + shadow dry-run only",
+            "- Production mutation: none",
+            "",
+            "## Purpose",
+            "",
+            "- Verify whether `earnings_trend` matches the approved meaning `순이익 흐름`.",
+            "- Recompute trend from net income only in a temporary shadow cache.",
+            "- Reuse the approved V8.8.2 scorer and V8.9.5 D&A shadow inputs.",
+            "- Measure READY/LIMITED and score impact before any source patch.",
+            "",
+            "## Safety",
+            "",
+            "- No scoring threshold changes.",
+            "- No PER imputation for loss companies.",
+            "- No production score write.",
+            "- No persistent financial/source cache mutation.",
+            "",
+            f"## Next\n\n`{summary['next_step']}`\n",
+        ]),
+        encoding="utf-8",
+    )
+
+    log = [
+        f"VERSION={VERSION}",
+        f"PRODUCTION_COUNT={len(prod_codes)}",
+        f"TREND_COMPARABLE={comparable}",
+        f"TREND_MISMATCH={len(mismatch_codes)}",
+        "TREND_MISMATCH_TICKERS=" + ",".join(mismatch_codes),
+        f"PER_MISSING_BEFORE={per_missing_before}",
+        f"PER_MISSING_AFTER={per_missing_after}",
+        f"READY_BEFORE={len(ready_before)}",
+        f"READY_AFTER={len(ready_after)}",
+        f"READY_DELTA={len(ready_after)-len(ready_before)}",
+        "NEWLY_READY_TICKERS=" + ",".join(newly_ready),
+        "LOST_READY_TICKERS=" + ",".join(lost_ready),
+        "TARGET_NEWLY_READY_TICKERS=" + ",".join(target_new_ready),
+        f"SCORE_CHANGED={len(score_changed)}",
+        "FINANCIAL_CACHE_MUTATED=false",
+        "FINANCIAL_ENRICHER_MUTATED=false",
+        "PRODUCTION_DATA_CHANGED=false",
+        "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+        "SCORING_POLICY_CHANGED=false",
+        "NEW_VALUE_IMPUTED=false",
+        "STATUS=OK",
+        "NEXT_STEP=" + summary["next_step"],
+    ]
+    OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+
+    print("V899_AUDIT=PASS")
+    print("\n".join(log))
+
+if __name__ == "__main__":
+    main()
+

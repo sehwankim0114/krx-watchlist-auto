@@ -1,0 +1,752 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import csv
+import json
+import math
+import os
+import time
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import pandas as pd
+
+import collect_universe as universe
+import investment_score_source_enricher_v854 as src
+import stock_table_metrics_v850 as metric
+
+VERSION = "2026-09-15-v8.10.4-next-single-source-recoverability-audit"
+V8102_VERSION = "2026-09-15-v8.10.2-combined-validated-source-reconciliation"
+V8103_VERSION = "2026-09-15-v8.10.3-current-single-da-recoverability-audit"
+POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+
+ROOT = Path(".")
+KST = ZoneInfo("Asia/Seoul")
+
+BLOCK_CSV = ROOT / "latest/investment_score_remaining_blockers_v8102.csv"
+BLOCK_JSON = ROOT / "latest/investment_score_remaining_blockers_v8102_summary_latest.json"
+DA8103_JSON = ROOT / "latest/investment_score_da_current_single_recoverability_v8103_summary_latest.json"
+
+HISTORY = ROOT / "latest/universe_raw_history_latest.csv"
+SOURCE_CACHE = ROOT / "latest/investment_score_source_cache_latest.csv"
+FIN_CACHE = ROOT / "latest/financial_valuation_cache_latest.csv"
+DECLINERS_JSON = ROOT / "api/two_table_v1/decliners.json"
+
+OUT_CSV = ROOT / "latest/investment_score_next_single_source_v8104.csv"
+OUT_JSON = ROOT / "latest/investment_score_next_single_source_v8104_summary_latest.json"
+OUT_LOG = ROOT / "latest/investment_score_next_single_source_v8104_run_log_latest.txt"
+OUT_DOC = ROOT / "docs/investment_score_next_single_source_v8104.md"
+
+PRICE_TICKER = "001020"
+PRICE_NAME = "페이퍼코리아"
+PRICE_REASON = "과열·급락 위험:MISSING_RISK_INPUT"
+
+ACCEL_TICKER = "357250"
+ACCEL_NAME = "미래에셋맵스리츠"
+ACCEL_REASON = "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+
+EXPECTED_DA_EXHAUSTED = {
+    "001560", "011200", "012450", "012690", "017670",
+    "020560", "022100", "023960", "078520", "483650",
+}
+
+
+def ticker(value):
+    text = "".join(ch for ch in str(value or "") if ch.isdigit())
+    return text.zfill(6) if text else ""
+
+
+def num(value):
+    try:
+        if value is None or isinstance(value, bool):
+            return None
+        text = str(value).strip().replace(",", "")
+        if text in {"", "-", "None", "null", "nan", "NaN"}:
+            return None
+        value = float(text)
+        return value if math.isfinite(value) else None
+    except Exception:
+        return None
+
+
+def read_json(path: Path):
+    return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
+def read_csv(path: Path):
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def write_csv(path: Path, rows, fields):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
+        w.writeheader()
+        w.writerows(rows)
+
+
+def recursive_find_ticker(obj, code):
+    hits = []
+    if isinstance(obj, dict):
+        direct = ticker(obj.get("ticker") or obj.get("code") or obj.get("stock_code"))
+        if direct == code:
+            hits.append(obj)
+        for value in obj.values():
+            hits.extend(recursive_find_ticker(value, code))
+    elif isinstance(obj, list):
+        for value in obj:
+            hits.extend(recursive_find_ticker(value, code))
+    return hits
+
+
+def extract_price_metrics():
+    payload = read_json(DECLINERS_JSON)
+    hits = recursive_find_ticker(payload, PRICE_TICKER)
+    if not hits:
+        raise RuntimeError("PRICE_TARGET_NOT_FOUND_IN_DECLINERS_JSON")
+
+    metric_hits = []
+    for hit in hits:
+        m = hit.get("metrics") if isinstance(hit.get("metrics"), dict) else hit
+        if isinstance(m, dict) and isinstance(m.get("atr14"), dict):
+            metric_hits.append((hit, m))
+
+    if len(metric_hits) != 1:
+        raise RuntimeError(f"PRICE_TARGET_METRIC_HIT_COUNT:{len(metric_hits)}")
+
+    hit, m = metric_hits[0]
+    basis = str(m.get("basis_date") or hit.get("asof_date") or "").strip()
+    if not basis:
+        raise RuntimeError("PRICE_BASIS_DATE_MISSING")
+
+    atr = m.get("atr14") or {}
+    missing = m.get("missing") or {}
+    swing = m.get("swing") or {}
+    returns = m.get("returns") or {}
+    one = returns.get("1") or {}
+
+    if num(atr.get("pct")) is not None:
+        raise RuntimeError("PRICE_ATR_ALREADY_PRESENT")
+    if missing.get("atr14") != "OHLC_MISSING_OR_NEED_15_BARS":
+        raise RuntimeError(
+            "PRICE_ATR_MISSING_REASON_CHANGED:" + str(missing.get("atr14"))
+        )
+    if not str(swing.get("phase") or ""):
+        raise RuntimeError("PRICE_SWING_PHASE_MISSING_TOO")
+    if num(one.get("pct")) is None:
+        raise RuntimeError("PRICE_RETURN_1M_MISSING_TOO")
+
+    return {
+        "basis_date": basis,
+        "current_close": num(m.get("official_close")),
+        "current_swing_phase": swing.get("phase"),
+        "current_new_20d_low": swing.get("new_20d_low"),
+        "current_return_1m_pct": num(one.get("pct")),
+        "current_atr_missing_reason": missing.get("atr14"),
+    }
+
+
+def valid_ohlc_row(row):
+    close = num(row.get("close"))
+    high = num(row.get("high"))
+    low = num(row.get("low"))
+    return (
+        close is not None and close > 0
+        and high is not None and low is not None
+        and low > 0 and low <= close <= high
+    )
+
+
+def audit_price_atr(krx_key):
+    current = extract_price_metrics()
+    basis = pd.Timestamp(current["basis_date"])
+
+    raw = universe.read_csv_if_exists(HISTORY)
+    hist = universe.normalize_history_dtypes(raw)
+    if hist.empty:
+        raise RuntimeError("OFFICIAL_HISTORY_EMPTY")
+
+    kospi = hist[
+        (hist["market"] == "KOSPI")
+        & (hist["date"] <= basis)
+    ].copy()
+    sessions = sorted(pd.Timestamp(x) for x in kospi["date"].dropna().unique())
+    if not sessions or sessions[-1] != basis:
+        return {
+            **current,
+            "classification": "OFFICIAL_KRX_SESSION_CALENDAR_NOT_CURRENT",
+            "session_calendar_count": len(sessions),
+            "target_session_count": 0,
+            "initial_valid_session_count": 0,
+            "refetch_target_count": 0,
+            "refetch_recovered_count": 0,
+            "final_valid_session_count": 0,
+            "atr14_krw": None,
+            "atr14_pct": None,
+            "unresolved_dates": [],
+        }
+
+    if len(sessions) < 126:
+        return {
+            **current,
+            "classification": "OFFICIAL_KRX_SESSION_CALENDAR_INSUFFICIENT",
+            "session_calendar_count": len(sessions),
+            "target_session_count": len(sessions),
+            "initial_valid_session_count": 0,
+            "refetch_target_count": 0,
+            "refetch_recovered_count": 0,
+            "final_valid_session_count": 0,
+            "atr14_krw": None,
+            "atr14_pct": None,
+            "unresolved_dates": [],
+        }
+
+    target_sessions = sessions[-126:]
+    target_set = set(target_sessions)
+
+    own = kospi[kospi["ticker"] == PRICE_TICKER].copy()
+    by_date = {}
+    for _, row in own.iterrows():
+        day = pd.Timestamp(row["date"])
+        if day in target_set:
+            by_date[day] = row.to_dict()
+
+    initial_valid = {
+        day for day in target_sessions
+        if day in by_date and valid_ohlc_row(by_date[day])
+    }
+    refetch_dates = [
+        day for day in target_sessions if day not in initial_valid
+    ]
+
+    recovered = 0
+    fetch_log = []
+    for day in refetch_dates:
+        bas_dd = day.strftime("%Y%m%d")
+        logs = []
+        raw_day = universe.request_krx_openapi(
+            universe.OPENAPI_STOCK_URLS["KOSPI"],
+            krx_key,
+            bas_dd,
+            logs,
+            "V8104_KOSPI_STOCK",
+        )
+        norm = universe.normalize_stock_rows(
+            raw_day, "KOSPI", bas_dd, logs
+        )
+        match = norm[norm["ticker"] == PRICE_TICKER] if not norm.empty else norm
+        if match is not None and not match.empty:
+            row = match.iloc[-1].to_dict()
+            row["date"] = pd.Timestamp(row["date"])
+            if valid_ohlc_row(row):
+                by_date[day] = row
+                recovered += 1
+        fetch_log.append({
+            "date": day.date().isoformat(),
+            "log": logs[-3:],
+        })
+        time.sleep(0.08)
+
+    unresolved = [
+        day for day in target_sessions
+        if day not in by_date or not valid_ohlc_row(by_date[day])
+    ]
+    final_valid = len(target_sessions) - len(unresolved)
+
+    atr_value = None
+    atr_pct = None
+    classification = "OFFICIAL_KRX_OHLC_INCOMPLETE"
+
+    if not unresolved and len(target_sessions) == 126:
+        bars = []
+        for day in target_sessions:
+            row = by_date[day]
+            bars.append({
+                "date": day.date().isoformat(),
+                "close": num(row.get("close")),
+                "high": num(row.get("high")),
+                "low": num(row.get("low")),
+                "volume": num(row.get("volume")),
+                "trading_value": num(row.get("trading_value")),
+            })
+        normalized = metric.normalize_bars(
+            bars, basis.date().isoformat()
+        )
+        if len(normalized) != 126:
+            raise RuntimeError(
+                f"PRICE_NORMALIZED_BAR_COUNT:{len(normalized)}"
+            )
+        atr_value = metric.atr_wilder(normalized, period=14)
+        if atr_value is not None and normalized[-1]["close"] > 0:
+            atr_pct = 100.0 * atr_value / normalized[-1]["close"]
+            classification = "OFFICIAL_KRX_OHLC_RECOVERABLE"
+
+    return {
+        **current,
+        "classification": classification,
+        "session_calendar_count": len(sessions),
+        "target_session_count": len(target_sessions),
+        "initial_valid_session_count": len(initial_valid),
+        "refetch_target_count": len(refetch_dates),
+        "refetch_recovered_count": recovered,
+        "final_valid_session_count": final_valid,
+        "atr14_krw": round(atr_value, 6) if atr_value is not None else None,
+        "atr14_pct": round(atr_pct, 6) if atr_pct is not None else None,
+        "unresolved_dates": [d.date().isoformat() for d in unresolved],
+        "refetch_log": fetch_log,
+    }
+
+
+def fetch_full_period(client, target, year, report_code):
+    by_fs = {}
+    attempts = []
+    order = []
+    for fs in (target.get("preferred_fs_div") or "CFS", "CFS", "OFS"):
+        if fs and fs not in order:
+            order.append(fs)
+
+    for fs in order:
+        payload = client.get_json(
+            src.FULL_ACCOUNT_URL,
+            {
+                "corp_code": target["corp_code"],
+                "bsns_year": str(year),
+                "reprt_code": report_code,
+                "fs_div": fs,
+            },
+            f"v8104:{target['ticker']}:{year}:{report_code}:{fs}",
+        )
+        status = src.norm_text(payload.get("status"))
+        items = payload.get("list") if isinstance(payload.get("list"), list) else []
+        by_fs[fs] = [dict(x) for x in items]
+        attempts.append({
+            "year": year,
+            "report_code": report_code,
+            "fs_div": fs,
+            "dart_status": status,
+            "dart_message": src.norm_text(payload.get("message")),
+            "row_count": len(items),
+        })
+        time.sleep(0.08)
+
+    selected_fs, rows = src.select_fs_rows(
+        by_fs, target.get("preferred_fs_div") or "CFS"
+    )
+    accounts = src.account_values(rows) if rows else {
+        key: {"found": False} for key in src.ACCOUNT_SPECS
+    }
+    return {
+        "year": year,
+        "report_code": report_code,
+        "selected_fs_div": selected_fs,
+        "row_count": len(rows),
+        "accounts": accounts,
+        "attempts": attempts,
+    }
+
+
+def audit_acceleration(dart_key):
+    rows = read_csv(SOURCE_CACHE)
+    m = {ticker(r.get("ticker")): r for r in rows if ticker(r.get("ticker"))}
+    current = m.get(ACCEL_TICKER)
+    if not current:
+        raise RuntimeError("ACCEL_SOURCE_CACHE_ROW_MISSING")
+
+    if str(current.get("source_cache_status") or "") != "LIMITED_RAW_SOURCE":
+        raise RuntimeError(
+            "ACCEL_SOURCE_CACHE_STATUS_CHANGED:" +
+            str(current.get("source_cache_status"))
+        )
+
+    current_reason = str(current.get("source_cache_reason") or "")
+    if current_reason != "QUARTER_LIMITED":
+        raise RuntimeError(
+            "ACCEL_SOURCE_CACHE_REASON_CHANGED:" + current_reason
+        )
+    if str(current.get("quarter_source_status") or "") != "LIMITED":
+        raise RuntimeError(
+            "ACCEL_QUARTER_SOURCE_STATUS_CHANGED:" +
+            str(current.get("quarter_source_status"))
+        )
+
+    financial_df = src.read_csv(FIN_CACHE)
+    targets = src.load_targets(financial_df)
+    target_map = {t["ticker"]: t for t in targets}
+    target = target_map.get(ACCEL_TICKER)
+    if not target:
+        raise RuntimeError("ACCEL_FINANCIAL_TARGET_NOT_AVAILABLE")
+    if target["corp_code"] != "01437292":
+        raise RuntimeError(
+            "ACCEL_CORP_CODE_CHANGED:" + target["corp_code"]
+        )
+
+    dominant_year, dominant_code = src.dominant_period(targets)
+    if dominant_code != "11012":
+        raise RuntimeError(
+            f"ACCEL_DOMINANT_REPORT_CODE_CHANGED:{dominant_year}_{dominant_code}"
+        )
+
+    annual_year = dominant_year - 1
+    client = src.OpenDartClient(dart_key, timeout=30)
+
+    periods = {
+        "annual": fetch_full_period(
+            client, target, annual_year, "11011"
+        ),
+        "h1_current": fetch_full_period(
+            client, target, dominant_year, "11012"
+        ),
+        "q1_current": fetch_full_period(
+            client, target, dominant_year, "11013"
+        ),
+        "h1_previous": fetch_full_period(
+            client, target, dominant_year - 1, "11012"
+        ),
+        "q1_previous": fetch_full_period(
+            client, target, dominant_year - 1, "11013"
+        ),
+    }
+
+    annual = periods["annual"]["accounts"]
+    annual_rev_y0 = annual["revenue"].get("thstrm_amount")
+    annual_rev_y1 = annual["revenue"].get("frmtrm_amount")
+    annual_op_y0 = annual["operating_profit"].get("thstrm_amount")
+    annual_op_y1 = annual["operating_profit"].get("frmtrm_amount")
+
+    def cumulative(period_key, account_key):
+        account = periods[period_key]["accounts"].get(account_key) or {}
+        return src.cumulative_value(account)
+
+    h1_rev_cur = cumulative("h1_current", "revenue")
+    q1_rev_cur = cumulative("q1_current", "revenue")
+    h1_op_cur = cumulative("h1_current", "operating_profit")
+    q1_op_cur = cumulative("q1_current", "operating_profit")
+
+    h1_rev_prev = cumulative("h1_previous", "revenue")
+    q1_rev_prev = cumulative("q1_previous", "revenue")
+    h1_op_prev = cumulative("h1_previous", "operating_profit")
+    q1_op_prev = cumulative("q1_previous", "operating_profit")
+
+    q2_rev_cur = (
+        h1_rev_cur - q1_rev_cur
+        if h1_rev_cur is not None and q1_rev_cur is not None else None
+    )
+    q2_op_cur = (
+        h1_op_cur - q1_op_cur
+        if h1_op_cur is not None and q1_op_cur is not None else None
+    )
+    q2_rev_prev = (
+        h1_rev_prev - q1_rev_prev
+        if h1_rev_prev is not None and q1_rev_prev is not None else None
+    )
+    q2_op_prev = (
+        h1_op_prev - q1_op_prev
+        if h1_op_prev is not None and q1_op_prev is not None else None
+    )
+
+    q2_rev_yoy = src.safe_yoy_pct(q2_rev_cur, q2_rev_prev)
+    q2_op_yoy = src.safe_yoy_pct(q2_op_cur, q2_op_prev)
+
+    scorer_fields = {
+        "q2_revenue_yoy_pct": q2_rev_yoy,
+        "q2_operating_profit_yoy_pct": q2_op_yoy,
+        "q2_operating_profit_current": q2_op_cur,
+        "q2_operating_profit_previous": q2_op_prev,
+        "annual_revenue_y0": annual_rev_y0,
+        "annual_revenue_y1": annual_rev_y1,
+        "annual_operating_profit_y0": annual_op_y0,
+        "annual_operating_profit_y1": annual_op_y1,
+    }
+    missing = sorted(
+        key for key, value in scorer_fields.items()
+        if value is None
+    )
+
+    if not missing and annual_rev_y1 is not None and annual_rev_y1 > 0:
+        classification = "OFFICIAL_FULL_ACCOUNT_ACCEL_RECOVERABLE"
+    elif not missing:
+        classification = "OFFICIAL_FULL_ACCOUNT_FIELDS_PRESENT_BUT_SCORER_DENOM_INVALID"
+    else:
+        classification = "OFFICIAL_FULL_ACCOUNT_ACCEL_INCOMPLETE"
+
+    return {
+        "classification": classification,
+        "current_source_cache_status": current.get("source_cache_status"),
+        "current_source_cache_reason": current_reason,
+        "current_quarter_source_status": current.get("quarter_source_status"),
+        "corp_code": target["corp_code"],
+        "preferred_fs_div": target.get("preferred_fs_div"),
+        "dominant_financial_period": f"{dominant_year}_{dominant_code}",
+        "annual_source_year": annual_year,
+        "scorer_fields": scorer_fields,
+        "missing_scorer_fields": missing,
+        "periods": periods,
+        "api_telemetry": {
+            "attempted": client.attempted,
+            "successful": client.successful,
+            "transport_failures": client.transport_failures,
+            "dart_status_failures": client.dart_status_failures,
+        },
+    }
+
+
+def main():
+    krx_key = os.environ.get("KRX_AUTH_KEY", "").strip()
+    dart_key = os.environ.get("DART_API_KEY", "").strip()
+    if not krx_key:
+        raise RuntimeError("KRX_AUTH_KEY_MISSING")
+    if not dart_key:
+        raise RuntimeError("DART_API_KEY_MISSING")
+
+    required = [
+        BLOCK_CSV, BLOCK_JSON, DA8103_JSON,
+        HISTORY, SOURCE_CACHE, FIN_CACHE, DECLINERS_JSON,
+    ]
+    for path in required:
+        if not path.is_file():
+            raise RuntimeError("MISSING_REQUIRED_SOURCE:" + str(path))
+
+    s8102 = read_json(BLOCK_JSON)
+    if s8102.get("version") != V8102_VERSION:
+        raise RuntimeError("V8102_VERSION_MISMATCH")
+    if s8102.get("status") != "AUDIT_ONLY":
+        raise RuntimeError("V8102_STATUS_MISMATCH")
+    if s8102.get("policy_version") != POLICY_VERSION:
+        raise RuntimeError("V8102_POLICY_VERSION_MISMATCH")
+    if int(s8102.get("ready_count") or 0) != 56:
+        raise RuntimeError("V8102_READY_NOT_56")
+    if int(s8102.get("limited_count") or 0) != 56:
+        raise RuntimeError("V8102_LIMITED_NOT_56")
+
+    s8103 = read_json(DA8103_JSON)
+    if s8103.get("version") != V8103_VERSION:
+        raise RuntimeError("V8103_VERSION_MISMATCH")
+    if s8103.get("status") != "AUDIT_ONLY":
+        raise RuntimeError("V8103_STATUS_MISMATCH")
+    if int(s8103.get("current_single_exact_da_count") or 0) != 10:
+        raise RuntimeError("V8103_EXACT_DA_COUNT_NOT_10")
+    if int(s8103.get("currently_exhausted_count") or 0) != 10:
+        raise RuntimeError("V8103_EXHAUSTED_COUNT_NOT_10")
+    if set(s8103.get("currently_exhausted_tickers") or []) != EXPECTED_DA_EXHAUSTED:
+        raise RuntimeError("V8103_EXHAUSTED_SET_MISMATCH")
+    if int(s8103.get("both_approved_exact_recovered_now_count") or 0) != 0:
+        raise RuntimeError("V8103_UNEXPECTED_DA_RECOVERY")
+
+    blockers = read_csv(BLOCK_CSV)
+    singles = [
+        r for r in blockers
+        if str(r.get("single_blocker_ticker") or "").upper() == "TRUE"
+    ]
+
+    price_rows = [
+        r for r in singles
+        if ticker(r.get("ticker")) == PRICE_TICKER
+    ]
+    accel_rows = [
+        r for r in singles
+        if ticker(r.get("ticker")) == ACCEL_TICKER
+    ]
+    if len(price_rows) != 1:
+        raise RuntimeError(f"PRICE_SINGLE_BLOCKER_ROW_COUNT:{len(price_rows)}")
+    if len(accel_rows) != 1:
+        raise RuntimeError(f"ACCEL_SINGLE_BLOCKER_ROW_COUNT:{len(accel_rows)}")
+
+    pr = price_rows[0]
+    ar = accel_rows[0]
+    if pr.get("source_group") != "PRODUCTION_PRICE_METRICS":
+        raise RuntimeError("PRICE_SOURCE_GROUP_CHANGED")
+    if pr.get("blocker_reason") != PRICE_REASON:
+        raise RuntimeError("PRICE_BLOCKER_REASON_CHANGED")
+    if ar.get("source_group") != "INVESTMENT_SCORE_SOURCE_CACHE":
+        raise RuntimeError("ACCEL_SOURCE_GROUP_CHANGED")
+    if ar.get("blocker_reason") != ACCEL_REASON:
+        raise RuntimeError("ACCEL_BLOCKER_REASON_CHANGED")
+
+    price = audit_price_atr(krx_key)
+    accel = audit_acceleration(dart_key)
+
+    price_recoverable = (
+        price["classification"] == "OFFICIAL_KRX_OHLC_RECOVERABLE"
+    )
+    accel_recoverable = (
+        accel["classification"] == "OFFICIAL_FULL_ACCOUNT_ACCEL_RECOVERABLE"
+    )
+
+    rows = [
+        {
+            "ticker": PRICE_TICKER,
+            "name": PRICE_NAME,
+            "source_group": "PRODUCTION_PRICE_METRICS",
+            "blocker_reason": PRICE_REASON,
+            "audit_kind": "ATR14_OFFICIAL_KRX_OHLC",
+            "classification": price["classification"],
+            "recoverable_source_only": "TRUE" if price_recoverable else "FALSE",
+            "basis_or_period": price["basis_date"],
+            "primary_value": (
+                "" if price["atr14_pct"] is None else str(price["atr14_pct"])
+            ),
+            "missing_or_unresolved": "|".join(price["unresolved_dates"]),
+            "details_json": json.dumps(
+                price, ensure_ascii=False, separators=(",", ":")
+            ),
+        },
+        {
+            "ticker": ACCEL_TICKER,
+            "name": ACCEL_NAME,
+            "source_group": "INVESTMENT_SCORE_SOURCE_CACHE",
+            "blocker_reason": ACCEL_REASON,
+            "audit_kind": "ACCEL_OFFICIAL_OPENDART_FULL_ACCOUNT",
+            "classification": accel["classification"],
+            "recoverable_source_only": "TRUE" if accel_recoverable else "FALSE",
+            "basis_or_period": accel["dominant_financial_period"],
+            "primary_value": "",
+            "missing_or_unresolved": "|".join(accel["missing_scorer_fields"]),
+            "details_json": json.dumps(
+                accel, ensure_ascii=False, separators=(",", ":")
+            ),
+        },
+    ]
+
+    recoverable = [
+        row["ticker"] for row in rows
+        if row["recoverable_source_only"] == "TRUE"
+    ]
+    exhausted = [
+        row["ticker"] for row in rows
+        if row["recoverable_source_only"] != "TRUE"
+    ]
+
+    next_step = (
+        "FREEZE_V8104_RECOVERABLE_SOURCE_ONLY_THEN_COMBINED_SHADOW_DRY_RUN"
+        if recoverable
+        else
+        "DEFER_V8104_EXHAUSTED_SINGLE_SOURCES_AND_MOVE_TO_NEXT_MULTI_BLOCKER_GROUP"
+    )
+
+    fields = list(rows[0].keys())
+    write_csv(OUT_CSV, rows, fields)
+
+    summary = {
+        "version": VERSION,
+        "v8102_version": V8102_VERSION,
+        "v8103_version": V8103_VERSION,
+        "policy_version": POLICY_VERSION,
+        "metric_contract_version": metric.VERSION,
+        "universe_script_version": universe.SCRIPT_VERSION,
+        "source_script_version": src.SCRIPT_VERSION,
+        "source_contract_version": src.SOURCE_CONTRACT_VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+        "status": "AUDIT_ONLY",
+        "target_count": 2,
+        "targets": [PRICE_TICKER, ACCEL_TICKER],
+        "price_target": {
+            "ticker": PRICE_TICKER,
+            "name": PRICE_NAME,
+            **price,
+        },
+        "acceleration_target": {
+            "ticker": ACCEL_TICKER,
+            "name": ACCEL_NAME,
+            **accel,
+        },
+        "recoverable_source_only_count": len(recoverable),
+        "recoverable_source_only_tickers": recoverable,
+        "not_recoverable_now_count": len(exhausted),
+        "not_recoverable_now_tickers": exhausted,
+        "automatic_promotion": {
+            "allowed": False,
+            "promoted_ticker_count": 0,
+        },
+        "hard_guards": {
+            "production_api_changed": False,
+            "production_investment_score_written": False,
+            "scoring_policy_changed": False,
+            "universe_history_mutated": False,
+            "source_cache_mutated": False,
+            "financial_cache_mutated": False,
+            "two_table_api_mutated": False,
+            "source_value_imputed": False,
+            "average_daily_range_used_as_atr": False,
+            "h1_used_directly_as_q2": False,
+            "missing_acceleration_value_assumed": False,
+        },
+        "next_step": next_step,
+    }
+    OUT_JSON.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    log = [
+        f"VERSION={VERSION}",
+        "STATUS=AUDIT_ONLY",
+        "TARGET_COUNT=2",
+        f"PRICE_TARGET={PRICE_TICKER}",
+        f"PRICE_CLASSIFICATION={price['classification']}",
+        f"PRICE_ATR14_PCT={price['atr14_pct']}",
+        f"ACCEL_TARGET={ACCEL_TICKER}",
+        f"ACCEL_CLASSIFICATION={accel['classification']}",
+        "ACCEL_MISSING_FIELDS=" + ",".join(accel["missing_scorer_fields"]),
+        f"RECOVERABLE_SOURCE_ONLY_COUNT={len(recoverable)}",
+        "RECOVERABLE_SOURCE_ONLY_TICKERS=" + ",".join(recoverable),
+        f"NOT_RECOVERABLE_NOW_COUNT={len(exhausted)}",
+        "NOT_RECOVERABLE_NOW_TICKERS=" + ",".join(exhausted),
+        "PRODUCTION_API_CHANGED=false",
+        "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+        "SCORING_POLICY_CHANGED=false",
+        "UNIVERSE_HISTORY_MUTATED=false",
+        "SOURCE_CACHE_MUTATED=false",
+        "FINANCIAL_CACHE_MUTATED=false",
+        "TWO_TABLE_API_MUTATED=false",
+        "SOURCE_VALUE_IMPUTED=false",
+        "AVERAGE_DAILY_RANGE_USED_AS_ATR=false",
+        "H1_USED_DIRECTLY_AS_Q2=false",
+        "MISSING_ACCELERATION_VALUE_ASSUMED=false",
+        "STATUS_OK=true",
+        f"NEXT_STEP={next_step}",
+    ]
+    OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+
+    OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+    OUT_DOC.write_text(
+        "\n".join([
+            "# V8.10.4 next single-source recoverability audit",
+            "",
+            f"- Version: `{VERSION}`",
+            "- Status: AUDIT_ONLY",
+            "- Targets: 001020 페이퍼코리아, 357250 미래에셋맵스리츠",
+            "",
+            "## 001020",
+            "",
+            "- Rebuild ATR14 only from confirmed official KRX daily OHLC.",
+            "- Re-fetch only missing/invalid official sessions in memory.",
+            "- Do not substitute average daily range for ATR.",
+            "",
+            "## 357250",
+            "",
+            "- Audit the approved OpenDART full-account path.",
+            "- Q2 is H1 cumulative minus Q1 cumulative, exactly following V8.5.4 source semantics.",
+            "- Do not use H1 directly as Q2 and do not impute missing values.",
+            "",
+            "## Safety",
+            "",
+            "- No production/API/cache/history mutation.",
+            "- No score-policy change.",
+            "- No automatic promotion.",
+            "",
+            "## Next",
+            "",
+            f"`{next_step}`",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+
+    print("V8104_NEXT_SINGLE_SOURCE_RECOVERABILITY_AUDIT=PASS")
+    print("\n".join(log))
+
+
+if __name__ == "__main__":
+    main()

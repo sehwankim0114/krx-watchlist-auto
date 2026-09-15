@@ -1,0 +1,810 @@
+{
+  "version": "2026-09-15-v8.10.4-next-single-source-recoverability-audit",
+  "v8102_version": "2026-09-15-v8.10.2-combined-validated-source-reconciliation",
+  "v8103_version": "2026-09-15-v8.10.3-current-single-da-recoverability-audit",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "metric_contract_version": "2026-09-04-v8.5.0-two-table-indicators-preview",
+  "universe_script_version": "collect_universe.py v4.6.2_market_metric_20_session_elasticity_v6",
+  "source_script_version": "investment_score_source_enricher_v854.py v1.0.1-transient-retention-guard",
+  "source_contract_version": "2026-09-10-v8.5.4-investment-score-source-contract",
+  "generated_at_kst": "2026-09-15T18:03:28+09:00",
+  "status": "AUDIT_ONLY",
+  "target_count": 2,
+  "targets": [
+    "001020",
+    "357250"
+  ],
+  "price_target": {
+    "ticker": "001020",
+    "name": "페이퍼코리아",
+    "basis_date": "2026-09-11",
+    "current_close": 2240.0,
+    "current_swing_phase": "TOP_DECLINE",
+    "current_new_20d_low": false,
+    "current_return_1m_pct": 14.4025,
+    "current_atr_missing_reason": "OHLC_MISSING_OR_NEED_15_BARS",
+    "classification": "OFFICIAL_KRX_OHLC_INCOMPLETE",
+    "session_calendar_count": 140,
+    "target_session_count": 126,
+    "initial_valid_session_count": 0,
+    "refetch_target_count": 126,
+    "refetch_recovered_count": 108,
+    "final_valid_session_count": 108,
+    "atr14_krw": null,
+    "atr14_pct": null,
+    "unresolved_dates": [
+      "2026-04-29",
+      "2026-04-30",
+      "2026-05-04",
+      "2026-05-06",
+      "2026-05-07",
+      "2026-05-08",
+      "2026-05-11",
+      "2026-05-12",
+      "2026-05-13",
+      "2026-05-14",
+      "2026-05-15",
+      "2026-05-18",
+      "2026-05-19",
+      "2026-05-20",
+      "2026-05-21",
+      "2026-05-22",
+      "2026-05-26",
+      "2026-05-27"
+    ],
+    "refetch_log": [
+      {
+        "date": "2026-03-12",
+        "log": []
+      },
+      {
+        "date": "2026-03-13",
+        "log": []
+      },
+      {
+        "date": "2026-03-16",
+        "log": []
+      },
+      {
+        "date": "2026-03-17",
+        "log": []
+      },
+      {
+        "date": "2026-03-18",
+        "log": []
+      },
+      {
+        "date": "2026-03-19",
+        "log": []
+      },
+      {
+        "date": "2026-03-20",
+        "log": []
+      },
+      {
+        "date": "2026-03-23",
+        "log": []
+      },
+      {
+        "date": "2026-03-24",
+        "log": []
+      },
+      {
+        "date": "2026-03-25",
+        "log": []
+      },
+      {
+        "date": "2026-03-26",
+        "log": []
+      },
+      {
+        "date": "2026-03-27",
+        "log": []
+      },
+      {
+        "date": "2026-03-30",
+        "log": []
+      },
+      {
+        "date": "2026-03-31",
+        "log": []
+      },
+      {
+        "date": "2026-04-01",
+        "log": []
+      },
+      {
+        "date": "2026-04-02",
+        "log": []
+      },
+      {
+        "date": "2026-04-03",
+        "log": []
+      },
+      {
+        "date": "2026-04-06",
+        "log": []
+      },
+      {
+        "date": "2026-04-07",
+        "log": []
+      },
+      {
+        "date": "2026-04-08",
+        "log": []
+      },
+      {
+        "date": "2026-04-09",
+        "log": []
+      },
+      {
+        "date": "2026-04-10",
+        "log": []
+      },
+      {
+        "date": "2026-04-13",
+        "log": []
+      },
+      {
+        "date": "2026-04-14",
+        "log": []
+      },
+      {
+        "date": "2026-04-15",
+        "log": []
+      },
+      {
+        "date": "2026-04-16",
+        "log": []
+      },
+      {
+        "date": "2026-04-17",
+        "log": []
+      },
+      {
+        "date": "2026-04-20",
+        "log": []
+      },
+      {
+        "date": "2026-04-21",
+        "log": []
+      },
+      {
+        "date": "2026-04-22",
+        "log": []
+      },
+      {
+        "date": "2026-04-23",
+        "log": []
+      },
+      {
+        "date": "2026-04-24",
+        "log": []
+      },
+      {
+        "date": "2026-04-27",
+        "log": []
+      },
+      {
+        "date": "2026-04-28",
+        "log": []
+      },
+      {
+        "date": "2026-04-29",
+        "log": []
+      },
+      {
+        "date": "2026-04-30",
+        "log": []
+      },
+      {
+        "date": "2026-05-04",
+        "log": []
+      },
+      {
+        "date": "2026-05-06",
+        "log": []
+      },
+      {
+        "date": "2026-05-07",
+        "log": []
+      },
+      {
+        "date": "2026-05-08",
+        "log": []
+      },
+      {
+        "date": "2026-05-11",
+        "log": []
+      },
+      {
+        "date": "2026-05-12",
+        "log": []
+      },
+      {
+        "date": "2026-05-13",
+        "log": []
+      },
+      {
+        "date": "2026-05-14",
+        "log": []
+      },
+      {
+        "date": "2026-05-15",
+        "log": []
+      },
+      {
+        "date": "2026-05-18",
+        "log": []
+      },
+      {
+        "date": "2026-05-19",
+        "log": []
+      },
+      {
+        "date": "2026-05-20",
+        "log": []
+      },
+      {
+        "date": "2026-05-21",
+        "log": []
+      },
+      {
+        "date": "2026-05-22",
+        "log": []
+      },
+      {
+        "date": "2026-05-26",
+        "log": []
+      },
+      {
+        "date": "2026-05-27",
+        "log": []
+      },
+      {
+        "date": "2026-05-28",
+        "log": []
+      },
+      {
+        "date": "2026-05-29",
+        "log": []
+      },
+      {
+        "date": "2026-06-01",
+        "log": []
+      },
+      {
+        "date": "2026-06-02",
+        "log": []
+      },
+      {
+        "date": "2026-06-04",
+        "log": []
+      },
+      {
+        "date": "2026-06-05",
+        "log": []
+      },
+      {
+        "date": "2026-06-08",
+        "log": []
+      },
+      {
+        "date": "2026-06-09",
+        "log": []
+      },
+      {
+        "date": "2026-06-10",
+        "log": []
+      },
+      {
+        "date": "2026-06-11",
+        "log": []
+      },
+      {
+        "date": "2026-06-12",
+        "log": []
+      },
+      {
+        "date": "2026-06-15",
+        "log": []
+      },
+      {
+        "date": "2026-06-16",
+        "log": []
+      },
+      {
+        "date": "2026-06-17",
+        "log": []
+      },
+      {
+        "date": "2026-06-18",
+        "log": []
+      },
+      {
+        "date": "2026-06-19",
+        "log": []
+      },
+      {
+        "date": "2026-06-22",
+        "log": []
+      },
+      {
+        "date": "2026-06-23",
+        "log": []
+      },
+      {
+        "date": "2026-06-24",
+        "log": []
+      },
+      {
+        "date": "2026-06-25",
+        "log": []
+      },
+      {
+        "date": "2026-06-26",
+        "log": []
+      },
+      {
+        "date": "2026-06-29",
+        "log": []
+      },
+      {
+        "date": "2026-06-30",
+        "log": []
+      },
+      {
+        "date": "2026-07-01",
+        "log": []
+      },
+      {
+        "date": "2026-07-02",
+        "log": []
+      },
+      {
+        "date": "2026-07-03",
+        "log": []
+      },
+      {
+        "date": "2026-07-06",
+        "log": []
+      },
+      {
+        "date": "2026-07-07",
+        "log": []
+      },
+      {
+        "date": "2026-07-08",
+        "log": []
+      },
+      {
+        "date": "2026-07-09",
+        "log": []
+      },
+      {
+        "date": "2026-07-10",
+        "log": []
+      },
+      {
+        "date": "2026-07-13",
+        "log": []
+      },
+      {
+        "date": "2026-07-14",
+        "log": []
+      },
+      {
+        "date": "2026-07-15",
+        "log": []
+      },
+      {
+        "date": "2026-07-16",
+        "log": []
+      },
+      {
+        "date": "2026-07-20",
+        "log": []
+      },
+      {
+        "date": "2026-07-21",
+        "log": []
+      },
+      {
+        "date": "2026-07-22",
+        "log": []
+      },
+      {
+        "date": "2026-07-23",
+        "log": []
+      },
+      {
+        "date": "2026-07-24",
+        "log": []
+      },
+      {
+        "date": "2026-07-27",
+        "log": []
+      },
+      {
+        "date": "2026-07-28",
+        "log": []
+      },
+      {
+        "date": "2026-07-29",
+        "log": []
+      },
+      {
+        "date": "2026-07-30",
+        "log": []
+      },
+      {
+        "date": "2026-07-31",
+        "log": []
+      },
+      {
+        "date": "2026-08-03",
+        "log": []
+      },
+      {
+        "date": "2026-08-04",
+        "log": []
+      },
+      {
+        "date": "2026-08-05",
+        "log": []
+      },
+      {
+        "date": "2026-08-06",
+        "log": []
+      },
+      {
+        "date": "2026-08-07",
+        "log": []
+      },
+      {
+        "date": "2026-08-10",
+        "log": []
+      },
+      {
+        "date": "2026-08-11",
+        "log": []
+      },
+      {
+        "date": "2026-08-12",
+        "log": []
+      },
+      {
+        "date": "2026-08-13",
+        "log": []
+      },
+      {
+        "date": "2026-08-14",
+        "log": []
+      },
+      {
+        "date": "2026-08-18",
+        "log": []
+      },
+      {
+        "date": "2026-08-19",
+        "log": []
+      },
+      {
+        "date": "2026-08-20",
+        "log": []
+      },
+      {
+        "date": "2026-08-21",
+        "log": []
+      },
+      {
+        "date": "2026-08-24",
+        "log": []
+      },
+      {
+        "date": "2026-08-25",
+        "log": []
+      },
+      {
+        "date": "2026-08-26",
+        "log": []
+      },
+      {
+        "date": "2026-08-27",
+        "log": []
+      },
+      {
+        "date": "2026-08-28",
+        "log": []
+      },
+      {
+        "date": "2026-08-31",
+        "log": []
+      },
+      {
+        "date": "2026-09-01",
+        "log": []
+      },
+      {
+        "date": "2026-09-02",
+        "log": []
+      },
+      {
+        "date": "2026-09-03",
+        "log": []
+      },
+      {
+        "date": "2026-09-04",
+        "log": []
+      },
+      {
+        "date": "2026-09-07",
+        "log": []
+      },
+      {
+        "date": "2026-09-08",
+        "log": []
+      },
+      {
+        "date": "2026-09-09",
+        "log": []
+      },
+      {
+        "date": "2026-09-10",
+        "log": []
+      },
+      {
+        "date": "2026-09-11",
+        "log": []
+      }
+    ]
+  },
+  "acceleration_target": {
+    "ticker": "357250",
+    "name": "미래에셋맵스리츠",
+    "classification": "OFFICIAL_FULL_ACCOUNT_ACCEL_INCOMPLETE",
+    "current_source_cache_status": "LIMITED_RAW_SOURCE",
+    "current_source_cache_reason": "QUARTER_LIMITED",
+    "current_quarter_source_status": "LIMITED",
+    "corp_code": "01437292",
+    "preferred_fs_div": "OFS",
+    "dominant_financial_period": "2026_11012",
+    "annual_source_year": 2025,
+    "scorer_fields": {
+      "q2_revenue_yoy_pct": null,
+      "q2_operating_profit_yoy_pct": null,
+      "q2_operating_profit_current": null,
+      "q2_operating_profit_previous": null,
+      "annual_revenue_y0": null,
+      "annual_revenue_y1": null,
+      "annual_operating_profit_y0": null,
+      "annual_operating_profit_y1": null
+    },
+    "missing_scorer_fields": [
+      "annual_operating_profit_y0",
+      "annual_operating_profit_y1",
+      "annual_revenue_y0",
+      "annual_revenue_y1",
+      "q2_operating_profit_current",
+      "q2_operating_profit_previous",
+      "q2_operating_profit_yoy_pct",
+      "q2_revenue_yoy_pct"
+    ],
+    "periods": {
+      "annual": {
+        "year": 2025,
+        "report_code": "11011",
+        "selected_fs_div": "OFS",
+        "row_count": 90,
+        "accounts": {
+          "revenue": {
+            "found": false
+          },
+          "operating_profit": {
+            "found": false
+          },
+          "net_income": {
+            "found": false
+          }
+        },
+        "attempts": [
+          {
+            "year": 2025,
+            "report_code": "11011",
+            "fs_div": "OFS",
+            "dart_status": "000",
+            "dart_message": "정상",
+            "row_count": 90
+          },
+          {
+            "year": 2025,
+            "report_code": "11011",
+            "fs_div": "CFS",
+            "dart_status": "013",
+            "dart_message": "조회된 데이타가 없습니다.",
+            "row_count": 0
+          }
+        ]
+      },
+      "h1_current": {
+        "year": 2026,
+        "report_code": "11012",
+        "selected_fs_div": "OFS",
+        "row_count": 91,
+        "accounts": {
+          "revenue": {
+            "found": false
+          },
+          "operating_profit": {
+            "found": false
+          },
+          "net_income": {
+            "found": false
+          }
+        },
+        "attempts": [
+          {
+            "year": 2026,
+            "report_code": "11012",
+            "fs_div": "OFS",
+            "dart_status": "000",
+            "dart_message": "정상",
+            "row_count": 91
+          },
+          {
+            "year": 2026,
+            "report_code": "11012",
+            "fs_div": "CFS",
+            "dart_status": "013",
+            "dart_message": "조회된 데이타가 없습니다.",
+            "row_count": 0
+          }
+        ]
+      },
+      "q1_current": {
+        "year": 2026,
+        "report_code": "11013",
+        "selected_fs_div": "",
+        "row_count": 0,
+        "accounts": {
+          "revenue": {
+            "found": false
+          },
+          "operating_profit": {
+            "found": false
+          },
+          "net_income": {
+            "found": false
+          }
+        },
+        "attempts": [
+          {
+            "year": 2026,
+            "report_code": "11013",
+            "fs_div": "OFS",
+            "dart_status": "013",
+            "dart_message": "조회된 데이타가 없습니다.",
+            "row_count": 0
+          },
+          {
+            "year": 2026,
+            "report_code": "11013",
+            "fs_div": "CFS",
+            "dart_status": "013",
+            "dart_message": "조회된 데이타가 없습니다.",
+            "row_count": 0
+          }
+        ]
+      },
+      "h1_previous": {
+        "year": 2025,
+        "report_code": "11012",
+        "selected_fs_div": "OFS",
+        "row_count": 89,
+        "accounts": {
+          "revenue": {
+            "found": false
+          },
+          "operating_profit": {
+            "found": false
+          },
+          "net_income": {
+            "found": false
+          }
+        },
+        "attempts": [
+          {
+            "year": 2025,
+            "report_code": "11012",
+            "fs_div": "OFS",
+            "dart_status": "000",
+            "dart_message": "정상",
+            "row_count": 89
+          },
+          {
+            "year": 2025,
+            "report_code": "11012",
+            "fs_div": "CFS",
+            "dart_status": "013",
+            "dart_message": "조회된 데이타가 없습니다.",
+            "row_count": 0
+          }
+        ]
+      },
+      "q1_previous": {
+        "year": 2025,
+        "report_code": "11013",
+        "selected_fs_div": "",
+        "row_count": 0,
+        "accounts": {
+          "revenue": {
+            "found": false
+          },
+          "operating_profit": {
+            "found": false
+          },
+          "net_income": {
+            "found": false
+          }
+        },
+        "attempts": [
+          {
+            "year": 2025,
+            "report_code": "11013",
+            "fs_div": "OFS",
+            "dart_status": "013",
+            "dart_message": "조회된 데이타가 없습니다.",
+            "row_count": 0
+          },
+          {
+            "year": 2025,
+            "report_code": "11013",
+            "fs_div": "CFS",
+            "dart_status": "013",
+            "dart_message": "조회된 데이타가 없습니다.",
+            "row_count": 0
+          }
+        ]
+      }
+    },
+    "api_telemetry": {
+      "attempted": 10,
+      "successful": 10,
+      "transport_failures": [],
+      "dart_status_failures": [
+        "v8104:357250:2025:11011:CFS|013|조회된 데이타가 없습니다.",
+        "v8104:357250:2026:11012:CFS|013|조회된 데이타가 없습니다.",
+        "v8104:357250:2026:11013:OFS|013|조회된 데이타가 없습니다.",
+        "v8104:357250:2026:11013:CFS|013|조회된 데이타가 없습니다.",
+        "v8104:357250:2025:11012:CFS|013|조회된 데이타가 없습니다.",
+        "v8104:357250:2025:11013:OFS|013|조회된 데이타가 없습니다.",
+        "v8104:357250:2025:11013:CFS|013|조회된 데이타가 없습니다."
+      ]
+    }
+  },
+  "recoverable_source_only_count": 0,
+  "recoverable_source_only_tickers": [],
+  "not_recoverable_now_count": 2,
+  "not_recoverable_now_tickers": [
+    "001020",
+    "357250"
+  ],
+  "automatic_promotion": {
+    "allowed": false,
+    "promoted_ticker_count": 0
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "universe_history_mutated": false,
+    "source_cache_mutated": false,
+    "financial_cache_mutated": false,
+    "two_table_api_mutated": false,
+    "source_value_imputed": false,
+    "average_daily_range_used_as_atr": false,
+    "h1_used_directly_as_q2": false,
+    "missing_acceleration_value_assumed": false
+  },
+  "next_step": "DEFER_V8104_EXHAUSTED_SINGLE_SOURCES_AND_MOVE_TO_NEXT_MULTI_BLOCKER_GROUP"
+}

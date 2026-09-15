@@ -1,0 +1,45 @@
+{
+  "version": "2026-09-15-v8.10.3-audit-new-single-da-blockers",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v8102_version": "2026-09-15-v8.10.2-combined-validated-source-reconciliation",
+  "v897_version": "2026-09-15-v8.9.7-refresh-single-blocker-da-xbrl",
+  "v885_version": "2026-09-14-v8.8.5-expanded-xbrl-da-audit",
+  "generated_at_kst": "2026-09-15T17:34:10+09:00",
+  "status": "AUDIT_ONLY",
+  "current_exact_da_single_blocker_count": 10,
+  "prior_v897_target_count": 8,
+  "new_target_count": 2,
+  "new_target_tickers": [
+    "011200",
+    "012690"
+  ],
+  "dominant_financial_period": "2026_11012",
+  "annual_source_year": 2025,
+  "xbrl_both_exact_recovered_count": 0,
+  "xbrl_both_exact_recovered_tickers": [],
+  "full_account_both_exact_unique_count": 0,
+  "full_account_both_exact_unique_tickers": [],
+  "any_official_both_exact_candidate_count": 0,
+  "any_official_both_exact_candidate_tickers": [],
+  "api_telemetry": {
+    "full_account_attempted": 2,
+    "full_account_successful": 2,
+    "full_account_transport_failures": [],
+    "full_account_dart_status_failures": []
+  },
+  "automatic_promotion": {
+    "allowed": false,
+    "promoted_ticker_count": 0
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "approved_da_ids_changed": false,
+    "da_source_layer_mutated": false,
+    "raw_source_cache_mutated": false,
+    "missing_da_assumed_zero": false,
+    "prior_v897_targets_reaudited": false
+  },
+  "next_step": "KEEP_NEW_DA_SINGLE_BLOCKERS_LIMITED_AND_MOVE_TO_NEXT_RECOVERABLE_SOURCE"
+}

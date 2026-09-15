@@ -1,0 +1,46 @@
+{
+  "version": "2026-09-15-v8.9.8-targeted-full-account-da-audit",
+  "v897_version": "2026-09-15-v8.9.7-refresh-single-blocker-da-xbrl",
+  "v854_script_version": "investment_score_source_enricher_v854.py v1.0.1-transient-retention-guard",
+  "v854_source_contract_version": "2026-09-10-v8.5.4-investment-score-source-contract",
+  "generated_at_kst": "2026-09-15T16:49:59+09:00",
+  "status": "AUDIT_ONLY",
+  "target_count": 3,
+  "target_tickers": [
+    "012450",
+    "017670",
+    "022100"
+  ],
+  "dominant_financial_period": "2026_11012",
+  "annual_source_year": 2025,
+  "official_source": {
+    "endpoint": "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json",
+    "selection_policy": "V854 preferred FS -> CFS -> OFS",
+    "candidate_extractor": "V854 deep_candidates"
+  },
+  "missing_exact_recovered_count": 0,
+  "missing_exact_recovered_tickers": [],
+  "both_approved_exact_unique_numeric_count": 0,
+  "both_approved_exact_unique_numeric_tickers": [],
+  "api_telemetry": {
+    "attempted": 3,
+    "successful": 3,
+    "transport_failures": [],
+    "dart_status_failures": []
+  },
+  "automatic_promotion": {
+    "allowed": false,
+    "promoted_ticker_count": 0
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "approved_da_ids_changed": false,
+    "source_cache_mutated": false,
+    "v894_da_source_mutated": false,
+    "v897_evidence_mutated": false,
+    "missing_da_assumed_zero": false
+  },
+  "next_step": "MOVE_TO_FINANCIAL_VALUATION_CACHE_SINGLE_BLOCKERS"
+}

@@ -1,0 +1,56 @@
+{
+  "version": "2026-09-15-v8.9.3-v892-exact-context-audit",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v892_version": "2026-09-15-v8.9.2-official-dart-xbrl-da-retry",
+  "generated_at_kst": "2026-09-15T15:55:42+09:00",
+  "status": "AUDIT_ONLY",
+  "target_count": 4,
+  "single_blocker_target_count": 2,
+  "classification_counts": {
+    "SOURCE_FS_DIV_UNAVAILABLE": 2,
+    "MATCHED_FS_MEMBER_BOTH_FACTS_UNIQUE": 1,
+    "MATCHED_FS_MEMBER_PARTIAL_ONE_FACT": 1
+  },
+  "source_fs_status_counts": {
+    "NO_FS_DIV": 2,
+    "CONSISTENT": 2
+  },
+  "source_fs_div_counts": {
+    "": 2,
+    "CFS": 2
+  },
+  "source_promotion_candidate_count": 1,
+  "source_promotion_candidate_tickers": [
+    "002450"
+  ],
+  "single_blocker_source_promotion_candidate_count": 1,
+  "single_blocker_source_promotion_candidate_tickers": [
+    "002450"
+  ],
+  "source_fs_unavailable_count": 2,
+  "source_fs_unavailable_tickers": [
+    "001530",
+    "002380"
+  ],
+  "partial_one_fact_count": 1,
+  "partial_one_fact_tickers": [
+    "012450"
+  ],
+  "automatic_promotion": {
+    "allowed": false,
+    "promoted_ticker_count": 0,
+    "reason": "V8.9.3은 V8.9.2에서 복구된 승인 exact fact의 기존 CFS/OFS 정책·context·value uniqueness만 감사한다. source layer 반영은 별도 freeze 단계에서 수행한다."
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "new_da_id_approved": false,
+    "v888_source_layer_mutated": false,
+    "v892_evidence_mutated": false,
+    "missing_da_assumed_zero": false,
+    "source_fs_div_guessed": false,
+    "preferred_issuer_mapping_created": false
+  },
+  "next_step": "FREEZE_V893_VALIDATED_EXACT_DA_SOURCE_ONLY_THEN_RECHECK_SCORE"
+}

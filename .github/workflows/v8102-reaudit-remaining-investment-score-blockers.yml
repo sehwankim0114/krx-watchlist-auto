@@ -1,0 +1,808 @@
+name: Re-audit remaining investment score blockers v8.10.2
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8102-reaudit-remaining-investment-score-blockers.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8102-investment-score-remaining-blocker-reaudit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Capture protected file hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            latest/investment_score_v880_dry_run_v8101_latest.csv \
+            latest/investment_score_v880_dry_run_v8101_summary_latest.json \
+            latest/investment_score_supply_source_v8101.csv \
+            latest/investment_score_supply_source_v8101_summary_latest.json \
+            latest/investment_score_remaining_blockers_v896.csv \
+            latest/investment_score_remaining_blockers_v896_summary_latest.json \
+            > /tmp/v8102_protected.before
+
+      - name: Create V8.10.2 blocker re-auditor
+        shell: bash
+        run: |
+          cat > investment_score_remaining_blocker_audit_v8102.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import csv
+          import json
+          from collections import Counter, defaultdict
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          VERSION = "2026-09-15-v8.10.2-investment-score-remaining-blocker-reaudit"
+          V8101_VERSION = "2026-09-15-v8.10.1-freeze-complete-supply-evidence-and-dry-run"
+          V896_VERSION = "2026-09-15-v8.9.6-investment-score-remaining-blocker-reaudit"
+          POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+
+          V8101_CSV = ROOT / "latest/investment_score_v880_dry_run_v8101_latest.csv"
+          V8101_JSON = ROOT / "latest/investment_score_v880_dry_run_v8101_summary_latest.json"
+          V8101_SOURCE_JSON = ROOT / "latest/investment_score_supply_source_v8101_summary_latest.json"
+          V896_CSV = ROOT / "latest/investment_score_remaining_blockers_v896.csv"
+          V896_JSON = ROOT / "latest/investment_score_remaining_blockers_v896_summary_latest.json"
+
+          OUT_CSV = ROOT / "latest/investment_score_remaining_blockers_v8102.csv"
+          OUT_JSON = ROOT / "latest/investment_score_remaining_blockers_v8102_summary_latest.json"
+          OUT_LOG = ROOT / "latest/investment_score_remaining_blockers_v8102_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_remaining_blockers_v8102.md"
+
+          SUPPLY_REASON = "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+
+          EXPECTED_NEWLY_READY = {
+              "003280",
+              "063160",
+              "066570",
+              "071840",
+              "081000",
+              "086280",
+              "100250",
+              "286940",
+          }
+
+          def read_json(path):
+              return json.loads(path.read_text(encoding="utf-8-sig"))
+
+          def read_csv(path):
+              with path.open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
+
+          def split_reasons(text):
+              return [x for x in str(text or "").split(";") if x]
+
+          def classify(reason):
+              if reason == SUPPLY_REASON:
+                  return (
+                      "SOURCE_EVIDENCE_GAP",
+                      "PRODUCTION_ANALYSIS_SUPPLY",
+                      "공시·수급 없음 판정을 확정할 만큼 source completeness가 부족함",
+                  )
+
+              if reason == "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE":
+                  return (
+                      "POLICY_SEMANTIC_BLOCKER",
+                      "V880_SCORING_CONTRACT",
+                      "전년도 연간 영업이익 분모가 비양수이며 승인 계약상 turnaround 예외에도 해당하지 않음",
+                  )
+
+              if reason.startswith("PER:") or reason.startswith("PBR:"):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "FINANCIAL_VALUATION_CACHE",
+                      "밸류에이션 또는 관련 이익·ROE 입력 보강 필요",
+                  )
+
+              if reason.startswith("EV/EBITDA:"):
+                  tail = reason.split("EV/EBITDA:", 1)[1]
+                  parts = tail.split(":")
+                  debt_status = parts[-2] if len(parts) >= 2 else ""
+                  da_status = parts[-1] if parts else ""
+                  if da_status == "NO_EXACT_CANDIDATE":
+                      return (
+                          "SOURCE_DATA_GAP",
+                          "EXACT_DA_SOURCE",
+                          f"승인 exact D&A 원천 부족; debt_status={debt_status}, da_status={da_status}",
+                      )
+                  if debt_status == "NO_EXACT_CANDIDATE":
+                      return (
+                          "SOURCE_DATA_GAP",
+                          "EXACT_CORE_DEBT_SOURCE",
+                          f"승인 exact core-debt 원천 부족; debt_status={debt_status}, da_status={da_status}",
+                      )
+                  if debt_status in {"OK", "EMPTY_AS_ZERO"} and da_status in {"OK", "EMPTY_AS_ZERO"}:
+                      return (
+                          "SOURCE_DATA_GAP",
+                          "EV_EBITDA_OTHER_INPUT",
+                          "D&A/debt exact 상태는 통과했으므로 시가총액·현금·영업이익 입력 중 누락 점검 필요",
+                      )
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "EV_EBITDA_INPUT",
+                      f"EV/EBITDA 입력 상태 재감사 필요: {tail}",
+                  )
+
+              if reason.startswith("PSR 또는 대체 가치지표:"):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "FINANCIAL_AND_RAW_SOURCE",
+                      "시가총액 또는 연간 매출 입력 보강 필요",
+                  )
+
+              raw_prefixes = (
+                  "매출 성장과 안정성:",
+                  "최근 3년 매출 성장률:",
+                  "최근 3년 영업이익 성장률:",
+                  "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+              )
+              if reason.startswith(raw_prefixes):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "INVESTMENT_SCORE_SOURCE_CACHE",
+                      "연간/분기 재무 raw source 보강 필요",
+                  )
+
+              financial_prefixes = (
+                  "영업이익 성장과 흑자 여부:",
+                  "순이익 흐름:",
+                  "영업이익률:",
+                  "ROE:",
+                  "부채비율:",
+                  "흑자 지속성과 이익 안정성:",
+              )
+              if reason.startswith(financial_prefixes):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "FINANCIAL_VALUATION_CACHE",
+                      "재무·수익성 cache 입력 보강 필요",
+                  )
+
+              if reason.startswith("영업현금흐름:"):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "OCF_AND_REVENUE_SOURCE",
+                      "영업현금흐름 또는 연간 매출 입력 보강 필요",
+                  )
+
+              price_prefixes = (
+                  "1개월 가격흐름:",
+                  "3개월 가격흐름:",
+                  "기간 저가·고가 대비 현재위치:",
+                  "과열·급락 위험:",
+                  "20일 평균 거래대금과 거래량:",
+              )
+              if reason.startswith(price_prefixes):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "PRODUCTION_PRICE_METRICS",
+                      "가격·스윙·ATR·거래활동 metric 보강 필요",
+                  )
+
+              if reason.startswith("하루평균 절대등락률:"):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "PRICE_ELASTICITY_20D",
+                      "20거래일 가격탄력 source 보강 필요",
+                  )
+
+              if reason.startswith("순현금·기업가치 상태:"):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "NETCASH_INPUT",
+                      "시가총액·현금·승인 core debt 원천 보강 필요",
+                  )
+
+              return (
+                  "UNCLASSIFIED_REVIEW",
+                  "UNKNOWN",
+                  "자동 분류되지 않은 blocker이므로 사람 검토 필요",
+              )
+
+          def main():
+              s8101 = read_json(V8101_JSON)
+              rows8101 = read_csv(V8101_CSV)
+              source8101 = read_json(V8101_SOURCE_JSON)
+              s896 = read_json(V896_JSON)
+              rows896 = read_csv(V896_CSV)
+
+              if s8101.get("version") != V8101_VERSION:
+                  raise RuntimeError("V8101_VERSION_MISMATCH")
+              if s8101.get("policy_version") != POLICY_VERSION:
+                  raise RuntimeError("V8101_POLICY_VERSION_MISMATCH")
+              if s8101.get("status") != "DRY_RUN_ONLY":
+                  raise RuntimeError("V8101_STATUS_MISMATCH")
+              if len(rows8101) != 112:
+                  raise RuntimeError(f"V8101_ROW_COUNT:{len(rows8101)}")
+              if int(s8101.get("ready_count") or 0) != 50:
+                  raise RuntimeError("V8101_READY_COUNT_NOT_50")
+              if int(s8101.get("limited_count") or 0) != 62:
+                  raise RuntimeError("V8101_LIMITED_COUNT_NOT_62")
+
+              source_recheck = s8101.get("source_recheck") or {}
+              if source_recheck.get("baseline_control_exact_match") is not True:
+                  raise RuntimeError("V8101_BASELINE_CONTROL_NOT_EXACT")
+              if int(source_recheck.get("supply_blocker_before") or 0) != 33:
+                  raise RuntimeError("V8101_SUPPLY_BLOCKER_BEFORE_NOT_33")
+              if int(source_recheck.get("supply_blocker_after") or 0) != 10:
+                  raise RuntimeError("V8101_SUPPLY_BLOCKER_AFTER_NOT_10")
+              if set(source_recheck.get("newly_ready_tickers") or []) != EXPECTED_NEWLY_READY:
+                  raise RuntimeError("V8101_NEW_READY_SET_MISMATCH")
+              if source_recheck.get("lost_ready_tickers") not in ([], None):
+                  raise RuntimeError("V8101_READY_REGRESSION_PRESENT")
+              if int(source_recheck.get("non_source_row_changed_count") or 0) != 0:
+                  raise RuntimeError("V8101_NON_SOURCE_ROW_CHANGED")
+
+              if source8101.get("version") != V8101_VERSION:
+                  raise RuntimeError("V8101_SOURCE_VERSION_MISMATCH")
+              if source8101.get("status") != "SOURCE_ONLY_READY":
+                  raise RuntimeError("V8101_SOURCE_STATUS_MISMATCH")
+              source_tickers = set(source8101.get("source_tickers") or [])
+              unresolved_tickers = set(source8101.get("unresolved_excluded_tickers") or [])
+              if len(source_tickers) != 23:
+                  raise RuntimeError("V8101_SOURCE_TICKER_COUNT_NOT_23")
+              if len(unresolved_tickers) != 10:
+                  raise RuntimeError("V8101_UNRESOLVED_TICKER_COUNT_NOT_10")
+              if source_tickers & unresolved_tickers:
+                  raise RuntimeError("V8101_SOURCE_AND_UNRESOLVED_OVERLAP")
+
+              if s896.get("version") != V896_VERSION:
+                  raise RuntimeError("V896_VERSION_MISMATCH")
+              if s896.get("status") != "AUDIT_ONLY":
+                  raise RuntimeError("V896_STATUS_MISMATCH")
+              if int(s896.get("limited_blocker_occurrences") or 0) != 317:
+                  raise RuntimeError("V896_BLOCKER_OCCURRENCES_NOT_317")
+              if int(s896.get("single_blocker_ticker_count") or 0) != 27:
+                  raise RuntimeError("V896_SINGLE_BLOCKER_COUNT_NOT_27")
+              if int(s896.get("source_group_counts", {}).get("PRODUCTION_ANALYSIS_SUPPLY") or 0) != 33:
+                  raise RuntimeError("V896_SUPPLY_SOURCE_COUNT_NOT_33")
+              if int(s896.get("single_blocker_impact", {}).get("PRODUCTION_ANALYSIS_SUPPLY") or 0) != 8:
+                  raise RuntimeError("V896_SUPPLY_SINGLE_COUNT_NOT_8")
+
+              # Build current V8.10.1 blocker audit.
+              limited = [r for r in rows8101 if r.get("score_status") == "LIMITED"]
+              ready = [r for r in rows8101 if r.get("score_status") == "READY"]
+              if len(ready) != 50 or len(limited) != 62:
+                  raise RuntimeError(f"V8102_READY_LIMITED_MISMATCH:{len(ready)}:{len(limited)}")
+
+              out_rows = []
+              reason_counter = Counter()
+              category_counter = Counter()
+              source_counter = Counter()
+              single_counter = Counter()
+              reasons_by_ticker = defaultdict(set)
+
+              for row in limited:
+                  reasons = split_reasons(row.get("missing_components"))
+                  if len(reasons) != int(row.get("missing_component_count") or 0):
+                      raise RuntimeError(
+                          f"V8102_MISSING_COMPONENT_COUNT_MISMATCH:{row.get('ticker')}"
+                      )
+                  for reason in reasons:
+                      category, source_group, note = classify(reason)
+                      reason_counter[reason] += 1
+                      category_counter[category] += 1
+                      source_counter[source_group] += 1
+                      reasons_by_ticker[row.get("ticker") or ""].add(reason)
+                      if len(reasons) == 1:
+                          single_counter[source_group] += 1
+
+                      out_rows.append({
+                          "ticker": row.get("ticker") or "",
+                          "name": row.get("name") or "",
+                          "market": row.get("market") or "",
+                          "financial_sector": row.get("financial_sector") or "",
+                          "raw_source_mode": row.get("raw_source_mode") or "",
+                          "missing_component_count": row.get("missing_component_count") or "",
+                          "blocker_reason": reason,
+                          "blocker_category": category,
+                          "source_group": source_group,
+                          "single_blocker_ticker": "TRUE" if len(reasons) == 1 else "FALSE",
+                          "audit_note": note,
+                      })
+
+              out_rows.sort(
+                  key=lambda r: (
+                      int(r["missing_component_count"] or 999),
+                      r["ticker"],
+                      r["blocker_reason"],
+                  )
+              )
+
+              # Strong semantic regression check against V8.9.6:
+              # remove only the 23 supply blockers that V8.10.1 froze.
+              old_reasons_by_ticker = defaultdict(set)
+              for row in rows896:
+                  old_reasons_by_ticker[row.get("ticker") or ""].add(row.get("blocker_reason") or "")
+
+              expected_reasons_by_ticker = {}
+              all_tickers = set(old_reasons_by_ticker) | set(reasons_by_ticker)
+              for code in sorted(all_tickers):
+                  expected = set(old_reasons_by_ticker.get(code, set()))
+                  if code in source_tickers:
+                      expected.discard(SUPPLY_REASON)
+                  if expected:
+                      expected_reasons_by_ticker[code] = expected
+
+              actual_reasons_by_ticker = {
+                  code: set(reasons)
+                  for code, reasons in reasons_by_ticker.items()
+                  if reasons
+              }
+
+              if expected_reasons_by_ticker != actual_reasons_by_ticker:
+                  mismatches = []
+                  for code in sorted(set(expected_reasons_by_ticker) | set(actual_reasons_by_ticker)):
+                      exp = expected_reasons_by_ticker.get(code, set())
+                      act = actual_reasons_by_ticker.get(code, set())
+                      if exp != act:
+                          mismatches.append(
+                              f"{code}:expected={sorted(exp)}:actual={sorted(act)}"
+                          )
+                  raise RuntimeError(
+                      "V8102_BLOCKER_REASON_SET_CHANGED_BEYOND_SUPPLY_FREEZE:" +
+                      "||".join(mismatches[:20])
+                  )
+
+              # All 8 former single supply blockers must now be READY and absent from blocker table.
+              ready_codes = {r.get("ticker") or "" for r in ready}
+              if not EXPECTED_NEWLY_READY <= ready_codes:
+                  raise RuntimeError(
+                      "V8102_EXPECTED_NEW_READY_NOT_READY:" +
+                      ",".join(sorted(EXPECTED_NEWLY_READY - ready_codes))
+                  )
+              if any(r["ticker"] in EXPECTED_NEWLY_READY for r in out_rows):
+                  raise RuntimeError("V8102_NEW_READY_STILL_PRESENT_IN_BLOCKERS")
+
+              # The 10 unresolved supply tickers must retain exactly the supply blocker.
+              unresolved_supply_blocked = {
+                  code for code in unresolved_tickers
+                  if SUPPLY_REASON in actual_reasons_by_ticker.get(code, set())
+              }
+              if unresolved_supply_blocked != unresolved_tickers:
+                  raise RuntimeError(
+                      "V8102_UNRESOLVED_SUPPLY_BLOCKER_SET_MISMATCH:" +
+                      ",".join(sorted(unresolved_supply_blocked))
+                  )
+
+              ev_reason_counts = {
+                  reason: count
+                  for reason, count in reason_counter.items()
+                  if reason.startswith("EV/EBITDA:")
+              }
+              ev_da_missing = sum(
+                  count for reason, count in ev_reason_counts.items()
+                  if reason.endswith(":NO_EXACT_CANDIDATE")
+              )
+              ev_other_exact_ok = sum(
+                  count for reason, count in ev_reason_counts.items()
+                  if reason.endswith(":OK:OK")
+              )
+
+              single_blocker_tickers = sorted({
+                  r["ticker"]
+                  for r in out_rows
+                  if r["single_blocker_ticker"] == "TRUE"
+              })
+
+              source_priority = [
+                  {
+                      "source_group": source,
+                      "blocker_occurrences": count,
+                      "single_blocker_tickers": single_counter.get(source, 0),
+                  }
+                  for source, count in source_counter.most_common()
+              ]
+
+              # Expected counts after removing exactly 23 supply blockers and 8 single-blocker tickers.
+              expected_counts = {
+                  "limited_blocker_occurrences": 294,
+                  "single_blocker_ticker_count": 19,
+                  "source_data_gap": 264,
+                  "source_evidence_gap": 10,
+                  "policy_semantic_blocker": 20,
+                  "supply_source": 10,
+                  "supply_single": 0,
+                  "exact_da_source": 27,
+                  "exact_da_single": 8,
+                  "financial_valuation_single": 3,
+                  "investment_source_single": 1,
+                  "policy_semantic_single": 7,
+                  "ev_total": 30,
+                  "ev_da_missing": 27,
+                  "ev_other_exact_ok": 3,
+              }
+
+              checks = {
+                  "limited_blocker_occurrences": len(out_rows),
+                  "single_blocker_ticker_count": len(single_blocker_tickers),
+                  "source_data_gap": category_counter["SOURCE_DATA_GAP"],
+                  "source_evidence_gap": category_counter["SOURCE_EVIDENCE_GAP"],
+                  "policy_semantic_blocker": category_counter["POLICY_SEMANTIC_BLOCKER"],
+                  "supply_source": source_counter["PRODUCTION_ANALYSIS_SUPPLY"],
+                  "supply_single": single_counter["PRODUCTION_ANALYSIS_SUPPLY"],
+                  "exact_da_source": source_counter["EXACT_DA_SOURCE"],
+                  "exact_da_single": single_counter["EXACT_DA_SOURCE"],
+                  "financial_valuation_single": single_counter["FINANCIAL_VALUATION_CACHE"],
+                  "investment_source_single": single_counter["INVESTMENT_SCORE_SOURCE_CACHE"],
+                  "policy_semantic_single": single_counter["V880_SCORING_CONTRACT"],
+                  "ev_total": sum(ev_reason_counts.values()),
+                  "ev_da_missing": ev_da_missing,
+                  "ev_other_exact_ok": ev_other_exact_ok,
+              }
+              for key, expected in expected_counts.items():
+                  if checks[key] != expected:
+                      raise RuntimeError(
+                          f"V8102_EXPECTED_COUNT_MISMATCH:{key}:{checks[key]}!={expected}"
+                      )
+
+              # V8.9.6 source groups other than supply must be unchanged.
+              old_source_counts = dict(s896.get("source_group_counts") or {})
+              for source, old_count in old_source_counts.items():
+                  new_count = source_counter[source]
+                  if source == "PRODUCTION_ANALYSIS_SUPPLY":
+                      if new_count != 10:
+                          raise RuntimeError("V8102_SUPPLY_COUNT_NOT_10")
+                  elif new_count != int(old_count):
+                      raise RuntimeError(
+                          f"V8102_NON_SUPPLY_SOURCE_COUNT_CHANGED:{source}:{old_count}->{new_count}"
+                      )
+
+              fields = list(out_rows[0].keys())
+              OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+              with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+                  writer = csv.DictWriter(f, fieldnames=fields)
+                  writer.writeheader()
+                  writer.writerows(out_rows)
+
+              summary = {
+                  "version": VERSION,
+                  "v8101_version": V8101_VERSION,
+                  "v896_version": V896_VERSION,
+                  "policy_version": POLICY_VERSION,
+                  "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+                  "status": "AUDIT_ONLY",
+                  "production_unique_tickers": 112,
+                  "ready_count": 50,
+                  "limited_count": 62,
+                  "limited_blocker_occurrences": len(out_rows),
+                  "single_blocker_ticker_count": len(single_blocker_tickers),
+                  "single_blocker_tickers": single_blocker_tickers,
+                  "blocker_category_counts": dict(category_counter),
+                  "source_group_counts": dict(source_counter),
+                  "source_priority": source_priority,
+                  "top_blocker_reasons": reason_counter.most_common(40),
+                  "ev_ebitda_audit": {
+                      "total_blocker_occurrences": sum(ev_reason_counts.values()),
+                      "reason_counts": ev_reason_counts,
+                      "da_no_exact_candidate_occurrences": ev_da_missing,
+                      "exact_debt_and_da_but_other_input_missing_occurrences":
+                          ev_other_exact_ok,
+                  },
+                  "single_blocker_impact": dict(single_counter),
+                  "resolved_since_v896": {
+                      "supply_source_tickers": sorted(source_tickers),
+                      "supply_source_count": len(source_tickers),
+                      "newly_ready_tickers": sorted(EXPECTED_NEWLY_READY),
+                      "newly_ready_count": len(EXPECTED_NEWLY_READY),
+                      "blocker_occurrence_delta": -23,
+                      "single_blocker_ticker_delta": -8,
+                      "source_evidence_gap_delta": -23,
+                      "production_analysis_supply_delta": -23,
+                      "other_blocker_reason_sets_changed": False,
+                      "non_supply_source_group_counts_changed": False,
+                  },
+                  "remaining_supply_blockers": {
+                      "count": len(unresolved_tickers),
+                      "tickers": sorted(unresolved_tickers),
+                      "issuer_mapping_required_before_absence_can_be_established": True,
+                  },
+                  "policy_semantic_blockers": {
+                      "annual_op_denom_nonpositive_count":
+                          reason_counter.get(
+                              "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
+                              0,
+                          ),
+                      "automatic_rule_change_allowed": False,
+                  },
+                  "hard_guards": {
+                      "production_api_changed": False,
+                      "production_investment_score_written": False,
+                      "scoring_policy_changed": False,
+                      "supply_policy_changed": False,
+                      "source_value_imputed": False,
+                      "issuer_mapping_guessed": False,
+                      "v8101_dry_run_mutated": False,
+                      "v8101_source_mutated": False,
+                      "v896_audit_mutated": False,
+                      "only_v8101_supply_blockers_removed": True,
+                      "non_supply_source_group_counts_unchanged": True,
+                  },
+                  "next_step": (
+                      "COMPARE_REMAINING_SINGLE_BLOCKER_GROUPS_AND_KEEP_V899_"
+                      "FINANCIAL_SOURCE_FIX_SEPARATE_UNTIL_PATCH_VALIDATED"
+                  ),
+              }
+              OUT_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+
+              log = [
+                  f"VERSION={VERSION}",
+                  "STATUS=AUDIT_ONLY",
+                  "READY_COUNT=50",
+                  "LIMITED_COUNT=62",
+                  f"LIMITED_BLOCKER_OCCURRENCES={len(out_rows)}",
+                  f"SINGLE_BLOCKER_TICKER_COUNT={len(single_blocker_tickers)}",
+                  f"SOURCE_EVIDENCE_GAP_COUNT={category_counter['SOURCE_EVIDENCE_GAP']}",
+                  f"PRODUCTION_ANALYSIS_SUPPLY_COUNT={source_counter['PRODUCTION_ANALYSIS_SUPPLY']}",
+                  f"PRODUCTION_ANALYSIS_SUPPLY_SINGLE_COUNT={single_counter['PRODUCTION_ANALYSIS_SUPPLY']}",
+                  f"EXACT_DA_SOURCE_COUNT={source_counter['EXACT_DA_SOURCE']}",
+                  f"EXACT_DA_SOURCE_SINGLE_COUNT={single_counter['EXACT_DA_SOURCE']}",
+                  f"V880_SCORING_CONTRACT_SINGLE_COUNT={single_counter['V880_SCORING_CONTRACT']}",
+                  f"FINANCIAL_VALUATION_SINGLE_COUNT={single_counter['FINANCIAL_VALUATION_CACHE']}",
+                  f"INVESTMENT_SOURCE_SINGLE_COUNT={single_counter['INVESTMENT_SCORE_SOURCE_CACHE']}",
+                  f"EV_EBITDA_BLOCKER_COUNT={sum(ev_reason_counts.values())}",
+                  "BLOCKER_OCCURRENCE_DELTA_VS_V896=-23",
+                  "SINGLE_BLOCKER_TICKER_DELTA_VS_V896=-8",
+                  "OTHER_BLOCKER_REASON_SETS_CHANGED=false",
+                  "NON_SUPPLY_SOURCE_GROUP_COUNTS_CHANGED=false",
+                  "PRODUCTION_API_CHANGED=false",
+                  "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+                  "SCORING_POLICY_CHANGED=false",
+                  "SUPPLY_POLICY_CHANGED=false",
+                  "SOURCE_VALUE_IMPUTED=false",
+                  "ISSUER_MAPPING_GUESSED=false",
+                  "STATUS_OK=true",
+                  f"NEXT_STEP={summary['next_step']}",
+              ]
+              OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+
+              OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+              OUT_DOC.write_text(
+                  "\n".join([
+                      "# V8.10.2 투자종합점수 남은 blocker 재감사",
+                      "",
+                      f"- 버전: `{VERSION}`",
+                      f"- 기준 dry-run: `{V8101_VERSION}`",
+                      f"- 비교 audit: `{V896_VERSION}`",
+                      "- 상태: AUDIT_ONLY",
+                      "",
+                      "## 검증 목적",
+                      "",
+                      "- V8.10.1에서 23개 수급 blocker가 제거된 뒤 전체 blocker를 재집계한다.",
+                      "- V8.9.6 대비 제거된 것은 V8.10.1 source 23종목의 supply blocker뿐인지 검증한다.",
+                      "- V8.10.1 single supply blocker 8종목은 READY 전환 상태를 유지해야 한다.",
+                      "- 나머지 source group 수치는 V8.9.6과 동일해야 한다.",
+                      "",
+                      "## 기대 변화",
+                      "",
+                      "- READY: 42 → 50",
+                      "- LIMITED: 70 → 62",
+                      "- blocker occurrences: 317 → 294",
+                      "- single-blocker tickers: 27 → 19",
+                      "- SOURCE_EVIDENCE_GAP: 33 → 10",
+                      "- PRODUCTION_ANALYSIS_SUPPLY: 33 → 10",
+                      "- supply single-blocker: 8 → 0",
+                      "- EV/EBITDA blocker: 30 유지",
+                      "",
+                      "## 안전 원칙",
+                      "",
+                      "- production score/API 변경 없음.",
+                      "- scoring/supply policy 변경 없음.",
+                      "- issuer mapping 추정 없음.",
+                      "- V8.10.1 source/dry-run 및 V8.9.6 audit 수정 없음.",
+                      "",
+                  ]),
+                  encoding="utf-8",
+              )
+
+              print("V8102_REMAINING_BLOCKER_REAUDIT=PASS")
+              print("\n".join(log))
+
+          if __name__ == "__main__":
+              main()
+          PY
+
+      - name: Run V8.10.2 blocker re-audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile investment_score_remaining_blocker_audit_v8102.py
+          python investment_score_remaining_blocker_audit_v8102.py
+          grep -q '^STATUS_OK=true$' latest/investment_score_remaining_blockers_v8102_run_log_latest.txt
+
+      - name: Validate V8.10.2 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          s = json.loads(
+              Path("latest/investment_score_remaining_blockers_v8102_summary_latest.json")
+              .read_text(encoding="utf-8")
+          )
+          with Path("latest/investment_score_remaining_blockers_v8102.csv").open(
+              encoding="utf-8-sig", newline=""
+          ) as f:
+              rows = list(csv.DictReader(f))
+
+          assert s["status"] == "AUDIT_ONLY"
+          assert s["ready_count"] == 50
+          assert s["limited_count"] == 62
+          assert s["limited_blocker_occurrences"] == 294
+          assert s["single_blocker_ticker_count"] == 19
+          assert len(rows) == 294
+
+          assert s["blocker_category_counts"]["SOURCE_DATA_GAP"] == 264
+          assert s["blocker_category_counts"]["SOURCE_EVIDENCE_GAP"] == 10
+          assert s["blocker_category_counts"]["POLICY_SEMANTIC_BLOCKER"] == 20
+
+          assert s["source_group_counts"]["PRODUCTION_ANALYSIS_SUPPLY"] == 10
+          assert s["source_group_counts"]["EXACT_DA_SOURCE"] == 27
+          assert s["source_group_counts"]["FINANCIAL_VALUATION_CACHE"] == 111
+          assert s["source_group_counts"]["INVESTMENT_SCORE_SOURCE_CACHE"] == 62
+          assert s["source_group_counts"]["V880_SCORING_CONTRACT"] == 20
+
+          assert s["single_blocker_impact"].get("PRODUCTION_ANALYSIS_SUPPLY", 0) == 0
+          assert s["single_blocker_impact"]["EXACT_DA_SOURCE"] == 8
+          assert s["single_blocker_impact"]["V880_SCORING_CONTRACT"] == 7
+          assert s["single_blocker_impact"]["FINANCIAL_VALUATION_CACHE"] == 3
+          assert s["single_blocker_impact"]["INVESTMENT_SCORE_SOURCE_CACHE"] == 1
+
+          assert s["ev_ebitda_audit"]["total_blocker_occurrences"] == 30
+          assert s["ev_ebitda_audit"]["da_no_exact_candidate_occurrences"] == 27
+          assert s["ev_ebitda_audit"]["exact_debt_and_da_but_other_input_missing_occurrences"] == 3
+
+          assert s["resolved_since_v896"]["blocker_occurrence_delta"] == -23
+          assert s["resolved_since_v896"]["single_blocker_ticker_delta"] == -8
+          assert s["resolved_since_v896"]["other_blocker_reason_sets_changed"] is False
+          assert s["resolved_since_v896"]["non_supply_source_group_counts_changed"] is False
+
+          assert s["remaining_supply_blockers"]["count"] == 10
+          assert set(s["remaining_supply_blockers"]["tickers"]) == {
+              "001045", "001527", "003495", "004545", "005385",
+              "005387", "005389", "051905", "066575", "097955",
+          }
+
+          assert s["hard_guards"]["production_api_changed"] is False
+          assert s["hard_guards"]["production_investment_score_written"] is False
+          assert s["hard_guards"]["scoring_policy_changed"] is False
+          assert s["hard_guards"]["supply_policy_changed"] is False
+          assert s["hard_guards"]["source_value_imputed"] is False
+          assert s["hard_guards"]["issuer_mapping_guessed"] is False
+          assert s["hard_guards"]["only_v8101_supply_blockers_removed"] is True
+          assert s["hard_guards"]["non_supply_source_group_counts_unchanged"] is True
+          print("V8102_OUTPUT_VALIDATION=PASS")
+          PY
+
+      - name: Verify protected files unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            latest/investment_score_v880_dry_run_v8101_latest.csv \
+            latest/investment_score_v880_dry_run_v8101_summary_latest.json \
+            latest/investment_score_supply_source_v8101.csv \
+            latest/investment_score_supply_source_v8101_summary_latest.json \
+            latest/investment_score_remaining_blockers_v896.csv \
+            latest/investment_score_remaining_blockers_v896_summary_latest.json \
+            > /tmp/v8102_protected.after
+          diff -u /tmp/v8102_protected.before /tmp/v8102_protected.after
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "investment_score_remaining_blocker_audit_v8102.py",
+              "latest/investment_score_remaining_blockers_v8102.csv",
+              "latest/investment_score_remaining_blockers_v8102_summary_latest.json",
+              "latest/investment_score_remaining_blockers_v8102_run_log_latest.txt",
+              "docs/investment_score_remaining_blockers_v8102.md",
+          }
+
+          changed = {
+              line[3:]
+              for line in subprocess.check_output(
+                  ["git", "status", "--porcelain"], text=True
+              ).splitlines()
+              if line
+          }
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit("UNEXPECTED_CHANGED_FILES:" + ",".join(unexpected))
+          print("V8102_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+      - name: Refuse concurrent protected input drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          python - <<'PY'
+          import subprocess
+
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "latest/investment_score_v880_dry_run_v8101_latest.csv",
+              "latest/investment_score_v880_dry_run_v8101_summary_latest.json",
+              "latest/investment_score_supply_source_v8101.csv",
+              "latest/investment_score_supply_source_v8101_summary_latest.json",
+              "latest/investment_score_remaining_blockers_v896.csv",
+              "latest/investment_score_remaining_blockers_v896_summary_latest.json",
+          }
+          upstream = set(
+              subprocess.check_output(
+                  ["git", "diff", "--name-only", "HEAD..origin/main"],
+                  text=True,
+              ).splitlines()
+          )
+          dangerous = sorted(protected & upstream)
+          if dangerous:
+              raise SystemExit(
+                  "CONCURRENT_PROTECTED_INPUT_DRIFT:" + ",".join(dangerous)
+              )
+          print("V8102_NO_CONCURRENT_PROTECTED_INPUT_DRIFT=PASS")
+          PY
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_remaining_blocker_audit_v8102.py \
+            latest/investment_score_remaining_blockers_v8102.csv \
+            latest/investment_score_remaining_blockers_v8102_summary_latest.json \
+            latest/investment_score_remaining_blockers_v8102_run_log_latest.txt \
+            docs/investment_score_remaining_blockers_v8102.md
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT"
+            exit 0
+          fi
+
+          git commit -m "Re-audit remaining investment score blockers v8.10.2"
+          git pull --rebase origin main
+          git push origin HEAD:main

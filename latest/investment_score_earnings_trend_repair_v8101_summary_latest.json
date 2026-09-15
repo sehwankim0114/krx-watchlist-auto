@@ -1,0 +1,82 @@
+{
+  "version": "2026-09-15-v8.10.1-repair-earnings-trend-wiring",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "generated_at_kst": "2026-09-15T17:18:12+09:00",
+  "status": "SOURCE_WIRING_REPAIRED_AND_DRY_RUN_REVALIDATED",
+  "repair": {
+    "source_file": "financial_valuation_enricher.py",
+    "script_version_before": "financial_valuation_enricher.py v1.3.0-production-two-table-targets",
+    "script_version_after": "financial_valuation_enricher.py v1.3.1-earnings-trend-net-income-fix",
+    "earnings_trend_before_inputs": [
+      "operating_profit",
+      "previous_operating_profit"
+    ],
+    "earnings_trend_after_inputs": [
+      "net_income",
+      "previous_net_income"
+    ],
+    "self_test_extended_for_loss_trend": true
+  },
+  "cache_repair": {
+    "cache_row_count": 236,
+    "changed_tickers": [
+      "001420",
+      "001440",
+      "003490",
+      "006650",
+      "008770",
+      "009200",
+      "009420",
+      "012160",
+      "014160",
+      "029530",
+      "081000",
+      "139480",
+      "241590",
+      "271940",
+      "298000",
+      "403550",
+      "456040"
+    ],
+    "changed_count": 17,
+    "nontrend_changed_count": 0,
+    "scope_source": "V8.9.9 confirmed mismatch tickers only",
+    "all_non_earnings_trend_fields_unchanged": true
+  },
+  "score_revalidation": {
+    "reference_v899_shadow_version": "2026-09-15-v8.9.9-per-loss-earnings-trend-wiring-audit",
+    "score_rows_exactly_match_v899_shadow": true,
+    "ready_count": 45,
+    "limited_count": 67,
+    "newly_ready_from_pre_v899_baseline": [
+      "003490",
+      "009420",
+      "139480"
+    ],
+    "target_scores": {
+      "003490": 53.5,
+      "009420": 44.0,
+      "139480": 37.0
+    },
+    "v895_da_shadow_reproduction": {
+      "combined_source_count": 67,
+      "shadow_unique_raw_target_count": 66,
+      "shadow_patched_ready_raw_count": 66,
+      "shadow_patched_nonready_raw_count": 0,
+      "preferred_inheritance_count": 1,
+      "preferred_inheritance": {
+        "003495": "003490"
+      }
+    }
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "raw_source_cache_mutated": false,
+    "approved_da_ids_changed": false,
+    "new_value_imputed": false,
+    "financial_valuation_cache_nontrend_fields_changed": false
+  },
+  "next_step": "REFRESH_REMAINING_INVESTMENT_SCORE_BLOCKERS_AFTER_V8101_REPAIR"
+}

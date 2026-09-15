@@ -1,29 +1,29 @@
 {
-  "version": "2026-09-15-v8.10.1-freeze-complete-supply-evidence-and-dry-run",
+  "version": "2026-09-15-v8.10.1-repair-earnings-trend-wiring",
   "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
-  "generated_at_kst": "2026-09-15T17:17:18+09:00",
+  "generated_at_kst": "2026-09-15T17:18:12+09:00",
   "status": "DRY_RUN_ONLY",
   "production_unique_tickers": 112,
-  "ready_count": 50,
-  "limited_count": 62,
-  "ready_pct": 44.64,
+  "ready_count": 45,
+  "limited_count": 67,
+  "ready_pct": 40.18,
   "score_summary_ready_only": {
-    "count": 50,
+    "count": 45,
     "min": 23.0,
     "median": 66.0,
-    "mean": 61.97,
+    "mean": 61.17777777777778,
     "max": 79.5
   },
   "score_band_counts_ready_only": {
-    "관찰 후보": 24,
-    "추천 후보": 4,
-    "대기·중립": 13,
-    "주의": 9
+    "관찰 후보": 21,
+    "추천 후보": 3,
+    "주의": 10,
+    "대기·중립": 11
   },
   "top_missing_reasons": [
     [
-      "PER:MISSING_PER",
-      22
+      "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
+      33
     ],
     [
       "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
@@ -70,6 +70,10 @@
       13
     ],
     [
+      "PER:MISSING_PER",
+      13
+    ],
+    [
       "PBR:MISSING_PBR_OR_ROE",
       13
     ],
@@ -87,10 +91,6 @@
     ],
     [
       "최근 3년 영업이익 성장률:MISSING_3Y_OP",
-      10
-    ],
-    [
-      "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
       10
     ],
     [
@@ -122,17 +122,11 @@
     "production_api_changed": false,
     "production_investment_score_written": false,
     "scoring_policy_changed": false,
-    "supply_policy_changed": false,
-    "v8100_evidence_mutated": false,
-    "v895_baseline_mutated": false,
     "raw_source_cache_mutated": false,
-    "financial_valuation_cache_mutated": false,
-    "issuer_mapping_guessed": false,
-    "incomplete_query_promoted": false,
-    "baseline_control_exact_match": true,
-    "non_source_rows_unchanged": true,
-    "existing_ready_scores_unchanged": true,
-    "ready_regression_count": 0
+    "approved_da_ids_changed": false,
+    "new_value_imputed": false,
+    "financial_valuation_source_wiring_changed": true,
+    "financial_valuation_cache_earnings_trend_only_repaired": true
   },
   "scorer_reconciliation": {
     "per_loss_trend_checked_before_missing_per": true,
@@ -141,70 +135,19 @@
     "ev_ebitda_exact_da_policy_unchanged": true,
     "no_new_score_thresholds": true
   },
-  "next_step": "REAUDIT_REMAINING_BLOCKERS_AFTER_V8101_SUPPLY_SHADOW_THEN_KEEP_V899_FINANCIAL_FIX_SEPARATE_UNTIL_SOURCE_PATCH_VALIDATED",
-  "source_recheck": {
-    "base_scorer_version": "2026-09-13-v8.8.2-investment-score-dry-run-gate-reconciliation",
-    "baseline_v895_version": "2026-09-15-v8.9.5-v888-plus-v894-da-extension-dry-run",
-    "v8100_evidence_version": "2026-09-15-v8.10.0-targeted-dart-supply-completeness-audit",
-    "supply_source_version": "2026-09-15-v8.10.1-freeze-complete-supply-evidence-and-dry-run",
-    "source_count": 23,
-    "positive_burden_source_count": 10,
-    "no_positive_burden_source_count": 13,
-    "unresolved_excluded_count": 10,
-    "baseline_control_exact_match": true,
-    "baseline_ready_count": 42,
-    "new_ready_count": 50,
-    "ready_delta": 8,
-    "newly_ready_tickers": [
-      "003280",
-      "063160",
-      "066570",
-      "071840",
-      "081000",
-      "086280",
-      "100250",
-      "286940"
+  "next_step": "REVIEW_V882_REMAINING_BLOCKERS_THEN_CONNECT_EXACT_DA_SOURCE",
+  "repair_revalidation": {
+    "reference_v899_shadow_version": "2026-09-15-v8.9.9-per-loss-earnings-trend-wiring-audit",
+    "score_rows_exactly_match_v899_shadow": true,
+    "score_row_diff_count": 0,
+    "ready_count": 45,
+    "limited_count": 67,
+    "target_tickers": [
+      "003490",
+      "009420",
+      "139480"
     ],
-    "lost_ready_tickers": [],
-    "single_blocker_expected_tickers": [
-      "003280",
-      "063160",
-      "066570",
-      "071840",
-      "081000",
-      "086280",
-      "100250",
-      "286940"
-    ],
-    "single_blocker_newly_ready_count": 8,
-    "single_blocker_scores_after": {
-      "003280": 63.5,
-      "063160": 36.5,
-      "066570": 75.5,
-      "071840": 39.0,
-      "081000": 66.0,
-      "086280": 74.5,
-      "100250": 68.5,
-      "286940": 64.0
-    },
-    "supply_blocker_before": 33,
-    "supply_blocker_after": 10,
-    "supply_blocker_reduced_by": 23,
-    "remaining_supply_blocker_tickers": [
-      "001045",
-      "001527",
-      "003495",
-      "004545",
-      "005385",
-      "005387",
-      "005389",
-      "051905",
-      "066575",
-      "097955"
-    ],
-    "source_row_changed_count": 23,
-    "non_source_row_changed_count": 0,
-    "existing_ready_score_changed_count": 0,
+    "target_results_match_v899_shadow": true,
     "v895_da_shadow_reproduction": {
       "combined_source_count": 67,
       "shadow_unique_raw_target_count": 66,
@@ -213,472 +156,6 @@
       "preferred_inheritance_count": 1,
       "preferred_inheritance": {
         "003495": "003490"
-      }
-    },
-    "financial_trend_v899_shadow_layered": false,
-    "financial_trend_note": "V8.9.9 financial earnings-trend shadow fix is intentionally not layered here; this run isolates the V8.10.1 supply source effect.",
-    "overlay_audit": {
-      "000650": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "없음",
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN"
-      },
-      "001020": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "위험",
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN"
-      },
-      "001420": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "없음",
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN"
-      },
-      "001440": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "위험",
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN"
-      },
-      "002210": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "위험",
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN"
-      },
-      "002990": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "위험",
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN"
-      },
-      "003280": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "없음",
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN"
-      },
-      "009200": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "없음",
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN"
-      },
-      "011200": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "주의",
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN"
-      },
-      "012690": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "없음",
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN"
-      },
-      "013360": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "없음",
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN"
-      },
-      "029780": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "주의",
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN"
-      },
-      "063160": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "없음",
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN"
-      },
-      "066570": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "주의",
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN"
-      },
-      "071840": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "없음",
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN"
-      },
-      "081000": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "없음",
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN"
-      },
-      "086280": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "주의",
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN"
-      },
-      "088980": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "주의",
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN"
-      },
-      "100250": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "없음",
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN"
-      },
-      "241590": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "없음",
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN"
-      },
-      "271940": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "없음",
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN"
-      },
-      "271980": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "주의",
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN"
-      },
-      "286940": {
-        "before_supply_status": "LIMITED",
-        "before_supply_level": "없음",
-        "after_supply_status": "OK",
-        "after_supply_level": "없음",
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN"
-      }
-    },
-    "source_impact": {
-      "000650": {
-        "name": "천일고속",
-        "single_blocker_ticker": false,
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN",
-        "supply_level": "없음",
-        "supply_points_after": 10.0,
-        "status_before": "LIMITED",
-        "status_after": "LIMITED",
-        "missing_before": "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE;수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
-        "score_before": null,
-        "score_after": null
-      },
-      "001020": {
-        "name": "페이퍼코리아",
-        "single_blocker_ticker": false,
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN",
-        "supply_level": "위험",
-        "supply_points_after": 1.0,
-        "status_before": "LIMITED",
-        "status_after": "LIMITED",
-        "missing_before": "과열·급락 위험:MISSING_RISK_INPUT;수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "과열·급락 위험:MISSING_RISK_INPUT",
-        "score_before": null,
-        "score_after": null
-      },
-      "001420": {
-        "name": "태원물산",
-        "single_blocker_ticker": false,
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN",
-        "supply_level": "없음",
-        "supply_points_after": 10.0,
-        "status_before": "LIMITED",
-        "status_after": "LIMITED",
-        "missing_before": "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE;기간 저가·고가 대비 현재위치:MISSING_POSITION;과열·급락 위험:MISSING_RISK_INPUT;수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE;기간 저가·고가 대비 현재위치:MISSING_POSITION;과열·급락 위험:MISSING_RISK_INPUT",
-        "score_before": null,
-        "score_after": null
-      },
-      "001440": {
-        "name": "대한전선",
-        "single_blocker_ticker": false,
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN",
-        "supply_level": "위험",
-        "supply_points_after": 1.0,
-        "status_before": "LIMITED",
-        "status_after": "LIMITED",
-        "missing_before": "PER:MISSING_PER;수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "PER:MISSING_PER",
-        "score_before": null,
-        "score_after": null
-      },
-      "002210": {
-        "name": "동성제약",
-        "single_blocker_ticker": false,
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN",
-        "supply_level": "위험",
-        "supply_points_after": 1.0,
-        "status_before": "LIMITED",
-        "status_after": "LIMITED",
-        "missing_before": "EV/EBITDA:EV_EBITDA_INPUT:EMPTY_AS_ZERO:NO_EXACT_CANDIDATE;최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE;기간 저가·고가 대비 현재위치:MISSING_POSITION;과열·급락 위험:MISSING_RISK_INPUT;수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "EV/EBITDA:EV_EBITDA_INPUT:EMPTY_AS_ZERO:NO_EXACT_CANDIDATE;최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE;기간 저가·고가 대비 현재위치:MISSING_POSITION;과열·급락 위험:MISSING_RISK_INPUT",
-        "score_before": null,
-        "score_after": null
-      },
-      "002990": {
-        "name": "금호건설",
-        "single_blocker_ticker": false,
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN",
-        "supply_level": "위험",
-        "supply_points_after": 1.0,
-        "status_before": "LIMITED",
-        "status_after": "LIMITED",
-        "missing_before": "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE;기간 저가·고가 대비 현재위치:MISSING_POSITION;과열·급락 위험:MISSING_RISK_INPUT;수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE;기간 저가·고가 대비 현재위치:MISSING_POSITION;과열·급락 위험:MISSING_RISK_INPUT",
-        "score_before": null,
-        "score_after": null
-      },
-      "003280": {
-        "name": "흥아해운",
-        "single_blocker_ticker": true,
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN",
-        "supply_level": "없음",
-        "supply_points_after": 10.0,
-        "status_before": "LIMITED",
-        "status_after": "READY",
-        "missing_before": "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "",
-        "score_before": null,
-        "score_after": 63.5
-      },
-      "009200": {
-        "name": "무림페이퍼",
-        "single_blocker_ticker": false,
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN",
-        "supply_level": "없음",
-        "supply_points_after": 10.0,
-        "status_before": "LIMITED",
-        "status_after": "LIMITED",
-        "missing_before": "PER:MISSING_PER;수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "PER:MISSING_PER",
-        "score_before": null,
-        "score_after": null
-      },
-      "011200": {
-        "name": "HMM",
-        "single_blocker_ticker": false,
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN",
-        "supply_level": "주의",
-        "supply_points_after": 7.0,
-        "status_before": "LIMITED",
-        "status_after": "LIMITED",
-        "missing_before": "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE;수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
-        "score_before": null,
-        "score_after": null
-      },
-      "012690": {
-        "name": "모나리자",
-        "single_blocker_ticker": false,
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN",
-        "supply_level": "없음",
-        "supply_points_after": 10.0,
-        "status_before": "LIMITED",
-        "status_after": "LIMITED",
-        "missing_before": "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE;수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
-        "score_before": null,
-        "score_after": null
-      },
-      "013360": {
-        "name": "일성건설",
-        "single_blocker_ticker": false,
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN",
-        "supply_level": "없음",
-        "supply_points_after": 10.0,
-        "status_before": "LIMITED",
-        "status_after": "LIMITED",
-        "missing_before": "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE;수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
-        "score_before": null,
-        "score_after": null
-      },
-      "029780": {
-        "name": "삼성카드",
-        "single_blocker_ticker": false,
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN",
-        "supply_level": "주의",
-        "supply_points_after": 7.0,
-        "status_before": "LIMITED",
-        "status_after": "LIMITED",
-        "missing_before": "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT;최근 3년 매출 성장률:MISSING_3Y_REVENUE;최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT;수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT;최근 3년 매출 성장률:MISSING_3Y_REVENUE;최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
-        "score_before": null,
-        "score_after": null
-      },
-      "063160": {
-        "name": "종근당바이오",
-        "single_blocker_ticker": true,
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN",
-        "supply_level": "없음",
-        "supply_points_after": 10.0,
-        "status_before": "LIMITED",
-        "status_after": "READY",
-        "missing_before": "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "",
-        "score_before": null,
-        "score_after": 36.5
-      },
-      "066570": {
-        "name": "LG전자",
-        "single_blocker_ticker": true,
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN",
-        "supply_level": "주의",
-        "supply_points_after": 7.0,
-        "status_before": "LIMITED",
-        "status_after": "READY",
-        "missing_before": "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "",
-        "score_before": null,
-        "score_after": 75.5
-      },
-      "071840": {
-        "name": "롯데하이마트",
-        "single_blocker_ticker": true,
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN",
-        "supply_level": "없음",
-        "supply_points_after": 10.0,
-        "status_before": "LIMITED",
-        "status_after": "READY",
-        "missing_before": "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "",
-        "score_before": null,
-        "score_after": 39.0
-      },
-      "081000": {
-        "name": "일진다이아",
-        "single_blocker_ticker": true,
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN",
-        "supply_level": "없음",
-        "supply_points_after": 10.0,
-        "status_before": "LIMITED",
-        "status_after": "READY",
-        "missing_before": "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "",
-        "score_before": null,
-        "score_after": 66.0
-      },
-      "086280": {
-        "name": "현대글로비스",
-        "single_blocker_ticker": true,
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN",
-        "supply_level": "주의",
-        "supply_points_after": 7.0,
-        "status_before": "LIMITED",
-        "status_after": "READY",
-        "missing_before": "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "",
-        "score_before": null,
-        "score_after": 74.5
-      },
-      "088980": {
-        "name": "맥쿼리인프라",
-        "single_blocker_ticker": false,
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN",
-        "supply_level": "주의",
-        "supply_points_after": 7.0,
-        "status_before": "LIMITED",
-        "status_after": "LIMITED",
-        "missing_before": "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT;영업이익 성장과 흑자 여부:MISSING_OP_PROFIT;순이익 흐름:MISSING_EARNINGS_TREND;영업이익률:MISSING_MARGIN;ROE:MISSING_ROE;PER:MISSING_PER;PBR:MISSING_PBR_OR_ROE;최근 3년 매출 성장률:MISSING_3Y_REVENUE;최근 3년 영업이익 성장률:MISSING_3Y_OP;최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT;흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND;수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT;영업이익 성장과 흑자 여부:MISSING_OP_PROFIT;순이익 흐름:MISSING_EARNINGS_TREND;영업이익률:MISSING_MARGIN;ROE:MISSING_ROE;PER:MISSING_PER;PBR:MISSING_PBR_OR_ROE;최근 3년 매출 성장률:MISSING_3Y_REVENUE;최근 3년 영업이익 성장률:MISSING_3Y_OP;최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT;흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND",
-        "score_before": null,
-        "score_after": null
-      },
-      "100250": {
-        "name": "진양홀딩스",
-        "single_blocker_ticker": true,
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN",
-        "supply_level": "없음",
-        "supply_points_after": 10.0,
-        "status_before": "LIMITED",
-        "status_after": "READY",
-        "missing_before": "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "",
-        "score_before": null,
-        "score_after": 68.5
-      },
-      "241590": {
-        "name": "화승엔터프라이즈",
-        "single_blocker_ticker": false,
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN",
-        "supply_level": "없음",
-        "supply_points_after": 10.0,
-        "status_before": "LIMITED",
-        "status_after": "LIMITED",
-        "missing_before": "PER:MISSING_PER;수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "PER:MISSING_PER",
-        "score_before": null,
-        "score_after": null
-      },
-      "271940": {
-        "name": "일진하이솔루스",
-        "single_blocker_ticker": false,
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN",
-        "supply_level": "없음",
-        "supply_points_after": 10.0,
-        "status_before": "LIMITED",
-        "status_after": "LIMITED",
-        "missing_before": "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE;수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
-        "score_before": null,
-        "score_after": null
-      },
-      "271980": {
-        "name": "제일약품",
-        "single_blocker_ticker": false,
-        "source_classification": "COMPLETE_180D_POSITIVE_BURDEN",
-        "supply_level": "주의",
-        "supply_points_after": 7.0,
-        "status_before": "LIMITED",
-        "status_after": "LIMITED",
-        "missing_before": "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE;수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
-        "score_before": null,
-        "score_after": null
-      },
-      "286940": {
-        "name": "롯데이노베이트",
-        "single_blocker_ticker": true,
-        "source_classification": "COMPLETE_180D_NO_POSITIVE_BURDEN",
-        "supply_level": "없음",
-        "supply_points_after": 10.0,
-        "status_before": "LIMITED",
-        "status_after": "READY",
-        "missing_before": "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-        "missing_after": "",
-        "score_before": null,
-        "score_after": 64.0
       }
     }
   }

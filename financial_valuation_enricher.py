@@ -46,7 +46,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 
-SCRIPT_VERSION = "financial_valuation_enricher.py v1.3.0-production-two-table-targets"
+SCRIPT_VERSION = "financial_valuation_enricher.py v1.3.1-earnings-trend-net-income-fix"
 CORP_IDENTITY_POLICY_VERSION = "corp-candidate-name-match-v2"
 POLICY_VERSION = "2026-07-01-v6.0-score-policy"
 KST = ZoneInfo("Asia/Seoul")
@@ -1465,8 +1465,8 @@ def compute_metrics(
             )
         ),
         "earnings_trend": determine_earnings_trend(
-            operating_profit,
-            previous_operating_profit,
+            net_income,
+            previous_net_income,
         ),
         "market_cap": safe_round(market_cap, 0),
         "listed_shares": safe_round(listed_shares, 0),
@@ -2003,6 +2003,7 @@ def run_self_test() -> int:
         loss_metrics["valuation_data_status"]
         == "PARTIAL_LOSS_PER_NA"
     )
+    assert loss_metrics["earnings_trend"] == "적자전환"
 
     status, _ = evaluate_corp_identity(
         "DB하이텍",

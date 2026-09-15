@@ -1,0 +1,282 @@
+{
+  "version": "2026-09-15-v8.9.5-refresh-remaining-blocker-audit",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v894_version": "2026-09-15-v8.9.4-extend-da-source-and-rerun-dry-run",
+  "base_classifier_version": "2026-09-15-v8.9.0-investment-score-remaining-blocker-audit",
+  "generated_at_kst": "2026-09-15T15:58:18+09:00",
+  "status": "AUDIT_ONLY",
+  "production_unique_tickers": 112,
+  "ready_count": 42,
+  "limited_count": 70,
+  "limited_blocker_occurrences": 317,
+  "single_blocker_ticker_count": 27,
+  "single_blocker_tickers": [
+    "001560",
+    "002420",
+    "003280",
+    "003490",
+    "006650",
+    "008770",
+    "009420",
+    "012450",
+    "017670",
+    "020560",
+    "022100",
+    "023960",
+    "036570",
+    "058730",
+    "063160",
+    "066570",
+    "071840",
+    "078520",
+    "081000",
+    "086280",
+    "100250",
+    "139480",
+    "286940",
+    "336260",
+    "357250",
+    "361610",
+    "483650"
+  ],
+  "blocker_category_counts": {
+    "POLICY_SEMANTIC_BLOCKER": 20,
+    "SOURCE_EVIDENCE_GAP": 33,
+    "SOURCE_DATA_GAP": 264
+  },
+  "source_group_counts": {
+    "V880_SCORING_CONTRACT": 20,
+    "PRODUCTION_ANALYSIS_SUPPLY": 33,
+    "INVESTMENT_SCORE_SOURCE_CACHE": 62,
+    "PRODUCTION_PRICE_METRICS": 29,
+    "FINANCIAL_VALUATION_CACHE": 111,
+    "OCF_AND_REVENUE_SOURCE": 9,
+    "EXACT_DA_SOURCE": 27,
+    "FINANCIAL_AND_RAW_SOURCE": 12,
+    "NETCASH_INPUT": 11,
+    "EV_EBITDA_OTHER_INPUT": 3
+  },
+  "source_priority_by_occurrences": [
+    {
+      "source_group": "FINANCIAL_VALUATION_CACHE",
+      "blocker_occurrences": 111,
+      "single_blocker_tickers": 3
+    },
+    {
+      "source_group": "INVESTMENT_SCORE_SOURCE_CACHE",
+      "blocker_occurrences": 62,
+      "single_blocker_tickers": 1
+    },
+    {
+      "source_group": "PRODUCTION_ANALYSIS_SUPPLY",
+      "blocker_occurrences": 33,
+      "single_blocker_tickers": 8
+    },
+    {
+      "source_group": "PRODUCTION_PRICE_METRICS",
+      "blocker_occurrences": 29,
+      "single_blocker_tickers": 0
+    },
+    {
+      "source_group": "EXACT_DA_SOURCE",
+      "blocker_occurrences": 27,
+      "single_blocker_tickers": 8
+    },
+    {
+      "source_group": "V880_SCORING_CONTRACT",
+      "blocker_occurrences": 20,
+      "single_blocker_tickers": 7
+    },
+    {
+      "source_group": "FINANCIAL_AND_RAW_SOURCE",
+      "blocker_occurrences": 12,
+      "single_blocker_tickers": 0
+    },
+    {
+      "source_group": "NETCASH_INPUT",
+      "blocker_occurrences": 11,
+      "single_blocker_tickers": 0
+    },
+    {
+      "source_group": "OCF_AND_REVENUE_SOURCE",
+      "blocker_occurrences": 9,
+      "single_blocker_tickers": 0
+    },
+    {
+      "source_group": "EV_EBITDA_OTHER_INPUT",
+      "blocker_occurrences": 3,
+      "single_blocker_tickers": 0
+    }
+  ],
+  "source_recovery_priority_by_single_blocker": [
+    {
+      "source_group": "PRODUCTION_ANALYSIS_SUPPLY",
+      "single_blocker_tickers": 8,
+      "blocker_occurrences": 33
+    },
+    {
+      "source_group": "EXACT_DA_SOURCE",
+      "single_blocker_tickers": 8,
+      "blocker_occurrences": 27
+    },
+    {
+      "source_group": "FINANCIAL_VALUATION_CACHE",
+      "single_blocker_tickers": 3,
+      "blocker_occurrences": 111
+    },
+    {
+      "source_group": "INVESTMENT_SCORE_SOURCE_CACHE",
+      "single_blocker_tickers": 1,
+      "blocker_occurrences": 62
+    },
+    {
+      "source_group": "PRODUCTION_PRICE_METRICS",
+      "single_blocker_tickers": 0,
+      "blocker_occurrences": 29
+    },
+    {
+      "source_group": "FINANCIAL_AND_RAW_SOURCE",
+      "single_blocker_tickers": 0,
+      "blocker_occurrences": 12
+    },
+    {
+      "source_group": "NETCASH_INPUT",
+      "single_blocker_tickers": 0,
+      "blocker_occurrences": 11
+    },
+    {
+      "source_group": "OCF_AND_REVENUE_SOURCE",
+      "single_blocker_tickers": 0,
+      "blocker_occurrences": 9
+    },
+    {
+      "source_group": "EV_EBITDA_OTHER_INPUT",
+      "single_blocker_tickers": 0,
+      "blocker_occurrences": 3
+    }
+  ],
+  "highest_impact_source_group": "PRODUCTION_ANALYSIS_SUPPLY",
+  "highest_impact_single_blocker_ticker_count": 8,
+  "top_blocker_reasons": [
+    [
+      "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
+      33
+    ],
+    [
+      "PER:MISSING_PER",
+      22
+    ],
+    [
+      "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
+      20
+    ],
+    [
+      "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+      19
+    ],
+    [
+      "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+      17
+    ],
+    [
+      "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+      16
+    ],
+    [
+      "과열·급락 위험:MISSING_RISK_INPUT",
+      15
+    ],
+    [
+      "기간 저가·고가 대비 현재위치:MISSING_POSITION",
+      14
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
+      14
+    ],
+    [
+      "영업이익 성장과 흑자 여부:MISSING_OP_PROFIT",
+      13
+    ],
+    [
+      "순이익 흐름:MISSING_EARNINGS_TREND",
+      13
+    ],
+    [
+      "영업이익률:MISSING_MARGIN",
+      13
+    ],
+    [
+      "ROE:MISSING_ROE",
+      13
+    ],
+    [
+      "PBR:MISSING_PBR_OR_ROE",
+      13
+    ],
+    [
+      "흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND",
+      13
+    ],
+    [
+      "PSR 또는 대체 가치지표:MISSING_PSR_INPUT",
+      12
+    ],
+    [
+      "부채비율:MISSING_DEBT_RATIO",
+      11
+    ],
+    [
+      "최근 3년 영업이익 성장률:MISSING_3Y_OP",
+      10
+    ],
+    [
+      "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+      9
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:NO_EXACT_CANDIDATE:NO_EXACT_CANDIDATE",
+      8
+    ],
+    [
+      "순현금·기업가치 상태:NETCASH_INPUT:NO_EXACT_CANDIDATE",
+      8
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:EMPTY_AS_ZERO:NO_EXACT_CANDIDATE",
+      5
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:OK:OK",
+      3
+    ],
+    [
+      "순현금·기업가치 상태:NETCASH_INPUT:OK",
+      3
+    ]
+  ],
+  "ev_ebitda_audit": {
+    "total_blocker_occurrences": 30,
+    "reason_counts": {
+      "EV/EBITDA:EV_EBITDA_INPUT:NO_EXACT_CANDIDATE:NO_EXACT_CANDIDATE": 8,
+      "EV/EBITDA:EV_EBITDA_INPUT:EMPTY_AS_ZERO:NO_EXACT_CANDIDATE": 5,
+      "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE": 14,
+      "EV/EBITDA:EV_EBITDA_INPUT:OK:OK": 3
+    },
+    "da_no_exact_candidate_occurrences": 27,
+    "exact_debt_and_da_but_other_input_missing_occurrences": 3
+  },
+  "policy_semantic_blockers": {
+    "annual_op_denom_nonpositive_count": 20,
+    "automatic_rule_change_allowed": false
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "new_source_value_imputed": false,
+    "limited_score_promoted": false,
+    "v894_da_source_mutated": false
+  },
+  "next_step": "AUDIT_SUPPLY_EVIDENCE_COMPLETENESS"
+}

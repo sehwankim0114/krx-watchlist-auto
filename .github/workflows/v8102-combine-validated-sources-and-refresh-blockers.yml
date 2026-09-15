@@ -1,0 +1,791 @@
+name: Combine validated sources and refresh blockers v8.10.2
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8102-combine-validated-sources-and-refresh-blockers.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8102-combined-source-reconciliation
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Create V8.10.2 combined reconciler
+        shell: bash
+        run: |
+          cat > investment_score_combined_reconciliation_v8102.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import copy
+          import csv
+          import json
+          from collections import Counter
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_dry_run_v882 as scorer
+          import investment_score_dry_run_v895 as v895
+          import investment_score_remaining_blocker_audit_v890 as blocker
+
+          VERSION = "2026-09-15-v8.10.2-combined-validated-source-reconciliation"
+          POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          BASE_SCORER_VERSION = "2026-09-13-v8.8.2-investment-score-dry-run-gate-reconciliation"
+          V895_VERSION = "2026-09-15-v8.9.5-v888-plus-v894-da-extension-dry-run"
+          V899_VERSION = "2026-09-15-v8.9.9-per-loss-earnings-trend-wiring-audit"
+          V8101_SUPPLY_VERSION = "2026-09-15-v8.10.1-freeze-complete-supply-evidence-and-dry-run"
+          V8101_REPAIR_VERSION = "2026-09-15-v8.10.1-repair-earnings-trend-wiring"
+          V890_CLASSIFIER_VERSION = "2026-09-15-v8.9.0-investment-score-remaining-blocker-audit"
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+
+          FIN = ROOT / "latest/financial_valuation_cache_latest.csv"
+          SUPPLY_CSV = ROOT / "latest/investment_score_supply_source_v8101.csv"
+          SUPPLY_JSON = ROOT / "latest/investment_score_supply_source_v8101_summary_latest.json"
+          REPAIR_JSON = ROOT / "latest/investment_score_earnings_trend_repair_v8101_summary_latest.json"
+          V899_CSV = ROOT / "latest/investment_score_v880_dry_run_v899_latest.csv"
+          V899_JSON = ROOT / "latest/investment_score_v880_dry_run_v899_summary_latest.json"
+          V895_CSV = ROOT / "latest/investment_score_v880_dry_run_v895_latest.csv"
+          V895_JSON = ROOT / "latest/investment_score_v880_dry_run_v895_summary_latest.json"
+
+          CONTROL_CSV = Path("/tmp/investment_score_v8102_control.csv")
+          CONTROL_JSON = Path("/tmp/investment_score_v8102_control.json")
+          CONTROL_LOG = Path("/tmp/investment_score_v8102_control.log")
+          CONTROL_DOC = Path("/tmp/investment_score_v8102_control.md")
+
+          OUT_CSV = ROOT / "latest/investment_score_v880_dry_run_v8102_latest.csv"
+          OUT_JSON = ROOT / "latest/investment_score_v880_dry_run_v8102_summary_latest.json"
+          OUT_LOG = ROOT / "latest/investment_score_v880_dry_run_v8102_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_v880_dry_run_v8102.md"
+
+          BLOCK_CSV = ROOT / "latest/investment_score_remaining_blockers_v8102.csv"
+          BLOCK_JSON = ROOT / "latest/investment_score_remaining_blockers_v8102_summary_latest.json"
+          BLOCK_LOG = ROOT / "latest/investment_score_remaining_blockers_v8102_run_log_latest.txt"
+          DOC = ROOT / "docs/investment_score_combined_reconciliation_v8102.md"
+
+          SUPPLY_BLOCKER = "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+          EARNINGS_READY_TARGETS = {"003490", "009420", "139480"}
+          SUPPLY_SINGLE_TARGETS = {
+              "003280", "063160", "066570", "071840",
+              "081000", "086280", "100250", "286940",
+          }
+          EXPECTED_SUPPLY_SOURCE_COUNT = 23
+          EXPECTED_BASELINE_READY = 42
+          EXPECTED_EARNINGS_ONLY_READY = 45
+
+          def ticker(value):
+              text = "".join(ch for ch in str(value or "") if ch.isdigit())
+              return text.zfill(6) if text else ""
+
+          def num(value):
+              try:
+                  text = str(value or "").strip().replace(",", "")
+                  if text in {"", "-", "None", "null", "nan", "NaN"}:
+                      return None
+                  return float(text)
+              except Exception:
+                  return None
+
+          def read_json(path):
+              return json.loads(path.read_text(encoding="utf-8-sig"))
+
+          def read_csv(path):
+              with path.open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
+
+          def write_csv(path, rows, fields):
+              path.parent.mkdir(parents=True, exist_ok=True)
+              with path.open("w", encoding="utf-8-sig", newline="") as f:
+                  w = csv.DictWriter(f, fieldnames=fields)
+                  w.writeheader()
+                  w.writerows(rows)
+
+          def missing_items(row):
+              return {
+                  item for item in str(row.get("missing_components") or "").split(";")
+                  if item
+              }
+
+          def supply_blocker_count(rows):
+              return sum(SUPPLY_BLOCKER in missing_items(row) for row in rows)
+
+          def validate_contracts():
+              if scorer.VERSION != BASE_SCORER_VERSION:
+                  raise RuntimeError(f"BASE_SCORER_VERSION_MISMATCH:{scorer.VERSION}")
+              if scorer.POLICY_VERSION != POLICY_VERSION:
+                  raise RuntimeError("SCORER_POLICY_VERSION_MISMATCH")
+              if v895.VERSION != V895_VERSION:
+                  raise RuntimeError(f"V895_MODULE_VERSION_MISMATCH:{v895.VERSION}")
+              if blocker.VERSION != V890_CLASSIFIER_VERSION:
+                  raise RuntimeError(f"V890_CLASSIFIER_VERSION_MISMATCH:{blocker.VERSION}")
+              if blocker.POLICY_VERSION != POLICY_VERSION:
+                  raise RuntimeError("V890_POLICY_VERSION_MISMATCH")
+
+              s895 = read_json(V895_JSON)
+              if s895.get("version") != V895_VERSION:
+                  raise RuntimeError("V895_SUMMARY_VERSION_MISMATCH")
+              if int(s895.get("ready_count") or 0) != 42:
+                  raise RuntimeError("V895_READY_NOT_42")
+              if int(s895.get("limited_count") or 0) != 70:
+                  raise RuntimeError("V895_LIMITED_NOT_70")
+
+              s899 = read_json(V899_JSON)
+              if s899.get("version") != V899_VERSION:
+                  raise RuntimeError("V899_VERSION_MISMATCH")
+              if int(s899.get("ready_count") or 0) != 45:
+                  raise RuntimeError("V899_READY_NOT_45")
+              if int(s899.get("limited_count") or 0) != 67:
+                  raise RuntimeError("V899_LIMITED_NOT_67")
+
+              supply = read_json(SUPPLY_JSON)
+              if supply.get("version") != V8101_SUPPLY_VERSION:
+                  raise RuntimeError("V8101_SUPPLY_VERSION_MISMATCH")
+              if supply.get("status") != "SOURCE_ONLY_READY":
+                  raise RuntimeError("V8101_SUPPLY_STATUS_MISMATCH")
+              if int(supply.get("source_count") or 0) != EXPECTED_SUPPLY_SOURCE_COUNT:
+                  raise RuntimeError("V8101_SUPPLY_SOURCE_COUNT_MISMATCH")
+              if set(supply.get("single_blocker_source_tickers") or []) != SUPPLY_SINGLE_TARGETS:
+                  raise RuntimeError("V8101_SUPPLY_SINGLE_SET_MISMATCH")
+              if any(v is not False for v in (supply.get("hard_guards") or {}).values()):
+                  raise RuntimeError("V8101_SUPPLY_HARD_GUARD_NOT_FALSE")
+
+              repair = read_json(REPAIR_JSON)
+              if repair.get("version") != V8101_REPAIR_VERSION:
+                  raise RuntimeError("V8101_REPAIR_VERSION_MISMATCH")
+              if repair.get("status") != "SOURCE_WIRING_REPAIRED_AND_DRY_RUN_REVALIDATED":
+                  raise RuntimeError("V8101_REPAIR_STATUS_MISMATCH")
+              if int(repair.get("cache_repair", {}).get("changed_count") or 0) != 17:
+                  raise RuntimeError("V8101_REPAIR_CHANGED_COUNT_NOT_17")
+              if repair.get("cache_repair", {}).get("all_non_earnings_trend_fields_unchanged") is not True:
+                  raise RuntimeError("V8101_REPAIR_NON_TREND_FIELDS_CHANGED")
+              if int(repair.get("score_revalidation", {}).get("ready_count") or 0) != 45:
+                  raise RuntimeError("V8101_REPAIR_READY_NOT_45")
+
+          def build_control():
+              # Reproduce V8.9.9 exactly using the now-persisted corrected financial cache.
+              shadow_stats = v895.build_shadow_raw()
+
+              original_prod = scorer.production_rows
+              scorer.VERSION = "2026-09-15-v8.10.2-control-reproduce-v899"
+              scorer.FIN = FIN
+              scorer.RAW = v895.SHADOW_RAW
+              scorer.OUT_CSV = CONTROL_CSV
+              scorer.OUT_JSON = CONTROL_JSON
+              scorer.OUT_LOG = CONTROL_LOG
+              scorer.OUT_DOC = CONTROL_DOC
+              scorer.production_rows = original_prod
+              try:
+                  rc = scorer.main()
+              finally:
+                  scorer.production_rows = original_prod
+              if rc not in (None, 0):
+                  raise RuntimeError(f"CONTROL_SCORER_FAILED:{rc}")
+
+              expected_rows = read_csv(V899_CSV)
+              control_rows = read_csv(CONTROL_CSV)
+              expected = {ticker(r.get("ticker")): r for r in expected_rows}
+              control = {ticker(r.get("ticker")): r for r in control_rows}
+
+              if len(expected) != 112 or len(control) != 112:
+                  raise RuntimeError("CONTROL_ROW_COUNT_NOT_112")
+              if set(expected) != set(control):
+                  raise RuntimeError("CONTROL_TICKER_UNIVERSE_CHANGED")
+
+              diffs = [code for code in sorted(expected) if expected[code] != control[code]]
+              if diffs:
+                  raise RuntimeError("CONTROL_NOT_EXACT_V899:" + ",".join(diffs))
+
+              s = read_json(CONTROL_JSON)
+              if int(s.get("ready_count") or 0) != 45 or int(s.get("limited_count") or 0) != 67:
+                  raise RuntimeError(
+                      f"CONTROL_READY_LIMITED:{s.get('ready_count')}:{s.get('limited_count')}"
+                  )
+              return control, shadow_stats
+
+          def build_supply_overlay():
+              prod = scorer.production_rows()
+              if len(prod) != 112:
+                  raise RuntimeError(f"PRODUCTION_COUNT:{len(prod)}")
+
+              source_rows = read_csv(SUPPLY_CSV)
+              if len(source_rows) != EXPECTED_SUPPLY_SOURCE_COUNT:
+                  raise RuntimeError(f"SUPPLY_SOURCE_ROWS:{len(source_rows)}")
+
+              source_map = {ticker(r.get("ticker")): r for r in source_rows}
+              if len(source_map) != EXPECTED_SUPPLY_SOURCE_COUNT:
+                  raise RuntimeError("SUPPLY_SOURCE_TICKER_NOT_UNIQUE")
+
+              shadow = copy.deepcopy(prod)
+              audit = {}
+              for code in sorted(source_map):
+                  if code not in shadow:
+                      raise RuntimeError("SUPPLY_SOURCE_NOT_IN_PRODUCTION:" + code)
+                  src = source_map[code]
+                  if str(src.get("source_status") or "") != "SOURCE_ONLY_READY":
+                      raise RuntimeError("SUPPLY_SOURCE_NOT_READY:" + code)
+                  level = str(src.get("supply_level") or "")
+                  if level not in {"없음", "주의", "경계", "위험"}:
+                      raise RuntimeError(f"SUPPLY_LEVEL_INVALID:{code}:{level}")
+
+                  row = shadow[code]
+                  analysis = copy.deepcopy(row.get("analysis") or {})
+                  before_status = str(analysis.get("supply_status") or "")
+                  before_level = str(analysis.get("supply_level") or "")
+                  analysis["supply_status"] = "OK"
+                  analysis["supply_level"] = level
+                  row["analysis"] = analysis
+                  audit[code] = {
+                      "before_status": before_status,
+                      "before_level": before_level,
+                      "after_status": "OK",
+                      "after_level": level,
+                      "source_classification": src.get("source_classification") or "",
+                  }
+
+              return shadow, source_map, audit
+
+          def run_combined(control_map, shadow_stats):
+              shadow_prod, source_map, overlay_audit = build_supply_overlay()
+              original_prod = scorer.production_rows
+
+              scorer.VERSION = VERSION
+              scorer.FIN = FIN
+              scorer.RAW = v895.SHADOW_RAW
+              scorer.OUT_CSV = OUT_CSV
+              scorer.OUT_JSON = OUT_JSON
+              scorer.OUT_LOG = OUT_LOG
+              scorer.OUT_DOC = OUT_DOC
+              scorer.production_rows = lambda: copy.deepcopy(shadow_prod)
+              try:
+                  rc = scorer.main()
+              finally:
+                  scorer.production_rows = original_prod
+              if rc not in (None, 0):
+                  raise RuntimeError(f"COMBINED_SCORER_FAILED:{rc}")
+
+              rows = read_csv(OUT_CSV)
+              if len(rows) != 112:
+                  raise RuntimeError(f"COMBINED_ROW_COUNT:{len(rows)}")
+              after = {ticker(r.get("ticker")): r for r in rows}
+              if set(after) != set(control_map):
+                  raise RuntimeError("COMBINED_TICKER_UNIVERSE_CHANGED")
+
+              source_codes = set(source_map)
+              non_source_diffs = [
+                  code for code in sorted(after)
+                  if code not in source_codes and after[code] != control_map[code]
+              ]
+              if non_source_diffs:
+                  raise RuntimeError(
+                      "COMBINED_NON_SUPPLY_ROW_DRIFT:" + ",".join(non_source_diffs)
+                  )
+
+              control_ready = {
+                  code for code, row in control_map.items()
+                  if row.get("score_status") == "READY"
+              }
+              combined_ready = {
+                  code for code, row in after.items()
+                  if row.get("score_status") == "READY"
+              }
+              newly_vs_control = sorted(combined_ready - control_ready)
+              lost_vs_control = sorted(control_ready - combined_ready)
+              if lost_vs_control:
+                  raise RuntimeError("READY_REGRESSION_VS_CONTROL:" + ",".join(lost_vs_control))
+
+              # All eight independently validated supply single-blocker tickers must be READY.
+              missing_supply_ready = sorted(
+                  code for code in SUPPLY_SINGLE_TARGETS
+                  if code not in combined_ready
+              )
+              if missing_supply_ready:
+                  raise RuntimeError(
+                      "SUPPLY_SINGLE_NOT_READY:" + ",".join(missing_supply_ready)
+                  )
+
+              # Earnings-trend repair targets must stay READY.
+              missing_earnings_ready = sorted(
+                  code for code in EARNINGS_READY_TARGETS
+                  if code not in combined_ready
+              )
+              if missing_earnings_ready:
+                  raise RuntimeError(
+                      "EARNINGS_TARGET_REGRESSION:" + ",".join(missing_earnings_ready)
+                  )
+
+              baseline_rows = read_csv(V895_CSV)
+              baseline_map = {ticker(r.get("ticker")): r for r in baseline_rows}
+              baseline_ready = {
+                  code for code, row in baseline_map.items()
+                  if row.get("score_status") == "READY"
+              }
+              newly_vs_baseline = sorted(combined_ready - baseline_ready)
+              lost_vs_baseline = sorted(baseline_ready - combined_ready)
+              if lost_vs_baseline:
+                  raise RuntimeError(
+                      "BASELINE_READY_REGRESSION:" + ",".join(lost_vs_baseline)
+                  )
+
+              expected_union = EARNINGS_READY_TARGETS | SUPPLY_SINGLE_TARGETS
+              missing_expected_union = sorted(expected_union - set(newly_vs_baseline))
+              if missing_expected_union:
+                  raise RuntimeError(
+                      "EXPECTED_VALIDATED_NEW_READY_MISSING:"
+                      + ",".join(missing_expected_union)
+                  )
+
+              interaction_extra = sorted(set(newly_vs_baseline) - expected_union)
+
+              supply_before = supply_blocker_count(list(control_map.values()))
+              supply_after = supply_blocker_count(rows)
+              if supply_before != 33:
+                  raise RuntimeError(f"CONTROL_SUPPLY_BLOCKERS_NOT_33:{supply_before}")
+              if supply_after != 10:
+                  raise RuntimeError(f"COMBINED_SUPPLY_BLOCKERS_NOT_10:{supply_after}")
+
+              summary = read_json(OUT_JSON)
+              summary["version"] = VERSION
+              summary["status"] = "DRY_RUN_ONLY"
+              summary["combined_reconciliation"] = {
+                  "baseline_v895_ready_count": len(baseline_ready),
+                  "earnings_only_control_ready_count": len(control_ready),
+                  "combined_ready_count": len(combined_ready),
+                  "combined_limited_count": 112 - len(combined_ready),
+                  "ready_delta_vs_v895": len(combined_ready) - len(baseline_ready),
+                  "ready_delta_vs_earnings_only": len(combined_ready) - len(control_ready),
+                  "newly_ready_vs_v895": newly_vs_baseline,
+                  "newly_ready_vs_earnings_only": newly_vs_control,
+                  "interaction_extra_ready_tickers": interaction_extra,
+                  "validated_expected_union": sorted(expected_union),
+                  "supply_blocker_before": supply_before,
+                  "supply_blocker_after": supply_after,
+                  "supply_blocker_reduced_by": supply_before - supply_after,
+                  "supply_source_count": len(source_codes),
+                  "supply_source_tickers": sorted(source_codes),
+                  "earnings_repair_target_tickers": sorted(EARNINGS_READY_TARGETS),
+                  "supply_single_target_tickers": sorted(SUPPLY_SINGLE_TARGETS),
+                  "overlay_audit": overlay_audit,
+                  "v895_da_shadow_reproduction": shadow_stats,
+              }
+              summary["hard_guards"] = {
+                  "production_api_changed": False,
+                  "production_investment_score_written": False,
+                  "scoring_policy_changed": False,
+                  "financial_valuation_cache_mutated": False,
+                  "supply_source_mutated": False,
+                  "raw_source_cache_mutated": False,
+                  "approved_da_ids_changed": False,
+                  "new_value_imputed": False,
+                  "non_supply_rows_match_v899_control": True,
+                  "ready_regression_count": 0,
+              }
+              OUT_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+
+              return rows, after, summary
+
+          def refresh_blockers(rows, score_summary):
+              limited = [r for r in rows if r.get("score_status") == "LIMITED"]
+              if len(limited) != int(score_summary["combined_reconciliation"]["combined_limited_count"]):
+                  raise RuntimeError("LIMITED_COUNT_SUMMARY_MISMATCH")
+
+              out_rows = []
+              category_counts = Counter()
+              source_counts = Counter()
+              single_counts = Counter()
+              reason_counts = Counter()
+
+              for row in limited:
+                  reasons = [
+                      x for x in str(row.get("missing_components") or "").split(";")
+                      if x
+                  ]
+                  if not reasons:
+                      raise RuntimeError("LIMITED_WITHOUT_BLOCKER:" + ticker(row.get("ticker")))
+
+                  for reason in reasons:
+                      category, source_group, note = blocker.classify(reason)
+                      category_counts[category] += 1
+                      source_counts[source_group] += 1
+                      reason_counts[reason] += 1
+                      if len(reasons) == 1:
+                          single_counts[source_group] += 1
+
+                      out_rows.append({
+                          "ticker": ticker(row.get("ticker")),
+                          "name": row.get("name") or "",
+                          "market": row.get("market") or "",
+                          "missing_component_count": len(reasons),
+                          "blocker_reason": reason,
+                          "blocker_category": category,
+                          "source_group": source_group,
+                          "single_blocker_ticker": "TRUE" if len(reasons) == 1 else "FALSE",
+                          "audit_note": note,
+                      })
+
+              out_rows.sort(
+                  key=lambda r: (
+                      int(r["missing_component_count"]),
+                      r["ticker"],
+                      r["blocker_reason"],
+                  )
+              )
+              write_csv(BLOCK_CSV, out_rows, list(out_rows[0].keys()))
+
+              priority = []
+              for source, occurrences in source_counts.items():
+                  if source == "V880_SCORING_CONTRACT":
+                      continue
+                  priority.append({
+                      "source_group": source,
+                      "single_blocker_tickers": single_counts.get(source, 0),
+                      "blocker_occurrences": occurrences,
+                  })
+              priority.sort(
+                  key=lambda x: (
+                      -x["single_blocker_tickers"],
+                      -x["blocker_occurrences"],
+                      x["source_group"],
+                  )
+              )
+
+              highest = priority[0] if priority else {
+                  "source_group": "NONE",
+                  "single_blocker_tickers": 0,
+                  "blocker_occurrences": 0,
+              }
+
+              summary = {
+                  "version": VERSION,
+                  "policy_version": POLICY_VERSION,
+                  "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+                  "status": "AUDIT_ONLY",
+                  "production_unique_tickers": 112,
+                  "ready_count": score_summary["combined_reconciliation"]["combined_ready_count"],
+                  "limited_count": len(limited),
+                  "limited_blocker_occurrences": len(out_rows),
+                  "single_blocker_ticker_count": len({
+                      r["ticker"] for r in out_rows if r["single_blocker_ticker"] == "TRUE"
+                  }),
+                  "blocker_category_counts": dict(category_counts),
+                  "source_group_counts": dict(source_counts),
+                  "source_recovery_priority_by_single_blocker": priority,
+                  "highest_impact_source_group": highest["source_group"],
+                  "highest_impact_single_blocker_ticker_count": highest["single_blocker_tickers"],
+                  "highest_impact_blocker_occurrences": highest["blocker_occurrences"],
+                  "top_blocker_reasons": reason_counts.most_common(40),
+                  "hard_guards": {
+                      "production_api_changed": False,
+                      "production_investment_score_written": False,
+                      "scoring_policy_changed": False,
+                      "source_values_imputed": False,
+                  },
+                  "next_step": "REVIEW_V8102_HIGHEST_IMPACT_SOURCE_GROUP",
+              }
+              BLOCK_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+              BLOCK_LOG.write_text(
+                  "\n".join([
+                      f"VERSION={VERSION}",
+                      "STATUS=OK",
+                      f"READY_COUNT={summary['ready_count']}",
+                      f"LIMITED_COUNT={summary['limited_count']}",
+                      f"LIMITED_BLOCKER_OCCURRENCES={summary['limited_blocker_occurrences']}",
+                      f"SINGLE_BLOCKER_TICKER_COUNT={summary['single_blocker_ticker_count']}",
+                      f"HIGHEST_IMPACT_SOURCE_GROUP={summary['highest_impact_source_group']}",
+                      f"HIGHEST_IMPACT_SINGLE_BLOCKER_COUNT={summary['highest_impact_single_blocker_ticker_count']}",
+                      "PRODUCTION_DATA_CHANGED=false",
+                      "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+                      "SCORING_POLICY_CHANGED=false",
+                      "NEXT_STEP=REVIEW_V8102_HIGHEST_IMPACT_SOURCE_GROUP",
+                  ]) + "\n",
+                  encoding="utf-8",
+              )
+              return summary
+
+          def main():
+              validate_contracts()
+              control_map, shadow_stats = build_control()
+              rows, after, score_summary = run_combined(control_map, shadow_stats)
+              blocker_summary = refresh_blockers(rows, score_summary)
+
+              reconciliation = score_summary["combined_reconciliation"]
+              OUT_LOG.write_text(
+                  "\n".join([
+                      f"VERSION={VERSION}",
+                      "STATUS=OK",
+                      f"BASELINE_V895_READY={reconciliation['baseline_v895_ready_count']}",
+                      f"EARNINGS_ONLY_READY={reconciliation['earnings_only_control_ready_count']}",
+                      f"COMBINED_READY={reconciliation['combined_ready_count']}",
+                      f"COMBINED_LIMITED={reconciliation['combined_limited_count']}",
+                      f"READY_DELTA_VS_V895={reconciliation['ready_delta_vs_v895']}",
+                      f"NEWLY_READY_VS_V895={','.join(reconciliation['newly_ready_vs_v895'])}",
+                      f"INTERACTION_EXTRA_READY={','.join(reconciliation['interaction_extra_ready_tickers'])}",
+                      f"SUPPLY_BLOCKERS={reconciliation['supply_blocker_before']}->{reconciliation['supply_blocker_after']}",
+                      f"HIGHEST_IMPACT_SOURCE_GROUP={blocker_summary['highest_impact_source_group']}",
+                      f"HIGHEST_IMPACT_SINGLE_BLOCKER_COUNT={blocker_summary['highest_impact_single_blocker_ticker_count']}",
+                      "PRODUCTION_DATA_CHANGED=false",
+                      "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+                      "SCORING_POLICY_CHANGED=false",
+                      "FINANCIAL_CACHE_MUTATED=false",
+                      "SUPPLY_SOURCE_MUTATED=false",
+                      "RAW_SOURCE_CACHE_MUTATED=false",
+                      "STATUS=OK",
+                      "NEXT_STEP=READ_V8102_COMBINED_AND_BLOCKER_SUMMARIES",
+                  ]) + "\n",
+                  encoding="utf-8",
+              )
+
+              DOC.parent.mkdir(parents=True, exist_ok=True)
+              DOC.write_text(
+                  "\n".join([
+                      "# V8.10.2 combined validated-source reconciliation",
+                      "",
+                      f"- Version: `{VERSION}`",
+                      "- Status: dry-run + blocker audit only",
+                      "",
+                      "## Inputs",
+                      "",
+                      "- Persisted V8.10.1 earnings-trend source wiring repair.",
+                      "- V8.10.1 source-only 180-day supply evidence for 23 tickers.",
+                      "- V8.9.5 validated D&A shadow layer.",
+                      "- Approved V8.8.2 scorer and V8.9.0 blocker classifier.",
+                      "",
+                      "## Controls",
+                      "",
+                      "- Reproduces V8.9.9 earnings-only dry-run exactly before supply overlay.",
+                      "- Non-supply rows must remain byte-equivalent at score-row level.",
+                      "- All 8 validated supply single-blocker tickers must become READY.",
+                      "- The 3 earnings-trend repair targets must remain READY.",
+                      "- Additional READY tickers from interaction are allowed and reported, not assumed.",
+                      "",
+                      "## Safety",
+                      "",
+                      "- No production API mutation.",
+                      "- No production investment-score write.",
+                      "- No scoring-policy change.",
+                      "- No financial/source-cache mutation.",
+                      "- No imputation.",
+                      "",
+                      "## Next",
+                      "",
+                      "Use the refreshed V8.10.2 blocker audit to select the next highest-impact recoverable source group.",
+                      "",
+                  ]),
+                  encoding="utf-8",
+              )
+
+              print("V8102_COMBINED_RECONCILIATION=PASS")
+              print(OUT_LOG.read_text(encoding="utf-8"))
+
+          if __name__ == "__main__":
+              main()
+
+          PY
+
+      - name: Run combined dry-run and blocker refresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile investment_score_combined_reconciliation_v8102.py
+          python investment_score_combined_reconciliation_v8102.py
+          grep -q '^STATUS=OK$' latest/investment_score_v880_dry_run_v8102_run_log_latest.txt
+          grep -q '^STATUS=OK$' latest/investment_score_remaining_blockers_v8102_run_log_latest.txt
+
+      - name: Validate V8.10.2 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import csv, json
+          from pathlib import Path
+
+          score = json.loads(
+              Path("latest/investment_score_v880_dry_run_v8102_summary_latest.json")
+              .read_text(encoding="utf-8")
+          )
+          block = json.loads(
+              Path("latest/investment_score_remaining_blockers_v8102_summary_latest.json")
+              .read_text(encoding="utf-8")
+          )
+          with Path("latest/investment_score_v880_dry_run_v8102_latest.csv").open(
+              encoding="utf-8-sig", newline=""
+          ) as f:
+              rows = list(csv.DictReader(f))
+
+          assert score["status"] == "DRY_RUN_ONLY"
+          assert len(rows) == 112
+          r = score["combined_reconciliation"]
+          assert r["baseline_v895_ready_count"] == 42
+          assert r["earnings_only_control_ready_count"] == 45
+          assert r["combined_ready_count"] >= 53
+          assert r["combined_limited_count"] == 112 - r["combined_ready_count"]
+          assert set(r["validated_expected_union"]) <= set(r["newly_ready_vs_v895"])
+          assert r["supply_blocker_before"] == 33
+          assert r["supply_blocker_after"] == 10
+          assert r["supply_blocker_reduced_by"] == 23
+
+          assert block["status"] == "AUDIT_ONLY"
+          assert block["ready_count"] == r["combined_ready_count"]
+          assert block["limited_count"] == r["combined_limited_count"]
+          assert block["highest_impact_source_group"] != "NONE"
+
+          g = score["hard_guards"]
+          assert g["production_api_changed"] is False
+          assert g["production_investment_score_written"] is False
+          assert g["scoring_policy_changed"] is False
+          assert g["financial_valuation_cache_mutated"] is False
+          assert g["supply_source_mutated"] is False
+          assert g["raw_source_cache_mutated"] is False
+          assert g["approved_da_ids_changed"] is False
+          assert g["new_value_imputed"] is False
+          assert g["non_supply_rows_match_v899_control"] is True
+          assert g["ready_regression_count"] == 0
+
+          print("V8102_VALIDATION=PASS")
+          print("COMBINED_READY=" + str(r["combined_ready_count"]))
+          print("COMBINED_LIMITED=" + str(r["combined_limited_count"]))
+          print("READY_DELTA_VS_V895=" + str(r["ready_delta_vs_v895"]))
+          print("NEWLY_READY_VS_V895=" + ",".join(r["newly_ready_vs_v895"]))
+          print("INTERACTION_EXTRA_READY=" + ",".join(r["interaction_extra_ready_tickers"]))
+          print("SUPPLY_BLOCKERS=33->10")
+          print("HIGHEST_IMPACT_SOURCE_GROUP=" + block["highest_impact_source_group"])
+          print("HIGHEST_IMPACT_SINGLE_BLOCKER_COUNT=" + str(block["highest_impact_single_blocker_ticker_count"]))
+          PY
+
+
+      - name: Verify protected files unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git status --porcelain -- \
+            api/two_table_v1 \
+            config/investment_score_policy_v880.json \
+            financial_valuation_enricher.py \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_supply_source_v8101.csv \
+            latest/investment_score_supply_source_v8101_summary_latest.json \
+            latest/investment_score_earnings_trend_repair_v8101_summary_latest.json \
+            latest/investment_score_v880_dry_run_v899_latest.csv \
+            latest/investment_score_v880_dry_run_v899_summary_latest.json \
+            latest/investment_score_v880_dry_run_v895_latest.csv \
+            latest/investment_score_v880_dry_run_v895_summary_latest.json | grep -q .; then
+            echo "::error::Protected production/policy/source inputs changed"
+            git status --short
+            exit 1
+          fi
+          echo "V8102_PROTECTED_FILES_UNCHANGED=PASS"
+
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          allowed = {
+              "investment_score_combined_reconciliation_v8102.py",
+              "latest/investment_score_v880_dry_run_v8102_latest.csv",
+              "latest/investment_score_v880_dry_run_v8102_summary_latest.json",
+              "latest/investment_score_v880_dry_run_v8102_run_log_latest.txt",
+              "latest/investment_score_remaining_blockers_v8102.csv",
+              "latest/investment_score_remaining_blockers_v8102_summary_latest.json",
+              "latest/investment_score_remaining_blockers_v8102_run_log_latest.txt",
+              "docs/investment_score_v880_dry_run_v8102.md",
+              "docs/investment_score_combined_reconciliation_v8102.md",
+          }
+
+          for path in allowed:
+              if not Path(path).exists():
+                  raise SystemExit("EXPECTED_OUTPUT_MISSING=" + path)
+
+          out = subprocess.check_output(["git", "status", "--porcelain"], text=True)
+          changed = set()
+          for line in out.splitlines():
+              if not line.strip():
+                  continue
+              path = line[3:]
+              if " -> " in path:
+                  path = path.split(" -> ", 1)[1]
+              changed.add(path)
+
+          unexpected = changed - allowed
+          if unexpected:
+              raise SystemExit("CHANGE_SCOPE_UNEXPECTED=" + repr(sorted(unexpected)))
+          if not changed:
+              raise SystemExit("NO_CHANGES_DETECTED")
+
+          print("CHANGE_SCOPE=PASS")
+          print("CHANGED_FILES=" + ",".join(sorted(changed)))
+          PY
+
+
+      - name: Commit and push reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_combined_reconciliation_v8102.py \
+            latest/investment_score_v880_dry_run_v8102_latest.csv \
+            latest/investment_score_v880_dry_run_v8102_summary_latest.json \
+            latest/investment_score_v880_dry_run_v8102_run_log_latest.txt \
+            latest/investment_score_remaining_blockers_v8102.csv \
+            latest/investment_score_remaining_blockers_v8102_summary_latest.json \
+            latest/investment_score_remaining_blockers_v8102_run_log_latest.txt \
+            docs/investment_score_v880_dry_run_v8102.md \
+            docs/investment_score_combined_reconciliation_v8102.md
+
+          git commit -m "Combine validated source repairs and refresh blockers v8.10.2"
+
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          fi
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "PRODUCTION_API_CHANGED=false"
+          echo "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false"
+          echo "SCORING_POLICY_CHANGED=false"
+          echo "NEXT_STEP=READ_V8102_COMBINED_AND_BLOCKER_SUMMARIES"
+

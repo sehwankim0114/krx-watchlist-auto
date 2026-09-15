@@ -1,0 +1,309 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import csv
+import json
+import os
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import investment_score_xbrl_cfs_ofs_v887 as base
+
+VERSION = "2026-09-15-v8.9.3-recovered-xbrl-context-audit"
+V892_VERSION = "2026-09-15-v8.9.2-retry-failed-official-xbrl"
+V887_VERSION = "2026-09-15-v8.8.7-xbrl-cfs-ofs-selection-audit"
+POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+
+ROOT = Path(".")
+KST = ZoneInfo("Asia/Seoul")
+
+V892_CSV = ROOT / "latest/investment_score_xbrl_retry_v892.csv"
+V892_JSON = ROOT / "latest/investment_score_xbrl_retry_v892_summary_latest.json"
+RAW_CSV = ROOT / "latest/investment_score_source_cache_latest.csv"
+POLICY_JSON = ROOT / "config/investment_score_policy_v880.json"
+FINANCIAL_ENRICHER = ROOT / "financial_valuation_enricher.py"
+
+OUT_CSV = ROOT / "latest/investment_score_xbrl_recovered_context_v893.csv"
+OUT_JSON = ROOT / "latest/investment_score_xbrl_recovered_context_v893_summary_latest.json"
+OUT_LOG = ROOT / "latest/investment_score_xbrl_recovered_context_v893_run_log_latest.txt"
+OUT_DOC = ROOT / "docs/investment_score_xbrl_recovered_context_v893.md"
+
+TARGET_TICKER = "002450"
+EXPECTED_EXCLUDED = {"012450", "023960"}
+
+def read_json(path):
+    return json.loads(path.read_text(encoding="utf-8-sig"))
+
+def read_csv(path):
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+def ticker(v):
+    s = "".join(ch for ch in str(v or "") if ch.isdigit())
+    return s.zfill(6) if s else ""
+
+def to_int(v):
+    try:
+        s = str(v or "").strip()
+        return int(float(s)) if s else None
+    except Exception:
+        return None
+
+def choose_target_year(raw):
+    deep = to_int(raw.get("deep_source_year"))
+    annual = to_int(raw.get("annual_source_year"))
+    candidates = [x for x in (deep, annual) if x is not None]
+    if not candidates:
+        raise RuntimeError("TARGET_YEAR_UNAVAILABLE")
+    if len(set(candidates)) > 1:
+        raise RuntimeError(f"TARGET_YEAR_MISMATCH:{candidates}")
+    return candidates[0]
+
+def parse_attempts(row):
+    try:
+        data = json.loads(row.get("candidate_attempts_json") or "[]")
+    except Exception as exc:
+        raise RuntimeError(f"V892_ATTEMPTS_JSON_INVALID:{type(exc).__name__}:{exc}")
+    if not isinstance(data, list):
+        raise RuntimeError("V892_ATTEMPTS_NOT_LIST")
+    return data
+
+def choose_recovered_rcept(row):
+    candidates = []
+    for item in parse_attempts(row):
+        if item.get("zip_status") != "ZIP_OK":
+            continue
+        names = set(item.get("approved_exact_local_names") or [])
+        if not base.APPROVED_LOCAL_NAMES.issubset(names):
+            continue
+        candidates.append(item)
+
+    if not candidates:
+        raise RuntimeError("NO_BOTH_EXACT_RECOVERED_RCEPT")
+
+    # Prefer the newest valid filing by rcept_dt, then rcept_no.
+    candidates.sort(
+        key=lambda x: (
+            str(x.get("rcept_dt") or ""),
+            str(x.get("rcept_no") or ""),
+        ),
+        reverse=True,
+    )
+    selected = candidates[0]
+    return {
+        "rcept_no": str(selected.get("rcept_no") or ""),
+        "rcept_dt": str(selected.get("rcept_dt") or ""),
+        "report_nm": str(selected.get("report_nm") or ""),
+        "candidate_source": str(selected.get("candidate_source") or ""),
+        "approved_exact_fact_count": int(selected.get("approved_exact_fact_count") or 0),
+        "approved_exact_local_names": sorted(
+            set(selected.get("approved_exact_local_names") or [])
+        ),
+    }
+
+def main():
+    api_key = os.environ.get("DART_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("DART_API_KEY_MISSING")
+
+    for p in (V892_CSV, V892_JSON, RAW_CSV, POLICY_JSON, FINANCIAL_ENRICHER):
+        if not p.is_file():
+            raise RuntimeError("MISSING_REQUIRED_SOURCE:" + str(p))
+
+    s892 = read_json(V892_JSON)
+    if s892.get("version") != V892_VERSION:
+        raise RuntimeError("V892_VERSION_MISMATCH")
+    if s892.get("policy_version") != POLICY_VERSION:
+        raise RuntimeError("POLICY_VERSION_MISMATCH")
+    if s892.get("status") != "AUDIT_ONLY":
+        raise RuntimeError("V892_STATUS_MISMATCH")
+
+    rows892 = read_csv(V892_CSV)
+    m892 = {ticker(r.get("ticker")): r for r in rows892 if ticker(r.get("ticker"))}
+    raw_rows = read_csv(RAW_CSV)
+    raw_map = {ticker(r.get("ticker")): r for r in raw_rows if ticker(r.get("ticker"))}
+
+    if set(m892) != {TARGET_TICKER} | EXPECTED_EXCLUDED:
+        raise RuntimeError("V892_TARGET_SET_CHANGED:" + repr(sorted(m892)))
+
+    target_row = m892[TARGET_TICKER]
+    if int(target_row.get("zip_with_approved_exact_count") or 0) < 1:
+        raise RuntimeError("TARGET_HAS_NO_RECOVERED_EXACT_ZIP")
+
+    for code in EXPECTED_EXCLUDED:
+        row = m892[code]
+        attempts = parse_attempts(row)
+        both = 0
+        for item in attempts:
+            if item.get("zip_status") != "ZIP_OK":
+                continue
+            names = set(item.get("approved_exact_local_names") or [])
+            if base.APPROVED_LOCAL_NAMES.issubset(names):
+                both += 1
+        if both:
+            raise RuntimeError(f"EXCLUDED_TICKER_UNEXPECTEDLY_BOTH_EXACT:{code}")
+
+    recovered = choose_recovered_rcept(target_row)
+    raw = raw_map.get(TARGET_TICKER) or {}
+    if not raw:
+        raise RuntimeError("TARGET_RAW_ROW_MISSING")
+
+    target_year = choose_target_year(raw)
+
+    item = {
+        "ticker": TARGET_TICKER,
+        "name": target_row.get("name") or "",
+        "market": target_row.get("market") or "",
+        "rcept_no": recovered["rcept_no"],
+        "target_year": target_year,
+    }
+
+    if base.VERSION != V887_VERSION:
+        raise RuntimeError("BASE_V887_VERSION_MISMATCH")
+    if base.POLICY_VERSION != POLICY_VERSION:
+        raise RuntimeError("BASE_V887_POLICY_VERSION_MISMATCH")
+
+    result = base.process_one(item, raw, api_key)
+    result["recovered_rcept_dt"] = recovered["rcept_dt"]
+    result["recovered_report_nm"] = recovered["report_nm"]
+    result["recovered_candidate_source"] = recovered["candidate_source"]
+    result["v892_approved_exact_fact_count"] = recovered["approved_exact_fact_count"]
+    result["v892_approved_exact_local_names"] = "|".join(
+        recovered["approved_exact_local_names"]
+    )
+
+    OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+    fields = list(result.keys())
+    with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
+        w.writeheader()
+        w.writerow(result)
+
+    classification = result.get("selection_classification") or ""
+    both_unique = result.get("both_approved_facts_unique") == "TRUE"
+    value_conflict = result.get("selected_value_conflict") == "TRUE"
+    context_conflict = result.get("selected_context_conflict") == "TRUE"
+    evidence_da_sum = result.get("evidence_da_sum")
+
+    promotion_candidate = (
+        classification == "MATCHED_FS_MEMBER_BOTH_FACTS_UNIQUE"
+        and both_unique
+        and not value_conflict
+        and not context_conflict
+        and evidence_da_sum not in ("", None)
+    )
+
+    next_step = (
+        "EXTEND_SOURCE_ONLY_DA_LAYER_WITH_V893_VALIDATED_TICKER_AND_RERUN_DRY_RUN"
+        if promotion_candidate
+        else
+        "KEEP_002450_LIMITED_AND_MOVE_TO_ALTERNATE_OFFICIAL_DA_SOURCE_AUDIT"
+    )
+
+    summary = {
+        "version": VERSION,
+        "policy_version": POLICY_VERSION,
+        "v892_version": V892_VERSION,
+        "base_v887_version": V887_VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+        "status": "AUDIT_ONLY",
+        "target_ticker": TARGET_TICKER,
+        "target_name": target_row.get("name") or "",
+        "recovered_rcept_no": recovered["rcept_no"],
+        "recovered_rcept_dt": recovered["rcept_dt"],
+        "recovered_report_nm": recovered["report_nm"],
+        "target_year": target_year,
+        "source_fs_status": result.get("source_fs_status"),
+        "source_fs_selected_from": result.get("source_fs_selected_from"),
+        "source_fs_div": result.get("source_fs_div"),
+        "target_member": result.get("target_member"),
+        "selection_classification": classification,
+        "both_approved_facts_unique": both_unique,
+        "selected_value_conflict": value_conflict,
+        "selected_context_conflict": context_conflict,
+        "evidence_da_sum": evidence_da_sum,
+        "promotion_candidate": promotion_candidate,
+        "excluded_tickers": {
+            "012450": "recovered ZIP has only one approved exact local name",
+            "023960": "recovered ZIP has zero approved exact local names",
+        },
+        "automatic_promotion": {
+            "allowed": False,
+            "promoted_ticker_count": 0,
+        },
+        "hard_guards": {
+            "production_api_changed": False,
+            "production_investment_score_written": False,
+            "scoring_policy_changed": False,
+            "new_da_id_approved": False,
+            "v888_source_layer_mutated": False,
+            "recovered_xbrl_value_promoted": False,
+            "missing_da_assumed_zero": False,
+        },
+        "next_step": next_step,
+    }
+    OUT_JSON.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+    OUT_DOC.write_text(
+        "\n".join([
+            "# V8.9.3 복구 XBRL context 재감사",
+            "",
+            f"- 대상: `{TARGET_TICKER}` {target_row.get('name') or ''}",
+            f"- 복구 접수번호: `{recovered['rcept_no']}`",
+            f"- 기준 연도: `{target_year}`",
+            f"- 기존 V8.8.7 로직 재사용: `{V887_VERSION}`",
+            "",
+            "## 원칙",
+            "",
+            "- V8.8.7과 동일한 CFS/OFS 선택, 연간 330~370일, context/member, unit, 값 유일성 규칙을 그대로 재사용한다.",
+            "- 한화에어로스페이스와 에쓰씨엔지니어링은 두 승인 exact fact가 모두 복구되지 않았으므로 대상에서 제외한다.",
+            "- 이 단계에서는 V8.8.8 source layer나 production score를 변경하지 않는다.",
+            "",
+            "## 판정",
+            "",
+            f"- selection: `{classification}`",
+            f"- both unique: `{both_unique}`",
+            f"- promotion candidate: `{promotion_candidate}`",
+            "",
+            "## 다음 단계",
+            "",
+            f"`{next_step}`",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+
+    log = [
+        f"VERSION={VERSION}",
+        f"TARGET_TICKER={TARGET_TICKER}",
+        f"RECOVERED_RCEPT_NO={recovered['rcept_no']}",
+        f"TARGET_YEAR={target_year}",
+        f"SOURCE_FS_DIV={result.get('source_fs_div') or ''}",
+        f"TARGET_MEMBER={result.get('target_member') or ''}",
+        f"SELECTION_CLASSIFICATION={classification}",
+        f"BOTH_APPROVED_FACTS_UNIQUE={'true' if both_unique else 'false'}",
+        f"SELECTED_VALUE_CONFLICT={'true' if value_conflict else 'false'}",
+        f"SELECTED_CONTEXT_CONFLICT={'true' if context_conflict else 'false'}",
+        f"PROMOTION_CANDIDATE={'true' if promotion_candidate else 'false'}",
+        "AUTO_PROMOTION=false",
+        "PRODUCTION_DATA_CHANGED=false",
+        "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+        "SCORING_POLICY_CHANGED=false",
+        "NEW_DA_ID_APPROVED=false",
+        "V888_SOURCE_LAYER_MUTATED=false",
+        "STATUS=OK",
+        f"NEXT_STEP={next_step}",
+    ]
+    OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+
+    print("V893_RECOVERED_XBRL_CONTEXT_AUDIT=PASS")
+    print("\n".join(log))
+
+if __name__ == "__main__":
+    main()
+

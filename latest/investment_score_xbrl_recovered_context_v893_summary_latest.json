@@ -1,0 +1,42 @@
+{
+  "version": "2026-09-15-v8.9.3-recovered-xbrl-context-audit",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v892_version": "2026-09-15-v8.9.2-retry-failed-official-xbrl",
+  "base_v887_version": "2026-09-15-v8.8.7-xbrl-cfs-ofs-selection-audit",
+  "generated_at_kst": "2026-09-15T15:45:04+09:00",
+  "status": "AUDIT_ONLY",
+  "target_ticker": "002450",
+  "target_name": "삼익악기",
+  "recovered_rcept_no": "20260814002549",
+  "recovered_rcept_dt": "20260814",
+  "recovered_report_nm": "[기재정정]사업보고서 (2025.12)",
+  "target_year": 2025,
+  "source_fs_status": "CONSISTENT",
+  "source_fs_selected_from": "deep_fs_div",
+  "source_fs_div": "CFS",
+  "target_member": "ConsolidatedMember",
+  "selection_classification": "MATCHED_FS_MEMBER_BOTH_FACTS_UNIQUE",
+  "both_approved_facts_unique": true,
+  "selected_value_conflict": false,
+  "selected_context_conflict": false,
+  "evidence_da_sum": 16301844000.0,
+  "promotion_candidate": true,
+  "excluded_tickers": {
+    "012450": "recovered ZIP has only one approved exact local name",
+    "023960": "recovered ZIP has zero approved exact local names"
+  },
+  "automatic_promotion": {
+    "allowed": false,
+    "promoted_ticker_count": 0
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "new_da_id_approved": false,
+    "v888_source_layer_mutated": false,
+    "recovered_xbrl_value_promoted": false,
+    "missing_da_assumed_zero": false
+  },
+  "next_step": "EXTEND_SOURCE_ONLY_DA_LAYER_WITH_V893_VALIDATED_TICKER_AND_RERUN_DRY_RUN"
+}

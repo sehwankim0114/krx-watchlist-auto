@@ -1,0 +1,86 @@
+{
+  "version": "2026-09-15-v8.10.1-freeze-complete-supply-evidence-and-dry-run",
+  "v8100_version": "2026-09-15-v8.10.0-targeted-dart-supply-completeness-audit",
+  "v896_version": "2026-09-15-v8.9.6-investment-score-remaining-blocker-reaudit",
+  "v895_version": "2026-09-15-v8.9.5-v888-plus-v894-da-extension-dry-run",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "supply_policy_version": "2026-07-01-v6.0-supply-status-separated",
+  "generated_at_kst": "2026-09-15T17:17:18+09:00",
+  "status": "SOURCE_ONLY_READY",
+  "source_count": 23,
+  "source_tickers": [
+    "000650",
+    "001020",
+    "001420",
+    "001440",
+    "002210",
+    "002990",
+    "003280",
+    "009200",
+    "011200",
+    "012690",
+    "013360",
+    "029780",
+    "063160",
+    "066570",
+    "071840",
+    "081000",
+    "086280",
+    "088980",
+    "100250",
+    "241590",
+    "271940",
+    "271980",
+    "286940"
+  ],
+  "classification_counts": {
+    "COMPLETE_180D_NO_POSITIVE_BURDEN": 13,
+    "COMPLETE_180D_POSITIVE_BURDEN": 10
+  },
+  "single_blocker_source_count": 8,
+  "single_blocker_source_tickers": [
+    "003280",
+    "063160",
+    "066570",
+    "071840",
+    "081000",
+    "086280",
+    "100250",
+    "286940"
+  ],
+  "unresolved_excluded_count": 10,
+  "unresolved_excluded_tickers": [
+    "001045",
+    "001527",
+    "003495",
+    "004545",
+    "005385",
+    "005387",
+    "005389",
+    "051905",
+    "066575",
+    "097955"
+  ],
+  "source_contract": {
+    "corp_code_resolution": "DART_CORPCODE_EXACT_STOCK_ONLY",
+    "lookback_days": 180,
+    "all_chunks_complete_required": true,
+    "supply_status_for_frozen_rows": "OK",
+    "no_issuer_mapping_guess": true,
+    "no_missing_or_incomplete_absence_imputation": true
+  },
+  "automatic_production_patch": {
+    "allowed": false,
+    "patched_ticker_count": 0
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "supply_policy_changed": false,
+    "v8100_evidence_mutated": false,
+    "unresolved_issuer_mapping_guessed": false,
+    "incomplete_query_promoted": false
+  },
+  "next_step": "SHADOW_DRY_RUN_ONLY_WITH_V895_BASELINE"
+}

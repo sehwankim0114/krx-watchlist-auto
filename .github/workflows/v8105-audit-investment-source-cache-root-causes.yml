@@ -1,0 +1,670 @@
+name: Audit investment source-cache root causes v8.10.5
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8105-audit-investment-source-cache-root-causes.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8105-investment-source-cache-root-causes
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Capture protected file hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            latest/investment_score_remaining_blockers_v8102.csv \
+            latest/investment_score_remaining_blockers_v8102_summary_latest.json \
+            latest/investment_score_next_single_source_v8104_summary_latest.json \
+            latest/investment_score_source_cache_latest.csv \
+            latest/financial_valuation_cache_latest.csv \
+            > /tmp/v8105_protected.before
+
+      - name: Create V8.10.5 root-cause auditor
+        shell: bash
+        run: |
+          cat > investment_score_source_cache_root_cause_audit_v8105.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import csv
+          import json
+          from collections import Counter, defaultdict
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          VERSION = "2026-09-15-v8.10.5-investment-source-cache-root-cause-audit"
+          V8102_VERSION = "2026-09-15-v8.10.2-combined-validated-source-reconciliation"
+          V8104_VERSION = "2026-09-15-v8.10.4-next-single-source-recoverability-audit"
+          POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          SOURCE_CONTRACT_VERSION = "2026-09-10-v8.5.4-investment-score-source-contract"
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+
+          BLOCK_CSV = ROOT / "latest/investment_score_remaining_blockers_v8102.csv"
+          BLOCK_JSON = ROOT / "latest/investment_score_remaining_blockers_v8102_summary_latest.json"
+          V8104_JSON = ROOT / "latest/investment_score_next_single_source_v8104_summary_latest.json"
+          SOURCE_CACHE = ROOT / "latest/investment_score_source_cache_latest.csv"
+          FIN_CACHE = ROOT / "latest/financial_valuation_cache_latest.csv"
+
+          OUT_CSV = ROOT / "latest/investment_score_source_cache_root_causes_v8105.csv"
+          OUT_JSON = ROOT / "latest/investment_score_source_cache_root_causes_v8105_summary_latest.json"
+          OUT_LOG = ROOT / "latest/investment_score_source_cache_root_causes_v8105_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_source_cache_root_causes_v8105.md"
+
+          TARGET_GROUP = "INVESTMENT_SCORE_SOURCE_CACHE"
+
+          REASON_REVENUE_GROWTH = "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT"
+          REASON_3Y_REVENUE = "최근 3년 매출 성장률:MISSING_3Y_REVENUE"
+          REASON_3Y_OP = "최근 3년 영업이익 성장률:MISSING_3Y_OP"
+          REASON_ACCEL = "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+
+          EXPECTED_REASON_COUNTS = {
+              REASON_REVENUE_GROWTH: 19,
+              REASON_3Y_REVENUE: 16,
+              REASON_3Y_OP: 10,
+              REASON_ACCEL: 17,
+          }
+
+          V8104_EXHAUSTED = {"001020", "357250"}
+
+
+          def ticker(value):
+              text = "".join(ch for ch in str(value or "") if ch.isdigit())
+              return text.zfill(6) if text else ""
+
+
+          def read_json(path: Path):
+              return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
+          def read_csv(path: Path):
+              with path.open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
+
+
+          def split_csv_tokens(value):
+              return [x.strip() for x in str(value or "").split(",") if x.strip()]
+
+
+          def present(value):
+              return str(value or "").strip() not in {"", "-", "None", "null", "nan", "NaN"}
+
+
+          def classify_lane(blocker_reasons, source_row, code):
+              if code == "357250":
+                  return (
+                      "V8104_OFFICIAL_FULL_ACCOUNT_EXHAUSTED",
+                      "V8.10.4에서 공식 full-account 재감사 후에도 가속 입력을 복구하지 못함",
+                  )
+
+              if source_row is None:
+                  return (
+                      "SOURCE_CACHE_ROW_MISSING",
+                      "investment_score_source_cache에 해당 ticker 행이 없음",
+                  )
+
+              status = str(source_row.get("source_cache_status") or "").strip()
+              source_reason = str(source_row.get("source_cache_reason") or "").strip()
+              reason_tokens = set(split_csv_tokens(source_reason))
+
+              annual_blocked = bool({
+                  REASON_REVENUE_GROWTH,
+                  REASON_3Y_REVENUE,
+                  REASON_3Y_OP,
+              } & set(blocker_reasons))
+              quarter_blocked = REASON_ACCEL in blocker_reasons
+
+              three_status = str(source_row.get("three_year_source_status") or "").strip()
+              quarter_status = str(source_row.get("quarter_source_status") or "").strip()
+
+              if status == "RETAINED_TRANSIENT_SOURCE" or any(
+                  token.startswith("UPSTREAM_TRANSIENT_RETAINED:")
+                  for token in reason_tokens
+              ):
+                  return (
+                      "UPSTREAM_TRANSIENT_RECHECK",
+                      "이전 유효 cache를 transient guard로 유지 중이므로 upstream 정상화 여부를 먼저 재확인",
+                  )
+
+              annual_limited_signal = (
+                  "3Y_ANNUAL_LIMITED" in reason_tokens
+                  or three_status != "READY"
+              )
+              quarter_limited_signal = (
+                  any(token.startswith("QUARTER_") for token in reason_tokens)
+                  or quarter_status != "READY_Q2_SOURCE"
+              )
+
+              if annual_blocked and quarter_blocked:
+                  if annual_limited_signal and quarter_limited_signal:
+                      return (
+                          "ANNUAL_AND_QUARTER_OFFICIAL_REAUDIT",
+                          "3년 연간자료와 Q2 분기자료가 모두 blocker에 직접 연결됨",
+                      )
+                  if not annual_limited_signal and not quarter_limited_signal:
+                      return (
+                          "CACHE_WIRING_RECONCILIATION",
+                          "source status는 READY인데 scorer 입력은 누락되어 cache-to-scorer 배선 점검 필요",
+                      )
+                  if annual_limited_signal:
+                      return (
+                          "ANNUAL_OFFICIAL_REAUDIT_PLUS_WIRING",
+                          "연간 source는 limited 신호가 있으나 분기 source status와 blocker가 불일치",
+                      )
+                  return (
+                      "QUARTER_OFFICIAL_REAUDIT_PLUS_WIRING",
+                      "분기 source는 limited 신호가 있으나 연간 source status와 blocker가 불일치",
+                  )
+
+              if annual_blocked:
+                  if annual_limited_signal:
+                      return (
+                          "ANNUAL_OFFICIAL_REAUDIT",
+                          "3년 연간 source 제한이 연간 성장 blocker에 직접 연결됨",
+                      )
+                  return (
+                      "ANNUAL_CACHE_WIRING_RECONCILIATION",
+                      "3년 source status는 READY인데 연간 성장 입력이 scorer에 전달되지 않음",
+                  )
+
+              if quarter_blocked:
+                  if quarter_limited_signal:
+                      return (
+                          "QUARTER_OFFICIAL_REAUDIT",
+                          "Q2 source 제한이 실적가속 blocker에 직접 연결됨",
+                      )
+                  return (
+                      "QUARTER_CACHE_WIRING_RECONCILIATION",
+                      "Q2 source status는 READY인데 실적가속 입력이 scorer에 전달되지 않음",
+                  )
+
+              return (
+                  "UNCLASSIFIED_SOURCE_CACHE_REVIEW",
+                  "승인된 네 가지 source-cache blocker reason 외의 조합",
+              )
+
+
+          def main():
+              for path in (BLOCK_CSV, BLOCK_JSON, V8104_JSON, SOURCE_CACHE, FIN_CACHE):
+                  if not path.is_file():
+                      raise RuntimeError("MISSING_REQUIRED_SOURCE:" + str(path))
+
+              s8102 = read_json(BLOCK_JSON)
+              if s8102.get("version") != V8102_VERSION:
+                  raise RuntimeError("V8102_VERSION_MISMATCH")
+              if s8102.get("status") != "AUDIT_ONLY":
+                  raise RuntimeError("V8102_STATUS_MISMATCH")
+              if s8102.get("policy_version") != POLICY_VERSION:
+                  raise RuntimeError("V8102_POLICY_VERSION_MISMATCH")
+              if int(s8102.get("ready_count") or 0) != 56:
+                  raise RuntimeError("V8102_READY_NOT_56")
+              if int(s8102.get("limited_count") or 0) != 56:
+                  raise RuntimeError("V8102_LIMITED_NOT_56")
+              if int((s8102.get("source_group_counts") or {}).get(TARGET_GROUP) or 0) != 62:
+                  raise RuntimeError("V8102_SOURCE_CACHE_BLOCKER_COUNT_NOT_62")
+
+              s8104 = read_json(V8104_JSON)
+              if s8104.get("version") != V8104_VERSION:
+                  raise RuntimeError("V8104_VERSION_MISMATCH")
+              if s8104.get("status") != "AUDIT_ONLY":
+                  raise RuntimeError("V8104_STATUS_MISMATCH")
+              if int(s8104.get("recoverable_source_only_count") or 0) != 0:
+                  raise RuntimeError("V8104_UNEXPECTED_RECOVERABLE_TARGET")
+              if int(s8104.get("not_recoverable_now_count") or 0) != 2:
+                  raise RuntimeError("V8104_NOT_RECOVERABLE_COUNT_NOT_2")
+              if set(s8104.get("not_recoverable_now_tickers") or []) != V8104_EXHAUSTED:
+                  raise RuntimeError("V8104_EXHAUSTED_SET_MISMATCH")
+
+              block_rows = read_csv(BLOCK_CSV)
+              target_rows = [r for r in block_rows if r.get("source_group") == TARGET_GROUP]
+              if len(target_rows) != 62:
+                  raise RuntimeError(f"V8105_TARGET_OCCURRENCE_COUNT:{len(target_rows)}")
+
+              reason_counts = Counter(r.get("blocker_reason") or "" for r in target_rows)
+              if dict(reason_counts) != EXPECTED_REASON_COUNTS:
+                  raise RuntimeError(
+                      "V8105_REASON_COUNTS_CHANGED:" +
+                      json.dumps(dict(reason_counts), ensure_ascii=False, sort_keys=True)
+                  )
+
+              reasons_by_ticker = defaultdict(list)
+              metadata = {}
+              for row in target_rows:
+                  code = ticker(row.get("ticker"))
+                  if not code:
+                      raise RuntimeError("V8105_INVALID_TICKER")
+                  reasons_by_ticker[code].append(row.get("blocker_reason") or "")
+                  metadata[code] = {
+                      "name": row.get("name") or "",
+                      "market": row.get("market") or "",
+                      "missing_component_count": row.get("missing_component_count") or "",
+                  }
+
+              cache_rows = read_csv(SOURCE_CACHE)
+              cache_map = {ticker(r.get("ticker")): r for r in cache_rows if ticker(r.get("ticker"))}
+
+              fin_rows = read_csv(FIN_CACHE)
+              fin_map = {ticker(r.get("ticker")): r for r in fin_rows if ticker(r.get("ticker"))}
+
+              out_rows = []
+              lane_counter = Counter()
+              lane_occurrences = Counter()
+              cache_status_counter = Counter()
+              cache_reason_token_counter = Counter()
+              three_year_status_counter = Counter()
+              quarter_status_counter = Counter()
+
+              for code in sorted(reasons_by_ticker):
+                  reasons = sorted(set(reasons_by_ticker[code]))
+                  src = cache_map.get(code)
+                  fin = fin_map.get(code)
+
+                  lane, note = classify_lane(reasons, src, code)
+
+                  if src is None:
+                      source_status = ""
+                      source_reason = ""
+                      three_status = ""
+                      quarter_status = ""
+                      preferred_fs = ""
+                      annual_year = ""
+                      annual_revenue_complete = False
+                      annual_op_complete = False
+                      q2_revenue_complete = False
+                      q2_op_complete = False
+                  else:
+                      source_status = str(src.get("source_cache_status") or "")
+                      source_reason = str(src.get("source_cache_reason") or "")
+                      three_status = str(src.get("three_year_source_status") or "")
+                      quarter_status = str(src.get("quarter_source_status") or "")
+                      preferred_fs = str(src.get("preferred_fs_div") or "")
+                      annual_year = str(src.get("annual_source_year") or "")
+
+                      annual_revenue_complete = all(
+                          present(src.get(k))
+                          for k in (
+                              "annual_revenue_y0",
+                              "annual_revenue_y1",
+                              "annual_revenue_y2",
+                          )
+                      )
+                      annual_op_complete = all(
+                          present(src.get(k))
+                          for k in (
+                              "annual_operating_profit_y0",
+                              "annual_operating_profit_y1",
+                              "annual_operating_profit_y2",
+                          )
+                      )
+                      q2_revenue_complete = all(
+                          present(src.get(k))
+                          for k in (
+                              "q2_revenue_current",
+                              "q2_revenue_previous",
+                              "q2_revenue_yoy_pct",
+                          )
+                      )
+                      q2_op_complete = all(
+                          present(src.get(k))
+                          for k in (
+                              "q2_operating_profit_current",
+                              "q2_operating_profit_previous",
+                              "q2_operating_profit_yoy_pct",
+                          )
+                      )
+
+                      cache_status_counter[source_status or "(blank)"] += 1
+                      for token in split_csv_tokens(source_reason):
+                          cache_reason_token_counter[token] += 1
+                      three_year_status_counter[three_status or "(blank)"] += 1
+                      quarter_status_counter[quarter_status or "(blank)"] += 1
+
+                  lane_counter[lane] += 1
+                  lane_occurrences[lane] += len(reasons)
+
+                  out_rows.append({
+                      "ticker": code,
+                      "name": metadata[code]["name"],
+                      "market": metadata[code]["market"],
+                      "source_cache_blocker_count": len(reasons),
+                      "blocker_reasons": ";".join(reasons),
+                      "recovery_lane": lane,
+                      "recovery_note": note,
+                      "source_cache_status": source_status,
+                      "source_cache_reason": source_reason,
+                      "three_year_source_status": three_status,
+                      "quarter_source_status": quarter_status,
+                      "preferred_fs_div": preferred_fs,
+                      "annual_source_year": annual_year,
+                      "annual_revenue_3y_complete": "TRUE" if annual_revenue_complete else "FALSE",
+                      "annual_operating_profit_3y_complete": "TRUE" if annual_op_complete else "FALSE",
+                      "q2_revenue_complete": "TRUE" if q2_revenue_complete else "FALSE",
+                      "q2_operating_profit_complete": "TRUE" if q2_op_complete else "FALSE",
+                      "financial_source_status": "" if fin is None else str(fin.get("financial_source_status") or ""),
+                      "financial_data_status": "" if fin is None else str(fin.get("financial_data_status") or ""),
+                      "financial_fs_div": "" if fin is None else str(fin.get("financial_fs_div") or ""),
+                      "v8104_exhausted": "TRUE" if code in V8104_EXHAUSTED else "FALSE",
+                  })
+
+              target_ticker_count = len(out_rows)
+              if target_ticker_count <= 0:
+                  raise RuntimeError("V8105_NO_TARGET_TICKERS")
+
+              # 357250 is the only V8.10.4 exhausted ticker that belongs to this source group.
+              v8104_overlap = sorted(set(reasons_by_ticker) & V8104_EXHAUSTED)
+              if v8104_overlap != ["357250"]:
+                  raise RuntimeError(
+                      "V8105_V8104_OVERLAP_CHANGED:" + ",".join(v8104_overlap)
+                  )
+
+              # Prioritize lanes by blocker occurrences, but never recommend the already exhausted lane.
+              priority = [
+                  {
+                      "recovery_lane": lane,
+                      "target_tickers": lane_counter[lane],
+                      "blocker_occurrences": count,
+                  }
+                  for lane, count in sorted(
+                      lane_occurrences.items(),
+                      key=lambda kv: (-kv[1], -lane_counter[kv[0]], kv[0]),
+                  )
+              ]
+
+              actionable_priority = [
+                  x for x in priority
+                  if x["recovery_lane"] not in {
+                      "V8104_OFFICIAL_FULL_ACCOUNT_EXHAUSTED",
+                      "UNCLASSIFIED_SOURCE_CACHE_REVIEW",
+                  }
+              ]
+              highest_lane = actionable_priority[0]["recovery_lane"] if actionable_priority else ""
+              highest_occurrences = actionable_priority[0]["blocker_occurrences"] if actionable_priority else 0
+              highest_tickers = actionable_priority[0]["target_tickers"] if actionable_priority else 0
+
+              fields = list(out_rows[0].keys())
+              OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+              with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+                  w = csv.DictWriter(f, fieldnames=fields)
+                  w.writeheader()
+                  w.writerows(out_rows)
+
+              summary = {
+                  "version": VERSION,
+                  "v8102_version": V8102_VERSION,
+                  "v8104_version": V8104_VERSION,
+                  "policy_version": POLICY_VERSION,
+                  "source_contract_version": SOURCE_CONTRACT_VERSION,
+                  "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+                  "status": "AUDIT_ONLY",
+                  "source_group": TARGET_GROUP,
+                  "blocker_occurrence_count": len(target_rows),
+                  "target_ticker_count": target_ticker_count,
+                  "blocker_reason_counts": dict(reason_counts),
+                  "cache_status_counts": dict(cache_status_counter),
+                  "cache_reason_token_counts": dict(cache_reason_token_counter),
+                  "three_year_source_status_counts": dict(three_year_status_counter),
+                  "quarter_source_status_counts": dict(quarter_status_counter),
+                  "recovery_lane_counts": dict(lane_counter),
+                  "recovery_lane_blocker_occurrences": dict(lane_occurrences),
+                  "recovery_priority": priority,
+                  "highest_actionable_recovery_lane": highest_lane,
+                  "highest_actionable_recovery_lane_ticker_count": highest_tickers,
+                  "highest_actionable_recovery_lane_blocker_occurrences": highest_occurrences,
+                  "v8104_exhausted_overlap_count": len(v8104_overlap),
+                  "v8104_exhausted_overlap_tickers": v8104_overlap,
+                  "automatic_promotion": {
+                      "allowed": False,
+                      "promoted_ticker_count": 0,
+                  },
+                  "hard_guards": {
+                      "production_api_changed": False,
+                      "production_investment_score_written": False,
+                      "scoring_policy_changed": False,
+                      "source_cache_mutated": False,
+                      "financial_cache_mutated": False,
+                      "source_value_imputed": False,
+                      "v8104_exhausted_target_retried": False,
+                  },
+                  "next_step": (
+                      "AUDIT_HIGHEST_ACTIONABLE_V8105_SOURCE_LANE_WITH_OFFICIAL_DATA"
+                      if highest_lane
+                      else "DEFER_INVESTMENT_SCORE_SOURCE_CACHE_GROUP"
+                  ),
+              }
+              OUT_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+
+              log = [
+                  f"VERSION={VERSION}",
+                  "STATUS=AUDIT_ONLY",
+                  f"BLOCKER_OCCURRENCE_COUNT={len(target_rows)}",
+                  f"TARGET_TICKER_COUNT={target_ticker_count}",
+                  f"REVENUE_GROWTH_BLOCKERS={reason_counts[REASON_REVENUE_GROWTH]}",
+                  f"THREE_YEAR_REVENUE_BLOCKERS={reason_counts[REASON_3Y_REVENUE]}",
+                  f"THREE_YEAR_OP_BLOCKERS={reason_counts[REASON_3Y_OP]}",
+                  f"ACCEL_BLOCKERS={reason_counts[REASON_ACCEL]}",
+                  f"HIGHEST_ACTIONABLE_RECOVERY_LANE={highest_lane}",
+                  f"HIGHEST_ACTIONABLE_LANE_TICKERS={highest_tickers}",
+                  f"HIGHEST_ACTIONABLE_LANE_BLOCKERS={highest_occurrences}",
+                  "V8104_EXHAUSTED_OVERLAP=357250",
+                  "PRODUCTION_API_CHANGED=false",
+                  "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+                  "SCORING_POLICY_CHANGED=false",
+                  "SOURCE_CACHE_MUTATED=false",
+                  "FINANCIAL_CACHE_MUTATED=false",
+                  "SOURCE_VALUE_IMPUTED=false",
+                  "V8104_EXHAUSTED_TARGET_RETRIED=false",
+                  "STATUS_OK=true",
+                  f"NEXT_STEP={summary['next_step']}",
+              ]
+              OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+
+              OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+              OUT_DOC.write_text(
+                  "\n".join([
+                      "# V8.10.5 investment-score source-cache root-cause audit",
+                      "",
+                      f"- Version: `{VERSION}`",
+                      "- Status: AUDIT_ONLY",
+                      "- Current blocker source group: INVESTMENT_SCORE_SOURCE_CACHE",
+                      "- 62 blocker occurrences are partitioned by annual, quarter, combined, wiring, or transient root cause.",
+                      "- V8.10.4 exhausted target 357250 is not retried.",
+                      "",
+                      "## Safety",
+                      "",
+                      "- No production/API/cache mutation.",
+                      "- No score-policy change.",
+                      "- No source-value imputation.",
+                      "- No automatic promotion.",
+                      "",
+                      "## Next",
+                      "",
+                      f"`{summary['next_step']}`",
+                      "",
+                  ]),
+                  encoding="utf-8",
+              )
+
+              print("V8105_SOURCE_CACHE_ROOT_CAUSE_AUDIT=PASS")
+              print("\n".join(log))
+
+
+          if __name__ == "__main__":
+              main()
+          PY
+
+      - name: Run V8.10.5 audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile investment_score_source_cache_root_cause_audit_v8105.py
+          python investment_score_source_cache_root_cause_audit_v8105.py
+          grep -q '^STATUS_OK=true$' latest/investment_score_source_cache_root_causes_v8105_run_log_latest.txt
+
+      - name: Validate V8.10.5 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          s = json.loads(
+              Path("latest/investment_score_source_cache_root_causes_v8105_summary_latest.json")
+              .read_text(encoding="utf-8")
+          )
+          with Path("latest/investment_score_source_cache_root_causes_v8105.csv").open(
+              encoding="utf-8-sig", newline=""
+          ) as f:
+              rows = list(csv.DictReader(f))
+
+          assert s["status"] == "AUDIT_ONLY"
+          assert s["source_group"] == "INVESTMENT_SCORE_SOURCE_CACHE"
+          assert s["blocker_occurrence_count"] == 62
+          assert len(rows) == s["target_ticker_count"]
+          assert s["blocker_reason_counts"] == {
+              "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT": 19,
+              "최근 3년 매출 성장률:MISSING_3Y_REVENUE": 16,
+              "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT": 17,
+              "최근 3년 영업이익 성장률:MISSING_3Y_OP": 10,
+          }
+          assert s["v8104_exhausted_overlap_count"] == 1
+          assert s["v8104_exhausted_overlap_tickers"] == ["357250"]
+          assert s["automatic_promotion"]["allowed"] is False
+          assert s["automatic_promotion"]["promoted_ticker_count"] == 0
+          assert s["hard_guards"]["production_api_changed"] is False
+          assert s["hard_guards"]["production_investment_score_written"] is False
+          assert s["hard_guards"]["scoring_policy_changed"] is False
+          assert s["hard_guards"]["source_cache_mutated"] is False
+          assert s["hard_guards"]["financial_cache_mutated"] is False
+          assert s["hard_guards"]["source_value_imputed"] is False
+          assert s["hard_guards"]["v8104_exhausted_target_retried"] is False
+          print("V8105_OUTPUT_VALIDATION=PASS")
+          PY
+
+      - name: Verify protected files unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            latest/investment_score_remaining_blockers_v8102.csv \
+            latest/investment_score_remaining_blockers_v8102_summary_latest.json \
+            latest/investment_score_next_single_source_v8104_summary_latest.json \
+            latest/investment_score_source_cache_latest.csv \
+            latest/financial_valuation_cache_latest.csv \
+            > /tmp/v8105_protected.after
+          diff -u /tmp/v8105_protected.before /tmp/v8105_protected.after
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "investment_score_source_cache_root_cause_audit_v8105.py",
+              "latest/investment_score_source_cache_root_causes_v8105.csv",
+              "latest/investment_score_source_cache_root_causes_v8105_summary_latest.json",
+              "latest/investment_score_source_cache_root_causes_v8105_run_log_latest.txt",
+              "docs/investment_score_source_cache_root_causes_v8105.md",
+          }
+          changed = {
+              line[3:]
+              for line in subprocess.check_output(
+                  ["git", "status", "--porcelain"], text=True
+              ).splitlines()
+              if line
+          }
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit(
+                  "UNEXPECTED_CHANGED_FILES:" + ",".join(unexpected)
+              )
+          print("V8105_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+      - name: Refuse concurrent protected input drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          python - <<'PY'
+          import subprocess
+
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "latest/investment_score_remaining_blockers_v8102.csv",
+              "latest/investment_score_remaining_blockers_v8102_summary_latest.json",
+              "latest/investment_score_next_single_source_v8104_summary_latest.json",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/financial_valuation_cache_latest.csv",
+          }
+          upstream = set(
+              subprocess.check_output(
+                  ["git", "diff", "--name-only", "HEAD..origin/main"],
+                  text=True,
+              ).splitlines()
+          )
+          dangerous = sorted(protected & upstream)
+          if dangerous:
+              raise SystemExit(
+                  "CONCURRENT_PROTECTED_INPUT_DRIFT:" + ",".join(dangerous)
+              )
+          print("V8105_NO_CONCURRENT_PROTECTED_INPUT_DRIFT=PASS")
+          PY
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_source_cache_root_cause_audit_v8105.py \
+            latest/investment_score_source_cache_root_causes_v8105.csv \
+            latest/investment_score_source_cache_root_causes_v8105_summary_latest.json \
+            latest/investment_score_source_cache_root_causes_v8105_run_log_latest.txt \
+            docs/investment_score_source_cache_root_causes_v8105.md
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT"
+            exit 0
+          fi
+
+          git commit -m "Audit investment source-cache root causes v8.10.5"
+          git pull --rebase origin main
+          git push origin HEAD:main

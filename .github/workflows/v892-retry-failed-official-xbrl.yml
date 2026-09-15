@@ -1,0 +1,700 @@
+name: Retry failed official XBRL targets v8.9.2
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v892-retry-failed-official-xbrl.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v892-official-xbrl-retry
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Create V8.9.2 XBRL retry auditor
+        shell: bash
+        run: |
+          cat > investment_score_xbrl_retry_v892.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import csv
+          import io
+          import json
+          import os
+          import time
+          import urllib.parse
+          import urllib.request
+          import zipfile
+          import xml.etree.ElementTree as ET
+          from collections import Counter
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          VERSION = "2026-09-15-v8.9.2-retry-failed-official-xbrl"
+          V891_VERSION = "2026-09-15-v8.9.1-remaining-exact-da-recoverability-audit"
+          V885_VERSION = "2026-09-14-v8.8.5-expanded-xbrl-da-audit"
+          POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+
+          V891_CSV = ROOT / "latest/investment_score_da_recoverability_v891.csv"
+          V891_JSON = ROOT / "latest/investment_score_da_recoverability_v891_summary_latest.json"
+          V885_CSV = ROOT / "latest/investment_score_xbrl_da_expand_v885.csv"
+          V885_JSON = ROOT / "latest/investment_score_xbrl_da_expand_v885_summary_latest.json"
+
+          OUT_CSV = ROOT / "latest/investment_score_xbrl_retry_v892.csv"
+          OUT_JSON = ROOT / "latest/investment_score_xbrl_retry_v892_summary_latest.json"
+          OUT_LOG = ROOT / "latest/investment_score_xbrl_retry_v892_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_xbrl_retry_v892.md"
+
+          LIST_URL = "https://opendart.fss.or.kr/api/list.json"
+          XBRL_URL = "https://opendart.fss.or.kr/api/fnlttXbrl.xml"
+
+          APPROVED_LOCAL_NAMES = {
+              "AdjustmentsForDepreciationExpense",
+              "AdjustmentsForAmortisationExpense",
+          }
+          RETRY_LANE = "RETRY_OFFICIAL_XBRL"
+          EXPECTED_TARGETS = {"002450", "012450", "023960"}
+
+          def read_json(path: Path):
+              return json.loads(path.read_text(encoding="utf-8-sig"))
+
+          def read_csv(path: Path):
+              with path.open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
+
+          def clean_ticker(v):
+              s = "".join(ch for ch in str(v or "") if ch.isdigit())
+              return s.zfill(6) if s else ""
+
+          def local_name(tag):
+              s = str(tag or "")
+              if s.startswith("{") and "}" in s:
+                  return s.split("}", 1)[1]
+              return s.split(":")[-1]
+
+          def namespace_uri(tag):
+              s = str(tag or "")
+              if s.startswith("{") and "}" in s:
+                  return s[1:].split("}", 1)[0]
+              return ""
+
+          def http_get(url, params, *, timeout=90, attempts=3):
+              full = url + "?" + urllib.parse.urlencode(params)
+              last = None
+              for attempt in range(1, attempts + 1):
+                  req = urllib.request.Request(
+                      full,
+                      headers={
+                          "User-Agent": "krx-watchlist-v892-official-xbrl-retry",
+                          "Accept": "*/*",
+                          "Cache-Control": "no-cache",
+                      },
+                  )
+                  try:
+                      with urllib.request.urlopen(req, timeout=timeout) as r:
+                          body = r.read(100_000_000)
+                          ctype = str(r.headers.get("Content-Type") or "")
+                      return {
+                          "ok": True,
+                          "body": body,
+                          "content_type": ctype,
+                          "attempt": attempt,
+                          "error": "",
+                      }
+                  except Exception as exc:
+                      last = exc
+                      if attempt < attempts:
+                          time.sleep(1.2 * attempt)
+              return {
+                  "ok": False,
+                  "body": b"",
+                  "content_type": "",
+                  "attempt": attempts,
+                  "error": f"{type(last).__name__}:{last}",
+              }
+
+          def parse_nonzip_status(body):
+              text = body[:5000].decode("utf-8", errors="ignore").strip()
+              out = {"status": "", "message": "", "body_head": text[:500]}
+              if not text:
+                  return out
+              try:
+                  root = ET.fromstring(text)
+                  for elem in root.iter():
+                      lname = local_name(elem.tag)
+                      val = (elem.text or "").strip()
+                      if lname == "status" and not out["status"]:
+                          out["status"] = val
+                      elif lname == "message" and not out["message"]:
+                          out["message"] = val
+              except Exception:
+                  pass
+              return out
+
+          def inspect_zip(body):
+              try:
+                  zf = zipfile.ZipFile(io.BytesIO(body))
+              except zipfile.BadZipFile:
+                  err = parse_nonzip_status(body)
+                  return {
+                      "zip_status": "NOT_ZIP",
+                      "member_count": 0,
+                      "approved_exact_fact_count": 0,
+                      "approved_exact_local_names": [],
+                      "all_da_local_names": [],
+                      "dart_status": err["status"],
+                      "dart_message": err["message"],
+                      "body_head": err["body_head"],
+                  }
+
+              approved = []
+              da_names = set()
+              members = 0
+
+              for member in zf.namelist():
+                  low = member.lower()
+                  if not low.endswith((".xml", ".xbrl", ".xhtml", ".html", ".htm")):
+                      continue
+                  members += 1
+                  try:
+                      root = ET.fromstring(zf.read(member))
+                  except Exception:
+                      continue
+                  for elem in root.iter():
+                      lname = local_name(elem.tag)
+                      uri = namespace_uri(elem.tag)
+                      lowname = lname.lower()
+                      if "depreci" in lowname or "amorti" in lowname:
+                          da_names.add(lname)
+                      if "ifrs" in uri.lower() and lname in APPROVED_LOCAL_NAMES:
+                          approved.append(lname)
+
+              return {
+                  "zip_status": "ZIP_OK",
+                  "member_count": members,
+                  "approved_exact_fact_count": len(approved),
+                  "approved_exact_local_names": sorted(set(approved)),
+                  "all_da_local_names": sorted(da_names),
+                  "dart_status": "000",
+                  "dart_message": "ZIP_OK",
+                  "body_head": "",
+              }
+
+          def list_business_reports(api_key, corp_code):
+              if not corp_code:
+                  return {"status": "NO_CORP_CODE", "message": "", "reports": []}
+
+              res = http_get(
+                  LIST_URL,
+                  {
+                      "crtfc_key": api_key,
+                      "corp_code": corp_code,
+                      "bgn_de": "20260101",
+                      "end_de": "20260915",
+                      "pblntf_ty": "A",
+                      "sort": "date",
+                      "sort_mth": "desc",
+                      "page_no": "1",
+                      "page_count": "100",
+                  },
+                  timeout=40,
+                  attempts=3,
+              )
+              if not res["ok"]:
+                  return {
+                      "status": "HTTP_FAILED",
+                      "message": res["error"],
+                      "reports": [],
+                  }
+
+              try:
+                  payload = json.loads(res["body"].decode("utf-8"))
+              except Exception as exc:
+                  return {
+                      "status": "JSON_PARSE_FAILED",
+                      "message": f"{type(exc).__name__}:{exc}",
+                      "reports": [],
+                  }
+
+              status = str(payload.get("status") or "")
+              message = str(payload.get("message") or "")
+              if status != "000":
+                  return {"status": status or "UNKNOWN", "message": message, "reports": []}
+
+              reports = []
+              for item in payload.get("list") or []:
+                  nm = str(item.get("report_nm") or "")
+                  if "사업보고서" not in nm:
+                      continue
+                  if "2025" not in nm:
+                      continue
+                  reports.append({
+                      "rcept_no": str(item.get("rcept_no") or ""),
+                      "rcept_dt": str(item.get("rcept_dt") or ""),
+                      "report_nm": nm,
+                  })
+
+              return {"status": "000", "message": message, "reports": reports}
+
+          def try_xbrl(api_key, rcept_no):
+              res = http_get(
+                  XBRL_URL,
+                  {
+                      "crtfc_key": api_key,
+                      "rcept_no": rcept_no,
+                      "reprt_code": "11011",
+                  },
+                  timeout=100,
+                  attempts=3,
+              )
+              if not res["ok"]:
+                  return {
+                      "rcept_no": rcept_no,
+                      "http_status": "FAILED",
+                      "http_error": res["error"],
+                      "content_type": "",
+                      "zip_status": "HTTP_FAILED",
+                      "member_count": 0,
+                      "approved_exact_fact_count": 0,
+                      "approved_exact_local_names": [],
+                      "all_da_local_names": [],
+                      "dart_status": "",
+                      "dart_message": "",
+                      "body_head": "",
+                  }
+
+              ins = inspect_zip(res["body"])
+              return {
+                  "rcept_no": rcept_no,
+                  "http_status": "OK",
+                  "http_error": "",
+                  "content_type": res["content_type"],
+                  **ins,
+              }
+
+          def classify(prior_rcept, attempts):
+              zip_rows = [x for x in attempts if x["zip_status"] == "ZIP_OK"]
+              if zip_rows:
+                  if any(x["rcept_no"] == prior_rcept for x in zip_rows):
+                      return "CURRENT_RCEPT_ZIP_RECOVERED"
+                  return "ALTERNATE_RCEPT_ZIP_FOUND"
+
+              statuses = {str(x.get("dart_status") or "") for x in attempts}
+              if statuses and statuses.issubset({"013", "014"}):
+                  return "ALL_CANDIDATES_NO_DATA_OR_FILE"
+              if statuses & {"020", "800", "900"}:
+                  return "DART_TRANSIENT_OR_LIMIT_ERROR"
+              if any(x["zip_status"] == "HTTP_FAILED" for x in attempts):
+                  return "HTTP_RETRY_EXHAUSTED"
+              return "NONZIP_OTHER"
+
+          def main():
+              api_key = os.environ.get("DART_API_KEY", "").strip()
+              if not api_key:
+                  raise RuntimeError("DART_API_KEY_MISSING")
+
+              for p in (V891_CSV, V891_JSON, V885_CSV, V885_JSON):
+                  if not p.is_file():
+                      raise RuntimeError("MISSING_REQUIRED_SOURCE:" + str(p))
+
+              s891 = read_json(V891_JSON)
+              s885 = read_json(V885_JSON)
+
+              if s891.get("version") != V891_VERSION:
+                  raise RuntimeError("V891_VERSION_MISMATCH")
+              if s891.get("policy_version") != POLICY_VERSION:
+                  raise RuntimeError("POLICY_VERSION_MISMATCH")
+              if s885.get("version") != V885_VERSION:
+                  raise RuntimeError("V885_VERSION_MISMATCH")
+
+              rows891 = read_csv(V891_CSV)
+              rows885 = read_csv(V885_CSV)
+              m885 = {clean_ticker(r.get("ticker")): r for r in rows885 if clean_ticker(r.get("ticker"))}
+
+              targets = [
+                  r for r in rows891
+                  if str(r.get("recovery_lane") or "") == RETRY_LANE
+              ]
+              target_codes = {clean_ticker(r.get("ticker")) for r in targets}
+
+              if target_codes != EXPECTED_TARGETS:
+                  raise RuntimeError("V892_TARGET_SET_MISMATCH:" + repr(sorted(target_codes)))
+              if len(targets) != 3:
+                  raise RuntimeError(f"V892_TARGET_COUNT:{len(targets)}")
+              if not all(str(r.get("single_blocker_ticker") or "").upper() == "TRUE" for r in targets):
+                  raise RuntimeError("V892_TARGET_NOT_ALL_SINGLE_BLOCKER")
+
+              outputs = []
+              class_counts = Counter()
+
+              for target in sorted(targets, key=lambda x: clean_ticker(x.get("ticker"))):
+                  code = clean_ticker(target.get("ticker"))
+                  prior = m885.get(code)
+                  if not prior:
+                      raise RuntimeError("V885_TARGET_ROW_MISSING:" + code)
+
+                  corp_code = str(prior.get("corp_code") or "").strip()
+                  prior_rcept = str(prior.get("rcept_no") or "").strip()
+                  if not corp_code:
+                      raise RuntimeError("V892_CORP_CODE_MISSING:" + code)
+                  if not prior_rcept:
+                      raise RuntimeError("V892_PRIOR_RCEPT_MISSING:" + code)
+
+                  report_list = list_business_reports(api_key, corp_code)
+
+                  candidates = []
+                  seen = set()
+
+                  def add_candidate(rcept_no, source, rcept_dt="", report_nm=""):
+                      if not rcept_no or rcept_no in seen:
+                          return
+                      seen.add(rcept_no)
+                      candidates.append({
+                          "rcept_no": rcept_no,
+                          "candidate_source": source,
+                          "rcept_dt": rcept_dt,
+                          "report_nm": report_nm,
+                      })
+
+                  add_candidate(
+                      prior_rcept,
+                      "V885_PRIOR",
+                      str(prior.get("rcept_dt") or ""),
+                      str(prior.get("report_nm") or ""),
+                  )
+
+                  for report in report_list["reports"]:
+                      add_candidate(
+                          report["rcept_no"],
+                          "DART_LIST_REFRESH",
+                          report["rcept_dt"],
+                          report["report_nm"],
+                      )
+
+                  attempt_rows = []
+                  for cand in candidates:
+                      result = try_xbrl(api_key, cand["rcept_no"])
+                      attempt_rows.append({**cand, **result})
+                      time.sleep(0.4)
+
+                  cls = classify(prior_rcept, attempt_rows)
+                  class_counts[cls] += 1
+
+                  recovered = [x for x in attempt_rows if x["zip_status"] == "ZIP_OK"]
+                  recovered_with_exact = [
+                      x for x in recovered if int(x.get("approved_exact_fact_count") or 0) > 0
+                  ]
+
+                  outputs.append({
+                      "ticker": code,
+                      "name": target.get("name") or "",
+                      "market": target.get("market") or "",
+                      "single_blocker_ticker": "TRUE",
+                      "corp_code": corp_code,
+                      "prior_rcept_no": prior_rcept,
+                      "prior_xbrl_status": prior.get("xbrl_status") or "",
+                      "refreshed_list_status": report_list["status"],
+                      "refreshed_list_message": report_list["message"],
+                      "candidate_rcept_count": len(candidates),
+                      "zip_success_count": len(recovered),
+                      "zip_with_approved_exact_count": len(recovered_with_exact),
+                      "recovery_classification": cls,
+                      "candidate_attempts_json": json.dumps(
+                          attempt_rows,
+                          ensure_ascii=False,
+                          separators=(",", ":"),
+                      ),
+                  })
+
+              OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+              fields = list(outputs[0].keys())
+              with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+                  w = csv.DictWriter(f, fieldnames=fields)
+                  w.writeheader()
+                  w.writerows(outputs)
+
+              recovered_tickers = [
+                  r["ticker"] for r in outputs if int(r["zip_success_count"]) > 0
+              ]
+              exact_recovered_tickers = [
+                  r["ticker"] for r in outputs if int(r["zip_with_approved_exact_count"]) > 0
+              ]
+              no_file_tickers = [
+                  r["ticker"] for r in outputs
+                  if r["recovery_classification"] == "ALL_CANDIDATES_NO_DATA_OR_FILE"
+              ]
+
+              if recovered_tickers:
+                  next_step = "AUDIT_RECOVERED_XBRL_CONTEXTS_BEFORE_ANY_DA_SOURCE_PROMOTION"
+              elif len(no_file_tickers) == 3:
+                  next_step = "MOVE_3_SINGLE_BLOCKER_TICKERS_TO_ALTERNATE_OFFICIAL_DA_SOURCE_AUDIT"
+              else:
+                  next_step = "DIAGNOSE_REMAINING_DART_XBRL_RETRY_ERRORS"
+
+              summary = {
+                  "version": VERSION,
+                  "policy_version": POLICY_VERSION,
+                  "v891_version": V891_VERSION,
+                  "v885_version": V885_VERSION,
+                  "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+                  "status": "AUDIT_ONLY",
+                  "target_count": len(outputs),
+                  "target_tickers": sorted(target_codes),
+                  "recovery_classification_counts": dict(class_counts),
+                  "zip_recovered_ticker_count": len(recovered_tickers),
+                  "zip_recovered_tickers": recovered_tickers,
+                  "approved_exact_recovered_ticker_count": len(exact_recovered_tickers),
+                  "approved_exact_recovered_tickers": exact_recovered_tickers,
+                  "all_candidates_no_data_or_file_ticker_count": len(no_file_tickers),
+                  "all_candidates_no_data_or_file_tickers": no_file_tickers,
+                  "official_dart_contract_checked": {
+                      "endpoint": XBRL_URL,
+                      "reprt_code": "11011",
+                      "expected_success_format": "ZIP binary",
+                      "known_no_data_or_file_statuses": ["013", "014"],
+                  },
+                  "automatic_promotion": {
+                      "allowed": False,
+                      "promoted_ticker_count": 0,
+                  },
+                  "hard_guards": {
+                      "production_api_changed": False,
+                      "production_investment_score_written": False,
+                      "scoring_policy_changed": False,
+                      "new_da_id_approved": False,
+                      "v888_source_layer_mutated": False,
+                      "recovered_xbrl_value_promoted": False,
+                      "missing_da_assumed_zero": False,
+                  },
+                  "next_step": next_step,
+              }
+              OUT_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+
+              OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+              OUT_DOC.write_text(
+                  "\n".join([
+                      "# V8.9.2 공식 DART XBRL 재시도 감사",
+                      "",
+                      f"- 버전: `{VERSION}`",
+                      "- 대상: 삼익악기(002450), 한화에어로스페이스(012450), 에쓰씨엔지니어링(023960)",
+                      "- 세 종목 모두 V8.9.1에서 D&A 단일 blocker이고, V8.8.5 당시 XBRL 응답은 NOT_ZIP이었다.",
+                      "",
+                      "## 방식",
+                      "",
+                      "- V8.8.5의 기존 접수번호를 우선 재시도한다.",
+                      "- DART 공시검색에서 2025 사업보고서 후보 접수번호를 다시 수집한다.",
+                      "- 각 후보에 대해 `fnlttXbrl.xml` + `reprt_code=11011`을 호출한다.",
+                      "- ZIP이면 승인 exact D&A local name 존재 여부까지만 감사한다.",
+                      "- ZIP이 아니면 XML `status/message`를 보존하여 013/014 등 공식 오류를 구분한다.",
+                      "- 어떤 값도 V8.8.8 D&A source layer 또는 점수에 자동 승격하지 않는다.",
+                      "",
+                      "## 다음 단계",
+                      "",
+                      f"`{next_step}`",
+                      "",
+                  ]),
+                  encoding="utf-8",
+              )
+
+              log = [
+                  f"VERSION={VERSION}",
+                  f"TARGET_COUNT={len(outputs)}",
+                  "TARGET_TICKERS=" + ",".join(sorted(target_codes)),
+                  f"ZIP_RECOVERED_TICKERS={len(recovered_tickers)}",
+                  f"APPROVED_EXACT_RECOVERED_TICKERS={len(exact_recovered_tickers)}",
+                  f"ALL_CANDIDATES_NO_DATA_OR_FILE={len(no_file_tickers)}",
+                  "AUTO_PROMOTION=false",
+                  "PRODUCTION_DATA_CHANGED=false",
+                  "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+                  "SCORING_POLICY_CHANGED=false",
+                  "NEW_DA_ID_APPROVED=false",
+                  "MISSING_DA_ASSUMED_ZERO=false",
+                  "STATUS=OK",
+                  f"NEXT_STEP={next_step}",
+              ]
+              OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+
+              print("V892_OFFICIAL_XBRL_RETRY_AUDIT=PASS")
+              print("\n".join(log))
+
+          if __name__ == "__main__":
+              main()
+
+          PY
+
+      - name: Run V8.9.2 official XBRL retry audit
+        shell: bash
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: |
+          set -euo pipefail
+          python -m py_compile investment_score_xbrl_retry_v892.py
+          python investment_score_xbrl_retry_v892.py
+          grep -q '^STATUS=OK$' latest/investment_score_xbrl_retry_v892_run_log_latest.txt
+
+      - name: Validate V8.9.2 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import csv, json
+          from pathlib import Path
+
+          s = json.loads(
+              Path("latest/investment_score_xbrl_retry_v892_summary_latest.json")
+              .read_text(encoding="utf-8")
+          )
+          with Path("latest/investment_score_xbrl_retry_v892.csv").open(
+              encoding="utf-8-sig", newline=""
+          ) as f:
+              rows = list(csv.DictReader(f))
+
+          assert s["status"] == "AUDIT_ONLY"
+          assert s["target_count"] == 3
+          assert set(s["target_tickers"]) == {"002450", "012450", "023960"}
+          assert len(rows) == 3
+          assert len({r["ticker"] for r in rows}) == 3
+          assert all(r["single_blocker_ticker"] == "TRUE" for r in rows)
+          assert s["automatic_promotion"]["allowed"] is False
+          assert s["automatic_promotion"]["promoted_ticker_count"] == 0
+
+          g = s["hard_guards"]
+          assert g["production_api_changed"] is False
+          assert g["production_investment_score_written"] is False
+          assert g["scoring_policy_changed"] is False
+          assert g["new_da_id_approved"] is False
+          assert g["v888_source_layer_mutated"] is False
+          assert g["recovered_xbrl_value_promoted"] is False
+          assert g["missing_da_assumed_zero"] is False
+
+          print("V892_VALIDATION=PASS")
+          print("RECOVERY_CLASSIFICATIONS=" + json.dumps(
+              s["recovery_classification_counts"], ensure_ascii=False
+          ))
+          print("ZIP_RECOVERED_TICKERS=" + ",".join(s["zip_recovered_tickers"]))
+          print("NEXT_STEP=" + s["next_step"])
+          PY
+
+
+      - name: Verify protected files unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git status --porcelain -- \
+            api/two_table_v1 \
+            config/investment_score_policy_v880.json \
+            config/investment_score_da_source_policy_v888.json \
+            latest/investment_score_da_source_v888.csv \
+            latest/investment_score_da_source_v888_summary_latest.json \
+            latest/investment_score_v880_dry_run_v889_latest.csv \
+            latest/investment_score_v880_dry_run_v889_summary_latest.json \
+            latest/investment_score_remaining_blockers_v890.csv \
+            latest/investment_score_remaining_blockers_v890_summary_latest.json \
+            latest/investment_score_da_recoverability_v891.csv \
+            latest/investment_score_da_recoverability_v891_summary_latest.json | grep -q .; then
+            echo "::error::Protected production/policy/evidence files changed"
+            git status --short
+            exit 1
+          fi
+          echo "V892_PROTECTED_FILES_UNCHANGED=PASS"
+
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          allowed = {
+              "investment_score_xbrl_retry_v892.py",
+              "docs/investment_score_xbrl_retry_v892.md",
+              "latest/investment_score_xbrl_retry_v892.csv",
+              "latest/investment_score_xbrl_retry_v892_summary_latest.json",
+              "latest/investment_score_xbrl_retry_v892_run_log_latest.txt",
+          }
+          for p in allowed:
+              if not Path(p).exists():
+                  raise SystemExit("EXPECTED_OUTPUT_MISSING=" + p)
+
+          out = subprocess.check_output(["git", "status", "--porcelain"], text=True)
+          changed = set()
+          for line in out.splitlines():
+              if not line.strip():
+                  continue
+              path = line[3:]
+              if " -> " in path:
+                  path = path.split(" -> ", 1)[1]
+              changed.add(path)
+
+          unexpected = changed - allowed
+          if unexpected:
+              raise SystemExit("CHANGE_SCOPE_UNEXPECTED=" + repr(sorted(unexpected)))
+          if not changed:
+              raise SystemExit("NO_CHANGES_DETECTED")
+
+          print("CHANGE_SCOPE=PASS")
+          print("CHANGED_FILES=" + ",".join(sorted(changed)))
+          PY
+
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_xbrl_retry_v892.py \
+            docs/investment_score_xbrl_retry_v892.md \
+            latest/investment_score_xbrl_retry_v892.csv \
+            latest/investment_score_xbrl_retry_v892_summary_latest.json \
+            latest/investment_score_xbrl_retry_v892_run_log_latest.txt
+
+          git commit -m "Retry failed official XBRL targets v8.9.2"
+
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          fi
+          git push origin HEAD:main
+
+          echo "COMMIT_SHA=$(git rev-parse HEAD)"
+          echo "PUSH_SUCCESS=true"
+          echo "PRODUCTION_DATA_CHANGED=false"
+          echo "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false"
+          echo "SCORING_POLICY_CHANGED=false"
+          echo "NEW_DA_ID_APPROVED=false"
+          echo "NEXT_STEP=READ_V892_SUMMARY"
+

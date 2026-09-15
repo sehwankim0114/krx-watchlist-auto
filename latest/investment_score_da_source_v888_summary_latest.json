@@ -1,0 +1,62 @@
+{
+  "version": "2026-09-15-v8.8.8-source-only-da-promotion",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "source_evidence_version": "2026-09-15-v8.8.7-xbrl-cfs-ofs-selection-audit",
+  "generated_at_kst": "2026-09-15T11:14:46+09:00",
+  "status": "READY_SOURCE_ONLY",
+  "promotion_scope": "SOURCE_ONLY_DA_LAYER",
+  "eligibility_contract": {
+    "approved_account_ids": [
+      "ifrs-full_AdjustmentsForDepreciationExpense",
+      "ifrs-full_AdjustmentsForAmortisationExpense"
+    ],
+    "requires_both_approved_facts": true,
+    "requires_each_fact_unique_after_fs_selection": true,
+    "requires_source_fs_consistent": true,
+    "requires_single_selected_context": true,
+    "requires_krw_unit": true,
+    "partial_one_fact_is_not_promoted": true,
+    "no_matching_fs_member_is_not_promoted": true
+  },
+  "frozen_fs_mapping": {
+    "axis": "ifrs-full:ConsolidatedAndSeparateFinancialStatementsAxis",
+    "CFS": "ifrs-full:ConsolidatedMember",
+    "OFS": "ifrs-full:SeparateMember",
+    "financial_policy_text": "연결재무제표(CFS)를 우선하고, 없을 때만 개별재무제표(OFS)를 쓴다."
+  },
+  "source_target_count": 57,
+  "source_only_ready_count": 52,
+  "held_count": 5,
+  "held_classification_counts": {
+    "MATCHED_FS_MEMBER_PARTIAL_ONE_FACT": 4,
+    "NO_MATCHING_FS_MEMBER": 1
+  },
+  "promoted_fs_div_counts": {
+    "CFS": 47,
+    "OFS": 5
+  },
+  "promoted_market_counts": {
+    "KOSPI": 52
+  },
+  "source_hashes": {
+    "latest/investment_score_xbrl_cfs_ofs_v887.csv": "d0351517d0738075ef920a2b0d51c69566b840f66a2cac5e95db5770ef274fb3",
+    "latest/investment_score_xbrl_cfs_ofs_v887_summary_latest.json": "1ee2cba29fef5d133c1719fcea368f6e149183f1803c84af8bfc3241582cd751",
+    "config/investment_score_policy_v880.json": "fc03b9a9fefaaa652f59023d62f51532000b31af0c621f160cd7391bb999e514"
+  },
+  "decision": {
+    "source_only_da_layer_ready": true,
+    "ready_for_ev_ebitda_dry_run": true,
+    "ready_for_production_da_use": false,
+    "ready_for_production_score_write": false
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "new_da_id_approved": false,
+    "production_da_value_promoted": false,
+    "ev_ebitda_recalculated": false,
+    "standalone_swing_changed": false
+  },
+  "next_step": "DRY_RUN_EV_EBITDA_WITH_V888_SOURCE_ONLY_DA_AND_NO_PRODUCTION_WRITE"
+}

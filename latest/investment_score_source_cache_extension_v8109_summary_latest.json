@@ -1,0 +1,42 @@
+{
+  "version": "2026-09-16-v8.10.9-freeze-v8106-source-against-frozen-v8102-validation-fix",
+  "v8106_version": "2026-09-15-v8.10.6-missing-source-cache-official-recovery-audit",
+  "v8105_version": "2026-09-15-v8.10.5-investment-source-cache-root-cause-audit",
+  "v8102_baseline_commit": "e84292284136c4e2d6049277efc086de5d8948c5",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "source_contract_version": "2026-09-10-v8.5.4-investment-score-source-contract",
+  "generated_at_kst": "2026-09-16T08:55:32+09:00",
+  "status": "SOURCE_EXTENSION_ONLY_READY",
+  "source_count": 2,
+  "source_tickers": [
+    "001530",
+    "066575"
+  ],
+  "claimed_source_blocker_occurrences": 5,
+  "direct_raw_patch_tickers": [
+    "001530"
+  ],
+  "financial_revenue_yoy_patch_tickers": [
+    "001530",
+    "066575"
+  ],
+  "preferred_raw_inheritance_preserved": {
+    "066575": "066570"
+  },
+  "automatic_production_patch": {
+    "allowed": false,
+    "patched_ticker_count": 0
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "source_cache_mutated": false,
+    "financial_cache_mutated": false,
+    "new_preferred_common_alias_created": false,
+    "issuer_mapping_guessed": false,
+    "source_value_imputed": false,
+    "preferred_common_raw_overwritten": false
+  },
+  "next_step": "SHADOW_DRY_RUN_AGAINST_EXACT_V8102_COMBINED_BASELINE"
+}

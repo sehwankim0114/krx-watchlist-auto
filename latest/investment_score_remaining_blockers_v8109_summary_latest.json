@@ -1,0 +1,195 @@
+{
+  "version": "2026-09-16-v8.10.9-freeze-v8106-source-against-frozen-v8102-validation-fix",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "generated_at_kst": "2026-09-16T08:55:32+09:00",
+  "status": "AUDIT_ONLY",
+  "production_unique_tickers": 112,
+  "ready_count": 56,
+  "limited_count": 56,
+  "limited_blocker_occurrences": 280,
+  "single_blocker_ticker_count": 24,
+  "blocker_category_counts": {
+    "POLICY_SEMANTIC_BLOCKER": 20,
+    "SOURCE_DATA_GAP": 250,
+    "SOURCE_EVIDENCE_GAP": 10
+  },
+  "source_group_counts": {
+    "V880_SCORING_CONTRACT": 20,
+    "INVESTMENT_SCORE_SOURCE_CACHE": 57,
+    "PRODUCTION_PRICE_METRICS": 29,
+    "FINANCIAL_VALUATION_CACHE": 102,
+    "PRODUCTION_ANALYSIS_SUPPLY": 10,
+    "OCF_AND_REVENUE_SOURCE": 9,
+    "EXACT_DA_SOURCE": 27,
+    "FINANCIAL_AND_RAW_SOURCE": 12,
+    "NETCASH_INPUT": 11,
+    "EV_EBITDA_OTHER_INPUT": 3
+  },
+  "source_recovery_priority_by_single_blocker": [
+    {
+      "source_group": "EXACT_DA_SOURCE",
+      "single_blocker_tickers": 10,
+      "blocker_occurrences": 27
+    },
+    {
+      "source_group": "INVESTMENT_SCORE_SOURCE_CACHE",
+      "single_blocker_tickers": 1,
+      "blocker_occurrences": 57
+    },
+    {
+      "source_group": "PRODUCTION_PRICE_METRICS",
+      "single_blocker_tickers": 1,
+      "blocker_occurrences": 29
+    },
+    {
+      "source_group": "FINANCIAL_VALUATION_CACHE",
+      "single_blocker_tickers": 0,
+      "blocker_occurrences": 102
+    },
+    {
+      "source_group": "FINANCIAL_AND_RAW_SOURCE",
+      "single_blocker_tickers": 0,
+      "blocker_occurrences": 12
+    },
+    {
+      "source_group": "NETCASH_INPUT",
+      "single_blocker_tickers": 0,
+      "blocker_occurrences": 11
+    },
+    {
+      "source_group": "PRODUCTION_ANALYSIS_SUPPLY",
+      "single_blocker_tickers": 0,
+      "blocker_occurrences": 10
+    },
+    {
+      "source_group": "OCF_AND_REVENUE_SOURCE",
+      "single_blocker_tickers": 0,
+      "blocker_occurrences": 9
+    },
+    {
+      "source_group": "EV_EBITDA_OTHER_INPUT",
+      "single_blocker_tickers": 0,
+      "blocker_occurrences": 3
+    }
+  ],
+  "top_blocker_reasons": [
+    [
+      "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
+      20
+    ],
+    [
+      "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+      17
+    ],
+    [
+      "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+      16
+    ],
+    [
+      "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+      15
+    ],
+    [
+      "과열·급락 위험:MISSING_RISK_INPUT",
+      15
+    ],
+    [
+      "기간 저가·고가 대비 현재위치:MISSING_POSITION",
+      14
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
+      14
+    ],
+    [
+      "영업이익 성장과 흑자 여부:MISSING_OP_PROFIT",
+      13
+    ],
+    [
+      "순이익 흐름:MISSING_EARNINGS_TREND",
+      13
+    ],
+    [
+      "영업이익률:MISSING_MARGIN",
+      13
+    ],
+    [
+      "ROE:MISSING_ROE",
+      13
+    ],
+    [
+      "PER:MISSING_PER",
+      13
+    ],
+    [
+      "PBR:MISSING_PBR_OR_ROE",
+      13
+    ],
+    [
+      "흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND",
+      13
+    ],
+    [
+      "PSR 또는 대체 가치지표:MISSING_PSR_INPUT",
+      12
+    ],
+    [
+      "부채비율:MISSING_DEBT_RATIO",
+      11
+    ],
+    [
+      "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
+      10
+    ],
+    [
+      "최근 3년 영업이익 성장률:MISSING_3Y_OP",
+      9
+    ],
+    [
+      "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+      9
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:NO_EXACT_CANDIDATE:NO_EXACT_CANDIDATE",
+      8
+    ],
+    [
+      "순현금·기업가치 상태:NETCASH_INPUT:NO_EXACT_CANDIDATE",
+      8
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:EMPTY_AS_ZERO:NO_EXACT_CANDIDATE",
+      5
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:OK:OK",
+      3
+    ],
+    [
+      "순현금·기업가치 상태:NETCASH_INPUT:OK",
+      3
+    ]
+  ],
+  "known_exhausted_or_deferred_lanes": {
+    "EXACT_DA_SOURCE": "V8.10.3 current approved official paths exhausted for 10 single blockers",
+    "PRODUCTION_PRICE_METRICS_SINGLE_001020": "V8.10.4 official KRX OHLC incomplete",
+    "INVESTMENT_SCORE_SOURCE_CACHE_SINGLE_357250": "V8.10.4 official full-account source incomplete"
+  },
+  "next_actionable_lane": "V8105_ANNUAL_AND_QUARTER_OFFICIAL_REAUDIT",
+  "next_actionable_lane_tickers": [
+    "000810",
+    "005830",
+    "006370",
+    "029780",
+    "105560",
+    "138930"
+  ],
+  "next_actionable_lane_prior_blocker_occurrences": 18,
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "source_values_imputed": false
+  },
+  "next_step": "AUDIT_V8105_ANNUAL_AND_QUARTER_OFFICIAL_REAUDIT_LANE"
+}

@@ -1,0 +1,238 @@
+{
+  "version": "2026-09-16-v8.10.9-freeze-v8106-source-against-frozen-v8102-validation-fix",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "generated_at_kst": "2026-09-16T08:55:32+09:00",
+  "status": "DRY_RUN_ONLY",
+  "production_unique_tickers": 112,
+  "ready_count": 56,
+  "limited_count": 56,
+  "ready_pct": 50.0,
+  "score_summary_ready_only": {
+    "count": 56,
+    "min": 23.0,
+    "median": 64.75,
+    "mean": 60.55357142857143,
+    "max": 79.5
+  },
+  "score_band_counts_ready_only": {
+    "관찰 후보": 24,
+    "추천 후보": 4,
+    "주의": 15,
+    "대기·중립": 13
+  },
+  "top_missing_reasons": [
+    [
+      "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
+      20
+    ],
+    [
+      "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+      17
+    ],
+    [
+      "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+      16
+    ],
+    [
+      "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+      15
+    ],
+    [
+      "과열·급락 위험:MISSING_RISK_INPUT",
+      15
+    ],
+    [
+      "기간 저가·고가 대비 현재위치:MISSING_POSITION",
+      14
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
+      14
+    ],
+    [
+      "영업이익 성장과 흑자 여부:MISSING_OP_PROFIT",
+      13
+    ],
+    [
+      "순이익 흐름:MISSING_EARNINGS_TREND",
+      13
+    ],
+    [
+      "영업이익률:MISSING_MARGIN",
+      13
+    ],
+    [
+      "ROE:MISSING_ROE",
+      13
+    ],
+    [
+      "PER:MISSING_PER",
+      13
+    ],
+    [
+      "PBR:MISSING_PBR_OR_ROE",
+      13
+    ],
+    [
+      "흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND",
+      13
+    ],
+    [
+      "PSR 또는 대체 가치지표:MISSING_PSR_INPUT",
+      12
+    ],
+    [
+      "부채비율:MISSING_DEBT_RATIO",
+      11
+    ],
+    [
+      "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
+      10
+    ],
+    [
+      "최근 3년 영업이익 성장률:MISSING_3Y_OP",
+      9
+    ],
+    [
+      "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+      9
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:NO_EXACT_CANDIDATE:NO_EXACT_CANDIDATE",
+      8
+    ],
+    [
+      "순현금·기업가치 상태:NETCASH_INPUT:NO_EXACT_CANDIDATE",
+      8
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:EMPTY_AS_ZERO:NO_EXACT_CANDIDATE",
+      5
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:OK:OK",
+      3
+    ],
+    [
+      "순현금·기업가치 상태:NETCASH_INPUT:OK",
+      3
+    ]
+  ],
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "source_cache_mutated": false,
+    "financial_cache_mutated": false,
+    "supply_source_mutated": false,
+    "approved_da_ids_changed": false,
+    "new_preferred_common_alias_created": false,
+    "issuer_mapping_guessed": false,
+    "source_value_imputed": false,
+    "v8102_baseline_mutated": false,
+    "non_target_score_rows_unchanged": true,
+    "ready_regression_count": 0
+  },
+  "scorer_reconciliation": {
+    "per_loss_trend_checked_before_missing_per": true,
+    "supply_limited_positive_evidence_scored": true,
+    "supply_limited_no_positive_evidence_remains_limited": true,
+    "ev_ebitda_exact_da_policy_unchanged": true,
+    "no_new_score_thresholds": true
+  },
+  "next_step": "AUDIT_V8105_ANNUAL_AND_QUARTER_OFFICIAL_REAUDIT_LANE",
+  "v8109_source_extension_recheck": {
+    "baseline_version": "2026-09-15-v8.10.2-combined-validated-source-reconciliation",
+    "baseline_control_exact_match": true,
+    "baseline_ready_count": 56,
+    "after_ready_count": 56,
+    "ready_delta": 0,
+    "newly_ready_tickers": [],
+    "lost_ready_tickers": [],
+    "baseline_blocker_occurrences": 285,
+    "after_blocker_occurrences": 280,
+    "blocker_occurrences_reduced_by": 5,
+    "baseline_source_cache_blockers": 62,
+    "after_source_cache_blockers": 57,
+    "source_cache_blockers_reduced_by": 5,
+    "v8106_claimed_source_blockers_resolved": 5,
+    "total_target_blockers_resolved": 5,
+    "additional_cascade_resolved_count": 0,
+    "target_tickers": [
+      "001530",
+      "066575"
+    ],
+    "target_impacts": {
+      "001530": {
+        "status_before": "LIMITED",
+        "status_after": "LIMITED",
+        "missing_before_count": 16,
+        "missing_after_count": 12,
+        "resolved_reasons": [
+          "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+          "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+          "최근 3년 영업이익 성장률:MISSING_3Y_OP",
+          "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+        ],
+        "v8106_claimed_resolved_reasons": [
+          "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+          "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+          "최근 3년 영업이익 성장률:MISSING_3Y_OP",
+          "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+        ],
+        "additional_cascade_resolved_reasons": [],
+        "new_reasons": [],
+        "raw_source_mode_before": "UNAVAILABLE",
+        "raw_source_mode_after": "DIRECT"
+      },
+      "066575": {
+        "status_before": "LIMITED",
+        "status_after": "LIMITED",
+        "missing_before_count": 13,
+        "missing_after_count": 12,
+        "resolved_reasons": [
+          "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT"
+        ],
+        "v8106_claimed_resolved_reasons": [
+          "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT"
+        ],
+        "additional_cascade_resolved_reasons": [],
+        "new_reasons": [],
+        "raw_source_mode_before": "PREFERRED_COMMON:066570",
+        "raw_source_mode_after": "PREFERRED_COMMON:066570"
+      }
+    },
+    "raw_overlay_audit": {
+      "appended_direct_raw_tickers": [
+        "001530"
+      ],
+      "preferred_raw_target_not_overwritten": "066575",
+      "preferred_common_preserved": "066570"
+    },
+    "financial_overlay_audit": {
+      "001530": {
+        "field": "revenue_yoy_pct",
+        "before": "",
+        "after": 10.12,
+        "evidence_ref": "V8106:OFFICIAL_SOURCE_FIELDS_RECOVERABLE:001530"
+      },
+      "066575": {
+        "field": "revenue_yoy_pct",
+        "before": "",
+        "after": 9.38,
+        "evidence_ref": "V8106:OFFICIAL_SOURCE_FIELDS_RECOVERABLE:066575#PREFERRED_COMMON:066570"
+      }
+    },
+    "v895_da_shadow_reproduction": {
+      "combined_source_count": 67,
+      "shadow_unique_raw_target_count": 66,
+      "shadow_patched_ready_raw_count": 66,
+      "shadow_patched_nonready_raw_count": 0,
+      "preferred_inheritance_count": 1,
+      "preferred_inheritance": {
+        "003495": "003490"
+      }
+    },
+    "non_target_score_row_changed_count": 0
+  }
+}

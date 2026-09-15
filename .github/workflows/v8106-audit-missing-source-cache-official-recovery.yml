@@ -1,0 +1,852 @@
+name: Audit missing source-cache official recovery v8.10.6
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8106-audit-missing-source-cache-official-recovery.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8106-missing-source-cache-official-recovery
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install required Python dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --quiet pandas
+
+      - name: Capture protected file hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_source_enricher_v854.py \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_source_cache_root_causes_v8105.csv \
+            latest/investment_score_source_cache_root_causes_v8105_summary_latest.json \
+            latest/investment_score_da_official_retry_v892.csv \
+            latest/investment_score_da_official_retry_v892_summary_latest.json \
+            latest/investment_score_da_exact_id_audit_v883.csv \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_source_cache_latest.csv \
+            > /tmp/v8106_protected.before
+
+      - name: Create V8.10.6 recovery auditor
+        shell: bash
+        run: |
+          cat > investment_score_missing_source_cache_recovery_audit_v8106.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import csv
+          import io
+          import json
+          import math
+          import os
+          import time
+          import urllib.parse
+          import urllib.request
+          import zipfile
+          import xml.etree.ElementTree as ET
+          from collections import Counter
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_source_enricher_v854 as src
+
+          VERSION = "2026-09-15-v8.10.6-missing-source-cache-official-recovery-audit"
+          V8105_VERSION = "2026-09-15-v8.10.5-investment-source-cache-root-cause-audit"
+          V892_VERSION = "2026-09-15-v8.9.2-official-dart-xbrl-da-retry"
+          POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          SOURCE_CONTRACT_VERSION = "2026-09-10-v8.5.4-investment-score-source-contract"
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+
+          V8105_CSV = ROOT / "latest/investment_score_source_cache_root_causes_v8105.csv"
+          V8105_JSON = ROOT / "latest/investment_score_source_cache_root_causes_v8105_summary_latest.json"
+          V892_CSV = ROOT / "latest/investment_score_da_official_retry_v892.csv"
+          V892_JSON = ROOT / "latest/investment_score_da_official_retry_v892_summary_latest.json"
+          V883_CSV = ROOT / "latest/investment_score_da_exact_id_audit_v883.csv"
+          FIN_CACHE = ROOT / "latest/financial_valuation_cache_latest.csv"
+
+          OUT_CSV = ROOT / "latest/investment_score_missing_source_cache_recovery_v8106.csv"
+          OUT_JSON = ROOT / "latest/investment_score_missing_source_cache_recovery_v8106_summary_latest.json"
+          OUT_LOG = ROOT / "latest/investment_score_missing_source_cache_recovery_v8106_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_missing_source_cache_recovery_v8106.md"
+
+          CORP_CODE_URL = "https://opendart.fss.or.kr/api/corpCode.xml"
+          TARGET_LANE = "SOURCE_CACHE_ROW_MISSING"
+
+          REASON_REVENUE_GROWTH = "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT"
+          REASON_3Y_REVENUE = "최근 3년 매출 성장률:MISSING_3Y_REVENUE"
+          REASON_3Y_OP = "최근 3년 영업이익 성장률:MISSING_3Y_OP"
+          REASON_ACCEL = "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+
+          EXPECTED_TARGETS = {
+              "001045", "001527", "001530", "002380", "003495",
+              "004545", "005385", "005387", "005389", "051905",
+              "066575", "088980", "097955",
+          }
+          EXPECTED_EXISTING_ALIASES = {
+              "003495": "003490",
+              "066575": "066570",
+              "097955": "097950",
+          }
+          EXPECTED_V892_EXACT = {
+              "001530": "00118345",
+              "002380": "00105271",
+          }
+
+
+          def ticker(value):
+              text = "".join(ch for ch in str(value or "") if ch.isdigit())
+              return text.zfill(6) if text else ""
+
+
+          def num(value):
+              try:
+                  if value is None or isinstance(value, bool):
+                      return None
+                  text = str(value).strip().replace(",", "")
+                  if text in {"", "-", "None", "null", "nan", "NaN"}:
+                      return None
+                  x = float(text)
+                  return x if math.isfinite(x) else None
+              except Exception:
+                  return None
+
+
+          def read_json(path: Path):
+              return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
+          def read_csv(path: Path):
+              with path.open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
+
+
+          def safe_yoy(current, previous):
+              if current is None or previous is None or previous == 0:
+                  return None
+              return round((current - previous) / abs(previous) * 100.0, 2)
+
+
+          def fetch_corp_codes(api_key: str):
+              params = urllib.parse.urlencode({"crtfc_key": api_key})
+              request = urllib.request.Request(
+                  CORP_CODE_URL + "?" + params,
+                  headers={
+                      "User-Agent": "krx-watchlist-v8106-corp-code-audit",
+                      "Accept": "application/zip,application/octet-stream,*/*",
+                      "Cache-Control": "no-cache",
+                      "Connection": "close",
+                  },
+              )
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  raw = response.read(30_000_000)
+
+              with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+                  xml_names = [name for name in zf.namelist() if name.lower().endswith(".xml")]
+                  if len(xml_names) != 1:
+                      raise RuntimeError(f"CORPCODE_XML_MEMBER_COUNT:{len(xml_names)}")
+                  xml_raw = zf.read(xml_names[0])
+
+              root = ET.fromstring(xml_raw)
+              records = []
+              for item in root.findall(".//list"):
+                  corp_code = (item.findtext("corp_code") or "").strip()
+                  corp_name = (item.findtext("corp_name") or "").strip()
+                  stock_code = ticker(item.findtext("stock_code") or "")
+                  if corp_code:
+                      records.append({
+                          "corp_code": corp_code,
+                          "corp_name": corp_name,
+                          "stock_code": stock_code,
+                      })
+
+              by_stock = {}
+              by_corp = {}
+              for row in records:
+                  by_corp[row["corp_code"]] = row
+                  if row["stock_code"]:
+                      by_stock.setdefault(row["stock_code"], []).append(row)
+              return by_stock, by_corp, len(records)
+
+
+          def fetch_period(client, corp_code, preferred_fs, year, report_code, label):
+              order = []
+              for fs in (preferred_fs, "CFS", "OFS"):
+                  fs = str(fs or "").strip()
+                  if fs and fs not in order:
+                      order.append(fs)
+
+              by_fs = {}
+              attempts = []
+              for fs in order:
+                  payload = client.get_json(
+                      src.FULL_ACCOUNT_URL,
+                      {
+                          "corp_code": corp_code,
+                          "bsns_year": str(year),
+                          "reprt_code": report_code,
+                          "fs_div": fs,
+                      },
+                      f"v8106:{label}:{year}:{report_code}:{fs}",
+                  )
+                  status = src.norm_text(payload.get("status"))
+                  rows = payload.get("list") if isinstance(payload.get("list"), list) else []
+                  by_fs[fs] = [dict(x) for x in rows]
+                  attempts.append({
+                      "year": year,
+                      "report_code": report_code,
+                      "fs_div": fs,
+                      "dart_status": status,
+                      "dart_message": src.norm_text(payload.get("message")),
+                      "row_count": len(rows),
+                  })
+                  time.sleep(0.08)
+
+              selected_fs, rows = src.select_fs_rows(by_fs, preferred_fs or "CFS")
+              accounts = src.account_values(rows) if rows else {
+                  key: {"found": False} for key in src.ACCOUNT_SPECS
+              }
+              return {
+                  "year": year,
+                  "report_code": report_code,
+                  "selected_fs_div": selected_fs,
+                  "row_count": len(rows),
+                  "accounts": accounts,
+                  "attempts": attempts,
+              }
+
+
+          def annual_values(period):
+              accounts = period["accounts"]
+              rev = accounts.get("revenue") or {}
+              op = accounts.get("operating_profit") or {}
+              return {
+                  "annual_revenue_y0": num(rev.get("thstrm_amount")),
+                  "annual_revenue_y1": num(rev.get("frmtrm_amount")),
+                  "annual_revenue_y2": num(rev.get("bfefrmtrm_amount")),
+                  "annual_operating_profit_y0": num(op.get("thstrm_amount")),
+                  "annual_operating_profit_y1": num(op.get("frmtrm_amount")),
+                  "annual_operating_profit_y2": num(op.get("bfefrmtrm_amount")),
+              }
+
+
+          def cumulative(period, account_key):
+              account = (period["accounts"].get(account_key) or {})
+              return src.cumulative_value(account)
+
+
+          def audit_official_fields(client, corp_code, preferred_fs, code):
+              annual = fetch_period(client, corp_code, preferred_fs, 2025, "11011", code)
+              h1_cur = fetch_period(client, corp_code, preferred_fs, 2026, "11012", code)
+              q1_cur = fetch_period(client, corp_code, preferred_fs, 2026, "11013", code)
+              h1_prev = fetch_period(client, corp_code, preferred_fs, 2025, "11012", code)
+              q1_prev = fetch_period(client, corp_code, preferred_fs, 2025, "11013", code)
+
+              values = annual_values(annual)
+
+              h1_rev_cur = cumulative(h1_cur, "revenue")
+              h1_rev_prev = cumulative(h1_prev, "revenue")
+              h1_op_cur = cumulative(h1_cur, "operating_profit")
+              h1_op_prev = cumulative(h1_prev, "operating_profit")
+
+              q1_rev_cur = cumulative(q1_cur, "revenue")
+              q1_rev_prev = cumulative(q1_prev, "revenue")
+              q1_op_cur = cumulative(q1_cur, "operating_profit")
+              q1_op_prev = cumulative(q1_prev, "operating_profit")
+
+              q2_rev_cur = (
+                  h1_rev_cur - q1_rev_cur
+                  if h1_rev_cur is not None and q1_rev_cur is not None else None
+              )
+              q2_rev_prev = (
+                  h1_rev_prev - q1_rev_prev
+                  if h1_rev_prev is not None and q1_rev_prev is not None else None
+              )
+              q2_op_cur = (
+                  h1_op_cur - q1_op_cur
+                  if h1_op_cur is not None and q1_op_cur is not None else None
+              )
+              q2_op_prev = (
+                  h1_op_prev - q1_op_prev
+                  if h1_op_prev is not None and q1_op_prev is not None else None
+              )
+
+              values.update({
+                  "revenue_yoy_pct_current_half": safe_yoy(h1_rev_cur, h1_rev_prev),
+                  "q2_revenue_current": q2_rev_cur,
+                  "q2_revenue_previous": q2_rev_prev,
+                  "q2_revenue_yoy_pct": safe_yoy(q2_rev_cur, q2_rev_prev),
+                  "q2_operating_profit_current": q2_op_cur,
+                  "q2_operating_profit_previous": q2_op_prev,
+                  "q2_operating_profit_yoy_pct": safe_yoy(q2_op_cur, q2_op_prev),
+              })
+
+              return {
+                  "values": values,
+                  "periods": {
+                      "annual": annual,
+                      "h1_current": h1_cur,
+                      "q1_current": q1_cur,
+                      "h1_previous": h1_prev,
+                      "q1_previous": q1_prev,
+                  },
+              }
+
+
+          def blocker_recoverability(reason, values):
+              y0r = values.get("annual_revenue_y0")
+              y1r = values.get("annual_revenue_y1")
+              y2r = values.get("annual_revenue_y2")
+              y0o = values.get("annual_operating_profit_y0")
+              y1o = values.get("annual_operating_profit_y1")
+              y2o = values.get("annual_operating_profit_y2")
+
+              if reason == REASON_REVENUE_GROWTH:
+                  needed = (
+                      values.get("revenue_yoy_pct_current_half"),
+                      y0r, y1r, y2r,
+                  )
+                  return all(v is not None for v in needed) and y1r > 0 and y2r > 0
+
+              if reason == REASON_3Y_REVENUE:
+                  needed = (y0r, y1r, y2r)
+                  return all(v is not None for v in needed) and min(needed) > 0
+
+              if reason == REASON_3Y_OP:
+                  return all(v is not None for v in (y0o, y1o, y2o))
+
+              if reason == REASON_ACCEL:
+                  needed = (
+                      values.get("q2_revenue_yoy_pct"),
+                      values.get("q2_operating_profit_yoy_pct"),
+                      values.get("q2_operating_profit_current"),
+                      values.get("q2_operating_profit_previous"),
+                      y0r, y1r, y0o, y1o,
+                  )
+                  return all(v is not None for v in needed) and y1r > 0
+
+              raise RuntimeError("UNKNOWN_BLOCKER_REASON:" + reason)
+
+
+          def main():
+              api_key = os.environ.get("DART_API_KEY", "").strip()
+              if not api_key:
+                  raise RuntimeError("DART_API_KEY_MISSING")
+
+              for path in (V8105_CSV, V8105_JSON, V892_CSV, V892_JSON, V883_CSV, FIN_CACHE):
+                  if not path.is_file():
+                      raise RuntimeError("MISSING_REQUIRED_SOURCE:" + str(path))
+
+              s8105 = read_json(V8105_JSON)
+              if s8105.get("version") != V8105_VERSION:
+                  raise RuntimeError("V8105_VERSION_MISMATCH")
+              if s8105.get("status") != "AUDIT_ONLY":
+                  raise RuntimeError("V8105_STATUS_MISMATCH")
+              if s8105.get("policy_version") != POLICY_VERSION:
+                  raise RuntimeError("V8105_POLICY_VERSION_MISMATCH")
+              if s8105.get("source_contract_version") != SOURCE_CONTRACT_VERSION:
+                  raise RuntimeError("V8105_SOURCE_CONTRACT_MISMATCH")
+              if int(s8105.get("blocker_occurrence_count") or 0) != 62:
+                  raise RuntimeError("V8105_BLOCKER_OCCURRENCE_NOT_62")
+              if s8105.get("highest_actionable_recovery_lane") != TARGET_LANE:
+                  raise RuntimeError("V8105_HIGHEST_LANE_CHANGED")
+              if int(s8105.get("highest_actionable_recovery_lane_ticker_count") or 0) != 13:
+                  raise RuntimeError("V8105_TARGET_TICKER_COUNT_NOT_13")
+              if int(s8105.get("highest_actionable_recovery_lane_blocker_occurrences") or 0) != 43:
+                  raise RuntimeError("V8105_TARGET_BLOCKERS_NOT_43")
+
+              rows8105 = read_csv(V8105_CSV)
+              target_rows = [r for r in rows8105 if r.get("recovery_lane") == TARGET_LANE]
+              target_codes = {ticker(r.get("ticker")) for r in target_rows}
+              if target_codes != EXPECTED_TARGETS:
+                  raise RuntimeError(
+                      "V8106_TARGET_SET_MISMATCH:" + ",".join(sorted(target_codes))
+                  )
+              if sum(int(r.get("source_cache_blocker_count") or 0) for r in target_rows) != 43:
+                  raise RuntimeError("V8106_TARGET_BLOCKER_SUM_NOT_43")
+              by_target = {ticker(r.get("ticker")): r for r in target_rows}
+
+              s892 = read_json(V892_JSON)
+              if s892.get("version") != V892_VERSION or s892.get("status") != "AUDIT_ONLY":
+                  raise RuntimeError("V892_CONTRACT_MISMATCH")
+              rows892 = read_csv(V892_CSV)
+              exact892 = {}
+              for row in rows892:
+                  code = ticker(row.get("ticker"))
+                  if row.get("corp_code_source") == "DART_CORPCODE_EXACT_STOCK":
+                      exact892[code] = str(row.get("corp_code") or "").strip()
+              for code, corp in EXPECTED_V892_EXACT.items():
+                  if exact892.get(code) != corp:
+                      raise RuntimeError(f"V892_EXACT_EVIDENCE_MISMATCH:{code}")
+
+              rows883 = read_csv(V883_CSV)
+              alias883 = {}
+              for row in rows883:
+                  code = ticker(row.get("ticker"))
+                  mode = str(row.get("raw_source_mode") or "")
+                  if mode.startswith("PREFERRED_COMMON:"):
+                      common = ticker(mode.split(":", 1)[1])
+                      if code and common:
+                          alias883[code] = common
+              for code, common in EXPECTED_EXISTING_ALIASES.items():
+                  if alias883.get(code) != common:
+                      raise RuntimeError(f"V883_ALIAS_EVIDENCE_MISMATCH:{code}")
+
+              fin_rows = read_csv(FIN_CACHE)
+              fin_map = {ticker(r.get("ticker")): r for r in fin_rows if ticker(r.get("ticker"))}
+
+              by_stock, by_corp, corp_record_count = fetch_corp_codes(api_key)
+
+              client = src.OpenDartClient(api_key, timeout=30)
+
+              out_rows = []
+              resolution_counter = Counter()
+              classification_counter = Counter()
+              recoverable_tickers = []
+              recoverable_blockers = 0
+              unresolved_tickers = []
+              incomplete_tickers = []
+
+              for code in sorted(EXPECTED_TARGETS):
+                  root_row = by_target[code]
+                  reasons = [
+                      x for x in str(root_row.get("blocker_reasons") or "").split(";")
+                      if x
+                  ]
+
+                  corp_code = ""
+                  issuer_stock_code = code
+                  issuer_name = ""
+                  preferred_common = ""
+                  resolution = "UNRESOLVED"
+
+                  exact_current = by_stock.get(code, [])
+                  if len(exact_current) == 1:
+                      corp_code = exact_current[0]["corp_code"]
+                      issuer_name = exact_current[0]["corp_name"]
+                      resolution = "DART_CORPCODE_EXACT_STOCK"
+                  elif code in exact892:
+                      historical_corp = exact892[code]
+                      record = by_corp.get(historical_corp)
+                      if record and record.get("stock_code") == code:
+                          corp_code = historical_corp
+                          issuer_name = record.get("corp_name") or ""
+                          resolution = "V892_EXACT_STOCK_HISTORY_CURRENTLY_CONFIRMED"
+                  elif code in alias883:
+                      common = alias883[code]
+                      common_hits = by_stock.get(common, [])
+                      if len(common_hits) == 1:
+                          preferred_common = common
+                          issuer_stock_code = common
+                          corp_code = common_hits[0]["corp_code"]
+                          issuer_name = common_hits[0]["corp_name"]
+                          resolution = "V883_APPROVED_PREFERRED_COMMON_PLUS_DART_EXACT_COMMON"
+                  resolution_counter[resolution] += 1
+
+                  preferred_fs = ""
+                  for candidate_code in (issuer_stock_code, code):
+                      fin = fin_map.get(candidate_code)
+                      if fin:
+                          preferred_fs = str(fin.get("financial_fs_div") or "").strip()
+                          if preferred_fs:
+                              break
+                  if preferred_fs not in {"CFS", "OFS"}:
+                      preferred_fs = "CFS"
+
+                  if not corp_code:
+                      unresolved_tickers.append(code)
+                      classification = "ISSUER_MAPPING_UNRESOLVED"
+                      classification_counter[classification] += 1
+                      values = {}
+                      recoverability = {reason: False for reason in reasons}
+                      all_recoverable = False
+                      official = {}
+                  else:
+                      official = audit_official_fields(
+                          client, corp_code, preferred_fs, code
+                      )
+                      values = official["values"]
+                      recoverability = {
+                          reason: blocker_recoverability(reason, values)
+                          for reason in reasons
+                      }
+                      all_recoverable = all(recoverability.values())
+                      if all_recoverable:
+                          classification = "OFFICIAL_SOURCE_FIELDS_RECOVERABLE"
+                          recoverable_tickers.append(code)
+                          recoverable_blockers += len(reasons)
+                      else:
+                          classification = "OFFICIAL_SOURCE_FIELDS_INCOMPLETE"
+                          incomplete_tickers.append(code)
+                      classification_counter[classification] += 1
+
+                  out_rows.append({
+                      "ticker": code,
+                      "name": root_row.get("name") or "",
+                      "market": root_row.get("market") or "",
+                      "blocker_count": len(reasons),
+                      "blocker_reasons": ";".join(reasons),
+                      "issuer_resolution": resolution,
+                      "corp_code": corp_code,
+                      "issuer_name": issuer_name,
+                      "issuer_stock_code": issuer_stock_code,
+                      "preferred_common_ticker": preferred_common,
+                      "preferred_fs_div": preferred_fs,
+                      "classification": classification,
+                      "all_target_blockers_recoverable": "TRUE" if all_recoverable else "FALSE",
+                      "recoverable_blocker_count": sum(1 for v in recoverability.values() if v),
+                      "blocker_recoverability_json": json.dumps(
+                          recoverability, ensure_ascii=False, separators=(",", ":")
+                      ),
+                      "official_values_json": json.dumps(
+                          values, ensure_ascii=False, separators=(",", ":")
+                      ),
+                      "official_periods_json": json.dumps(
+                          official.get("periods") or {},
+                          ensure_ascii=False,
+                          separators=(",", ":"),
+                      ),
+                  })
+
+              # Never allow an unapproved alias to appear.
+              used_aliases = {
+                  row["ticker"]: row["preferred_common_ticker"]
+                  for row in out_rows
+                  if row["preferred_common_ticker"]
+              }
+              if used_aliases != {
+                  code: common
+                  for code, common in EXPECTED_EXISTING_ALIASES.items()
+                  if any(r["ticker"] == code and r["preferred_common_ticker"] for r in out_rows)
+              }:
+                  raise RuntimeError("V8106_UNAPPROVED_ALIAS_USED")
+
+              fields = list(out_rows[0].keys())
+              OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+              with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+                  writer = csv.DictWriter(f, fieldnames=fields)
+                  writer.writeheader()
+                  writer.writerows(out_rows)
+
+              summary = {
+                  "version": VERSION,
+                  "v8105_version": V8105_VERSION,
+                  "v892_version": V892_VERSION,
+                  "policy_version": POLICY_VERSION,
+                  "source_contract_version": SOURCE_CONTRACT_VERSION,
+                  "source_script_version": src.SCRIPT_VERSION,
+                  "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+                  "status": "AUDIT_ONLY",
+                  "target_lane": TARGET_LANE,
+                  "target_ticker_count": len(out_rows),
+                  "target_tickers": sorted(EXPECTED_TARGETS),
+                  "target_blocker_occurrences": 43,
+                  "corp_code_record_count": corp_record_count,
+                  "issuer_resolution_counts": dict(resolution_counter),
+                  "classification_counts": dict(classification_counter),
+                  "recoverable_ticker_count": len(recoverable_tickers),
+                  "recoverable_tickers": sorted(recoverable_tickers),
+                  "recoverable_blocker_occurrence_count": recoverable_blockers,
+                  "unresolved_issuer_count": len(unresolved_tickers),
+                  "unresolved_issuer_tickers": sorted(unresolved_tickers),
+                  "resolved_but_incomplete_count": len(incomplete_tickers),
+                  "resolved_but_incomplete_tickers": sorted(incomplete_tickers),
+                  "approved_existing_aliases_available": EXPECTED_EXISTING_ALIASES,
+                  "v892_exact_stock_evidence": EXPECTED_V892_EXACT,
+                  "api_telemetry": {
+                      "attempted": client.attempted,
+                      "successful": client.successful,
+                      "transport_failures": client.transport_failures,
+                      "dart_status_failures": client.dart_status_failures,
+                  },
+                  "automatic_promotion": {
+                      "allowed": False,
+                      "promoted_ticker_count": 0,
+                  },
+                  "hard_guards": {
+                      "production_api_changed": False,
+                      "production_investment_score_written": False,
+                      "scoring_policy_changed": False,
+                      "source_cache_mutated": False,
+                      "financial_cache_mutated": False,
+                      "new_preferred_common_alias_created": False,
+                      "issuer_mapping_guessed": False,
+                      "source_value_imputed": False,
+                      "h1_used_directly_as_q2": False,
+                      "partial_official_source_promoted": False,
+                  },
+                  "next_step": (
+                      "FREEZE_V8106_RECOVERABLE_OFFICIAL_SOURCE_ONLY_THEN_COMBINED_SHADOW_DRY_RUN"
+                      if recoverable_tickers
+                      else "DEFER_V8106_MISSING_SOURCE_CACHE_TARGETS_AND_AUDIT_ANNUAL_QUARTER_REAUDIT_LANE"
+                  ),
+              }
+              OUT_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+
+              log = [
+                  f"VERSION={VERSION}",
+                  "STATUS=AUDIT_ONLY",
+                  f"TARGET_TICKER_COUNT={len(out_rows)}",
+                  "TARGET_BLOCKER_OCCURRENCES=43",
+                  f"RECOVERABLE_TICKER_COUNT={len(recoverable_tickers)}",
+                  "RECOVERABLE_TICKERS=" + ",".join(sorted(recoverable_tickers)),
+                  f"RECOVERABLE_BLOCKER_OCCURRENCES={recoverable_blockers}",
+                  f"UNRESOLVED_ISSUER_COUNT={len(unresolved_tickers)}",
+                  "UNRESOLVED_ISSUER_TICKERS=" + ",".join(sorted(unresolved_tickers)),
+                  f"RESOLVED_BUT_INCOMPLETE_COUNT={len(incomplete_tickers)}",
+                  "RESOLVED_BUT_INCOMPLETE_TICKERS=" + ",".join(sorted(incomplete_tickers)),
+                  f"DART_API_ATTEMPTED={client.attempted}",
+                  f"DART_API_SUCCESSFUL={client.successful}",
+                  "PRODUCTION_API_CHANGED=false",
+                  "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+                  "SCORING_POLICY_CHANGED=false",
+                  "SOURCE_CACHE_MUTATED=false",
+                  "FINANCIAL_CACHE_MUTATED=false",
+                  "NEW_PREFERRED_COMMON_ALIAS_CREATED=false",
+                  "ISSUER_MAPPING_GUESSED=false",
+                  "SOURCE_VALUE_IMPUTED=false",
+                  "H1_USED_DIRECTLY_AS_Q2=false",
+                  "PARTIAL_OFFICIAL_SOURCE_PROMOTED=false",
+                  "STATUS_OK=true",
+                  "NEXT_STEP=" + summary["next_step"],
+              ]
+              OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+
+              OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+              OUT_DOC.write_text(
+                  "\n".join([
+                      "# V8.10.6 missing source-cache official recovery audit",
+                      "",
+                      f"- Version: `{VERSION}`",
+                      "- Status: AUDIT_ONLY",
+                      "- Targets: the 13 V8.10.5 SOURCE_CACHE_ROW_MISSING tickers / 43 blocker occurrences.",
+                      "- Issuer identity uses only current DART exact stock-code, V8.9.2 exact-stock evidence, or pre-existing V8.8.3 PREFERRED_COMMON aliases.",
+                      "- New preferred/common aliases are prohibited.",
+                      "- Official annual/H1/Q1 data are probed and each existing scorer blocker is evaluated for recoverability.",
+                      "",
+                      "## Safety",
+                      "",
+                      "- No production/API/cache mutation.",
+                      "- No score-policy change.",
+                      "- No guessed issuer mapping.",
+                      "- No imputation.",
+                      "- Q2 remains H1 cumulative minus Q1 cumulative.",
+                      "",
+                      "## Next",
+                      "",
+                      f"`{summary['next_step']}`",
+                      "",
+                  ]),
+                  encoding="utf-8",
+              )
+
+              print("V8106_MISSING_SOURCE_CACHE_OFFICIAL_RECOVERY_AUDIT=PASS")
+              print("\n".join(log))
+
+
+          if __name__ == "__main__":
+              main()
+          PY
+
+      - name: Run V8.10.6 audit
+        shell: bash
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: |
+          set -euo pipefail
+          python -m py_compile investment_score_missing_source_cache_recovery_audit_v8106.py
+          python investment_score_missing_source_cache_recovery_audit_v8106.py
+          grep -q '^STATUS_OK=true$' latest/investment_score_missing_source_cache_recovery_v8106_run_log_latest.txt
+
+      - name: Validate V8.10.6 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          s = json.loads(
+              Path("latest/investment_score_missing_source_cache_recovery_v8106_summary_latest.json")
+              .read_text(encoding="utf-8")
+          )
+          with Path("latest/investment_score_missing_source_cache_recovery_v8106.csv").open(
+              encoding="utf-8-sig", newline=""
+          ) as f:
+              rows = list(csv.DictReader(f))
+
+          expected = {
+              "001045", "001527", "001530", "002380", "003495",
+              "004545", "005385", "005387", "005389", "051905",
+              "066575", "088980", "097955",
+          }
+
+          assert s["status"] == "AUDIT_ONLY"
+          assert s["target_lane"] == "SOURCE_CACHE_ROW_MISSING"
+          assert s["target_ticker_count"] == 13
+          assert set(s["target_tickers"]) == expected
+          assert s["target_blocker_occurrences"] == 43
+          assert len(rows) == 13
+
+          assert s["approved_existing_aliases_available"] == {
+              "003495": "003490",
+              "066575": "066570",
+              "097955": "097950",
+          }
+          assert s["v892_exact_stock_evidence"] == {
+              "001530": "00118345",
+              "002380": "00105271",
+          }
+
+          assert (
+              s["recoverable_ticker_count"]
+              + s["unresolved_issuer_count"]
+              + s["resolved_but_incomplete_count"]
+              == 13
+          )
+          assert 0 <= s["recoverable_blocker_occurrence_count"] <= 43
+
+          guards = s["hard_guards"]
+          assert all(v is False for v in guards.values())
+          assert s["automatic_promotion"]["allowed"] is False
+          assert s["automatic_promotion"]["promoted_ticker_count"] == 0
+          print("V8106_OUTPUT_VALIDATION=PASS")
+          PY
+
+      - name: Verify protected files unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_source_enricher_v854.py \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_source_cache_root_causes_v8105.csv \
+            latest/investment_score_source_cache_root_causes_v8105_summary_latest.json \
+            latest/investment_score_da_official_retry_v892.csv \
+            latest/investment_score_da_official_retry_v892_summary_latest.json \
+            latest/investment_score_da_exact_id_audit_v883.csv \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_source_cache_latest.csv \
+            > /tmp/v8106_protected.after
+          diff -u /tmp/v8106_protected.before /tmp/v8106_protected.after
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "investment_score_missing_source_cache_recovery_audit_v8106.py",
+              "latest/investment_score_missing_source_cache_recovery_v8106.csv",
+              "latest/investment_score_missing_source_cache_recovery_v8106_summary_latest.json",
+              "latest/investment_score_missing_source_cache_recovery_v8106_run_log_latest.txt",
+              "docs/investment_score_missing_source_cache_recovery_v8106.md",
+          }
+          changed = {
+              line[3:]
+              for line in subprocess.check_output(
+                  ["git", "status", "--porcelain"], text=True
+              ).splitlines()
+              if line
+          }
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit(
+                  "UNEXPECTED_CHANGED_FILES:" + ",".join(unexpected)
+              )
+          print("V8106_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+      - name: Refuse concurrent protected input drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          python - <<'PY'
+          import subprocess
+
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "investment_score_source_enricher_v854.py",
+              "investment_score_dry_run_v882.py",
+              "latest/investment_score_source_cache_root_causes_v8105.csv",
+              "latest/investment_score_source_cache_root_causes_v8105_summary_latest.json",
+              "latest/investment_score_da_official_retry_v892.csv",
+              "latest/investment_score_da_official_retry_v892_summary_latest.json",
+              "latest/investment_score_da_exact_id_audit_v883.csv",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/investment_score_source_cache_latest.csv",
+          }
+          upstream = set(
+              subprocess.check_output(
+                  ["git", "diff", "--name-only", "HEAD..origin/main"],
+                  text=True,
+              ).splitlines()
+          )
+          dangerous = sorted(protected & upstream)
+          if dangerous:
+              raise SystemExit(
+                  "CONCURRENT_PROTECTED_INPUT_DRIFT:" + ",".join(dangerous)
+              )
+          print("V8106_NO_CONCURRENT_PROTECTED_INPUT_DRIFT=PASS")
+          PY
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_missing_source_cache_recovery_audit_v8106.py \
+            latest/investment_score_missing_source_cache_recovery_v8106.csv \
+            latest/investment_score_missing_source_cache_recovery_v8106_summary_latest.json \
+            latest/investment_score_missing_source_cache_recovery_v8106_run_log_latest.txt \
+            docs/investment_score_missing_source_cache_recovery_v8106.md
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT"
+            exit 0
+          fi
+
+          git commit -m "Audit missing source-cache official recovery v8.10.6"
+          git pull --rebase origin main
+          git push origin HEAD:main

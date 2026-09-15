@@ -107,18 +107,13 @@ GLOSSARY = {
             "short": "같은 기간 KOSPI 대비 상대수익률 차이(%p)",
             "detail": "양수면 같은 기간 KOSPI보다 강했고 음수면 약했다는 뜻이다. 현재 값은 KOSPI 대비이며 업종 상대강도와 다르다.",
         },
-        "rs_sector": {
-    "label": "업종 RS 1M/3M",
-    "short": "같은 기간 공식 KRX 업종지수 대비 상대수익률 차이(%p)",
-    "detail": "양수면 같은 기간 해당 공식 KRX 업종지수보다 강했고 음수면 약했다는 뜻이다. KOSPI 대비 RS와는 별개의 상대강도다.",
-},
         "streak": {
             "label": "연속등락",
             "short": "현재 진행 중인 연속 상승·하락 방향, 일수, 누적등락률",
             "detail": "예: ↓3일 / -3.6%는 최근 3거래일 연속 하락했고 그 연속 구간 누적등락률이 -3.6%라는 뜻이다.",
         },
     },
-    "compact_footer_text": "읽는 법: 스윙=최근 큰 가격파동의 현재 위치(미래예측 아님) · MA5/20/60/120=단기→중장기 이동평균 방향 · ATR14=최근 14기간 평균진폭(예상수익률 아님) · RS=KOSPI 대비 상대수익률 차이 · 업종RS=공식 KRX 업종지수 대비 상대수익률 차이 · 연속등락=현재 연속 상승/하락 일수와 누적등락률",
+    "compact_footer_text": "읽는 법: 스윙=최근 큰 가격파동의 현재 위치(미래예측 아님) · MA5/20/60/120=단기→중장기 이동평균 방향 · ATR14=최근 14기간 평균진폭(예상수익률 아님) · RS=KOSPI 대비 상대수익률 차이 · 연속등락=현재 연속 상승/하락 일수와 누적등락률",
 }
 
 def sha256(path: Path) -> str:
@@ -180,7 +175,6 @@ def self_test():
     assert PHASE_KO["BOTTOM_REBOUND"] == "저점반등"
     assert PHASE_KO["TOP_DECLINE"] == "고점후하락"
     assert GLOSSARY["terms"]["rs_kospi"]["short"].endswith("(%p)")
-    assert GLOSSARY["terms"]["rs_sector"]["short"].endswith("(%p)")
     assert "미래예측 아님" in GLOSSARY["compact_footer_text"]
     assert "confirmed_swing_low_stop" in COLUMNS
     assert len(COLUMNS) == len(set(COLUMNS))
@@ -395,7 +389,7 @@ def build():
         f"PHASE_COUNTS={json.dumps(dict(sorted(phase_counts.items())), ensure_ascii=False, sort_keys=True)}",
         "KOSPI30_SWING_ANCHOR_EXACT_MATCHES=30",
         "KOSPI30_SWING_ANCHOR_MISMATCHES=0",
-        "GLOSSARY_TERMS=6",
+        "GLOSSARY_TERMS=5",
         "GLOSSARY_FUTURE_TABLE_DISPLAY_REQUIRED=true",
         "CONFIRMED_SWING_LOW_STOP_CALCULATED=false",
         "STANDALONE_SWING_TABLE_ENABLED=false",
@@ -429,7 +423,7 @@ def validate():
         raise RuntimeError("METRIC_FORMULA_GUARD_FAILED")
     if len(rows) != int(meta.get("row_count") or 0):
         raise RuntimeError("ROW_COUNT_MISMATCH")
-    if len(glossary.get("terms") or {}) != 6:
+    if len(glossary.get("terms") or {}) != 5:
         raise RuntimeError("GLOSSARY_TERM_COUNT_INVALID")
     if glossary.get("display_policy", {}).get("attach_to_stock_tables") is not True:
         raise RuntimeError("GLOSSARY_DISPLAY_POLICY_MISSING")
@@ -438,7 +432,7 @@ def validate():
 
     print("V859_VALIDATION=PASS")
     print(f"ROWS={len(rows)}")
-    print("GLOSSARY_TERMS=6")
+    print("GLOSSARY_TERMS=5")
     print("CONFIRMED_SWING_LOW_STOP_EMPTY_ALL=PASS")
     print("KOSPI30_SWING_ANCHOR_EXACT_MATCHES=30")
     print("REQUEST_TIME_PRICE_SUBSTITUTION=false")

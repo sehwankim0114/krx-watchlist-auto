@@ -1,4 +1,4 @@
-name: Audit narrow financial revenue contract current universe v8.11.4 validation-fix
+name: Audit narrow financial revenue contract current universe v8.11.4 validation-fix2
 
 on:
   workflow_dispatch:
@@ -68,7 +68,7 @@ jobs:
 
           import investment_score_dry_run_v882 as scorer
 
-          VERSION = "2026-09-16-v8.11.4-validation-fix-dynamic-active-scope"
+          VERSION = "2026-09-16-v8.11.4-validation-fix2-dynamic-source-row-count"
           V8113_VERSION = "2026-09-16-v8.11.3-validation-fix2-hard-guard-types"
           V8113_RESULT_COMMIT = "c50855caf31e076b36ae83ce9f6ba760060141e4"
           V8112_VERSION = "2026-09-16-v8.11.2-financial-revenue-semantic-alignment-audit"
@@ -855,7 +855,8 @@ jobs:
           assert inactive["current_source_cache_present"] is False
           assert inactive["current_production_present"] is False
 
-          assert s["current_source_cache_rows"] >= 247
+          assert s["current_source_cache_rows"] == s["current_source_log_targets"]
+          assert s["current_source_cache_rows"] > 0
           assert s["current_scorer_universe_count"] >= 112
           assert set(s["current_scorer_active_tickers"]) <= active
           assert (

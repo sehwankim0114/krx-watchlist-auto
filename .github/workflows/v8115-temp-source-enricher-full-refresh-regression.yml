@@ -18,7 +18,9 @@ concurrency:
 jobs:
   regression:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    # Control full refresh took ~16m in run 35068968669; patched refresh
+    # was still running when the prior 35m job timeout cancelled the run.
+    timeout-minutes: 70
 
     env:
       TZ: Asia/Seoul

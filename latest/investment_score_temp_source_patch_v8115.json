@@ -1,0 +1,29 @@
+{
+  "version": "2026-09-16-v8.11.5-temp-source-enricher-full-refresh-regression",
+  "status": "TEMP_PATCH_EXECUTED_ONLY",
+  "production_source_enricher_modified": false,
+  "production_source_cache_modified": false,
+  "audited_scope": [
+    "000810",
+    "005830",
+    "029780",
+    "105560",
+    "138930"
+  ],
+  "active_scope": [
+    "000810",
+    "005830",
+    "029780",
+    "105560"
+  ],
+  "inactive_scope": [
+    "138930"
+  ],
+  "revenue_contract": {
+    "statement": "CIS",
+    "account_id": "ifrs-full_RevenueFromInterest",
+    "selection_rule": "EXACT_ID_UNIQUE_ONLY",
+    "full_account_fetch_scope": "AUDITED_ACTIVE_TICKERS_ONLY",
+    "fallback": "UNCHANGED_V854_LOGIC"
+  }
+}

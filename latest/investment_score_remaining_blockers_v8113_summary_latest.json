@@ -1,0 +1,52 @@
+{
+  "version": "2026-09-16-v8.11.3-validation-fix2-hard-guard-types",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "generated_at_kst": "2026-09-16T15:48:43+09:00",
+  "status": "AUDIT_ONLY",
+  "production_unique_tickers": 112,
+  "ready_count": 61,
+  "limited_count": 51,
+  "limited_blocker_occurrences": 261,
+  "single_blocker_ticker_count": 24,
+  "blocker_category_counts": {
+    "POLICY_SEMANTIC_BLOCKER": 21,
+    "SOURCE_DATA_GAP": 230,
+    "SOURCE_EVIDENCE_GAP": 10
+  },
+  "source_group_counts": {
+    "V880_SCORING_CONTRACT": 21,
+    "PRODUCTION_PRICE_METRICS": 29,
+    "EXACT_DA_SOURCE": 27,
+    "INVESTMENT_SCORE_SOURCE_CACHE": 39,
+    "FINANCIAL_VALUATION_CACHE": 102,
+    "PRODUCTION_ANALYSIS_SUPPLY": 10,
+    "FINANCIAL_AND_RAW_SOURCE": 11,
+    "NETCASH_INPUT": 11,
+    "OCF_AND_REVENUE_SOURCE": 8,
+    "EV_EBITDA_OTHER_INPUT": 3
+  },
+  "resolved_by_v8113_shadow": {
+    "ticker_count": 5,
+    "tickers": [
+      "000810",
+      "005830",
+      "029780",
+      "105560",
+      "138930"
+    ],
+    "blocker_occurrences": 15,
+    "source_group": "INVESTMENT_SCORE_SOURCE_CACHE"
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "source_cache_mutated": false,
+    "financial_cache_mutated": false,
+    "source_contract_changed": false,
+    "new_revenue_account_auto_approved": false,
+    "financial_sector_exception_promoted": false,
+    "source_value_imputed": false
+  },
+  "next_step": "AUDIT_EXPLICIT_NARROW_SOURCE_CONTRACT_PATCH_WITH_FULL_UNIVERSE_REGRESSION"
+}

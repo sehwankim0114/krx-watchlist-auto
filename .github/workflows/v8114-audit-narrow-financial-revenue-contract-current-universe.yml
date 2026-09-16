@@ -1,0 +1,799 @@
+name: Audit narrow financial revenue contract current universe v8.11.4
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8114-audit-narrow-financial-revenue-contract-current-universe.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8114-narrow-financial-revenue-contract-current-universe
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Capture protected hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_source_enricher_v854.py \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_financial_revenue_semantic_v8112.csv \
+            latest/investment_score_financial_revenue_semantic_v8112_summary_latest.json \
+            latest/investment_score_v880_dry_run_v8113_summary_latest.json \
+            > /tmp/v8114_protected.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -name '*.json' -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8114_api.before
+
+      - name: Create V8.11.4 auditor
+        shell: bash
+        run: |
+          cat > investment_score_narrow_revenue_contract_audit_v8114.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import copy
+          import csv
+          import hashlib
+          import json
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_dry_run_v882 as scorer
+
+          VERSION = "2026-09-16-v8.11.4-audit-narrow-financial-revenue-contract-current-universe"
+          V8113_VERSION = "2026-09-16-v8.11.3-validation-fix2-hard-guard-types"
+          V8113_RESULT_COMMIT = "c50855caf31e076b36ae83ce9f6ba760060141e4"
+          V8112_VERSION = "2026-09-16-v8.11.2-financial-revenue-semantic-alignment-audit"
+          POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          SOURCE_CONTRACT_VERSION = "2026-09-10-v8.5.4-investment-score-source-contract"
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+
+          TARGETS = {
+              "000810": "삼성화재",
+              "005830": "DB손해보험",
+              "029780": "삼성카드",
+              "105560": "KB금융",
+              "138930": "BNK금융지주",
+          }
+          EXACT_ACCOUNT_ID = "ifrs-full_RevenueFromInterest"
+          EXACT_STATEMENT = "CIS"
+
+          EVIDENCE_TO_RAW = {
+              "annual_revenue_y0": "annual_revenue_y0",
+              "annual_revenue_y1": "annual_revenue_y1",
+              "annual_revenue_y2": "annual_revenue_y2",
+              "q2_revenue_current": "q2_current_revenue",
+              "q2_revenue_previous": "q2_previous_revenue",
+              "q2_revenue_yoy_pct": "q2_revenue_yoy_pct",
+          }
+
+          EXPECTED_SOURCE_REASONS = {
+              "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+              "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+              "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+          }
+
+          SOURCE_SCRIPT = ROOT / "investment_score_source_enricher_v854.py"
+          SOURCE_CACHE = ROOT / "latest/investment_score_source_cache_latest.csv"
+          SOURCE_RUN_LOG = ROOT / "latest/investment_score_source_run_log_latest.txt"
+          FIN = ROOT / "latest/financial_valuation_cache_latest.csv"
+          V8112_CSV = ROOT / "latest/investment_score_financial_revenue_semantic_v8112.csv"
+          V8112_JSON = ROOT / "latest/investment_score_financial_revenue_semantic_v8112_summary_latest.json"
+          V8113_JSON = ROOT / "latest/investment_score_v880_dry_run_v8113_summary_latest.json"
+
+          SHADOW_RAW = Path("/tmp/investment_score_source_cache_v8114_shadow.csv")
+          CONTROL_CSV = Path("/tmp/investment_score_v8114_control.csv")
+          CONTROL_JSON = Path("/tmp/investment_score_v8114_control.json")
+          CONTROL_LOG = Path("/tmp/investment_score_v8114_control.log")
+          CONTROL_DOC = Path("/tmp/investment_score_v8114_control.md")
+          SHADOW_CSV = Path("/tmp/investment_score_v8114_shadow.csv")
+          SHADOW_JSON = Path("/tmp/investment_score_v8114_shadow.json")
+          SHADOW_LOG = Path("/tmp/investment_score_v8114_shadow.log")
+          SHADOW_DOC = Path("/tmp/investment_score_v8114_shadow.md")
+
+          OUT_CSV = ROOT / "latest/investment_score_narrow_revenue_contract_v8114.csv"
+          OUT_JSON = ROOT / "latest/investment_score_narrow_revenue_contract_v8114_summary_latest.json"
+          OUT_LOG = ROOT / "latest/investment_score_narrow_revenue_contract_v8114_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_narrow_revenue_contract_v8114.md"
+          PATCH_JSON = ROOT / "latest/investment_score_narrow_revenue_contract_v8114_patch_proposal.json"
+
+
+          def ticker(value):
+              s = "".join(ch for ch in str(value or "") if ch.isdigit())
+              return s.zfill(6) if s else ""
+
+
+          def num(value):
+              try:
+                  s = str(value or "").strip().replace(",", "")
+                  if s in {"", "-", "None", "null", "nan", "NaN"}:
+                      return None
+                  return float(s)
+              except Exception:
+                  return None
+
+
+          def read_json(path: Path):
+              return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
+          def read_csv(path: Path):
+              with path.open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
+
+
+          def read_csv_with_fields(path: Path):
+              with path.open(encoding="utf-8-sig", newline="") as f:
+                  r = csv.DictReader(f)
+                  rows = list(r)
+                  return rows, list(r.fieldnames or [])
+
+
+          def write_csv(path: Path, rows, fields):
+              path.parent.mkdir(parents=True, exist_ok=True)
+              with path.open("w", encoding="utf-8-sig", newline="") as f:
+                  w = csv.DictWriter(f, fieldnames=fields)
+                  w.writeheader()
+                  w.writerows(rows)
+
+
+          def sha256(path: Path):
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+          def missing_items(row):
+              return {
+                  x for x in str(row.get("missing_components") or "").split(";")
+                  if x
+              }
+
+
+          def parse_log(path: Path):
+              out = {}
+              for line in path.read_text(encoding="utf-8-sig").splitlines():
+                  if "=" in line:
+                      k, v = line.split("=", 1)
+                      out[k.strip()] = v.strip()
+              return out
+
+
+          def validate_static_patch_scope():
+              text = SOURCE_SCRIPT.read_text(encoding="utf-8")
+              if 'SOURCE_CONTRACT_VERSION = "2026-09-10-v8.5.4-investment-score-source-contract"' not in text:
+                  raise RuntimeError("V8114_SOURCE_CONTRACT_VERSION_CHANGED")
+              if '"statement": "IS"' not in text:
+                  raise RuntimeError("V8114_REVENUE_BASE_STATEMENT_CHANGED")
+              if '"이자수익"' not in text:
+                  raise RuntimeError("V8114_EXPECTED_INTEREST_REVENUE_EXCLUSION_MISSING")
+              if "def choose_account(" not in text or "def account_values(" not in text:
+                  raise RuntimeError("V8114_ACCOUNT_SELECTION_FUNCTIONS_MISSING")
+
+              patch = {
+                  "status": "PROPOSAL_ONLY",
+                  "base_source_script": str(SOURCE_SCRIPT),
+                  "base_source_script_sha256": sha256(SOURCE_SCRIPT),
+                  "base_source_contract_version": SOURCE_CONTRACT_VERSION,
+                  "scope": {
+                      "tickers": sorted(TARGETS),
+                      "account_key": "revenue",
+                      "statement": EXACT_STATEMENT,
+                      "account_id": EXACT_ACCOUNT_ID,
+                      "selection_rule": "EXACT_ID_UNIQUE_ONLY",
+                      "fallback_for_all_other_tickers": "UNCHANGED_V854_CHOOSE_ACCOUNT",
+                  },
+                  "proposed_code_shape": [
+                      "FINANCIAL_REVENUE_CIS_EXACT_TICKERS = {'000810','005830','029780','105560','138930'}",
+                      "FINANCIAL_REVENUE_CIS_EXACT_ACCOUNT_ID = 'ifrs-full_RevenueFromInterest'",
+                      "account_values(rows, ticker='') passes ticker to target-aware revenue selector",
+                      "if ticker is one of the five and key == 'revenue': require exactly one CIS row with exact account_id",
+                      "otherwise call the unchanged V8.5.4 choose_account(rows, spec)",
+                      "annual and quarter account_values calls pass target['ticker']",
+                  ],
+                  "automatic_apply": False,
+                  "production_mutation": False,
+              }
+              PATCH_JSON.write_text(
+                  json.dumps(patch, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+              return patch
+
+
+          def validate_evidence():
+              s13 = read_json(V8113_JSON)
+              if s13.get("version") != V8113_VERSION:
+                  raise RuntimeError("V8114_V8113_VERSION_MISMATCH")
+              if s13.get("status") != "DRY_RUN_ONLY":
+                  raise RuntimeError("V8114_V8113_STATUS_MISMATCH")
+              r13 = s13.get("v8113_shadow_recheck") or {}
+              if int(r13.get("after_ready_count") or 0) != 61:
+                  raise RuntimeError("V8114_V8113_READY_NOT_61")
+              if int(r13.get("after_blocker_occurrences") or 0) != 261:
+                  raise RuntimeError("V8114_V8113_BLOCKERS_NOT_261")
+              if int(r13.get("after_source_cache_blockers") or 0) != 39:
+                  raise RuntimeError("V8114_V8113_SOURCE_BLOCKERS_NOT_39")
+              if set(r13.get("newly_ready_tickers") or []) != set(TARGETS):
+                  raise RuntimeError("V8114_V8113_TARGET_SET_CHANGED")
+              if r13.get("non_target_score_row_changed_count") != 0:
+                  raise RuntimeError("V8114_V8113_NON_TARGET_DRIFT_PRESENT")
+
+              s12 = read_json(V8112_JSON)
+              if s12.get("version") != V8112_VERSION:
+                  raise RuntimeError("V8114_V8112_VERSION_MISMATCH")
+              if s12.get("status") != "AUDIT_ONLY":
+                  raise RuntimeError("V8114_V8112_STATUS_MISMATCH")
+              if s12.get("candidate_statement") != EXACT_STATEMENT:
+                  raise RuntimeError("V8114_V8112_STATEMENT_CHANGED")
+              if s12.get("candidate_account_id") != EXACT_ACCOUNT_ID:
+                  raise RuntimeError("V8114_V8112_ACCOUNT_CHANGED")
+              if s12.get("all_five_financial_cache_exact_match") is not True:
+                  raise RuntimeError("V8114_V8112_NOT_ALL_FIVE_MATCHED")
+              if int(s12.get("fully_aligned_count") or 0) != 5:
+                  raise RuntimeError("V8114_V8112_ALIGNED_COUNT_NOT_5")
+              if int(s12.get("mismatch_count") or 0) != 0:
+                  raise RuntimeError("V8114_V8112_MISMATCH_PRESENT")
+              if s12.get("automatic_semantic_extension", {}).get("approved") is not False:
+                  raise RuntimeError("V8114_V8112_AUTO_APPROVAL_CHANGED")
+
+              rows = {ticker(r.get("ticker")): r for r in read_csv(V8112_CSV)}
+              if set(rows) != set(TARGETS):
+                  raise RuntimeError("V8114_V8112_ROWS_CHANGED")
+
+              fin = {ticker(r.get("ticker")): r for r in read_csv(FIN)}
+              for code, ev in rows.items():
+                  if ev.get("classification") != "EXACT_CIS_INTEREST_REVENUE_ALIGNED_WITH_FINANCIAL_CACHE":
+                      raise RuntimeError("V8114_EVIDENCE_CLASS_CHANGED:" + code)
+                  if ev.get("candidate_statement") != EXACT_STATEMENT:
+                      raise RuntimeError("V8114_EVIDENCE_STATEMENT_CHANGED:" + code)
+                  if ev.get("candidate_account_id") != EXACT_ACCOUNT_ID:
+                      raise RuntimeError("V8114_EVIDENCE_ACCOUNT_CHANGED:" + code)
+
+                  f = fin.get(code)
+                  if f is None:
+                      raise RuntimeError("V8114_CURRENT_FIN_ROW_MISSING:" + code)
+                  checks = (
+                      ("financial_cache_revenue", "revenue"),
+                      ("financial_cache_previous_revenue", "previous_revenue"),
+                      ("financial_cache_revenue_yoy_pct", "revenue_yoy_pct"),
+                  )
+                  for ev_field, fin_field in checks:
+                      a = num(ev.get(ev_field))
+                      b = num(f.get(fin_field))
+                      if a is None or b is None or abs(a - b) > 0.01:
+                          raise RuntimeError(
+                              f"V8114_CURRENT_FIN_DRIFT:{code}:{ev_field}->{fin_field}:{a}!={b}"
+                          )
+
+              return rows
+
+
+          def build_shadow_raw(evidence):
+              rows, fields = read_csv_with_fields(SOURCE_CACHE)
+              source_map = {ticker(r.get("ticker")): r for r in rows}
+              if set(TARGETS) - set(source_map):
+                  raise RuntimeError("V8114_CURRENT_SOURCE_TARGET_MISSING")
+
+              audit_rows = []
+              for code in sorted(TARGETS):
+                  original = source_map[code]
+                  if original.get("source_contract_version") != SOURCE_CONTRACT_VERSION:
+                      raise RuntimeError("V8114_SOURCE_CONTRACT_ROW_CHANGED:" + code)
+                  if original.get("source_cache_status") != "LIMITED_RAW_SOURCE":
+                      raise RuntimeError(
+                          "V8114_TARGET_SOURCE_STATUS_NOT_LIMITED:"
+                          + code + ":" + str(original.get("source_cache_status") or "")
+                      )
+                  reason = str(original.get("source_cache_reason") or "")
+                  if "3Y_ANNUAL_LIMITED" not in reason or "QUARTER_LIMITED" not in reason:
+                      raise RuntimeError("V8114_TARGET_SOURCE_REASON_CHANGED:" + code)
+
+                  patched = dict(original)
+                  changed = []
+                  for raw_field, evidence_field in EVIDENCE_TO_RAW.items():
+                      if num(original.get(raw_field)) is not None:
+                          raise RuntimeError(
+                              f"V8114_EXPECTED_RAW_FIELD_NOT_EMPTY:{code}:{raw_field}"
+                          )
+                      value = evidence[code][evidence_field]
+                      if num(value) is None:
+                          raise RuntimeError(
+                              f"V8114_EVIDENCE_VALUE_MISSING:{code}:{evidence_field}"
+                          )
+                      patched[raw_field] = value
+                      changed.append(raw_field)
+
+                  for field in fields:
+                      if field in EVIDENCE_TO_RAW:
+                          continue
+                      if patched.get(field) != original.get(field):
+                          raise RuntimeError(
+                              f"V8114_NON_REVENUE_FIELD_CHANGED:{code}:{field}"
+                          )
+
+                  source_map[code] = patched
+                  audit_rows.append({
+                      "ticker": code,
+                      "name": TARGETS[code],
+                      "baseline_source_cache_status": original.get("source_cache_status") or "",
+                      "baseline_source_cache_reason": original.get("source_cache_reason") or "",
+                      "shadow_candidate_statement": EXACT_STATEMENT,
+                      "shadow_candidate_account_id": EXACT_ACCOUNT_ID,
+                      "changed_field_count": len(changed),
+                      "changed_fields": ";".join(changed),
+                      "non_revenue_field_change_count": 0,
+                  })
+
+              patched_rows = [source_map[ticker(r.get("ticker"))] for r in rows]
+              write_csv(SHADOW_RAW, patched_rows, fields)
+              return rows, audit_rows
+
+
+          def run_scorer(raw_path: Path, out_csv: Path, out_json: Path, out_log: Path, out_doc: Path, version: str):
+              old_version = scorer.VERSION
+              old_raw = scorer.RAW
+              old_out_csv = scorer.OUT_CSV
+              old_out_json = scorer.OUT_JSON
+              old_out_log = scorer.OUT_LOG
+              old_out_doc = scorer.OUT_DOC
+              try:
+                  scorer.VERSION = version
+                  scorer.RAW = raw_path
+                  scorer.OUT_CSV = out_csv
+                  scorer.OUT_JSON = out_json
+                  scorer.OUT_LOG = out_log
+                  scorer.OUT_DOC = out_doc
+                  rc = scorer.main()
+              finally:
+                  scorer.VERSION = old_version
+                  scorer.RAW = old_raw
+                  scorer.OUT_CSV = old_out_csv
+                  scorer.OUT_JSON = old_out_json
+                  scorer.OUT_LOG = old_out_log
+                  scorer.OUT_DOC = old_out_doc
+              if rc not in (None, 0):
+                  raise RuntimeError(f"V8114_SCORER_FAILED:{version}:{rc}")
+
+
+          def current_universe_regression(evidence):
+              source_rows, audit_rows = build_shadow_raw(evidence)
+
+              run_scorer(
+                  SOURCE_CACHE,
+                  CONTROL_CSV, CONTROL_JSON, CONTROL_LOG, CONTROL_DOC,
+                  "2026-09-16-v8.11.4-current-universe-control",
+              )
+              run_scorer(
+                  SHADOW_RAW,
+                  SHADOW_CSV, SHADOW_JSON, SHADOW_LOG, SHADOW_DOC,
+                  VERSION,
+              )
+
+              control_rows = read_csv(CONTROL_CSV)
+              shadow_rows = read_csv(SHADOW_CSV)
+              control = {ticker(r.get("ticker")): r for r in control_rows}
+              shadow = {ticker(r.get("ticker")): r for r in shadow_rows}
+
+              if len(control) < 112:
+                  raise RuntimeError(f"V8114_CURRENT_UNIVERSE_TOO_SMALL:{len(control)}")
+              if len(control) != len(shadow):
+                  raise RuntimeError("V8114_CONTROL_SHADOW_ROW_COUNT_MISMATCH")
+              if set(control) != set(shadow):
+                  raise RuntimeError("V8114_CONTROL_SHADOW_TICKER_SET_MISMATCH")
+              if set(TARGETS) - set(control):
+                  raise RuntimeError("V8114_TARGET_NOT_IN_CURRENT_SCORER_UNIVERSE")
+
+              non_target_diffs = [
+                  code for code in sorted(control)
+                  if code not in TARGETS and control[code] != shadow[code]
+              ]
+              if non_target_diffs:
+                  raise RuntimeError(
+                      "V8114_NON_TARGET_SCORE_DRIFT:" + ",".join(non_target_diffs[:30])
+                  )
+
+              old_ready = {c for c, r in control.items() if r.get("score_status") == "READY"}
+              new_ready = {c for c, r in shadow.items() if r.get("score_status") == "READY"}
+              lost_ready = sorted(old_ready - new_ready)
+              if lost_ready:
+                  raise RuntimeError("V8114_READY_REGRESSION:" + ",".join(lost_ready))
+
+              target_results = {}
+              resolved_total = 0
+              for code in sorted(TARGETS):
+                  before = missing_items(control[code])
+                  after = missing_items(shadow[code])
+
+                  missing_expected_before = EXPECTED_SOURCE_REASONS - before
+                  if missing_expected_before:
+                      raise RuntimeError(
+                          "V8114_EXPECTED_CURRENT_SOURCE_BLOCKERS_ABSENT:"
+                          + code + ":" + "|".join(sorted(missing_expected_before))
+                      )
+                  still_present = EXPECTED_SOURCE_REASONS & after
+                  if still_present:
+                      raise RuntimeError(
+                          "V8114_EXPECTED_SOURCE_BLOCKERS_NOT_RESOLVED:"
+                          + code + ":" + "|".join(sorted(still_present))
+                      )
+
+                  new_reasons = after - before
+                  if new_reasons:
+                      raise RuntimeError(
+                          "V8114_TARGET_GAINED_BLOCKERS:"
+                          + code + ":" + "|".join(sorted(new_reasons))
+                      )
+
+                  resolved = before - after
+                  resolved_total += len(EXPECTED_SOURCE_REASONS)
+                  target_results[code] = {
+                      "name": TARGETS[code],
+                      "status_before": control[code].get("score_status") or "",
+                      "status_after": shadow[code].get("score_status") or "",
+                      "missing_before": sorted(before),
+                      "missing_after": sorted(after),
+                      "resolved_reasons": sorted(resolved),
+                      "expected_source_reasons_resolved": sorted(EXPECTED_SOURCE_REASONS),
+                      "new_reasons": sorted(new_reasons),
+                  }
+
+              control_blockers = sum(
+                  len(missing_items(r))
+                  for r in control.values()
+                  if r.get("score_status") == "LIMITED"
+              )
+              shadow_blockers = sum(
+                  len(missing_items(r))
+                  for r in shadow.values()
+                  if r.get("score_status") == "LIMITED"
+              )
+              if control_blockers - shadow_blockers < 15:
+                  raise RuntimeError(
+                      f"V8114_BLOCKER_REDUCTION_LT_15:{control_blockers}->{shadow_blockers}"
+                  )
+
+              current_log = parse_log(SOURCE_RUN_LOG)
+              current_source_rows = len(source_rows)
+              logged_output_rows = int(current_log.get("OUTPUT_ROWS") or 0)
+              if logged_output_rows and logged_output_rows != current_source_rows:
+                  raise RuntimeError(
+                      f"V8114_SOURCE_CACHE_LOG_ROW_MISMATCH:{logged_output_rows}!={current_source_rows}"
+                  )
+
+              summary = {
+                  "version": VERSION,
+                  "v8113_version": V8113_VERSION,
+                  "v8113_result_commit": V8113_RESULT_COMMIT,
+                  "v8112_version": V8112_VERSION,
+                  "policy_version": POLICY_VERSION,
+                  "source_contract_version": SOURCE_CONTRACT_VERSION,
+                  "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+                  "status": "AUDIT_ONLY",
+                  "patch_status": "PROPOSAL_ONLY_NOT_APPLIED",
+                  "current_source_cache_rows": current_source_rows,
+                  "current_source_log_targets": int(current_log.get("TARGETS") or 0),
+                  "current_source_log_raw_ready": int(current_log.get("RAW_SOURCE_READY") or 0),
+                  "current_scorer_universe_count": len(control),
+                  "control_ready_count": len(old_ready),
+                  "shadow_ready_count": len(new_ready),
+                  "ready_delta": len(new_ready) - len(old_ready),
+                  "newly_ready_tickers": sorted(new_ready - old_ready),
+                  "lost_ready_tickers": lost_ready,
+                  "control_blocker_occurrences": control_blockers,
+                  "shadow_blocker_occurrences": shadow_blockers,
+                  "blocker_occurrences_reduced_by": control_blockers - shadow_blockers,
+                  "validated_target_source_blockers_resolved": resolved_total,
+                  "target_results": target_results,
+                  "non_target_score_row_changed_count": len(non_target_diffs),
+                  "source_row_audit": audit_rows,
+                  "proposed_contract": {
+                      "scope_tickers": sorted(TARGETS),
+                      "account_key": "revenue",
+                      "statement": EXACT_STATEMENT,
+                      "account_id": EXACT_ACCOUNT_ID,
+                      "selection_rule": "EXACT_ID_UNIQUE_ONLY",
+                      "all_other_tickers": "UNCHANGED_V854_LOGIC",
+                  },
+                  "hard_guards": {
+                      "production_api_changed": False,
+                      "production_investment_score_written": False,
+                      "source_enricher_changed": False,
+                      "production_source_cache_mutated": False,
+                      "financial_cache_mutated": False,
+                      "scoring_policy_changed": False,
+                      "broad_financial_sector_exception_created": False,
+                      "fuzzy_cis_revenue_match_allowed": False,
+                      "source_value_imputed": False,
+                      "non_target_score_rows_unchanged": True,
+                      "ready_regression_count": 0,
+                  },
+                  "next_step": "APPLY_NARROW_PATCH_TO_TEMP_SOURCE_ENRICHER_AND_RUN_FULL_SOURCE_REFRESH_REGRESSION",
+              }
+              OUT_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+              write_csv(OUT_CSV, audit_rows, list(audit_rows[0].keys()))
+
+              OUT_LOG.write_text(
+                  "\n".join([
+                      f"VERSION={VERSION}",
+                      "STATUS=AUDIT_ONLY",
+                      "PATCH_STATUS=PROPOSAL_ONLY_NOT_APPLIED",
+                      f"CURRENT_SOURCE_CACHE_ROWS={current_source_rows}",
+                      f"CURRENT_SCORER_UNIVERSE_COUNT={len(control)}",
+                      f"CONTROL_READY={len(old_ready)}",
+                      f"SHADOW_READY={len(new_ready)}",
+                      f"READY_DELTA={len(new_ready)-len(old_ready)}",
+                      f"CONTROL_BLOCKERS={control_blockers}",
+                      f"SHADOW_BLOCKERS={shadow_blockers}",
+                      f"BLOCKER_REDUCED_BY={control_blockers-shadow_blockers}",
+                      "VALIDATED_TARGET_SOURCE_BLOCKERS_RESOLVED=15",
+                      "NON_TARGET_SCORE_ROWS_UNCHANGED=true",
+                      "READY_REGRESSION_COUNT=0",
+                      "SOURCE_ENRICHER_CHANGED=false",
+                      "PRODUCTION_SOURCE_CACHE_MUTATED=false",
+                      "BROAD_FINANCIAL_SECTOR_EXCEPTION_CREATED=false",
+                      "FUZZY_CIS_REVENUE_MATCH_ALLOWED=false",
+                      "SOURCE_VALUE_IMPUTED=false",
+                      "STATUS_OK=true",
+                      "NEXT_STEP=APPLY_NARROW_PATCH_TO_TEMP_SOURCE_ENRICHER_AND_RUN_FULL_SOURCE_REFRESH_REGRESSION",
+                  ]) + "\n",
+                  encoding="utf-8",
+              )
+
+              OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+              OUT_DOC.write_text(
+                  "\n".join([
+                      "# V8.11.4 narrow financial revenue contract audit",
+                      "",
+                      f"- Version: `{VERSION}`",
+                      "- Status: AUDIT_ONLY",
+                      "- The production source enricher is not modified.",
+                      "- Proposed exception is limited to five audited tickers only.",
+                      f"- Exact selector: `{EXACT_STATEMENT}` + `{EXACT_ACCOUNT_ID}` + unique row only.",
+                      "- Every other ticker retains the unchanged V8.5.4 revenue selector.",
+                      f"- Current source cache rows: {current_source_rows}.",
+                      f"- Current scorer universe rows: {len(control)}.",
+                      f"- Current-universe blocker reduction in shadow: {control_blockers} → {shadow_blockers}.",
+                      f"- Non-target score row changes: {len(non_target_diffs)}.",
+                      "",
+                      "## Next",
+                      "",
+                      "`APPLY_NARROW_PATCH_TO_TEMP_SOURCE_ENRICHER_AND_RUN_FULL_SOURCE_REFRESH_REGRESSION`",
+                      "",
+                  ]),
+                  encoding="utf-8",
+              )
+
+
+          def main():
+              for path in (
+                  SOURCE_SCRIPT, SOURCE_CACHE, SOURCE_RUN_LOG, FIN,
+                  V8112_CSV, V8112_JSON, V8113_JSON,
+              ):
+                  if not path.is_file():
+                      raise RuntimeError("V8114_MISSING_INPUT:" + str(path))
+
+              validate_static_patch_scope()
+              evidence = validate_evidence()
+              current_universe_regression(evidence)
+              print("V8114_NARROW_FINANCIAL_REVENUE_CONTRACT_AUDIT=PASS")
+
+
+          if __name__ == "__main__":
+              main()
+          PY
+
+      - name: Run V8.11.4 current-universe regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile investment_score_narrow_revenue_contract_audit_v8114.py
+          python investment_score_narrow_revenue_contract_audit_v8114.py
+          grep -q '^STATUS_OK=true$' latest/investment_score_narrow_revenue_contract_v8114_run_log_latest.txt
+          grep -q '^VALIDATED_TARGET_SOURCE_BLOCKERS_RESOLVED=15$' latest/investment_score_narrow_revenue_contract_v8114_run_log_latest.txt
+          grep -q '^NON_TARGET_SCORE_ROWS_UNCHANGED=true$' latest/investment_score_narrow_revenue_contract_v8114_run_log_latest.txt
+
+      - name: Validate V8.11.4 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          s = json.loads(
+              Path("latest/investment_score_narrow_revenue_contract_v8114_summary_latest.json")
+              .read_text(encoding="utf-8")
+          )
+          expected = {"000810","005830","029780","105560","138930"}
+
+          assert s["status"] == "AUDIT_ONLY"
+          assert s["patch_status"] == "PROPOSAL_ONLY_NOT_APPLIED"
+          assert s["current_source_cache_rows"] >= 247
+          assert s["current_scorer_universe_count"] >= 112
+          assert s["validated_target_source_blockers_resolved"] == 15
+          assert s["blocker_occurrences_reduced_by"] >= 15
+          assert s["non_target_score_row_changed_count"] == 0
+          assert s["lost_ready_tickers"] == []
+          assert set(s["proposed_contract"]["scope_tickers"]) == expected
+          assert s["proposed_contract"]["statement"] == "CIS"
+          assert s["proposed_contract"]["account_id"] == "ifrs-full_RevenueFromInterest"
+          assert s["proposed_contract"]["selection_rule"] == "EXACT_ID_UNIQUE_ONLY"
+          assert s["proposed_contract"]["all_other_tickers"] == "UNCHANGED_V854_LOGIC"
+
+          with Path("latest/investment_score_narrow_revenue_contract_v8114.csv").open(
+              encoding="utf-8-sig", newline=""
+          ) as f:
+              rows = list(csv.DictReader(f))
+          assert len(rows) == 5
+          assert {r["ticker"] for r in rows} == expected
+          assert all(int(r["changed_field_count"]) == 6 for r in rows)
+          assert all(int(r["non_revenue_field_change_count"]) == 0 for r in rows)
+
+          h = s["hard_guards"]
+          boolean_false = {
+              "production_api_changed",
+              "production_investment_score_written",
+              "source_enricher_changed",
+              "production_source_cache_mutated",
+              "financial_cache_mutated",
+              "scoring_policy_changed",
+              "broad_financial_sector_exception_created",
+              "fuzzy_cis_revenue_match_allowed",
+              "source_value_imputed",
+          }
+          assert all(h[k] is False for k in boolean_false)
+          assert h["non_target_score_rows_unchanged"] is True
+          assert h["ready_regression_count"] == 0
+
+          p = json.loads(
+              Path("latest/investment_score_narrow_revenue_contract_v8114_patch_proposal.json")
+              .read_text(encoding="utf-8")
+          )
+          assert p["status"] == "PROPOSAL_ONLY"
+          assert p["scope"]["selection_rule"] == "EXACT_ID_UNIQUE_ONLY"
+          assert set(p["scope"]["tickers"]) == expected
+          assert p["automatic_apply"] is False
+          assert p["production_mutation"] is False
+          print("V8114_OUTPUT_VALIDATION=PASS")
+          PY
+
+      - name: Verify protected files unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_source_enricher_v854.py \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_financial_revenue_semantic_v8112.csv \
+            latest/investment_score_financial_revenue_semantic_v8112_summary_latest.json \
+            latest/investment_score_v880_dry_run_v8113_summary_latest.json \
+            > /tmp/v8114_protected.after
+          diff -u /tmp/v8114_protected.before /tmp/v8114_protected.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -name '*.json' -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8114_api.after
+          diff -u /tmp/v8114_api.before /tmp/v8114_api.after
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess
+          allowed = {
+              "investment_score_narrow_revenue_contract_audit_v8114.py",
+              "latest/investment_score_narrow_revenue_contract_v8114.csv",
+              "latest/investment_score_narrow_revenue_contract_v8114_summary_latest.json",
+              "latest/investment_score_narrow_revenue_contract_v8114_run_log_latest.txt",
+              "latest/investment_score_narrow_revenue_contract_v8114_patch_proposal.json",
+              "docs/investment_score_narrow_revenue_contract_v8114.md",
+          }
+          changed = {
+              line[3:]
+              for line in subprocess.check_output(
+                  ["git","status","--porcelain"], text=True
+              ).splitlines()
+              if line
+          }
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit("UNEXPECTED_CHANGED_FILES:" + ",".join(unexpected))
+          print("V8114_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+      - name: Refuse concurrent protected input drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          python - <<'PY'
+          import subprocess
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "investment_score_source_enricher_v854.py",
+              "investment_score_dry_run_v882.py",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/investment_score_source_run_log_latest.txt",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/investment_score_financial_revenue_semantic_v8112.csv",
+              "latest/investment_score_financial_revenue_semantic_v8112_summary_latest.json",
+              "latest/investment_score_v880_dry_run_v8113_summary_latest.json",
+          }
+          upstream = set(
+              subprocess.check_output(
+                  ["git","diff","--name-only","HEAD..origin/main"], text=True
+              ).splitlines()
+          )
+          dangerous = sorted(
+              p for p in upstream
+              if p in protected or p.startswith("api/two_table_v1/")
+          )
+          if dangerous:
+              raise SystemExit(
+                  "CONCURRENT_PROTECTED_INPUT_DRIFT:" + ",".join(dangerous)
+              )
+          print("V8114_NO_CONCURRENT_PROTECTED_INPUT_DRIFT=PASS")
+          PY
+
+      - name: Commit and push audit outputs only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_narrow_revenue_contract_audit_v8114.py \
+            latest/investment_score_narrow_revenue_contract_v8114.csv \
+            latest/investment_score_narrow_revenue_contract_v8114_summary_latest.json \
+            latest/investment_score_narrow_revenue_contract_v8114_run_log_latest.txt \
+            latest/investment_score_narrow_revenue_contract_v8114_patch_proposal.json \
+            docs/investment_score_narrow_revenue_contract_v8114.md
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT"
+            exit 0
+          fi
+
+          git commit -m "Audit narrow financial revenue contract v8.11.4"
+          git pull --rebase origin main
+          git push origin HEAD:main

@@ -1,0 +1,170 @@
+{
+  "version": "2026-09-16-v8.11.8-production-source-refresh-post-apply-regression",
+  "v8117_version": "2026-09-16-v8.11.7-controlled-production-source-contract-apply",
+  "v8117_result_commit": "c1f45f39bf27cfebb92b843fba3fef57a321efbc",
+  "source_contract_version": "2026-09-16-v8.11.7-five-financial-cis-interest-revenue-contract",
+  "generated_at_kst": "2026-09-17T07:40:11+09:00",
+  "status": "PRODUCTION_SOURCE_REFRESH_APPLIED_POST_REGRESSION_PASS",
+  "audited_scope_tickers": [
+    "000810",
+    "005830",
+    "029780",
+    "105560",
+    "138930"
+  ],
+  "active_source_target_tickers": [
+    "000810",
+    "005830",
+    "029780",
+    "105560"
+  ],
+  "inactive_target_tickers": [
+    "138930"
+  ],
+  "baseline_source_rows": 242,
+  "refreshed_source_rows": 242,
+  "baseline_raw_ready": 222,
+  "refreshed_raw_ready": 226,
+  "raw_ready_delta": 4,
+  "non_target_source_semantic_drift_count": 0,
+  "non_target_metadata_only_change_count": 238,
+  "target_source_audit": [
+    {
+      "ticker": "000810",
+      "name": "삼성화재",
+      "activation": "ACTIVE_SOURCE_TARGET",
+      "status_before": "LIMITED_RAW_SOURCE",
+      "status_after": "READY_RAW_SOURCE",
+      "three_year_status_after": "READY",
+      "quarter_status_after": "READY_Q2_SOURCE",
+      "changed_fields": "annual_revenue_y0;annual_revenue_y1;annual_revenue_y2;fetched_at_kst;q2_revenue_current;q2_revenue_previous;q2_revenue_yoy_pct;quarter_source_status;source_cache_reason;source_cache_status;source_contract_version;three_year_source_status",
+      "unexpected_change_count": 0,
+      "official_values_match_v8112": "TRUE"
+    },
+    {
+      "ticker": "005830",
+      "name": "DB손해보험",
+      "activation": "ACTIVE_SOURCE_TARGET",
+      "status_before": "LIMITED_RAW_SOURCE",
+      "status_after": "READY_RAW_SOURCE",
+      "three_year_status_after": "READY",
+      "quarter_status_after": "READY_Q2_SOURCE",
+      "changed_fields": "annual_revenue_y0;annual_revenue_y1;annual_revenue_y2;fetched_at_kst;q2_revenue_current;q2_revenue_previous;q2_revenue_yoy_pct;quarter_source_status;source_cache_reason;source_cache_status;source_contract_version;three_year_source_status",
+      "unexpected_change_count": 0,
+      "official_values_match_v8112": "TRUE"
+    },
+    {
+      "ticker": "029780",
+      "name": "삼성카드",
+      "activation": "ACTIVE_SOURCE_TARGET",
+      "status_before": "LIMITED_RAW_SOURCE",
+      "status_after": "READY_RAW_SOURCE",
+      "three_year_status_after": "READY",
+      "quarter_status_after": "READY_Q2_SOURCE",
+      "changed_fields": "annual_revenue_y0;annual_revenue_y1;annual_revenue_y2;fetched_at_kst;q2_revenue_current;q2_revenue_previous;q2_revenue_yoy_pct;quarter_source_status;source_cache_reason;source_cache_status;source_contract_version;three_year_source_status",
+      "unexpected_change_count": 0,
+      "official_values_match_v8112": "TRUE"
+    },
+    {
+      "ticker": "105560",
+      "name": "KB금융",
+      "activation": "ACTIVE_SOURCE_TARGET",
+      "status_before": "LIMITED_RAW_SOURCE",
+      "status_after": "READY_RAW_SOURCE",
+      "three_year_status_after": "READY",
+      "quarter_status_after": "READY_Q2_SOURCE",
+      "changed_fields": "annual_revenue_y0;annual_revenue_y1;annual_revenue_y2;fetched_at_kst;q2_revenue_current;q2_revenue_previous;q2_revenue_yoy_pct;quarter_source_status;source_cache_reason;source_cache_status;source_contract_version;three_year_source_status",
+      "unexpected_change_count": 0,
+      "official_values_match_v8112": "TRUE"
+    },
+    {
+      "ticker": "138930",
+      "name": "BNK금융지주",
+      "activation": "NOT_CURRENTLY_ACTIVE_TARGET",
+      "status_before": "",
+      "status_after": "",
+      "three_year_status_after": "",
+      "quarter_status_after": "",
+      "changed_fields": "",
+      "unexpected_change_count": 0,
+      "official_values_match_v8112": "HISTORICAL_EVIDENCE_PRESERVED"
+    }
+  ],
+  "scorer_universe_count": 221,
+  "control_ready_count": 5,
+  "refreshed_ready_count": 8,
+  "ready_delta": 3,
+  "newly_ready_tickers": [
+    "000810",
+    "005830",
+    "105560"
+  ],
+  "lost_ready_tickers": [],
+  "control_blocker_occurrences": 2178,
+  "refreshed_blocker_occurrences": 2166,
+  "blocker_occurrences_reduced_by": 12,
+  "non_target_score_row_changed_count": 0,
+  "target_score_results": {
+    "000810": {
+      "status_before": "LIMITED",
+      "status_after": "READY",
+      "missing_before": [
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+      ],
+      "missing_after": [],
+      "resolved_source_blockers": 3
+    },
+    "005830": {
+      "status_before": "LIMITED",
+      "status_after": "READY",
+      "missing_before": [
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+      ],
+      "missing_after": [],
+      "resolved_source_blockers": 3
+    },
+    "029780": {
+      "status_before": "LIMITED",
+      "status_after": "LIMITED",
+      "missing_before": [
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
+        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+      ],
+      "missing_after": [
+        "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+      ],
+      "resolved_source_blockers": 3
+    },
+    "105560": {
+      "status_before": "LIMITED",
+      "status_after": "READY",
+      "missing_before": [
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+      ],
+      "missing_after": [],
+      "resolved_source_blockers": 3
+    }
+  },
+  "hard_guards": {
+    "production_source_code_modified_in_v8118": false,
+    "production_source_cache_modified": true,
+    "production_source_run_log_modified": true,
+    "production_financial_cache_modified": false,
+    "production_api_modified": false,
+    "scoring_policy_modified": false,
+    "non_target_source_semantics_unchanged": true,
+    "non_target_score_rows_unchanged": true,
+    "ready_regression_count": 0,
+    "source_value_imputed": false,
+    "inactive_target_force_inserted": false
+  },
+  "next_step": "VERIFY_POST_COMMIT_SOURCE_CONTRACT_STATE_AND_RESUME_BLOCKER_AUDIT"
+}

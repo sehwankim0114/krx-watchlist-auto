@@ -8,7 +8,7 @@ from pathlib import Path
 
 import build_two_table_shadow_v851 as shadow
 from build_stock_table_preview_v850 import compact_row, ticker
-from sector_rs_source_v870 import NEW_COLUMNS, enrich_bundle
+from sector_rs_source_v870 import NEW_COLUMNS, UNCLASSIFIED_MODE, enrich_bundle
 from stock_table_metrics_v850 import CONTRACT, matches_decliners24
 
 DIRECTORY = shadow.DIRECTORY
@@ -28,20 +28,20 @@ RELEASE = {
 }
 DISPLAY = {
     "version": VERSION,
-    "coverage": "SECTOR_RS_AVAILABLE_OTHER_GAPS_DECLARED",
+    "coverage": "SECTOR_RS_AVAILABLE_WITH_OFFICIAL_KRX_UNCLASSIFIED_NULL_EXCEPTION_OTHER_GAPS_DECLARED",
     "unavailable_fields": MISSING,
     "missing_label": "자료 미제공",
     "investment_score_100": "NOT_AVAILABLE_DO_NOT_RESCALE_LEGACY_SCORE",
     "earnings_outlook_change": "NOT_AVAILABLE_NO_CONSENSUS_REVISION_SOURCE",
     "confirmed_swing_low_stop": "NOT_AVAILABLE_SIGNAL_PRICE_BASIS_DATE_CONTRACT_REQUIRED",
-    "rs_sector": "AVAILABLE_OFFICIAL_KRX_INDUSTRY_INDEX_1M_3M_PERCENTAGE_POINTS",
+    "rs_sector": "AVAILABLE_OFFICIAL_KRX_INDUSTRY_INDEX_1M_3M_PERCENTAGE_POINTS; OFFICIAL_KRX_INDUSTRY_UNCLASSIFIED_ROWS=NULL",
     "recommendation_floor": "OBSERVE_NOT_AUTOMATIC_BUY",
     "request_time_prices": "REQUIRED_10_5_2_NO_STATIC_FALLBACK",
     "historical_metrics": "OFFICIAL_CLOSE_ONLY_DO_NOT_RECALCULATE_WITH_LIVE_QUOTES",
     "standalone_swing_table_enabled": False,
 }
 DISCLOSURE = (
-    "새 양식·검증 지표와 공식 KRX 업종RS 제공. "
+    "새 양식·검증 지표와 공식 KRX 업종RS 제공. KRX 업종미분류 종목은 업종RS를 임의 추정하지 않고 null 처리. "
     "100점 점수·실적전망·확정 스윙손절은 미제공. 현재가는 별도 조회."
 )
 
@@ -97,11 +97,12 @@ def calculation_contract():
         **CONTRACT,
         "release_stage": "PRODUCTION",
         "layout_release_version": VERSION,
-        "metric_coverage": "SECTOR_RS_AVAILABLE_OTHER_GAPS_DECLARED",
+        "metric_coverage": "SECTOR_RS_AVAILABLE_WITH_OFFICIAL_KRX_UNCLASSIFIED_NULL_EXCEPTION_OTHER_GAPS_DECLARED",
         "sector_rs_contract": "2026-09-12-v8.7.0-official-krx-sector-rs",
         "sector_rs_formula": "STOCK_RETURN_PCT_MINUS_OFFICIAL_KRX_INDUSTRY_INDEX_RETURN_PCT",
         "sector_rs_period_alignment": "EXACT_EXISTING_STOCK_RETURN_START_DATE_TO_COMMON_OFFICIAL_BASIS_DATE",
         "sector_rs_unit": "PERCENTAGE_POINTS",
+        "sector_rs_unclassified_policy": "NULL_WHEN_NO_OFFICIAL_KRX_INDUSTRY_INDEX_MEMBERSHIP_NO_GUESS_NO_FALLBACK",
     }
 
 
@@ -168,14 +169,32 @@ def validate_bundle(directory, repo, strict_source_hashes=False):
             require(metrics.get("investment_score_100") is None, "UNSOURCED_FIELD:investment_score_100")
             require(metrics.get("earnings_outlook_change") is None, "UNSOURCED_FIELD:earnings_outlook_change")
             require(metrics["trailing_reference"].get("confirmed_swing_low_stop") is None, "UNSOURCED_SWING_STOP")
+
             rs = metrics.get("rs_sector_pp")
             require(isinstance(rs, dict) and set(rs) == {"1", "3"}, "RS_SECTOR_SHAPE")
-            require(all(isinstance(rs[p], (int, float)) and not isinstance(rs[p], bool) for p in ("1", "3")), "RS_SECTOR_VALUES")
-            require("rs_sector" not in (metrics.get("missing") or {}), "RS_SECTOR_STILL_MISSING")
             benchmark = metrics.get("sector_benchmark") or {}
-            require(isinstance(benchmark.get("benchmark_ticker"), str), "SECTOR_BENCHMARK_TICKER")
-            require(isinstance(benchmark.get("benchmark_name"), str) and benchmark["benchmark_name"], "SECTOR_BENCHMARK_NAME")
-            require(isinstance(benchmark.get("selection_mode"), str) and benchmark["selection_mode"], "SECTOR_BENCHMARK_MODE")
+            mode = benchmark.get("selection_mode")
+            require(isinstance(mode, str) and mode, "SECTOR_BENCHMARK_MODE")
+
+            if mode == UNCLASSIFIED_MODE:
+                require(benchmark.get("benchmark_ticker") is None, "UNCLASSIFIED_BENCHMARK_TICKER_MUST_BE_NULL")
+                require(benchmark.get("benchmark_name") is None, "UNCLASSIFIED_BENCHMARK_NAME_MUST_BE_NULL")
+                require(all(rs[p] is None for p in ("1", "3")), "UNCLASSIFIED_RS_MUST_BE_NULL")
+                require(
+                    (metrics.get("missing") or {}).get("rs_sector") == "OFFICIAL_KRX_INDUSTRY_UNCLASSIFIED",
+                    "UNCLASSIFIED_RS_REASON_MISSING",
+                )
+                require(
+                    metrics.get("rs_sector_status") == "UNAVAILABLE_OFFICIAL_KRX_INDUSTRY_UNCLASSIFIED",
+                    "UNCLASSIFIED_RS_STATUS",
+                )
+            else:
+                require(all(isinstance(rs[p], (int, float)) and not isinstance(rs[p], bool) for p in ("1", "3")), "RS_SECTOR_VALUES")
+                require("rs_sector" not in (metrics.get("missing") or {}), "RS_SECTOR_STILL_MISSING")
+                require(isinstance(benchmark.get("benchmark_ticker"), str), "SECTOR_BENCHMARK_TICKER")
+                require(isinstance(benchmark.get("benchmark_name"), str) and benchmark["benchmark_name"], "SECTOR_BENCHMARK_NAME")
+                require(metrics.get("rs_sector_status") == "READY", "RS_SECTOR_STATUS")
+
             if label == "decliners":
                 require(metrics["streak"]["direction"] == -1 and metrics["streak"]["days"] >= 3, "DECLINER_FILTER")
             if label == "decliners24":
@@ -243,8 +262,12 @@ def publish(repo):
             "version": sector_audit["version"],
             "basis_date": sector_audit["basis_date"],
             "unique_ticker_count": sector_audit["unique_ticker_count"],
+            "classifiable_ticker_count": sector_audit["classifiable_ticker_count"],
+            "unclassified_ticker_count": sector_audit["unclassified_ticker_count"],
+            "unclassified_tickers": sector_audit["unclassified_tickers"],
             "rs_values_ready": sector_audit["rs_values_ready"],
             "rs_values_expected": sector_audit["rs_values_expected"],
+            "unclassified_policy": "NULL_RS_NO_GUESS_NO_FALLBACK",
         }
 
         glossary = glossary_contract(repo)
@@ -311,6 +334,8 @@ def main():
     print("TWO_TABLE_RELEASE_STATUS=" + result["status"])
     print("PRODUCTION_ACTIVATION_ALLOWED=" + str(result["production_activation_allowed"]).lower())
     print("RS_SECTOR_AVAILABLE=true")
+    sector_source = result.get("sector_rs_source") or {}
+    print("RS_SECTOR_UNCLASSIFIED_TICKERS=" + ",".join(sector_source.get("unclassified_tickers") or []))
     print("EXPLICIT_MISSING_FIELDS=" + ",".join(MISSING))
     print("STANDALONE_SWING_TABLE_ENABLED=false")
 

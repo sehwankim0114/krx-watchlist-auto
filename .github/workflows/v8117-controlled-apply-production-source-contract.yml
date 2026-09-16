@@ -1,0 +1,775 @@
+name: Controlled apply narrow financial revenue source contract v8.11.7
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8117-controlled-apply-production-source-contract.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-krx-watchlist-latest
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify V8.11.6 lineage and exact hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git merge-base --is-ancestor \
+            ef7abaeb94a69289f73eeec2affb7ad0a6c80b3c HEAD
+
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          expected = {
+              "investment_score_source_enricher_v854.py":
+                  "dd8db545dcd88c837c756f74588efd2166e6a3773a3add87ff53b290976de278",
+              "staged/investment_score_source_enricher_v8116_candidate.py":
+                  "ad4e1984c86a78304bbc8004d3ed38ff919664a3f8fe4ef769acc4d82329554e",
+              "staged/investment_score_source_enricher_v8116_candidate.patch":
+                  "ed0f09263e182d43ec9f27afb04ce6ee594808b5e02821523e38ba0db67d3f25",
+          }
+
+          for name, wanted in expected.items():
+              path = Path(name)
+              if not path.is_file():
+                  raise SystemExit("V8117_MISSING_LINEAGE_FILE:" + name)
+              got = hashlib.sha256(path.read_bytes()).hexdigest()
+              if got != wanted:
+                  raise SystemExit(
+                      f"V8117_HASH_MISMATCH:{name}:{got}!={wanted}"
+                  )
+
+          s = json.loads(
+              Path(
+                  "latest/investment_score_source_contract_candidate_v8116_summary_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          assert (
+              s["version"]
+              == "2026-09-16-v8.11.6-freeze-v8115-stage-production-candidate"
+          )
+          assert s["status"] == "STAGED_CANDIDATE_ONLY"
+          assert (
+              s["candidate_source_contract_version"]
+              == "2026-09-16-v8.11.6-staged-five-financial-cis-interest-revenue-contract"
+          )
+          assert (
+              s["candidate_contract"]["statement"] == "CIS"
+          )
+          assert (
+              s["candidate_contract"]["account_id"]
+              == "ifrs-full_RevenueFromInterest"
+          )
+          assert (
+              s["candidate_contract"]["selection_rule"]
+              == "EXACT_ID_UNIQUE_ONLY"
+          )
+          assert (
+              s["candidate_contract"]["duplicate_exact_hit_policy"]
+              == "FAIL_CLOSED_NO_SELECTION"
+          )
+          assert (
+              s["candidate_contract"]["fallback_for_no_exact_hit"]
+              == "UNCHANGED_V854_REVENUE_LOGIC"
+          )
+          assert (
+              s["next_step"]
+              == "STAGED_PRODUCTION_PATCH_READY_FOR_CONTROLLED_APPLY_V8117"
+          )
+
+          proof = s["v8115_frozen_evidence"]
+          assert proof["source_rows"] == 242
+          assert proof["raw_ready_before"] == 222
+          assert proof["raw_ready_after"] == 226
+          assert proof["ready_before"] == 5
+          assert proof["ready_after"] == 8
+          assert proof["blockers_before"] == 2178
+          assert proof["blockers_after"] == 2166
+
+          print("V8117_LINEAGE_AND_HASH_GUARD=PASS")
+          PY
+
+      - name: Capture protected production-data hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_source_contract_candidate_v8116_summary_latest.json \
+            > /tmp/v8117_protected_data.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -name '*.json' -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8117_api.before
+
+      - name: Re-run V8.11.6 candidate safety tests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m py_compile \
+            staged/investment_score_source_enricher_v8116_candidate.py
+
+          python staged/investment_score_source_enricher_v8116_candidate.py \
+            --self-test | tee /tmp/v8117_stage_selftest.txt
+
+          grep -q '^SELF_TEST=PASS$' /tmp/v8117_stage_selftest.txt
+          grep -q '^SCORE_VALUES_GENERATED=false$' \
+            /tmp/v8117_stage_selftest.txt
+          grep -q '^NET_CASH_CALCULATED=false$' \
+            /tmp/v8117_stage_selftest.txt
+          grep -q '^EV_EBITDA_CALCULATED=false$' \
+            /tmp/v8117_stage_selftest.txt
+
+          python investment_score_source_contract_candidate_test_v8116.py \
+            | tee /tmp/v8117_stage_contract_tests.txt
+          grep -q '^V8116_DETERMINISTIC_CONTRACT_TESTS=PASS$' \
+            /tmp/v8117_stage_contract_tests.txt
+
+      - name: Refuse protected upstream drift before apply
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+
+          protected = {
+              "investment_score_source_enricher_v854.py",
+              "staged/investment_score_source_enricher_v8116_candidate.py",
+              "staged/investment_score_source_enricher_v8116_candidate.patch",
+              "latest/investment_score_source_contract_candidate_v8116_summary_latest.json",
+              "config/investment_score_policy_v880.json",
+              "investment_score_dry_run_v882.py",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/investment_score_source_run_log_latest.txt",
+              "latest/financial_valuation_cache_latest.csv",
+          }
+
+          upstream = set(
+              subprocess.check_output(
+                  ["git", "diff", "--name-only", "HEAD..origin/main"],
+                  text=True,
+              ).splitlines()
+          )
+
+          dangerous = sorted(
+              p for p in upstream
+              if p in protected or p.startswith("api/two_table_v1/")
+          )
+          if dangerous:
+              raise SystemExit(
+                  "V8117_CONCURRENT_PROTECTED_DRIFT:"
+                  + ",".join(dangerous)
+              )
+
+          print("V8117_NO_PROTECTED_UPSTREAM_DRIFT=PASS")
+          PY
+
+      - name: Build production-ready source enricher from staged candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+
+          src = Path(
+              "staged/investment_score_source_enricher_v8116_candidate.py"
+          )
+          dst = Path("/tmp/investment_score_source_enricher_v8117.py")
+
+          text = src.read_text(encoding="utf-8")
+
+          old_script = (
+              'SCRIPT_VERSION = '
+              '"investment_score_source_enricher_v8116_candidate.py staged-v1"'
+          )
+          new_script = (
+              'SCRIPT_VERSION = '
+              '"investment_score_source_enricher_v854.py '
+              'v8.11.7-five-financial-cis-interest-revenue"'
+          )
+
+          old_contract = (
+              'SOURCE_CONTRACT_VERSION = '
+              '"2026-09-16-v8.11.6-staged-five-financial-cis-interest-revenue-contract"'
+          )
+          new_contract = (
+              'SOURCE_CONTRACT_VERSION = '
+              '"2026-09-16-v8.11.7-five-financial-cis-interest-revenue-contract"'
+          )
+
+          if text.count(old_script) != 1:
+              raise SystemExit("V8117_SCRIPT_VERSION_ANCHOR_CHANGED")
+          if text.count(old_contract) != 1:
+              raise SystemExit("V8117_SOURCE_CONTRACT_ANCHOR_CHANGED")
+
+          production = text.replace(old_script, new_script, 1)
+          production = production.replace(old_contract, new_contract, 1)
+
+          # Exact semantic equivalence guard:
+          # reverting only the two production metadata constants must recover
+          # the staged V8.11.6 candidate byte-for-byte.
+          reverted = production.replace(new_script, old_script, 1)
+          reverted = reverted.replace(new_contract, old_contract, 1)
+          if reverted != text:
+              raise SystemExit("V8117_STAGED_EQUIVALENCE_FAILED")
+
+          dst.write_text(production, encoding="utf-8")
+          print("V8117_PRODUCTION_CANDIDATE_BUILD=PASS")
+          PY
+
+          python -m py_compile \
+            /tmp/investment_score_source_enricher_v8117.py
+
+          python /tmp/investment_score_source_enricher_v8117.py \
+            --self-test | tee /tmp/v8117_production_candidate_selftest.txt
+
+          grep -q '^SELF_TEST=PASS$' \
+            /tmp/v8117_production_candidate_selftest.txt
+          grep -q '^SCORE_VALUES_GENERATED=false$' \
+            /tmp/v8117_production_candidate_selftest.txt
+          grep -q '^NET_CASH_CALCULATED=false$' \
+            /tmp/v8117_production_candidate_selftest.txt
+          grep -q '^EV_EBITDA_CALCULATED=false$' \
+            /tmp/v8117_production_candidate_selftest.txt
+
+      - name: Deterministically test production-ready candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+
+          BASE_PATH = Path("investment_score_source_enricher_v854.py")
+          CANDIDATE_PATH = Path(
+              "/tmp/investment_score_source_enricher_v8117.py"
+          )
+
+          def load(path, name):
+              spec = importlib.util.spec_from_file_location(name, path)
+              if spec is None or spec.loader is None:
+                  raise RuntimeError("V8117_MODULE_LOAD_FAILED:" + str(path))
+              module = importlib.util.module_from_spec(spec)
+              spec.loader.exec_module(module)
+              return module
+
+          def row(sj_div, account_id, account_nm, amount):
+              return {
+                  "sj_div": sj_div,
+                  "account_id": account_id,
+                  "account_nm": account_nm,
+                  "thstrm_amount": str(amount),
+                  "thstrm_add_amount": str(amount),
+                  "frmtrm_amount": str(amount - 10),
+                  "frmtrm_add_amount": str(amount - 10),
+                  "bfefrmtrm_amount": str(amount - 20),
+              }
+
+          base = load(BASE_PATH, "v8117_base")
+          cand = load(CANDIDATE_PATH, "v8117_candidate")
+
+          is_rev = row(
+              "IS",
+              "ifrs-full_Revenue",
+              "매출액",
+              100,
+          )
+          cis_interest = row(
+              "CIS",
+              "ifrs-full_RevenueFromInterest",
+              "이자수익",
+              200,
+          )
+          op = row(
+              "IS",
+              "ifrs-full_ProfitLossFromOperatingActivities",
+              "영업이익",
+              30,
+          )
+
+          audited = cand.account_values(
+              [is_rev, cis_interest, op],
+              "000810",
+          )
+          assert audited["revenue"]["found"] is True
+          assert audited["revenue"]["account_nm"] == "이자수익"
+          assert audited["revenue"]["thstrm_amount"] == 200.0
+
+          non_audited = cand.account_values(
+              [is_rev, cis_interest, op],
+              "005930",
+          )
+          assert non_audited["revenue"] == base.account_values(
+              [is_rev, cis_interest, op]
+          )["revenue"]
+
+          duplicate = dict(cis_interest)
+          duplicate["account_nm"] = "이자수익_중복"
+          dup = cand.account_values(
+              [is_rev, cis_interest, duplicate, op],
+              "000810",
+          )
+          assert dup["revenue"]["found"] is False
+
+          fallback = cand.account_values(
+              [is_rev, op],
+              "000810",
+          )
+          assert fallback["revenue"] == base.account_values(
+              [is_rev, op]
+          )["revenue"]
+
+          assert cand.FINANCIAL_REVENUE_CIS_EXACT_TICKERS == {
+              "000810",
+              "005830",
+              "029780",
+              "105560",
+              "138930",
+          }
+          assert (
+              cand.FINANCIAL_REVENUE_CIS_EXACT_STATEMENT
+              == "CIS"
+          )
+          assert (
+              cand.FINANCIAL_REVENUE_CIS_EXACT_ACCOUNT_ID
+              == "ifrs-full_RevenueFromInterest"
+          )
+          assert (
+              cand.SOURCE_CONTRACT_VERSION
+              == "2026-09-16-v8.11.7-five-financial-cis-interest-revenue-contract"
+          )
+
+          print("V8117_PRODUCTION_CANDIDATE_CONTRACT_TESTS=PASS")
+          PY
+
+      - name: Apply production source-enricher code only
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cp /tmp/investment_score_source_enricher_v8117.py \
+            investment_score_source_enricher_v854.py
+
+          python -m py_compile investment_score_source_enricher_v854.py
+
+          python investment_score_source_enricher_v854.py \
+            --self-test | tee /tmp/v8117_applied_selftest.txt
+
+          grep -q '^SELF_TEST=PASS$' /tmp/v8117_applied_selftest.txt
+          grep -q '^SCORE_VALUES_GENERATED=false$' \
+            /tmp/v8117_applied_selftest.txt
+          grep -q '^NET_CASH_CALCULATED=false$' \
+            /tmp/v8117_applied_selftest.txt
+          grep -q '^EV_EBITDA_CALCULATED=false$' \
+            /tmp/v8117_applied_selftest.txt
+
+          cmp \
+            investment_score_source_enricher_v854.py \
+            /tmp/investment_score_source_enricher_v8117.py
+
+          echo "V8117_PRODUCTION_SOURCE_CODE_APPLIED=PASS"
+
+      - name: Write controlled-apply audit evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import hashlib
+          import json
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          VERSION = (
+              "2026-09-16-v8.11.7-controlled-production-source-contract-apply"
+          )
+          CONTRACT = (
+              "2026-09-16-v8.11.7-five-financial-cis-interest-revenue-contract"
+          )
+          RESULT_BASE = (
+              "ef7abaeb94a69289f73eeec2affb7ad0a6c80b3c"
+          )
+
+          source = Path("investment_score_source_enricher_v854.py")
+          staged = Path(
+              "staged/investment_score_source_enricher_v8116_candidate.py"
+          )
+
+          sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+
+          summary = {
+              "version": VERSION,
+              "generated_at_kst": datetime.now(
+                  ZoneInfo("Asia/Seoul")
+              ).isoformat(timespec="seconds"),
+              "status": "PRODUCTION_CODE_APPLIED_SOURCE_DATA_NOT_REFRESHED",
+              "v8116_result_commit": RESULT_BASE,
+              "source_contract_version": CONTRACT,
+              "production_source_sha256": sha(source),
+              "v8116_staged_candidate_sha256": sha(staged),
+              "applied_scope_tickers": [
+                  "000810",
+                  "005830",
+                  "029780",
+                  "105560",
+                  "138930",
+              ],
+              "contract": {
+                  "account_key": "revenue",
+                  "statement": "CIS",
+                  "account_id": "ifrs-full_RevenueFromInterest",
+                  "selection_rule": "EXACT_ID_UNIQUE_ONLY",
+                  "duplicate_policy": "FAIL_CLOSED_NO_SELECTION",
+                  "fallback": "UNCHANGED_V854_REVENUE_LOGIC",
+                  "inactive_ticker_force_insert": False,
+                  "broad_financial_sector_rule": False,
+              },
+              "frozen_v8115_evidence": {
+                  "source_rows": 242,
+                  "raw_ready_before": 222,
+                  "raw_ready_after": 226,
+                  "raw_ready_delta": 4,
+                  "scorer_universe_count": 221,
+                  "ready_before": 5,
+                  "ready_after": 8,
+                  "ready_delta": 3,
+                  "blockers_before": 2178,
+                  "blockers_after": 2166,
+                  "blockers_reduced_by": 12,
+              },
+              "hard_guards": {
+                  "production_source_enricher_modified": True,
+                  "production_source_cache_modified": False,
+                  "production_source_run_log_modified": False,
+                  "production_financial_cache_modified": False,
+                  "production_api_modified": False,
+                  "scoring_policy_modified": False,
+                  "source_values_imputed": False,
+                  "broad_financial_sector_rule_created": False,
+                  "inactive_target_force_inserted": False,
+                  "production_source_data_refresh_executed": False,
+              },
+              "next_step": (
+                  "RUN_PRODUCTION_SOURCE_REFRESH_AND_POST_APPLY_REGRESSION_V8118"
+              ),
+          }
+
+          Path(
+              "latest/investment_score_source_contract_apply_v8117_summary_latest.json"
+          ).write_text(
+              json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+
+          Path(
+              "latest/investment_score_source_contract_apply_v8117_run_log_latest.txt"
+          ).write_text(
+              "\n".join([
+                  f"VERSION={VERSION}",
+                  "STATUS=PRODUCTION_CODE_APPLIED_SOURCE_DATA_NOT_REFRESHED",
+                  f"SOURCE_CONTRACT_VERSION={CONTRACT}",
+                  "AUDITED_SCOPE=5",
+                  "SELECTION_RULE=EXACT_ID_UNIQUE_ONLY",
+                  "DUPLICATE_POLICY=FAIL_CLOSED_NO_SELECTION",
+                  "FALLBACK=UNCHANGED_V854_REVENUE_LOGIC",
+                  "PRODUCTION_SOURCE_ENRICHER_MODIFIED=true",
+                  "PRODUCTION_SOURCE_CACHE_MODIFIED=false",
+                  "PRODUCTION_SOURCE_RUN_LOG_MODIFIED=false",
+                  "PRODUCTION_FINANCIAL_CACHE_MODIFIED=false",
+                  "PRODUCTION_API_MODIFIED=false",
+                  "SCORING_POLICY_MODIFIED=false",
+                  "PRODUCTION_SOURCE_DATA_REFRESH_EXECUTED=false",
+                  "STATUS_OK=true",
+                  "NEXT_STEP=RUN_PRODUCTION_SOURCE_REFRESH_AND_POST_APPLY_REGRESSION_V8118",
+              ]) + "\n",
+              encoding="utf-8",
+          )
+
+          Path("docs/investment_score_source_contract_apply_v8117.md").write_text(
+              "\n".join([
+                  "# V8.11.7 controlled production source-contract apply",
+                  "",
+                  "- Production source-enricher code only was updated.",
+                  "- Production source cache/API/scoring outputs were not refreshed.",
+                  "- Scope remains exactly five audited financial tickers.",
+                  "- Selector remains exact CIS `ifrs-full_RevenueFromInterest` only.",
+                  "- Duplicate exact rows fail closed.",
+                  "- No exact hit falls back to the unchanged legacy V8.5.4 revenue selector.",
+                  "",
+                  "## Frozen validation evidence",
+                  "",
+                  "- V8.11.5 source RAW ready: 222 → 226 (+4).",
+                  "- V8.11.5 scorer READY: 5 → 8 (+3).",
+                  "- V8.11.5 blockers: 2178 → 2166 (-12).",
+                  "- V8.11.6 deterministic staged candidate tests: PASS.",
+                  "",
+                  "## Next",
+                  "",
+                  "`RUN_PRODUCTION_SOURCE_REFRESH_AND_POST_APPLY_REGRESSION_V8118`",
+                  "",
+              ]),
+              encoding="utf-8",
+          )
+
+          print("V8117_AUDIT_EVIDENCE_WRITTEN=PASS")
+          PY
+
+      - name: Verify production data and APIs remain unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_source_contract_candidate_v8116_summary_latest.json \
+            > /tmp/v8117_protected_data.after
+
+          diff -u \
+            /tmp/v8117_protected_data.before \
+            /tmp/v8117_protected_data.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -name '*.json' -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8117_api.after
+
+          diff -u /tmp/v8117_api.before /tmp/v8117_api.after
+
+          echo "V8117_PRODUCTION_DATA_AND_APIS_UNCHANGED=PASS"
+
+      - name: Validate controlled-apply outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          s = json.loads(
+              Path(
+                  "latest/investment_score_source_contract_apply_v8117_summary_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          assert (
+              s["status"]
+              == "PRODUCTION_CODE_APPLIED_SOURCE_DATA_NOT_REFRESHED"
+          )
+          assert (
+              s["v8116_result_commit"]
+              == "ef7abaeb94a69289f73eeec2affb7ad0a6c80b3c"
+          )
+          assert (
+              s["source_contract_version"]
+              == "2026-09-16-v8.11.7-five-financial-cis-interest-revenue-contract"
+          )
+          assert set(s["applied_scope_tickers"]) == {
+              "000810",
+              "005830",
+              "029780",
+              "105560",
+              "138930",
+          }
+
+          c = s["contract"]
+          assert c["statement"] == "CIS"
+          assert c["account_id"] == "ifrs-full_RevenueFromInterest"
+          assert c["selection_rule"] == "EXACT_ID_UNIQUE_ONLY"
+          assert c["duplicate_policy"] == "FAIL_CLOSED_NO_SELECTION"
+          assert c["fallback"] == "UNCHANGED_V854_REVENUE_LOGIC"
+          assert c["inactive_ticker_force_insert"] is False
+          assert c["broad_financial_sector_rule"] is False
+
+          g = s["hard_guards"]
+          assert g["production_source_enricher_modified"] is True
+          false_guards = {
+              "production_source_cache_modified",
+              "production_source_run_log_modified",
+              "production_financial_cache_modified",
+              "production_api_modified",
+              "scoring_policy_modified",
+              "source_values_imputed",
+              "broad_financial_sector_rule_created",
+              "inactive_target_force_inserted",
+              "production_source_data_refresh_executed",
+          }
+          assert all(g[k] is False for k in false_guards)
+
+          assert (
+              s["next_step"]
+              == "RUN_PRODUCTION_SOURCE_REFRESH_AND_POST_APPLY_REGRESSION_V8118"
+          )
+
+          source = Path(
+              "investment_score_source_enricher_v854.py"
+          ).read_text(encoding="utf-8")
+
+          assert (
+              'SOURCE_CONTRACT_VERSION = '
+              '"2026-09-16-v8.11.7-five-financial-cis-interest-revenue-contract"'
+              in source
+          )
+          assert (
+              'SCRIPT_VERSION = '
+              '"investment_score_source_enricher_v854.py '
+              'v8.11.7-five-financial-cis-interest-revenue"'
+              in source
+          )
+          assert "FINANCIAL_REVENUE_CIS_EXACT_TICKERS" in source
+          assert "ifrs-full_RevenueFromInterest" in source
+
+          print("V8117_OUTPUT_VALIDATION=PASS")
+          PY
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "investment_score_source_enricher_v854.py",
+              "latest/investment_score_source_contract_apply_v8117_summary_latest.json",
+              "latest/investment_score_source_contract_apply_v8117_run_log_latest.txt",
+              "docs/investment_score_source_contract_apply_v8117.md",
+          }
+
+          changed = {
+              line[3:]
+              for line in subprocess.check_output(
+                  [
+                      "git",
+                      "status",
+                      "--porcelain",
+                      "--untracked-files=all",
+                  ],
+                  text=True,
+              ).splitlines()
+              if line
+          }
+
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit(
+                  "V8117_UNEXPECTED_CHANGED_FILES:"
+                  + ",".join(unexpected)
+              )
+
+          if "investment_score_source_enricher_v854.py" not in changed:
+              raise SystemExit("V8117_PRODUCTION_SOURCE_NOT_CHANGED")
+
+          print("V8117_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+      - name: Refuse concurrent protected drift before commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+
+          protected = {
+              "investment_score_source_enricher_v854.py",
+              "staged/investment_score_source_enricher_v8116_candidate.py",
+              "staged/investment_score_source_enricher_v8116_candidate.patch",
+              "latest/investment_score_source_contract_candidate_v8116_summary_latest.json",
+              "config/investment_score_policy_v880.json",
+              "investment_score_dry_run_v882.py",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/investment_score_source_run_log_latest.txt",
+              "latest/financial_valuation_cache_latest.csv",
+          }
+
+          upstream = set(
+              subprocess.check_output(
+                  ["git", "diff", "--name-only", "HEAD..origin/main"],
+                  text=True,
+              ).splitlines()
+          )
+
+          dangerous = sorted(
+              p for p in upstream
+              if p in protected or p.startswith("api/two_table_v1/")
+          )
+          if dangerous:
+              raise SystemExit(
+                  "V8117_CONCURRENT_PROTECTED_DRIFT_BEFORE_COMMIT:"
+                  + ",".join(dangerous)
+              )
+
+          print("V8117_FINAL_DRIFT_GUARD=PASS")
+          PY
+
+      - name: Commit and push production code apply only
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_source_enricher_v854.py \
+            latest/investment_score_source_contract_apply_v8117_summary_latest.json \
+            latest/investment_score_source_contract_apply_v8117_run_log_latest.txt \
+            docs/investment_score_source_contract_apply_v8117.md
+
+          git diff --cached --check
+
+          git commit -m \
+            "Apply narrow financial revenue source contract v8.11.7"
+
+          git pull --rebase origin main
+          git push origin HEAD:main

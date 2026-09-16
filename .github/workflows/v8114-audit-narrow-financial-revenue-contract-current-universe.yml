@@ -1,4 +1,4 @@
-name: Audit narrow financial revenue contract current universe v8.11.4
+name: Audit narrow financial revenue contract current universe v8.11.4 validation-fix
 
 on:
   workflow_dispatch:
@@ -52,14 +52,13 @@ jobs:
             | sort -z | xargs -0 sha256sum \
             > /tmp/v8114_api.before
 
-      - name: Create V8.11.4 auditor
+      - name: Create V8.11.4 validation-fix auditor
         shell: bash
         run: |
           cat > investment_score_narrow_revenue_contract_audit_v8114.py <<'PY'
           #!/usr/bin/env python3
           from __future__ import annotations
 
-          import copy
           import csv
           import hashlib
           import json
@@ -69,7 +68,7 @@ jobs:
 
           import investment_score_dry_run_v882 as scorer
 
-          VERSION = "2026-09-16-v8.11.4-audit-narrow-financial-revenue-contract-current-universe"
+          VERSION = "2026-09-16-v8.11.4-validation-fix-dynamic-active-scope"
           V8113_VERSION = "2026-09-16-v8.11.3-validation-fix2-hard-guard-types"
           V8113_RESULT_COMMIT = "c50855caf31e076b36ae83ce9f6ba760060141e4"
           V8112_VERSION = "2026-09-16-v8.11.2-financial-revenue-semantic-alignment-audit"
@@ -79,13 +78,18 @@ jobs:
           ROOT = Path(".")
           KST = ZoneInfo("Asia/Seoul")
 
-          TARGETS = {
+          AUDITED_TARGETS = {
               "000810": "삼성화재",
               "005830": "DB손해보험",
               "029780": "삼성카드",
               "105560": "KB금융",
               "138930": "BNK금융지주",
           }
+          EXPECTED_CURRENT_SOURCE_ACTIVE = {
+              "000810", "005830", "029780", "105560",
+          }
+          EXPECTED_CURRENT_INACTIVE = {"138930"}
+
           EXACT_ACCOUNT_ID = "ifrs-full_RevenueFromInterest"
           EXACT_STATEMENT = "CIS"
 
@@ -111,6 +115,12 @@ jobs:
           V8112_CSV = ROOT / "latest/investment_score_financial_revenue_semantic_v8112.csv"
           V8112_JSON = ROOT / "latest/investment_score_financial_revenue_semantic_v8112_summary_latest.json"
           V8113_JSON = ROOT / "latest/investment_score_v880_dry_run_v8113_summary_latest.json"
+
+          API_FILES = (
+              ROOT / "api/two_table_v1/kospi.json",
+              ROOT / "api/two_table_v1/decliners.json",
+              ROOT / "api/two_table_v1/decliners24.json",
+          )
 
           SHADOW_RAW = Path("/tmp/investment_score_source_cache_v8114_shadow.csv")
           CONTROL_CSV = Path("/tmp/investment_score_v8114_control.csv")
@@ -156,8 +166,7 @@ jobs:
           def read_csv_with_fields(path: Path):
               with path.open(encoding="utf-8-sig", newline="") as f:
                   r = csv.DictReader(f)
-                  rows = list(r)
-                  return rows, list(r.fieldnames or [])
+                  return list(r), list(r.fieldnames or [])
 
 
           def write_csv(path: Path, rows, fields):
@@ -188,14 +197,34 @@ jobs:
               return out
 
 
-          def validate_static_patch_scope():
+          def current_production_tickers():
+              all_codes = set()
+              per_table = {}
+              for path in API_FILES:
+                  payload = read_json(path)
+                  rows = payload.get("rows") or []
+                  codes = {
+                      ticker(r.get("ticker"))
+                      for r in rows
+                      if ticker(r.get("ticker"))
+                  }
+                  per_table[path.stem] = sorted(codes)
+                  all_codes |= codes
+              return all_codes, per_table
+
+
+          def validate_static_scope():
               text = SOURCE_SCRIPT.read_text(encoding="utf-8")
-              if 'SOURCE_CONTRACT_VERSION = "2026-09-10-v8.5.4-investment-score-source-contract"' not in text:
+              if (
+                  'SOURCE_CONTRACT_VERSION = '
+                  '"2026-09-10-v8.5.4-investment-score-source-contract"'
+                  not in text
+              ):
                   raise RuntimeError("V8114_SOURCE_CONTRACT_VERSION_CHANGED")
               if '"statement": "IS"' not in text:
                   raise RuntimeError("V8114_REVENUE_BASE_STATEMENT_CHANGED")
               if '"이자수익"' not in text:
-                  raise RuntimeError("V8114_EXPECTED_INTEREST_REVENUE_EXCLUSION_MISSING")
+                  raise RuntimeError("V8114_INTEREST_REVENUE_EXCLUSION_MISSING")
               if "def choose_account(" not in text or "def account_values(" not in text:
                   raise RuntimeError("V8114_ACCOUNT_SELECTION_FUNCTIONS_MISSING")
 
@@ -204,22 +233,18 @@ jobs:
                   "base_source_script": str(SOURCE_SCRIPT),
                   "base_source_script_sha256": sha256(SOURCE_SCRIPT),
                   "base_source_contract_version": SOURCE_CONTRACT_VERSION,
-                  "scope": {
-                      "tickers": sorted(TARGETS),
+                  "audited_contract_scope": {
+                      "tickers": sorted(AUDITED_TARGETS),
                       "account_key": "revenue",
                       "statement": EXACT_STATEMENT,
                       "account_id": EXACT_ACCOUNT_ID,
                       "selection_rule": "EXACT_ID_UNIQUE_ONLY",
                       "fallback_for_all_other_tickers": "UNCHANGED_V854_CHOOSE_ACCOUNT",
                   },
-                  "proposed_code_shape": [
-                      "FINANCIAL_REVENUE_CIS_EXACT_TICKERS = {'000810','005830','029780','105560','138930'}",
-                      "FINANCIAL_REVENUE_CIS_EXACT_ACCOUNT_ID = 'ifrs-full_RevenueFromInterest'",
-                      "account_values(rows, ticker='') passes ticker to target-aware revenue selector",
-                      "if ticker is one of the five and key == 'revenue': require exactly one CIS row with exact account_id",
-                      "otherwise call the unchanged V8.5.4 choose_account(rows, spec)",
-                      "annual and quarter account_values calls pass target['ticker']",
-                  ],
+                  "activation_rule": (
+                      "RULE_REMAINS_DEFINED_FOR_ALL_FIVE; "
+                      "IT_EXECUTES_ONLY_WHEN_THE_AUDITED_TICKER_IS_IN_THE_CURRENT_SOURCE_TARGET_UNIVERSE"
+                  ),
                   "automatic_apply": False,
                   "production_mutation": False,
               }
@@ -227,10 +252,9 @@ jobs:
                   json.dumps(patch, ensure_ascii=False, indent=2) + "\n",
                   encoding="utf-8",
               )
-              return patch
 
 
-          def validate_evidence():
+          def validate_historical_evidence():
               s13 = read_json(V8113_JSON)
               if s13.get("version") != V8113_VERSION:
                   raise RuntimeError("V8114_V8113_VERSION_MISMATCH")
@@ -243,8 +267,8 @@ jobs:
                   raise RuntimeError("V8114_V8113_BLOCKERS_NOT_261")
               if int(r13.get("after_source_cache_blockers") or 0) != 39:
                   raise RuntimeError("V8114_V8113_SOURCE_BLOCKERS_NOT_39")
-              if set(r13.get("newly_ready_tickers") or []) != set(TARGETS):
-                  raise RuntimeError("V8114_V8113_TARGET_SET_CHANGED")
+              if set(r13.get("newly_ready_tickers") or []) != set(AUDITED_TARGETS):
+                  raise RuntimeError("V8114_V8113_AUDITED_SET_CHANGED")
               if r13.get("non_target_score_row_changed_count") != 0:
                   raise RuntimeError("V8114_V8113_NON_TARGET_DRIFT_PRESENT")
 
@@ -266,72 +290,147 @@ jobs:
               if s12.get("automatic_semantic_extension", {}).get("approved") is not False:
                   raise RuntimeError("V8114_V8112_AUTO_APPROVAL_CHANGED")
 
-              rows = {ticker(r.get("ticker")): r for r in read_csv(V8112_CSV)}
-              if set(rows) != set(TARGETS):
-                  raise RuntimeError("V8114_V8112_ROWS_CHANGED")
+              evidence = {
+                  ticker(r.get("ticker")): r
+                  for r in read_csv(V8112_CSV)
+                  if ticker(r.get("ticker"))
+              }
+              if set(evidence) != set(AUDITED_TARGETS):
+                  raise RuntimeError("V8114_V8112_EVIDENCE_SET_CHANGED")
 
-              fin = {ticker(r.get("ticker")): r for r in read_csv(FIN)}
-              for code, ev in rows.items():
-                  if ev.get("classification") != "EXACT_CIS_INTEREST_REVENUE_ALIGNED_WITH_FINANCIAL_CACHE":
+              for code, row in evidence.items():
+                  if (
+                      row.get("classification")
+                      != "EXACT_CIS_INTEREST_REVENUE_ALIGNED_WITH_FINANCIAL_CACHE"
+                  ):
                       raise RuntimeError("V8114_EVIDENCE_CLASS_CHANGED:" + code)
-                  if ev.get("candidate_statement") != EXACT_STATEMENT:
+                  if row.get("candidate_statement") != EXACT_STATEMENT:
                       raise RuntimeError("V8114_EVIDENCE_STATEMENT_CHANGED:" + code)
-                  if ev.get("candidate_account_id") != EXACT_ACCOUNT_ID:
+                  if row.get("candidate_account_id") != EXACT_ACCOUNT_ID:
                       raise RuntimeError("V8114_EVIDENCE_ACCOUNT_CHANGED:" + code)
+                  for evidence_field in EVIDENCE_TO_RAW.values():
+                      if num(row.get(evidence_field)) is None:
+                          raise RuntimeError(
+                              f"V8114_HISTORICAL_EVIDENCE_VALUE_MISSING:"
+                              f"{code}:{evidence_field}"
+                          )
+              return evidence
 
-                  f = fin.get(code)
-                  if f is None:
-                      raise RuntimeError("V8114_CURRENT_FIN_ROW_MISSING:" + code)
-                  checks = (
+
+          def classify_current_scope(evidence):
+              source_rows = {
+                  ticker(r.get("ticker")): r
+                  for r in read_csv(SOURCE_CACHE)
+                  if ticker(r.get("ticker"))
+              }
+              fin_rows = {
+                  ticker(r.get("ticker")): r
+                  for r in read_csv(FIN)
+                  if ticker(r.get("ticker"))
+              }
+              prod_tickers, per_table = current_production_tickers()
+
+              source_active = set(AUDITED_TARGETS) & set(source_rows)
+              source_inactive = set(AUDITED_TARGETS) - source_active
+              fin_active = set(AUDITED_TARGETS) & set(fin_rows)
+              prod_active = set(AUDITED_TARGETS) & prod_tickers
+
+              if source_active != EXPECTED_CURRENT_SOURCE_ACTIVE:
+                  raise RuntimeError(
+                      "V8114_CURRENT_SOURCE_ACTIVE_SET_CHANGED:"
+                      + ",".join(sorted(source_active))
+                  )
+              if source_inactive != EXPECTED_CURRENT_INACTIVE:
+                  raise RuntimeError(
+                      "V8114_CURRENT_INACTIVE_SET_CHANGED:"
+                      + ",".join(sorted(source_inactive))
+                  )
+              if not source_active <= fin_active:
+                  raise RuntimeError(
+                      "V8114_SOURCE_ACTIVE_WITHOUT_FIN:"
+                      + ",".join(sorted(source_active - fin_active))
+                  )
+
+              for code in sorted(source_inactive):
+                  if code in fin_rows:
+                      raise RuntimeError("V8114_INACTIVE_STILL_IN_FIN:" + code)
+                  if code in prod_tickers:
+                      raise RuntimeError("V8114_INACTIVE_STILL_IN_PRODUCTION:" + code)
+
+              for code in sorted(source_active):
+                  ev = evidence[code]
+                  fin = fin_rows[code]
+                  for ev_field, fin_field in (
                       ("financial_cache_revenue", "revenue"),
                       ("financial_cache_previous_revenue", "previous_revenue"),
                       ("financial_cache_revenue_yoy_pct", "revenue_yoy_pct"),
-                  )
-                  for ev_field, fin_field in checks:
+                  ):
                       a = num(ev.get(ev_field))
-                      b = num(f.get(fin_field))
+                      b = num(fin.get(fin_field))
                       if a is None or b is None or abs(a - b) > 0.01:
                           raise RuntimeError(
-                              f"V8114_CURRENT_FIN_DRIFT:{code}:{ev_field}->{fin_field}:{a}!={b}"
+                              f"V8114_CURRENT_FIN_DRIFT:"
+                              f"{code}:{ev_field}->{fin_field}:{a}!={b}"
                           )
 
-              return rows
+              inactive_evidence = {
+                  code: {
+                      "name": AUDITED_TARGETS[code],
+                      "classification": "NOT_CURRENTLY_ACTIVE_TARGET",
+                      "historical_semantic_evidence_preserved": True,
+                      "current_financial_cache_present": code in fin_rows,
+                      "current_source_cache_present": code in source_rows,
+                      "current_production_present": code in prod_tickers,
+                      "reason": "DYNAMIC_TABLE_TARGET_UNIVERSE_ABSENCE",
+                  }
+                  for code in sorted(source_inactive)
+              }
+
+              return {
+                  "source_rows": source_rows,
+                  "source_active": source_active,
+                  "source_inactive": source_inactive,
+                  "fin_active": fin_active,
+                  "prod_active": prod_active,
+                  "per_table": per_table,
+                  "inactive_evidence": inactive_evidence,
+              }
 
 
-          def build_shadow_raw(evidence):
+          def build_shadow_raw(evidence, scope):
               rows, fields = read_csv_with_fields(SOURCE_CACHE)
               source_map = {ticker(r.get("ticker")): r for r in rows}
-              if set(TARGETS) - set(source_map):
-                  raise RuntimeError("V8114_CURRENT_SOURCE_TARGET_MISSING")
-
               audit_rows = []
-              for code in sorted(TARGETS):
+
+              for code in sorted(scope["source_active"]):
                   original = source_map[code]
                   if original.get("source_contract_version") != SOURCE_CONTRACT_VERSION:
                       raise RuntimeError("V8114_SOURCE_CONTRACT_ROW_CHANGED:" + code)
                   if original.get("source_cache_status") != "LIMITED_RAW_SOURCE":
                       raise RuntimeError(
-                          "V8114_TARGET_SOURCE_STATUS_NOT_LIMITED:"
-                          + code + ":" + str(original.get("source_cache_status") or "")
+                          f"V8114_ACTIVE_TARGET_NOT_LIMITED:"
+                          f"{code}:{original.get('source_cache_status')}"
                       )
                   reason = str(original.get("source_cache_reason") or "")
                   if "3Y_ANNUAL_LIMITED" not in reason or "QUARTER_LIMITED" not in reason:
-                      raise RuntimeError("V8114_TARGET_SOURCE_REASON_CHANGED:" + code)
+                      raise RuntimeError("V8114_ACTIVE_SOURCE_REASON_CHANGED:" + code)
 
                   patched = dict(original)
-                  changed = []
+                  changed_fields = []
                   for raw_field, evidence_field in EVIDENCE_TO_RAW.items():
                       if num(original.get(raw_field)) is not None:
                           raise RuntimeError(
-                              f"V8114_EXPECTED_RAW_FIELD_NOT_EMPTY:{code}:{raw_field}"
+                              f"V8114_EXPECTED_REVENUE_FIELD_NOT_EMPTY:"
+                              f"{code}:{raw_field}"
                           )
                       value = evidence[code][evidence_field]
                       if num(value) is None:
                           raise RuntimeError(
-                              f"V8114_EVIDENCE_VALUE_MISSING:{code}:{evidence_field}"
+                              f"V8114_EVIDENCE_VALUE_MISSING:"
+                              f"{code}:{evidence_field}"
                           )
                       patched[raw_field] = value
-                      changed.append(raw_field)
+                      changed_fields.append(raw_field)
 
                   for field in fields:
                       if field in EVIDENCE_TO_RAW:
@@ -344,13 +443,28 @@ jobs:
                   source_map[code] = patched
                   audit_rows.append({
                       "ticker": code,
-                      "name": TARGETS[code],
+                      "name": AUDITED_TARGETS[code],
+                      "current_activation": "ACTIVE_SOURCE_TARGET",
                       "baseline_source_cache_status": original.get("source_cache_status") or "",
                       "baseline_source_cache_reason": original.get("source_cache_reason") or "",
-                      "shadow_candidate_statement": EXACT_STATEMENT,
-                      "shadow_candidate_account_id": EXACT_ACCOUNT_ID,
-                      "changed_field_count": len(changed),
-                      "changed_fields": ";".join(changed),
+                      "candidate_statement": EXACT_STATEMENT,
+                      "candidate_account_id": EXACT_ACCOUNT_ID,
+                      "changed_field_count": len(changed_fields),
+                      "changed_fields": ";".join(changed_fields),
+                      "non_revenue_field_change_count": 0,
+                  })
+
+              for code in sorted(scope["source_inactive"]):
+                  audit_rows.append({
+                      "ticker": code,
+                      "name": AUDITED_TARGETS[code],
+                      "current_activation": "NOT_CURRENTLY_ACTIVE_TARGET",
+                      "baseline_source_cache_status": "",
+                      "baseline_source_cache_reason": "",
+                      "candidate_statement": EXACT_STATEMENT,
+                      "candidate_account_id": EXACT_ACCOUNT_ID,
+                      "changed_field_count": 0,
+                      "changed_fields": "",
                       "non_revenue_field_change_count": 0,
                   })
 
@@ -359,7 +473,7 @@ jobs:
               return rows, audit_rows
 
 
-          def run_scorer(raw_path: Path, out_csv: Path, out_json: Path, out_log: Path, out_doc: Path, version: str):
+          def run_scorer(raw_path, out_csv, out_json, out_log, out_doc, version):
               old_version = scorer.VERSION
               old_raw = scorer.RAW
               old_out_csv = scorer.OUT_CSV
@@ -385,17 +499,23 @@ jobs:
                   raise RuntimeError(f"V8114_SCORER_FAILED:{version}:{rc}")
 
 
-          def current_universe_regression(evidence):
-              source_rows, audit_rows = build_shadow_raw(evidence)
+          def run_current_regression(evidence, scope):
+              source_rows, audit_rows = build_shadow_raw(evidence, scope)
 
               run_scorer(
                   SOURCE_CACHE,
-                  CONTROL_CSV, CONTROL_JSON, CONTROL_LOG, CONTROL_DOC,
+                  CONTROL_CSV,
+                  CONTROL_JSON,
+                  CONTROL_LOG,
+                  CONTROL_DOC,
                   "2026-09-16-v8.11.4-current-universe-control",
               )
               run_scorer(
                   SHADOW_RAW,
-                  SHADOW_CSV, SHADOW_JSON, SHADOW_LOG, SHADOW_DOC,
+                  SHADOW_CSV,
+                  SHADOW_JSON,
+                  SHADOW_LOG,
+                  SHADOW_DOC,
                   VERSION,
               )
 
@@ -405,66 +525,92 @@ jobs:
               shadow = {ticker(r.get("ticker")): r for r in shadow_rows}
 
               if len(control) < 112:
-                  raise RuntimeError(f"V8114_CURRENT_UNIVERSE_TOO_SMALL:{len(control)}")
-              if len(control) != len(shadow):
-                  raise RuntimeError("V8114_CONTROL_SHADOW_ROW_COUNT_MISMATCH")
-              if set(control) != set(shadow):
-                  raise RuntimeError("V8114_CONTROL_SHADOW_TICKER_SET_MISMATCH")
-              if set(TARGETS) - set(control):
-                  raise RuntimeError("V8114_TARGET_NOT_IN_CURRENT_SCORER_UNIVERSE")
-
-              non_target_diffs = [
-                  code for code in sorted(control)
-                  if code not in TARGETS and control[code] != shadow[code]
-              ]
-              if non_target_diffs:
                   raise RuntimeError(
-                      "V8114_NON_TARGET_SCORE_DRIFT:" + ",".join(non_target_diffs[:30])
+                      f"V8114_CURRENT_SCORER_UNIVERSE_TOO_SMALL:{len(control)}"
+                  )
+              if len(control) != len(shadow) or set(control) != set(shadow):
+                  raise RuntimeError("V8114_CONTROL_SHADOW_UNIVERSE_MISMATCH")
+
+              scorer_active = set(AUDITED_TARGETS) & set(control)
+              scorer_inactive = set(AUDITED_TARGETS) - scorer_active
+
+              if not scorer_active <= scope["source_active"]:
+                  raise RuntimeError(
+                      "V8114_SCORER_ACTIVE_WITHOUT_SOURCE:"
+                      + ",".join(sorted(scorer_active - scope["source_active"]))
                   )
 
-              old_ready = {c for c, r in control.items() if r.get("score_status") == "READY"}
-              new_ready = {c for c, r in shadow.items() if r.get("score_status") == "READY"}
+              non_active_diffs = [
+                  code for code in sorted(control)
+                  if code not in scorer_active and control[code] != shadow[code]
+              ]
+              if non_active_diffs:
+                  raise RuntimeError(
+                      "V8114_NON_ACTIVE_SCORE_DRIFT:"
+                      + ",".join(non_active_diffs[:30])
+                  )
+
+              old_ready = {
+                  c for c, r in control.items()
+                  if r.get("score_status") == "READY"
+              }
+              new_ready = {
+                  c for c, r in shadow.items()
+                  if r.get("score_status") == "READY"
+              }
               lost_ready = sorted(old_ready - new_ready)
               if lost_ready:
-                  raise RuntimeError("V8114_READY_REGRESSION:" + ",".join(lost_ready))
+                  raise RuntimeError(
+                      "V8114_READY_REGRESSION:" + ",".join(lost_ready)
+                  )
 
               target_results = {}
-              resolved_total = 0
-              for code in sorted(TARGETS):
+              expected_reduction = 0
+
+              for code in sorted(scorer_active):
                   before = missing_items(control[code])
                   after = missing_items(shadow[code])
 
-                  missing_expected_before = EXPECTED_SOURCE_REASONS - before
-                  if missing_expected_before:
+                  if not EXPECTED_SOURCE_REASONS <= before:
                       raise RuntimeError(
-                          "V8114_EXPECTED_CURRENT_SOURCE_BLOCKERS_ABSENT:"
-                          + code + ":" + "|".join(sorted(missing_expected_before))
-                      )
-                  still_present = EXPECTED_SOURCE_REASONS & after
-                  if still_present:
-                      raise RuntimeError(
-                          "V8114_EXPECTED_SOURCE_BLOCKERS_NOT_RESOLVED:"
-                          + code + ":" + "|".join(sorted(still_present))
+                          "V8114_EXPECTED_SOURCE_REASON_ABSENT:"
+                          + code + ":"
+                          + "|".join(sorted(EXPECTED_SOURCE_REASONS - before))
                       )
 
-                  new_reasons = after - before
-                  if new_reasons:
+                  expected_after = before - EXPECTED_SOURCE_REASONS
+                  if after != expected_after:
                       raise RuntimeError(
-                          "V8114_TARGET_GAINED_BLOCKERS:"
-                          + code + ":" + "|".join(sorted(new_reasons))
+                          "V8114_TARGET_AFTER_SET_MISMATCH:"
+                          + code
+                          + ":EXPECTED="
+                          + "|".join(sorted(expected_after))
+                          + ":ACTUAL="
+                          + "|".join(sorted(after))
                       )
 
-                  resolved = before - after
-                  resolved_total += len(EXPECTED_SOURCE_REASONS)
+                  expected_reduction += 3
                   target_results[code] = {
-                      "name": TARGETS[code],
+                      "name": AUDITED_TARGETS[code],
+                      "current_activation": "ACTIVE_SCORER_TARGET",
                       "status_before": control[code].get("score_status") or "",
                       "status_after": shadow[code].get("score_status") or "",
                       "missing_before": sorted(before),
                       "missing_after": sorted(after),
-                      "resolved_reasons": sorted(resolved),
-                      "expected_source_reasons_resolved": sorted(EXPECTED_SOURCE_REASONS),
-                      "new_reasons": sorted(new_reasons),
+                      "resolved_source_reasons": sorted(EXPECTED_SOURCE_REASONS),
+                      "resolved_blocker_count": 3,
+                  }
+
+              for code in sorted(scorer_inactive):
+                  target_results[code] = {
+                      "name": AUDITED_TARGETS[code],
+                      "current_activation": (
+                          "ACTIVE_SOURCE_BUT_NOT_CURRENT_SCORER"
+                          if code in scope["source_active"]
+                          else "NOT_CURRENTLY_ACTIVE_TARGET"
+                      ),
+                      "historical_semantic_evidence_preserved": True,
+                      "current_score_row_present": False,
                   }
 
               control_blockers = sum(
@@ -477,18 +623,30 @@ jobs:
                   for r in shadow.values()
                   if r.get("score_status") == "LIMITED"
               )
-              if control_blockers - shadow_blockers < 15:
+              actual_reduction = control_blockers - shadow_blockers
+
+              if actual_reduction != expected_reduction:
                   raise RuntimeError(
-                      f"V8114_BLOCKER_REDUCTION_LT_15:{control_blockers}->{shadow_blockers}"
+                      f"V8114_BLOCKER_REDUCTION_MISMATCH:"
+                      f"{actual_reduction}!={expected_reduction}"
                   )
 
-              current_log = parse_log(SOURCE_RUN_LOG)
-              current_source_rows = len(source_rows)
-              logged_output_rows = int(current_log.get("OUTPUT_ROWS") or 0)
-              if logged_output_rows and logged_output_rows != current_source_rows:
+              newly_ready = sorted(new_ready - old_ready)
+              expected_newly_ready = sorted(
+                  code
+                  for code in scorer_active
+                  if not (missing_items(control[code]) - EXPECTED_SOURCE_REASONS)
+              )
+              if newly_ready != expected_newly_ready:
                   raise RuntimeError(
-                      f"V8114_SOURCE_CACHE_LOG_ROW_MISMATCH:{logged_output_rows}!={current_source_rows}"
+                      "V8114_NEWLY_READY_SET_MISMATCH:"
+                      + ",".join(newly_ready)
                   )
+
+              source_log = parse_log(SOURCE_RUN_LOG)
+              current_source_rows = len(source_rows)
+              if int(source_log.get("OUTPUT_ROWS") or 0) != current_source_rows:
+                  raise RuntimeError("V8114_SOURCE_CACHE_LOG_ROW_MISMATCH")
 
               summary = {
                   "version": VERSION,
@@ -500,28 +658,48 @@ jobs:
                   "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
                   "status": "AUDIT_ONLY",
                   "patch_status": "PROPOSAL_ONLY_NOT_APPLIED",
+                  "audited_contract_scope_count": 5,
+                  "audited_contract_scope_tickers": sorted(AUDITED_TARGETS),
+                  "current_source_active_count": len(scope["source_active"]),
+                  "current_source_active_tickers": sorted(scope["source_active"]),
+                  "current_inactive_count": len(scope["source_inactive"]),
+                  "current_inactive_tickers": sorted(scope["source_inactive"]),
+                  "current_inactive_evidence": scope["inactive_evidence"],
+                  "current_production_active_tickers": sorted(scope["prod_active"]),
+                  "current_scorer_active_count": len(scorer_active),
+                  "current_scorer_active_tickers": sorted(scorer_active),
+                  "current_scorer_inactive_tickers": sorted(scorer_inactive),
                   "current_source_cache_rows": current_source_rows,
-                  "current_source_log_targets": int(current_log.get("TARGETS") or 0),
-                  "current_source_log_raw_ready": int(current_log.get("RAW_SOURCE_READY") or 0),
+                  "current_source_log_targets": int(source_log.get("TARGETS") or 0),
+                  "current_source_log_raw_ready": int(
+                      source_log.get("RAW_SOURCE_READY") or 0
+                  ),
                   "current_scorer_universe_count": len(control),
                   "control_ready_count": len(old_ready),
                   "shadow_ready_count": len(new_ready),
                   "ready_delta": len(new_ready) - len(old_ready),
-                  "newly_ready_tickers": sorted(new_ready - old_ready),
+                  "newly_ready_tickers": newly_ready,
                   "lost_ready_tickers": lost_ready,
                   "control_blocker_occurrences": control_blockers,
                   "shadow_blocker_occurrences": shadow_blockers,
-                  "blocker_occurrences_reduced_by": control_blockers - shadow_blockers,
-                  "validated_target_source_blockers_resolved": resolved_total,
+                  "blocker_occurrences_reduced_by": actual_reduction,
+                  "expected_active_score_blockers_resolved": expected_reduction,
+                  "current_source_rows_patched_in_shadow": len(scope["source_active"]),
+                  "current_source_revenue_fields_patched_in_shadow": (
+                      6 * len(scope["source_active"])
+                  ),
                   "target_results": target_results,
-                  "non_target_score_row_changed_count": len(non_target_diffs),
+                  "non_active_score_row_changed_count": len(non_active_diffs),
                   "source_row_audit": audit_rows,
                   "proposed_contract": {
-                      "scope_tickers": sorted(TARGETS),
+                      "scope_tickers": sorted(AUDITED_TARGETS),
                       "account_key": "revenue",
                       "statement": EXACT_STATEMENT,
                       "account_id": EXACT_ACCOUNT_ID,
                       "selection_rule": "EXACT_ID_UNIQUE_ONLY",
+                      "activation_rule": (
+                          "ONLY_WHEN_AUDITED_TICKER_IS_IN_CURRENT_SOURCE_TARGET_UNIVERSE"
+                      ),
                       "all_other_tickers": "UNCHANGED_V854_LOGIC",
                   },
                   "hard_guards": {
@@ -533,12 +711,17 @@ jobs:
                       "scoring_policy_changed": False,
                       "broad_financial_sector_exception_created": False,
                       "fuzzy_cis_revenue_match_allowed": False,
+                      "inactive_target_force_inserted": False,
                       "source_value_imputed": False,
-                      "non_target_score_rows_unchanged": True,
+                      "non_active_score_rows_unchanged": True,
                       "ready_regression_count": 0,
                   },
-                  "next_step": "APPLY_NARROW_PATCH_TO_TEMP_SOURCE_ENRICHER_AND_RUN_FULL_SOURCE_REFRESH_REGRESSION",
+                  "next_step": (
+                      "APPLY_NARROW_PATCH_TO_TEMP_SOURCE_ENRICHER_"
+                      "AND_RUN_FULL_CURRENT_SOURCE_REFRESH_REGRESSION"
+                  ),
               }
+
               OUT_JSON.write_text(
                   json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
                   encoding="utf-8",
@@ -550,24 +733,32 @@ jobs:
                       f"VERSION={VERSION}",
                       "STATUS=AUDIT_ONLY",
                       "PATCH_STATUS=PROPOSAL_ONLY_NOT_APPLIED",
-                      f"CURRENT_SOURCE_CACHE_ROWS={current_source_rows}",
-                      f"CURRENT_SCORER_UNIVERSE_COUNT={len(control)}",
+                      "AUDITED_CONTRACT_SCOPE=5",
+                      f"CURRENT_SOURCE_ACTIVE={len(scope['source_active'])}",
+                      "CURRENT_SOURCE_ACTIVE_TICKERS="
+                      + ",".join(sorted(scope["source_active"])),
+                      f"CURRENT_INACTIVE={len(scope['source_inactive'])}",
+                      "CURRENT_INACTIVE_TICKERS="
+                      + ",".join(sorted(scope["source_inactive"])),
+                      f"CURRENT_SCORER_UNIVERSE={len(control)}",
+                      f"CURRENT_SCORER_ACTIVE={len(scorer_active)}",
+                      "CURRENT_SCORER_ACTIVE_TICKERS="
+                      + ",".join(sorted(scorer_active)),
                       f"CONTROL_READY={len(old_ready)}",
                       f"SHADOW_READY={len(new_ready)}",
                       f"READY_DELTA={len(new_ready)-len(old_ready)}",
                       f"CONTROL_BLOCKERS={control_blockers}",
                       f"SHADOW_BLOCKERS={shadow_blockers}",
-                      f"BLOCKER_REDUCED_BY={control_blockers-shadow_blockers}",
-                      "VALIDATED_TARGET_SOURCE_BLOCKERS_RESOLVED=15",
-                      "NON_TARGET_SCORE_ROWS_UNCHANGED=true",
+                      f"BLOCKER_REDUCED_BY={actual_reduction}",
+                      f"EXPECTED_ACTIVE_SCORE_BLOCKERS_RESOLVED={expected_reduction}",
+                      "NON_ACTIVE_SCORE_ROWS_UNCHANGED=true",
                       "READY_REGRESSION_COUNT=0",
+                      "INACTIVE_TARGET_FORCE_INSERTED=false",
                       "SOURCE_ENRICHER_CHANGED=false",
                       "PRODUCTION_SOURCE_CACHE_MUTATED=false",
-                      "BROAD_FINANCIAL_SECTOR_EXCEPTION_CREATED=false",
-                      "FUZZY_CIS_REVENUE_MATCH_ALLOWED=false",
-                      "SOURCE_VALUE_IMPUTED=false",
                       "STATUS_OK=true",
-                      "NEXT_STEP=APPLY_NARROW_PATCH_TO_TEMP_SOURCE_ENRICHER_AND_RUN_FULL_SOURCE_REFRESH_REGRESSION",
+                      "NEXT_STEP=APPLY_NARROW_PATCH_TO_TEMP_SOURCE_ENRICHER_"
+                      "AND_RUN_FULL_CURRENT_SOURCE_REFRESH_REGRESSION",
                   ]) + "\n",
                   encoding="utf-8",
               )
@@ -578,19 +769,15 @@ jobs:
                       "# V8.11.4 narrow financial revenue contract audit",
                       "",
                       f"- Version: `{VERSION}`",
-                      "- Status: AUDIT_ONLY",
-                      "- The production source enricher is not modified.",
-                      "- Proposed exception is limited to five audited tickers only.",
-                      f"- Exact selector: `{EXACT_STATEMENT}` + `{EXACT_ACCOUNT_ID}` + unique row only.",
-                      "- Every other ticker retains the unchanged V8.5.4 revenue selector.",
-                      f"- Current source cache rows: {current_source_rows}.",
-                      f"- Current scorer universe rows: {len(control)}.",
-                      f"- Current-universe blocker reduction in shadow: {control_blockers} → {shadow_blockers}.",
-                      f"- Non-target score row changes: {len(non_target_diffs)}.",
-                      "",
-                      "## Next",
-                      "",
-                      "`APPLY_NARROW_PATCH_TO_TEMP_SOURCE_ENRICHER_AND_RUN_FULL_SOURCE_REFRESH_REGRESSION`",
+                      "- Historical contract evidence remains fixed for all five audited tickers.",
+                      "- Current execution scope is dynamic and follows the current source target universe.",
+                      "- BNK금융지주 is preserved as historical evidence but is not force-inserted while inactive.",
+                      "- Production source enricher/cache/scoring policy remain unchanged.",
+                      f"- Current source-active audited tickers: {', '.join(sorted(scope['source_active']))}",
+                      f"- Current scorer-active audited tickers: {', '.join(sorted(scorer_active))}",
+                      f"- Current scorer universe: {len(control)}",
+                      f"- Blockers: {control_blockers} → {shadow_blockers}",
+                      f"- READY: {len(old_ready)} → {len(new_ready)}",
                       "",
                   ]),
                   encoding="utf-8",
@@ -599,20 +786,28 @@ jobs:
 
           def main():
               for path in (
-                  SOURCE_SCRIPT, SOURCE_CACHE, SOURCE_RUN_LOG, FIN,
-                  V8112_CSV, V8112_JSON, V8113_JSON,
+                  SOURCE_SCRIPT,
+                  SOURCE_CACHE,
+                  SOURCE_RUN_LOG,
+                  FIN,
+                  V8112_CSV,
+                  V8112_JSON,
+                  V8113_JSON,
+                  *API_FILES,
               ):
                   if not path.is_file():
                       raise RuntimeError("V8114_MISSING_INPUT:" + str(path))
 
-              validate_static_patch_scope()
-              evidence = validate_evidence()
-              current_universe_regression(evidence)
-              print("V8114_NARROW_FINANCIAL_REVENUE_CONTRACT_AUDIT=PASS")
+              validate_static_scope()
+              evidence = validate_historical_evidence()
+              scope = classify_current_scope(evidence)
+              run_current_regression(evidence, scope)
+              print("V8114_DYNAMIC_ACTIVE_SCOPE_AUDIT=PASS")
 
 
           if __name__ == "__main__":
               main()
+
           PY
 
       - name: Run V8.11.4 current-universe regression
@@ -622,8 +817,11 @@ jobs:
           python -m py_compile investment_score_narrow_revenue_contract_audit_v8114.py
           python investment_score_narrow_revenue_contract_audit_v8114.py
           grep -q '^STATUS_OK=true$' latest/investment_score_narrow_revenue_contract_v8114_run_log_latest.txt
-          grep -q '^VALIDATED_TARGET_SOURCE_BLOCKERS_RESOLVED=15$' latest/investment_score_narrow_revenue_contract_v8114_run_log_latest.txt
-          grep -q '^NON_TARGET_SCORE_ROWS_UNCHANGED=true$' latest/investment_score_narrow_revenue_contract_v8114_run_log_latest.txt
+          grep -q '^AUDITED_CONTRACT_SCOPE=5$' latest/investment_score_narrow_revenue_contract_v8114_run_log_latest.txt
+          grep -q '^CURRENT_SOURCE_ACTIVE=4$' latest/investment_score_narrow_revenue_contract_v8114_run_log_latest.txt
+          grep -q '^CURRENT_INACTIVE=1$' latest/investment_score_narrow_revenue_contract_v8114_run_log_latest.txt
+          grep -q '^CURRENT_INACTIVE_TICKERS=138930$' latest/investment_score_narrow_revenue_contract_v8114_run_log_latest.txt
+          grep -q '^NON_ACTIVE_SCORE_ROWS_UNCHANGED=true$' latest/investment_score_narrow_revenue_contract_v8114_run_log_latest.txt
 
       - name: Validate V8.11.4 outputs
         shell: bash
@@ -638,33 +836,73 @@ jobs:
               Path("latest/investment_score_narrow_revenue_contract_v8114_summary_latest.json")
               .read_text(encoding="utf-8")
           )
-          expected = {"000810","005830","029780","105560","138930"}
+          audited = {"000810","005830","029780","105560","138930"}
+          active = {"000810","005830","029780","105560"}
 
           assert s["status"] == "AUDIT_ONLY"
           assert s["patch_status"] == "PROPOSAL_ONLY_NOT_APPLIED"
+          assert s["audited_contract_scope_count"] == 5
+          assert set(s["audited_contract_scope_tickers"]) == audited
+          assert s["current_source_active_count"] == 4
+          assert set(s["current_source_active_tickers"]) == active
+          assert s["current_inactive_count"] == 1
+          assert s["current_inactive_tickers"] == ["138930"]
+
+          inactive = s["current_inactive_evidence"]["138930"]
+          assert inactive["classification"] == "NOT_CURRENTLY_ACTIVE_TARGET"
+          assert inactive["historical_semantic_evidence_preserved"] is True
+          assert inactive["current_financial_cache_present"] is False
+          assert inactive["current_source_cache_present"] is False
+          assert inactive["current_production_present"] is False
+
           assert s["current_source_cache_rows"] >= 247
           assert s["current_scorer_universe_count"] >= 112
-          assert s["validated_target_source_blockers_resolved"] == 15
-          assert s["blocker_occurrences_reduced_by"] >= 15
-          assert s["non_target_score_row_changed_count"] == 0
+          assert set(s["current_scorer_active_tickers"]) <= active
+          assert (
+              s["expected_active_score_blockers_resolved"]
+              == 3 * s["current_scorer_active_count"]
+          )
+          assert (
+              s["blocker_occurrences_reduced_by"]
+              == s["expected_active_score_blockers_resolved"]
+          )
+          assert s["non_active_score_row_changed_count"] == 0
           assert s["lost_ready_tickers"] == []
-          assert set(s["proposed_contract"]["scope_tickers"]) == expected
+
+          assert set(s["proposed_contract"]["scope_tickers"]) == audited
           assert s["proposed_contract"]["statement"] == "CIS"
-          assert s["proposed_contract"]["account_id"] == "ifrs-full_RevenueFromInterest"
-          assert s["proposed_contract"]["selection_rule"] == "EXACT_ID_UNIQUE_ONLY"
-          assert s["proposed_contract"]["all_other_tickers"] == "UNCHANGED_V854_LOGIC"
+          assert (
+              s["proposed_contract"]["account_id"]
+              == "ifrs-full_RevenueFromInterest"
+          )
+          assert (
+              s["proposed_contract"]["selection_rule"]
+              == "EXACT_ID_UNIQUE_ONLY"
+          )
+          assert (
+              s["proposed_contract"]["all_other_tickers"]
+              == "UNCHANGED_V854_LOGIC"
+          )
 
           with Path("latest/investment_score_narrow_revenue_contract_v8114.csv").open(
               encoding="utf-8-sig", newline=""
           ) as f:
               rows = list(csv.DictReader(f))
           assert len(rows) == 5
-          assert {r["ticker"] for r in rows} == expected
-          assert all(int(r["changed_field_count"]) == 6 for r in rows)
-          assert all(int(r["non_revenue_field_change_count"]) == 0 for r in rows)
+          row_map = {r["ticker"]: r for r in rows}
+          assert set(row_map) == audited
+          for code in active:
+              assert row_map[code]["current_activation"] == "ACTIVE_SOURCE_TARGET"
+              assert int(row_map[code]["changed_field_count"]) == 6
+              assert int(row_map[code]["non_revenue_field_change_count"]) == 0
+          assert (
+              row_map["138930"]["current_activation"]
+              == "NOT_CURRENTLY_ACTIVE_TARGET"
+          )
+          assert int(row_map["138930"]["changed_field_count"]) == 0
 
           h = s["hard_guards"]
-          boolean_false = {
+          false_guards = {
               "production_api_changed",
               "production_investment_score_written",
               "source_enricher_changed",
@@ -673,10 +911,11 @@ jobs:
               "scoring_policy_changed",
               "broad_financial_sector_exception_created",
               "fuzzy_cis_revenue_match_allowed",
+              "inactive_target_force_inserted",
               "source_value_imputed",
           }
-          assert all(h[k] is False for k in boolean_false)
-          assert h["non_target_score_rows_unchanged"] is True
+          assert all(h[k] is False for k in false_guards)
+          assert h["non_active_score_rows_unchanged"] is True
           assert h["ready_regression_count"] == 0
 
           p = json.loads(
@@ -684,8 +923,11 @@ jobs:
               .read_text(encoding="utf-8")
           )
           assert p["status"] == "PROPOSAL_ONLY"
-          assert p["scope"]["selection_rule"] == "EXACT_ID_UNIQUE_ONLY"
-          assert set(p["scope"]["tickers"]) == expected
+          assert set(p["audited_contract_scope"]["tickers"]) == audited
+          assert (
+              p["audited_contract_scope"]["selection_rule"]
+              == "EXACT_ID_UNIQUE_ONLY"
+          )
           assert p["automatic_apply"] is False
           assert p["production_mutation"] is False
           print("V8114_OUTPUT_VALIDATION=PASS")
@@ -736,7 +978,9 @@ jobs:
           }
           unexpected = sorted(changed - allowed)
           if unexpected:
-              raise SystemExit("UNEXPECTED_CHANGED_FILES:" + ",".join(unexpected))
+              raise SystemExit(
+                  "UNEXPECTED_CHANGED_FILES:" + ",".join(unexpected)
+              )
           print("V8114_CHANGED_FILES_RESTRICTED=PASS")
           PY
 
@@ -760,7 +1004,8 @@ jobs:
           }
           upstream = set(
               subprocess.check_output(
-                  ["git","diff","--name-only","HEAD..origin/main"], text=True
+                  ["git","diff","--name-only","HEAD..origin/main"],
+                  text=True,
               ).splitlines()
           )
           dangerous = sorted(
@@ -769,7 +1014,8 @@ jobs:
           )
           if dangerous:
               raise SystemExit(
-                  "CONCURRENT_PROTECTED_INPUT_DRIFT:" + ",".join(dangerous)
+                  "CONCURRENT_PROTECTED_INPUT_DRIFT:"
+                  + ",".join(dangerous)
               )
           print("V8114_NO_CONCURRENT_PROTECTED_INPUT_DRIFT=PASS")
           PY
@@ -794,6 +1040,6 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Audit narrow financial revenue contract v8.11.4"
+          git commit -m "Fix V8114 dynamic active-scope regression"
           git pull --rebase origin main
           git push origin HEAD:main

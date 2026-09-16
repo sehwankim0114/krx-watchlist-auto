@@ -25,6 +25,7 @@ NEW_COLUMNS = [
     "returns", "rs_kospi_pp", "atr14", "activity", "analysis", "rs_sector_pp", "sector_theme",
 ]
 CONTRACT_VERSION = "2026-09-12-v8.7.0-official-krx-sector-rs"
+UNCLASSIFIED_MODE = "OFFICIAL_KRX_INDUSTRY_UNCLASSIFIED"
 
 
 def require(ok, message):
@@ -126,7 +127,18 @@ def build_mapping(tickers, names, members, basic):
                 benchmark, inherited = choose_direct(common_ticker, names, members)
                 require(benchmark is not None, f"PREFERRED_COMMON_INDUSTRY_NOT_READY:{ticker}:{common_ticker}")
                 mode = "PREFERRED_INHERIT_" + inherited
-        require(benchmark is not None, f"UNMATCHED:{ticker}:{mode}")
+
+        if benchmark is None:
+            require(mode == "NO_DIRECT_INDUSTRY", f"UNMATCHED:{ticker}:{mode}")
+            require(ticker in basic, f"BASIC_INFO_MISSING:{ticker}")
+            mapping[ticker] = {
+                "benchmark_ticker": None,
+                "benchmark_name": None,
+                "selection_mode": UNCLASSIFIED_MODE,
+                "common_ticker": common_ticker,
+            }
+            continue
+
         mapping[ticker] = {
             "benchmark_ticker": benchmark,
             "benchmark_name": names.get(benchmark),
@@ -171,7 +183,10 @@ def enrich_bundle(staging, basis_iso, repo=None):
     earliest = min(starts).replace("-", "")
 
     closes_by_index = {}
-    for idx in sorted({m["benchmark_ticker"] for m in mapping.values()}):
+    benchmark_ids = sorted({
+        m["benchmark_ticker"] for m in mapping.values() if m["benchmark_ticker"] is not None
+    })
+    for idx in benchmark_ids:
         try:
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 df = stock.get_index_ohlcv_by_date(earliest, basis, idx)
@@ -185,8 +200,16 @@ def enrich_bundle(staging, basis_iso, repo=None):
         time.sleep(0.10)
 
     ready_values = 0
+    unclassified_tickers = []
     for ticker, rec in records.items():
         idx = mapping[ticker]["benchmark_ticker"]
+        if idx is None:
+            require(mapping[ticker]["selection_mode"] == UNCLASSIFIED_MODE, f"UNCLASSIFIED_MODE_MISMATCH:{ticker}")
+            rec["rs_sector_pp"] = {"1": None, "3": None}
+            rec["rs_sector_status"] = "UNAVAILABLE_OFFICIAL_KRX_INDUSTRY_UNCLASSIFIED"
+            unclassified_tickers.append(ticker)
+            continue
+
         closes = closes_by_index[idx]
         values = {}
         for p in ("1", "3"):
@@ -201,6 +224,7 @@ def enrich_bundle(staging, basis_iso, repo=None):
             values[p] = round(float(src["pct"]) - index_return, 4)
             ready_values += 1
         rec["rs_sector_pp"] = values
+        rec["rs_sector_status"] = "READY"
 
     row_count = 0
     for table, payload in payloads.items():
@@ -209,9 +233,13 @@ def enrich_bundle(staging, basis_iso, repo=None):
             metrics = row["metrics"]
             metrics["rs_sector_pp"] = dict(records[ticker]["rs_sector_pp"])
             missing = dict(metrics.get("missing") or {})
-            missing.pop("rs_sector", None)
+            if records[ticker]["rs_sector_status"] == "READY":
+                missing.pop("rs_sector", None)
+            else:
+                missing["rs_sector"] = "OFFICIAL_KRX_INDUSTRY_UNCLASSIFIED"
             metrics["missing"] = missing
             metrics["sector_benchmark"] = dict(mapping[ticker])
+            metrics["rs_sector_status"] = records[ticker]["rs_sector_status"]
             row_count += 1
         (staging / f"{table}.json").write_text(
             json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")), encoding="utf-8"
@@ -246,18 +274,24 @@ def enrich_bundle(staging, basis_iso, repo=None):
             path.write_text(json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")), encoding="utf-8")
             page_no += 1
 
+    classifiable_ticker_count = len(records) - len(unclassified_tickers)
+    expected_values = classifiable_ticker_count * 2
     audit = {
         "version": CONTRACT_VERSION,
         "generated_at_kst": datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds"),
         "basis_date": basis_iso,
         "unique_ticker_count": len(records),
+        "classifiable_ticker_count": classifiable_ticker_count,
+        "unclassified_ticker_count": len(unclassified_tickers),
+        "unclassified_tickers": sorted(unclassified_tickers),
         "table_row_count": row_count,
         "compact_row_count": compact_rows,
         "rs_values_ready": ready_values,
-        "rs_values_expected": len(records) * 2,
+        "rs_values_expected": expected_values,
         "mapping": [
             {"ticker": ticker, "name": records[ticker]["name"], **mapping[ticker],
-             "rs_sector_pp": records[ticker]["rs_sector_pp"]}
+             "rs_sector_pp": records[ticker]["rs_sector_pp"],
+             "rs_sector_status": records[ticker]["rs_sector_status"]}
             for ticker in sorted(records)
         ],
         "policy": {
@@ -265,9 +299,11 @@ def enrich_bundle(staging, basis_iso, repo=None):
             "manufacturing_fallback": MANUFACTURING_FALLBACK,
             "finance_child_preference": ["1024", "1025"],
             "preferred_share_inheritance": "UNIQUE_COMMON_SHARE_BY_EXACT_NORMALIZED_OFFICIAL_KRX_ISU_NM_STEM",
+            "official_krx_industry_unclassified": "NULL_RS_NO_GUESS_NO_FALLBACK",
             "fuzzy_mapping": False,
             "ticker_prefix_guess": False,
             "sector_theme_fallback": False,
+            "broad_market_fallback": False,
             "period_alignment": "EXACT_EXISTING_STOCK_RETURN_START_DATE_TO_COMMON_OFFICIAL_BASIS_DATE",
             "unit": "PERCENTAGE_POINTS",
         },

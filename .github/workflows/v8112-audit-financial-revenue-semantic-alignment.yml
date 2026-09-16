@@ -1,0 +1,612 @@
+name: Audit financial revenue semantic alignment v8.11.2
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8112-audit-financial-revenue-semantic-alignment.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8112-financial-revenue-semantic-alignment
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Capture protected file hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_source_enricher_v854.py \
+            latest/investment_score_remaining_blockers_v8111_summary_latest.json \
+            latest/investment_score_annual_quarter_reaudit_v8110.csv \
+            latest/investment_score_annual_quarter_reaudit_v8110_summary_latest.json \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_source_cache_latest.csv \
+            > /tmp/v8112_protected.before
+
+      - name: Create V8.11.2 auditor
+        shell: bash
+        run: |
+          cat > investment_score_financial_revenue_semantic_audit_v8112.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import csv
+          import json
+          import math
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          VERSION = "2026-09-16-v8.11.2-financial-revenue-semantic-alignment-audit"
+          V8111_VERSION = "2026-09-16-v8.11.1-validation-fix-preserve-daegu-baseline-row"
+          V8110_VERSION = "2026-09-16-v8.11.0-annual-quarter-official-revenue-recovery-audit"
+          V8111_RESULT_COMMIT = "295dd21da55135c5d26b89cebb6318ade7b09211"
+          V8110_RESULT_COMMIT = "54aa99da306fc8c5cb5c8ee8c501606f45aa6c51"
+          POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          SOURCE_CONTRACT_VERSION = "2026-09-10-v8.5.4-investment-score-source-contract"
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+
+          V8111_BLOCK = ROOT / "latest/investment_score_remaining_blockers_v8111_summary_latest.json"
+          V8110_CSV = ROOT / "latest/investment_score_annual_quarter_reaudit_v8110.csv"
+          V8110_JSON = ROOT / "latest/investment_score_annual_quarter_reaudit_v8110_summary_latest.json"
+          FIN = ROOT / "latest/financial_valuation_cache_latest.csv"
+          SOURCE_ENRICHER = ROOT / "investment_score_source_enricher_v854.py"
+          POLICY = ROOT / "config/investment_score_policy_v880.json"
+
+          OUT_CSV = ROOT / "latest/investment_score_financial_revenue_semantic_v8112.csv"
+          OUT_JSON = ROOT / "latest/investment_score_financial_revenue_semantic_v8112_summary_latest.json"
+          OUT_LOG = ROOT / "latest/investment_score_financial_revenue_semantic_v8112_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_financial_revenue_semantic_v8112.md"
+
+          TARGETS = {
+              "000810": "삼성화재",
+              "005830": "DB손해보험",
+              "029780": "삼성카드",
+              "105560": "KB금융",
+              "138930": "BNK금융지주",
+          }
+          EXPECTED_BLOCKERS = 15
+          EXACT_REVENUE_ACCOUNT_ID = "ifrs-full_RevenueFromInterest"
+          EXACT_REVENUE_ACCOUNT_NAME = "이자수익"
+
+          REASON_REVENUE_GROWTH = "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT"
+          REASON_3Y_REVENUE = "최근 3년 매출 성장률:MISSING_3Y_REVENUE"
+          REASON_ACCEL = "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+          EXPECTED_REASONS = {REASON_REVENUE_GROWTH, REASON_3Y_REVENUE, REASON_ACCEL}
+
+
+          def ticker(value):
+              s = "".join(ch for ch in str(value or "") if ch.isdigit())
+              return s.zfill(6) if s else ""
+
+
+          def num(value):
+              try:
+                  if value is None or isinstance(value, bool):
+                      return None
+                  s = str(value).strip().replace(",", "")
+                  if s in {"", "-", "None", "null", "nan", "NaN"}:
+                      return None
+                  x = float(s)
+                  return x if math.isfinite(x) else None
+              except Exception:
+                  return None
+
+
+          def read_json(path: Path):
+              return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
+          def read_csv(path: Path):
+              with path.open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
+
+
+          def write_csv(path: Path, rows, fields):
+              path.parent.mkdir(parents=True, exist_ok=True)
+              with path.open("w", encoding="utf-8-sig", newline="") as f:
+                  w = csv.DictWriter(f, fieldnames=fields)
+                  w.writeheader()
+                  w.writerows(rows)
+
+
+          def yoy(cur, prev):
+              if cur is None or prev is None or prev == 0:
+                  return None
+              return round((cur - prev) / abs(prev) * 100.0, 2)
+
+
+          def find_exact_cis_account(period_diag):
+              rows = period_diag.get("broad_revenue_like") or []
+              hits = [
+                  r for r in rows
+                  if str(r.get("sj_div") or "") == "CIS"
+                  and str(r.get("account_id") or "") == EXACT_REVENUE_ACCOUNT_ID
+              ]
+              return hits
+
+
+          def exact_one(period_diag, label, code):
+              hits = find_exact_cis_account(period_diag)
+              if len(hits) != 1:
+                  raise RuntimeError(
+                      f"V8112_EXACT_REVENUE_ID_NOT_UNIQUE:{code}:{label}:{len(hits)}"
+                  )
+              return hits[0]
+
+
+          def period_value(row, kind, label, code):
+              if kind == "annual_y0":
+                  v = num(row.get("thstrm_amount"))
+              elif kind == "annual_y1":
+                  v = num(row.get("frmtrm_amount"))
+              elif kind == "annual_y2":
+                  v = num(row.get("bfefrmtrm_amount"))
+              elif kind == "cumulative":
+                  # Full-account half/quarter diagnostics preserve cumulative current
+                  # period in thstrm_add_amount.
+                  v = num(row.get("thstrm_add_amount"))
+              else:
+                  raise RuntimeError("V8112_UNKNOWN_VALUE_KIND:" + kind)
+              if v is None:
+                  raise RuntimeError(f"V8112_VALUE_MISSING:{code}:{label}:{kind}")
+              return v
+
+
+          def close(a, b, tol=0.01):
+              if a is None or b is None:
+                  return False
+              return abs(float(a) - float(b)) <= tol
+
+
+          def main():
+              for path in (V8111_BLOCK, V8110_CSV, V8110_JSON, FIN, SOURCE_ENRICHER, POLICY):
+                  if not path.is_file():
+                      raise RuntimeError("MISSING_REQUIRED_SOURCE:" + str(path))
+
+              b8111 = read_json(V8111_BLOCK)
+              if b8111.get("version") != V8111_VERSION:
+                  raise RuntimeError("V8111_VERSION_MISMATCH")
+              if b8111.get("status") != "AUDIT_ONLY":
+                  raise RuntimeError("V8111_STATUS_MISMATCH")
+              if int(b8111.get("limited_blocker_occurrences") or 0) != 276:
+                  raise RuntimeError("V8111_BLOCKER_COUNT_NOT_276")
+              if int((b8111.get("source_group_counts") or {}).get("INVESTMENT_SCORE_SOURCE_CACHE") or 0) != 54:
+                  raise RuntimeError("V8111_SOURCE_CACHE_COUNT_NOT_54")
+              if b8111.get("next_actionable_lane") != "V8110_OFFICIAL_REVENUE_ACCOUNT_SEMANTICS":
+                  raise RuntimeError("V8111_NEXT_LANE_CHANGED")
+              if set(b8111.get("next_actionable_lane_tickers") or []) != set(TARGETS):
+                  raise RuntimeError("V8111_TARGET_SET_CHANGED")
+              if int(b8111.get("next_actionable_lane_prior_blocker_occurrences") or 0) != EXPECTED_BLOCKERS:
+                  raise RuntimeError("V8111_TARGET_BLOCKERS_NOT_15")
+
+              s8110 = read_json(V8110_JSON)
+              if s8110.get("version") != V8110_VERSION:
+                  raise RuntimeError("V8110_VERSION_MISMATCH")
+              if s8110.get("status") != "AUDIT_ONLY":
+                  raise RuntimeError("V8110_STATUS_MISMATCH")
+              if int(s8110.get("official_revenue_semantic_audit_count") or 0) != 5:
+                  raise RuntimeError("V8110_SEMANTIC_COUNT_NOT_5")
+              if set(s8110.get("official_revenue_semantic_audit_tickers") or []) != set(TARGETS):
+                  raise RuntimeError("V8110_SEMANTIC_SET_CHANGED")
+              if any(v is not False for v in (s8110.get("hard_guards") or {}).values()):
+                  raise RuntimeError("V8110_HARD_GUARD_NOT_FALSE")
+
+              audit_rows = {
+                  ticker(r.get("ticker")): r
+                  for r in read_csv(V8110_CSV)
+                  if ticker(r.get("ticker"))
+              }
+              fin_rows = {
+                  ticker(r.get("ticker")): r
+                  for r in read_csv(FIN)
+                  if ticker(r.get("ticker"))
+              }
+
+              out_rows = []
+              fully_aligned = []
+              mismatch = []
+
+              for code in sorted(TARGETS):
+                  a = audit_rows.get(code)
+                  f = fin_rows.get(code)
+                  if a is None:
+                      raise RuntimeError("V8112_V8110_ROW_MISSING:" + code)
+                  if f is None:
+                      raise RuntimeError("V8112_FIN_ROW_MISSING:" + code)
+
+                  if a.get("classification") != "OFFICIAL_REVENUE_LIKE_FACTS_OUTSIDE_USABLE_CURRENT_CONTRACT":
+                      raise RuntimeError("V8112_V8110_CLASS_CHANGED:" + code)
+                  reasons = {x for x in str(a.get("blocker_reasons") or "").split(";") if x}
+                  if reasons != EXPECTED_REASONS:
+                      raise RuntimeError("V8112_REASON_SET_CHANGED:" + code)
+                  if f.get("financial_data_status") != "READY":
+                      raise RuntimeError("V8112_FIN_STATUS_NOT_READY:" + code)
+
+                  diag = json.loads(a.get("period_diagnostics_json") or "{}")
+                  required_labels = {
+                      "annual", "h1_current", "q1_current", "h1_previous", "q1_previous"
+                  }
+                  if not required_labels <= set(diag):
+                      raise RuntimeError("V8112_DIAGNOSTIC_PERIOD_MISSING:" + code)
+
+                  annual = exact_one(diag["annual"], "annual", code)
+                  h1_cur = exact_one(diag["h1_current"], "h1_current", code)
+                  q1_cur = exact_one(diag["q1_current"], "q1_current", code)
+                  h1_prev = exact_one(diag["h1_previous"], "h1_previous", code)
+                  q1_prev = exact_one(diag["q1_previous"], "q1_previous", code)
+
+                  annual_y0 = period_value(annual, "annual_y0", "annual", code)
+                  annual_y1 = period_value(annual, "annual_y1", "annual", code)
+                  annual_y2 = period_value(annual, "annual_y2", "annual", code)
+
+                  h1_cur_v = period_value(h1_cur, "cumulative", "h1_current", code)
+                  q1_cur_v = period_value(q1_cur, "cumulative", "q1_current", code)
+                  h1_prev_v = period_value(h1_prev, "cumulative", "h1_previous", code)
+                  q1_prev_v = period_value(q1_prev, "cumulative", "q1_previous", code)
+
+                  q2_cur = h1_cur_v - q1_cur_v
+                  q2_prev = h1_prev_v - q1_prev_v
+                  q2_yoy = yoy(q2_cur, q2_prev)
+                  h1_yoy = yoy(h1_cur_v, h1_prev_v)
+
+                  fin_revenue = num(f.get("revenue"))
+                  fin_prev_revenue = num(f.get("previous_revenue"))
+                  fin_revenue_yoy = num(f.get("revenue_yoy_pct"))
+
+                  match_current = close(fin_revenue, h1_cur_v)
+                  match_previous = close(fin_prev_revenue, h1_prev_v)
+                  match_yoy = close(fin_revenue_yoy, h1_yoy)
+
+                  positive_annual = min(annual_y0, annual_y1, annual_y2) > 0
+                  positive_q2_denominator = q2_prev > 0
+                  period_complete = all(
+                      v is not None for v in (
+                          annual_y0, annual_y1, annual_y2,
+                          h1_cur_v, q1_cur_v, h1_prev_v, q1_prev_v,
+                          q2_cur, q2_prev, q2_yoy, h1_yoy,
+                      )
+                  )
+
+                  aligned = (
+                      match_current
+                      and match_previous
+                      and match_yoy
+                      and positive_annual
+                      and positive_q2_denominator
+                      and period_complete
+                  )
+
+                  if aligned:
+                      classification = "EXACT_CIS_INTEREST_REVENUE_ALIGNED_WITH_FINANCIAL_CACHE"
+                      fully_aligned.append(code)
+                  else:
+                      classification = "SEMANTIC_OR_PERIOD_MISMATCH_REQUIRES_REVIEW"
+                      mismatch.append(code)
+
+                  out_rows.append({
+                      "ticker": code,
+                      "name": TARGETS[code],
+                      "corp_code": a.get("corp_code") or "",
+                      "preferred_fs_div": a.get("preferred_fs_div") or "",
+                      "classification": classification,
+                      "candidate_statement": "CIS",
+                      "candidate_account_id": EXACT_REVENUE_ACCOUNT_ID,
+                      "candidate_account_name": EXACT_REVENUE_ACCOUNT_NAME,
+                      "annual_revenue_y0": annual_y0,
+                      "annual_revenue_y1": annual_y1,
+                      "annual_revenue_y2": annual_y2,
+                      "h1_current_revenue": h1_cur_v,
+                      "q1_current_revenue": q1_cur_v,
+                      "q2_current_revenue": q2_cur,
+                      "h1_previous_revenue": h1_prev_v,
+                      "q1_previous_revenue": q1_prev_v,
+                      "q2_previous_revenue": q2_prev,
+                      "q2_revenue_yoy_pct": q2_yoy,
+                      "h1_revenue_yoy_pct": h1_yoy,
+                      "financial_cache_revenue": fin_revenue,
+                      "financial_cache_previous_revenue": fin_prev_revenue,
+                      "financial_cache_revenue_yoy_pct": fin_revenue_yoy,
+                      "financial_cache_current_exact_match": "TRUE" if match_current else "FALSE",
+                      "financial_cache_previous_exact_match": "TRUE" if match_previous else "FALSE",
+                      "financial_cache_yoy_exact_match": "TRUE" if match_yoy else "FALSE",
+                      "annual_3y_positive_complete": "TRUE" if positive_annual else "FALSE",
+                      "q2_previous_positive": "TRUE" if positive_q2_denominator else "FALSE",
+                      "all_required_periods_complete": "TRUE" if period_complete else "FALSE",
+                      "semantic_extension_auto_approved": "FALSE",
+                      "source_contract_changed": "FALSE",
+                  })
+
+              write_csv(OUT_CSV, out_rows, list(out_rows[0].keys()))
+
+              if len(fully_aligned) + len(mismatch) != 5:
+                  raise RuntimeError("V8112_CLASSIFICATION_COUNT_INVALID")
+
+              next_step = (
+                  "SHADOW_TEST_EXPLICIT_NARROW_CIS_INTEREST_REVENUE_EXTENSION_FOR_FIVE_FINANCIAL_TICKERS"
+                  if len(fully_aligned) == 5
+                  else "REVIEW_FINANCIAL_REVENUE_SEMANTIC_MISMATCHES_BEFORE_ANY_EXTENSION"
+              )
+
+              summary = {
+                  "version": VERSION,
+                  "v8111_version": V8111_VERSION,
+                  "v8110_version": V8110_VERSION,
+                  "v8111_result_commit": V8111_RESULT_COMMIT,
+                  "v8110_result_commit": V8110_RESULT_COMMIT,
+                  "policy_version": POLICY_VERSION,
+                  "source_contract_version": SOURCE_CONTRACT_VERSION,
+                  "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+                  "status": "AUDIT_ONLY",
+                  "target_ticker_count": 5,
+                  "target_tickers": sorted(TARGETS),
+                  "target_blocker_occurrences": EXPECTED_BLOCKERS,
+                  "candidate_statement": "CIS",
+                  "candidate_account_id": EXACT_REVENUE_ACCOUNT_ID,
+                  "candidate_account_name": EXACT_REVENUE_ACCOUNT_NAME,
+                  "fully_aligned_count": len(fully_aligned),
+                  "fully_aligned_tickers": sorted(fully_aligned),
+                  "mismatch_count": len(mismatch),
+                  "mismatch_tickers": sorted(mismatch),
+                  "all_five_financial_cache_exact_match": len(fully_aligned) == 5,
+                  "automatic_semantic_extension": {
+                      "allowed": False,
+                      "approved": False,
+                      "reason": "AUDIT_ONLY_NO_SOURCE_CONTRACT_CHANGE",
+                  },
+                  "hard_guards": {
+                      "production_api_changed": False,
+                      "production_investment_score_written": False,
+                      "scoring_policy_changed": False,
+                      "source_cache_mutated": False,
+                      "financial_cache_mutated": False,
+                      "source_contract_changed": False,
+                      "new_revenue_account_approved": False,
+                      "financial_sector_exception_created": False,
+                      "source_value_imputed": False,
+                      "h1_used_directly_as_q2": False,
+                      "ambiguous_revenue_account_promoted": False,
+                  },
+                  "next_step": next_step,
+              }
+              OUT_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+
+              log = [
+                  f"VERSION={VERSION}",
+                  "STATUS=AUDIT_ONLY",
+                  "TARGET_TICKER_COUNT=5",
+                  "TARGET_BLOCKER_OCCURRENCES=15",
+                  "CANDIDATE_STATEMENT=CIS",
+                  f"CANDIDATE_ACCOUNT_ID={EXACT_REVENUE_ACCOUNT_ID}",
+                  f"FULLY_ALIGNED_COUNT={len(fully_aligned)}",
+                  "FULLY_ALIGNED_TICKERS=" + ",".join(sorted(fully_aligned)),
+                  f"MISMATCH_COUNT={len(mismatch)}",
+                  "MISMATCH_TICKERS=" + ",".join(sorted(mismatch)),
+                  "SEMANTIC_EXTENSION_AUTO_APPROVED=false",
+                  "SOURCE_CONTRACT_CHANGED=false",
+                  "PRODUCTION_API_CHANGED=false",
+                  "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+                  "SCORING_POLICY_CHANGED=false",
+                  "SOURCE_CACHE_MUTATED=false",
+                  "FINANCIAL_CACHE_MUTATED=false",
+                  "NEW_REVENUE_ACCOUNT_APPROVED=false",
+                  "FINANCIAL_SECTOR_EXCEPTION_CREATED=false",
+                  "SOURCE_VALUE_IMPUTED=false",
+                  "H1_USED_DIRECTLY_AS_Q2=false",
+                  "AMBIGUOUS_REVENUE_ACCOUNT_PROMOTED=false",
+                  "STATUS_OK=true",
+                  f"NEXT_STEP={next_step}",
+              ]
+              OUT_LOG.write_text("\n".join(log) + "\n", encoding="utf-8")
+
+              OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+              OUT_DOC.write_text(
+                  "\n".join([
+                      "# V8.11.2 financial revenue semantic alignment audit",
+                      "",
+                      f"- Version: `{VERSION}`",
+                      "- Status: AUDIT_ONLY",
+                      "- Targets: 삼성화재, DB손해보험, 삼성카드, KB금융, BNK금융지주.",
+                      f"- Candidate: CIS / `{EXACT_REVENUE_ACCOUNT_ID}` / 이자수익.",
+                      "- The candidate is not newly approved by this workflow.",
+                      "- The audit checks whether current financial-cache revenue, previous revenue and revenue YoY are exact matches to this official account.",
+                      "- It also verifies annual 3-year values and Q2 derivation inputs across current/prior H1 and Q1.",
+                      "- Q2 is always H1 cumulative minus Q1 cumulative.",
+                      "",
+                      "## Safety",
+                      "",
+                      "- No source-contract change.",
+                      "- No financial-sector exception is created.",
+                      "- No production/cache mutation.",
+                      "- No imputation or ambiguous account promotion.",
+                      "",
+                      "## Next",
+                      "",
+                      f"`{next_step}`",
+                      "",
+                  ]),
+                  encoding="utf-8",
+              )
+
+              print("V8112_FINANCIAL_REVENUE_SEMANTIC_ALIGNMENT_AUDIT=PASS")
+              print("\n".join(log))
+
+
+          if __name__ == "__main__":
+              main()
+          PY
+
+      - name: Run V8.11.2 audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile investment_score_financial_revenue_semantic_audit_v8112.py
+          python investment_score_financial_revenue_semantic_audit_v8112.py
+          grep -q '^STATUS_OK=true$' latest/investment_score_financial_revenue_semantic_v8112_run_log_latest.txt
+
+      - name: Validate V8.11.2 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          s = json.loads(
+              Path("latest/investment_score_financial_revenue_semantic_v8112_summary_latest.json")
+              .read_text(encoding="utf-8")
+          )
+          with Path("latest/investment_score_financial_revenue_semantic_v8112.csv").open(
+              encoding="utf-8-sig", newline=""
+          ) as f:
+              rows = list(csv.DictReader(f))
+
+          expected = {"000810","005830","029780","105560","138930"}
+
+          assert s["status"] == "AUDIT_ONLY"
+          assert s["target_ticker_count"] == 5
+          assert set(s["target_tickers"]) == expected
+          assert s["target_blocker_occurrences"] == 15
+          assert s["candidate_statement"] == "CIS"
+          assert s["candidate_account_id"] == "ifrs-full_RevenueFromInterest"
+          assert len(rows) == 5
+          assert s["fully_aligned_count"] + s["mismatch_count"] == 5
+
+          row_map = {r["ticker"]: r for r in rows}
+          assert set(row_map) == expected
+          for row in rows:
+              assert row["candidate_statement"] == "CIS"
+              assert row["candidate_account_id"] == "ifrs-full_RevenueFromInterest"
+              assert row["semantic_extension_auto_approved"] == "FALSE"
+              assert row["source_contract_changed"] == "FALSE"
+
+          assert s["automatic_semantic_extension"]["allowed"] is False
+          assert s["automatic_semantic_extension"]["approved"] is False
+          assert all(v is False for v in s["hard_guards"].values())
+          print("V8112_OUTPUT_VALIDATION=PASS")
+          PY
+
+      - name: Verify protected files unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_source_enricher_v854.py \
+            latest/investment_score_remaining_blockers_v8111_summary_latest.json \
+            latest/investment_score_annual_quarter_reaudit_v8110.csv \
+            latest/investment_score_annual_quarter_reaudit_v8110_summary_latest.json \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_source_cache_latest.csv \
+            > /tmp/v8112_protected.after
+          diff -u /tmp/v8112_protected.before /tmp/v8112_protected.after
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "investment_score_financial_revenue_semantic_audit_v8112.py",
+              "latest/investment_score_financial_revenue_semantic_v8112.csv",
+              "latest/investment_score_financial_revenue_semantic_v8112_summary_latest.json",
+              "latest/investment_score_financial_revenue_semantic_v8112_run_log_latest.txt",
+              "docs/investment_score_financial_revenue_semantic_v8112.md",
+          }
+          changed = {
+              line[3:]
+              for line in subprocess.check_output(
+                  ["git", "status", "--porcelain"], text=True
+              ).splitlines()
+              if line
+          }
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit("UNEXPECTED_CHANGED_FILES:" + ",".join(unexpected))
+          print("V8112_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+      - name: Refuse concurrent protected input drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          python - <<'PY'
+          import subprocess
+
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "investment_score_source_enricher_v854.py",
+              "latest/investment_score_remaining_blockers_v8111_summary_latest.json",
+              "latest/investment_score_annual_quarter_reaudit_v8110.csv",
+              "latest/investment_score_annual_quarter_reaudit_v8110_summary_latest.json",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/investment_score_source_cache_latest.csv",
+          }
+          upstream = set(
+              subprocess.check_output(
+                  ["git", "diff", "--name-only", "HEAD..origin/main"],
+                  text=True,
+              ).splitlines()
+          )
+          dangerous = sorted(protected & upstream)
+          if dangerous:
+              raise SystemExit(
+                  "CONCURRENT_PROTECTED_INPUT_DRIFT:" + ",".join(dangerous)
+              )
+          print("V8112_NO_CONCURRENT_PROTECTED_INPUT_DRIFT=PASS")
+          PY
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_financial_revenue_semantic_audit_v8112.py \
+            latest/investment_score_financial_revenue_semantic_v8112.csv \
+            latest/investment_score_financial_revenue_semantic_v8112_summary_latest.json \
+            latest/investment_score_financial_revenue_semantic_v8112_run_log_latest.txt \
+            docs/investment_score_financial_revenue_semantic_v8112.md
+
+          if git diff --cached --quiet; then
+            echo "NO_CHANGES_TO_COMMIT"
+            exit 0
+          fi
+
+          git commit -m "Audit financial revenue semantic alignment v8.11.2"
+          git pull --rebase origin main
+          git push origin HEAD:main

@@ -476,7 +476,7 @@ def main() -> int:
             encoding="utf-8"
         )
         instruction_tokens = (
-            "2026-09-11-v6.9.1-metric-glossary-footer",
+            "2026-09-12-v8.7.0-sector-rs-production-release",
             "5-1. V8.0 요청시점 최종 표시",
             "request_time_final_recommendation_mark",
             "가치매수구간 위 · 1차 익절구간 전",

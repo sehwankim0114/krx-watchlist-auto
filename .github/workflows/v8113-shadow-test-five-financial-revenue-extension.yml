@@ -1,4 +1,4 @@
-name: Shadow-test five financial revenue extension v8.11.3
+name: Shadow-test five financial revenue extension v8.11.3 validation-fix
 
 on:
   workflow_dispatch:
@@ -75,7 +75,7 @@ jobs:
 
           import investment_score_source_extension_v8111 as v8111
 
-          VERSION = "2026-09-16-v8.11.3-shadow-five-financial-revenue-extension"
+          VERSION = "2026-09-16-v8.11.3-validation-fix-q2-column-map"
           V8111_VERSION = "2026-09-16-v8.11.1-validation-fix-preserve-daegu-baseline-row"
           V8112_VERSION = "2026-09-16-v8.11.2-financial-revenue-semantic-alignment-audit"
           V8111_RESULT_COMMIT = "295dd21da55135c5d26b89cebb6318ade7b09211"
@@ -98,14 +98,16 @@ jobs:
               "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
               "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
           }
-          REVENUE_FIELDS = (
-              "annual_revenue_y0",
-              "annual_revenue_y1",
-              "annual_revenue_y2",
-              "q2_revenue_current",
-              "q2_revenue_previous",
-              "q2_revenue_yoy_pct",
-          )
+          REVENUE_FIELD_MAP = {
+              # raw source-cache field -> V8.11.2 evidence CSV field
+              "annual_revenue_y0": "annual_revenue_y0",
+              "annual_revenue_y1": "annual_revenue_y1",
+              "annual_revenue_y2": "annual_revenue_y2",
+              "q2_revenue_current": "q2_current_revenue",
+              "q2_revenue_previous": "q2_previous_revenue",
+              "q2_revenue_yoy_pct": "q2_revenue_yoy_pct",
+          }
+          REVENUE_FIELDS = tuple(REVENUE_FIELD_MAP)
           OP_FIELDS_REQUIRED_UNCHANGED = (
               "annual_operating_profit_y0",
               "annual_operating_profit_y1",
@@ -250,9 +252,11 @@ jobs:
                       raise RuntimeError("V8113_V8112_ROW_STATEMENT_CHANGED:" + code)
                   if row.get("candidate_account_id") != "ifrs-full_RevenueFromInterest":
                       raise RuntimeError("V8113_V8112_ROW_ACCOUNT_CHANGED:" + code)
-                  for field in REVENUE_FIELDS:
-                      if num(row.get(field)) is None:
-                          raise RuntimeError(f"V8113_V8112_FIELD_MISSING:{code}:{field}")
+                  for raw_field, evidence_field in REVENUE_FIELD_MAP.items():
+                      if num(row.get(evidence_field)) is None:
+                          raise RuntimeError(
+                              f"V8113_V8112_FIELD_MISSING:{code}:{raw_field}<-{evidence_field}"
+                          )
 
               return rows12
 
@@ -339,11 +343,11 @@ jobs:
 
                   patched = dict(original)
                   changed = []
-                  for field in REVENUE_FIELDS:
-                      value = evidence[field]
-                      if str(patched.get(field) or "") != str(value):
-                          changed.append(field)
-                      patched[field] = value
+                  for raw_field, evidence_field in REVENUE_FIELD_MAP.items():
+                      value = evidence[evidence_field]
+                      if str(patched.get(raw_field) or "") != str(value):
+                          changed.append(raw_field)
+                      patched[raw_field] = value
 
                   # Preserve every non-revenue raw-source field byte-for-byte.
                   for field in raw_fields:
@@ -363,7 +367,10 @@ jobs:
                       "candidate_statement": evidence["candidate_statement"],
                       "candidate_account_id": evidence["candidate_account_id"],
                       "candidate_account_name": evidence["candidate_account_name"],
-                      **{field: evidence[field] for field in REVENUE_FIELDS},
+                      **{
+                          raw_field: evidence[evidence_field]
+                          for raw_field, evidence_field in REVENUE_FIELD_MAP.items()
+                      },
                       "semantic_extension_auto_approved": "FALSE",
                       "source_contract_changed": "FALSE",
                       "evidence_ref": f"V8112:{V8112_RESULT_COMMIT}:{code}:EXACT_CIS_INTEREST_REVENUE_ALIGNED_WITH_FINANCIAL_CACHE",
@@ -393,6 +400,7 @@ jobs:
                   "candidate_statement": "CIS",
                   "candidate_account_id": "ifrs-full_RevenueFromInterest",
                   "validated_revenue_fields": list(REVENUE_FIELDS),
+                  "evidence_column_map": REVENUE_FIELD_MAP,
                   "semantic_extension_auto_approved": False,
                   "source_contract_changed": False,
                   "production_source_cache_mutated": False,
@@ -753,6 +761,19 @@ jobs:
               encoding="utf-8-sig", newline=""
           ) as f:
               src = list(csv.DictReader(f))
+          source_meta = json.loads(
+              Path("latest/investment_score_financial_revenue_shadow_source_v8113_summary_latest.json")
+              .read_text(encoding="utf-8")
+          )
+          assert source_meta["evidence_column_map"] == {
+              "annual_revenue_y0": "annual_revenue_y0",
+              "annual_revenue_y1": "annual_revenue_y1",
+              "annual_revenue_y2": "annual_revenue_y2",
+              "q2_revenue_current": "q2_current_revenue",
+              "q2_revenue_previous": "q2_previous_revenue",
+              "q2_revenue_yoy_pct": "q2_revenue_yoy_pct",
+          }
+
           assert len(src) == 5
           assert {x["ticker"] for x in src} == expected
           assert all(x["source_status"] == "SHADOW_CANDIDATE_ONLY" for x in src)
@@ -885,6 +906,6 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Shadow-test five financial revenue extension v8.11.3"
+          git commit -m "Fix V8113 Q2 revenue evidence column mapping"
           git pull --rebase origin main
           git push origin HEAD:main

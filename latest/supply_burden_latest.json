@@ -1,7 +1,7 @@
 {
   "script": "supply_burden_enricher.py v2.0.0-check-status-separated",
   "policy_version": "2026-07-01-v6.0-supply-status-separated",
-  "run_at_kst": "2026-09-16T10:42:52+09:00",
+  "run_at_kst": "2026-09-16T15:38:35+09:00",
   "status": "LIMITED",
   "check_scope": "DART 최근 90일 공시 제목 기준",
   "check_limited_reason": "DART_WHOLE_MARKET_LOOKBACK_CAPPED_90D_FROM_180D",
@@ -10,32 +10,32 @@
   "effective_lookback_days": 90,
   "dart_whole_market_max_days": 90,
   "target_tickers": 2706,
-  "hit_reports": 11218,
+  "hit_reports": 11287,
   "supply_burden_detected_tickers": 1757,
-  "danger_tickers": 598,
-  "warning_tickers": 624,
-  "caution_tickers": 535,
+  "danger_tickers": 599,
+  "warning_tickers": 626,
+  "caution_tickers": 532,
   "dart_status": {
     "bgn_de": "20260618",
     "end_de": "20260916",
     "lookback_days": 90,
     "corp_cls": {
       "Y": {
-        "pages_requested": 153,
-        "total_page": 153,
-        "raw_reports": 15236,
-        "target_reports": 15236,
-        "matched_reports": 4091
+        "pages_requested": 154,
+        "total_page": 154,
+        "raw_reports": 15327,
+        "target_reports": 15327,
+        "matched_reports": 4136
       },
       "K": {
         "pages_requested": 166,
         "total_page": 166,
-        "raw_reports": 16512,
-        "target_reports": 16406,
-        "matched_reports": 7127
+        "raw_reports": 16567,
+        "target_reports": 16460,
+        "matched_reports": 7151
       }
     },
-    "api_calls": 319,
+    "api_calls": 320,
     "api_errors": []
   },
   "enrich_results": [
@@ -134,7 +134,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 24,
+      "burden_detected_rows": 25,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -154,7 +154,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 24,
+      "burden_detected_rows": 25,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -224,7 +224,7 @@
       "status": "OK",
       "rows": 20,
       "matched_rows": 20,
-      "burden_detected_rows": 18,
+      "burden_detected_rows": 16,
       "check_limited_rows": 20,
       "check_failed_rows": 0,
       "note": ""
@@ -244,7 +244,7 @@
       "status": "OK",
       "rows": 20,
       "matched_rows": 20,
-      "burden_detected_rows": 18,
+      "burden_detected_rows": 16,
       "check_limited_rows": 20,
       "check_failed_rows": 0,
       "note": ""

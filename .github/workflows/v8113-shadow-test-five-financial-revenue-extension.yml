@@ -1,4 +1,4 @@
-name: Shadow-test five financial revenue extension v8.11.3 validation-fix
+name: Shadow-test five financial revenue extension v8.11.3 validation-fix2
 
 on:
   workflow_dispatch:
@@ -75,7 +75,7 @@ jobs:
 
           import investment_score_source_extension_v8111 as v8111
 
-          VERSION = "2026-09-16-v8.11.3-validation-fix-q2-column-map"
+          VERSION = "2026-09-16-v8.11.3-validation-fix2-hard-guard-types"
           V8111_VERSION = "2026-09-16-v8.11.1-validation-fix-preserve-daegu-baseline-row"
           V8112_VERSION = "2026-09-16-v8.11.2-financial-revenue-semantic-alignment-audit"
           V8111_RESULT_COMMIT = "295dd21da55135c5d26b89cebb6318ade7b09211"
@@ -743,12 +743,26 @@ jobs:
               assert target["resolved_blocker_count"] == 3
               assert target["raw_overlay_audit"]["non_revenue_field_change_count"] == 0
               assert target["raw_overlay_audit"]["baseline_operating_profit_fields_preserved"] is True
+          boolean_false_guards = {
+              "production_api_changed",
+              "production_investment_score_written",
+              "scoring_policy_changed",
+              "source_cache_mutated",
+              "financial_cache_mutated",
+              "source_contract_changed",
+              "new_revenue_account_auto_approved",
+              "financial_sector_exception_promoted",
+              "source_value_imputed",
+              "h1_used_directly_as_q2",
+              "ambiguous_revenue_account_promoted",
+              "v8111_baseline_mutated",
+          }
           assert all(
-              v is False
-              for k, v in s["hard_guards"].items()
-              if k not in {"non_target_score_rows_unchanged"}
+              s["hard_guards"][k] is False
+              for k in boolean_false_guards
           )
           assert s["hard_guards"]["non_target_score_rows_unchanged"] is True
+          assert s["hard_guards"]["ready_regression_count"] == 0
 
           b = json.loads(
               Path("latest/investment_score_remaining_blockers_v8113_summary_latest.json")
@@ -906,6 +920,6 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Fix V8113 Q2 revenue evidence column mapping"
+          git commit -m "Fix V8113 hard-guard output validation types"
           git pull --rebase origin main
           git push origin HEAD:main

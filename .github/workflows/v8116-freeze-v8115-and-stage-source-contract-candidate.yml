@@ -1,4 +1,4 @@
-name: Freeze V8115 evidence and stage source contract candidate v8.11.6 validation-fix
+name: Freeze V8115 evidence and stage source contract candidate v8.11.6 validation-fix2
 
 on:
   workflow_dispatch:
@@ -849,7 +849,13 @@ jobs:
           changed = {
               line[3:]
               for line in subprocess.check_output(
-                  ["git","status","--porcelain"], text=True
+                  [
+                      "git",
+                      "status",
+                      "--porcelain",
+                      "--untracked-files=all",
+                  ],
+                  text=True,
               ).splitlines()
               if line
           }

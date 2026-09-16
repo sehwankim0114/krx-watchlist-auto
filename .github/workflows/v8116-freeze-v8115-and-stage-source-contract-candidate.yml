@@ -1,4 +1,4 @@
-name: Freeze V8115 evidence and stage source contract candidate v8.11.6
+name: Freeze V8115 evidence and stage source contract candidate v8.11.6 validation-fix
 
 on:
   workflow_dispatch:
@@ -31,6 +31,13 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Capture protected hashes and lineage
         shell: bash

@@ -1,0 +1,799 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import copy
+import csv
+import json
+from collections import Counter
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import investment_score_source_extension_v8109 as base
+
+VERSION = "2026-09-16-v8.11.1-validation-fix-preserve-daegu-baseline-row"
+V8109_VERSION = "2026-09-16-v8.10.9-freeze-v8106-source-against-frozen-v8102-validation-fix"
+V8110_VERSION = "2026-09-16-v8.11.0-annual-quarter-official-revenue-recovery-audit"
+V8109_RESULT_COMMIT = "703a902f546b257d5e2aac3fcc4f37636bc72ec3"
+V8110_RESULT_COMMIT = "54aa99da306fc8c5cb5c8ee8c501606f45aa6c51"
+POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+SOURCE_CONTRACT_VERSION = "2026-09-10-v8.5.4-investment-score-source-contract"
+
+ROOT = Path(".")
+KST = ZoneInfo("Asia/Seoul")
+
+TARGET = "006370"
+TARGET_NAME = "대구백화점"
+CLAIMED_SOURCE_REASONS = {
+    "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+    "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+    "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+}
+ALLOWED_SUCCESSOR_REASON = "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE"
+ALLOWED_CASCADE_RESOLVED = {
+    "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+    "PSR 또는 대체 가치지표:MISSING_PSR_INPUT",
+}
+
+EXPECTED_TARGET_AFTER = {
+    "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
+    "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
+}
+
+V8109_CSV = ROOT / "latest/investment_score_v880_dry_run_v8109_latest.csv"
+V8109_JSON = ROOT / "latest/investment_score_v880_dry_run_v8109_summary_latest.json"
+V8109_BLOCK_JSON = ROOT / "latest/investment_score_remaining_blockers_v8109_summary_latest.json"
+V8109_SOURCE_CSV = ROOT / "latest/investment_score_source_cache_extension_v8109.csv"
+V8109_SOURCE_JSON = ROOT / "latest/investment_score_source_cache_extension_v8109_summary_latest.json"
+
+V8110_CSV = ROOT / "latest/investment_score_annual_quarter_reaudit_v8110.csv"
+V8110_JSON = ROOT / "latest/investment_score_annual_quarter_reaudit_v8110_summary_latest.json"
+
+SOURCE_CSV = ROOT / "latest/investment_score_source_cache_extension_v8111.csv"
+SOURCE_JSON = ROOT / "latest/investment_score_source_cache_extension_v8111_summary_latest.json"
+SOURCE_LOG = ROOT / "latest/investment_score_source_cache_extension_v8111_run_log_latest.txt"
+SOURCE_DOC = ROOT / "docs/investment_score_source_cache_extension_v8111.md"
+
+OUT_CSV = ROOT / "latest/investment_score_v880_dry_run_v8111_latest.csv"
+OUT_JSON = ROOT / "latest/investment_score_v880_dry_run_v8111_summary_latest.json"
+OUT_LOG = ROOT / "latest/investment_score_v880_dry_run_v8111_run_log_latest.txt"
+OUT_DOC = ROOT / "docs/investment_score_v880_dry_run_v8111.md"
+
+BLOCK_CSV = ROOT / "latest/investment_score_remaining_blockers_v8111.csv"
+BLOCK_JSON = ROOT / "latest/investment_score_remaining_blockers_v8111_summary_latest.json"
+BLOCK_LOG = ROOT / "latest/investment_score_remaining_blockers_v8111_run_log_latest.txt"
+BLOCK_DOC = ROOT / "docs/investment_score_remaining_blockers_v8111.md"
+
+CONTROL_CSV = Path("/tmp/investment_score_v8111_control.csv")
+CONTROL_JSON = Path("/tmp/investment_score_v8111_control.json")
+CONTROL_LOG = Path("/tmp/investment_score_v8111_control.log")
+CONTROL_DOC = Path("/tmp/investment_score_v8111_control.md")
+SHADOW_RAW = Path("/tmp/investment_score_source_cache_v8111_shadow.csv")
+SHADOW_FIN = Path("/tmp/financial_valuation_cache_v8111_shadow.csv")
+
+RAW_VALIDATED_FIELDS = (
+    "annual_revenue_y0",
+    "annual_revenue_y1",
+    "annual_revenue_y2",
+    "annual_operating_profit_y0",
+    "annual_operating_profit_y1",
+    "annual_operating_profit_y2",
+    "q2_revenue_current",
+    "q2_revenue_previous",
+    "q2_revenue_yoy_pct",
+    "q2_operating_profit_current",
+    "q2_operating_profit_previous",
+    "q2_operating_profit_yoy_pct",
+)
+
+
+def ticker(value):
+    text = "".join(ch for ch in str(value or "") if ch.isdigit())
+    return text.zfill(6) if text else ""
+
+
+def num(value):
+    try:
+        text = str(value or "").strip().replace(",", "")
+        if text in {"", "-", "None", "null", "nan", "NaN"}:
+            return None
+        return float(text)
+    except Exception:
+        return None
+
+
+def read_json(path: Path):
+    return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
+def read_csv(path: Path):
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def read_csv_with_fields(path: Path):
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+        fields = list(reader.fieldnames or [])
+    return rows, fields
+
+
+def write_csv(path: Path, rows, fields):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def missing_items(row):
+    return {
+        x for x in str(row.get("missing_components") or "").split(";")
+        if x
+    }
+
+
+def validate_inputs():
+    required = [
+        V8109_CSV, V8109_JSON, V8109_BLOCK_JSON,
+        V8109_SOURCE_CSV, V8109_SOURCE_JSON,
+        V8110_CSV, V8110_JSON,
+    ]
+    for path in required:
+        if not path.is_file():
+            raise RuntimeError("MISSING_REQUIRED_SOURCE:" + str(path))
+
+    s8109 = read_json(V8109_JSON)
+    if s8109.get("version") != V8109_VERSION:
+        raise RuntimeError("V8109_VERSION_MISMATCH")
+    if s8109.get("status") != "DRY_RUN_ONLY":
+        raise RuntimeError("V8109_STATUS_MISMATCH")
+    if int(s8109.get("ready_count") or 0) != 56:
+        raise RuntimeError("V8109_READY_NOT_56")
+    if int(s8109.get("limited_count") or 0) != 56:
+        raise RuntimeError("V8109_LIMITED_NOT_56")
+    recheck = s8109.get("v8109_source_extension_recheck") or {}
+    if recheck.get("baseline_control_exact_match") is not True:
+        raise RuntimeError("V8109_BASELINE_CONTROL_NOT_EXACT")
+    if int(recheck.get("after_blocker_occurrences") or 0) != 280:
+        raise RuntimeError("V8109_BLOCKERS_NOT_280")
+    if int(recheck.get("after_source_cache_blockers") or 0) != 57:
+        raise RuntimeError("V8109_SOURCE_CACHE_BLOCKERS_NOT_57")
+
+    b8109 = read_json(V8109_BLOCK_JSON)
+    if b8109.get("version") != V8109_VERSION:
+        raise RuntimeError("V8109_BLOCK_VERSION_MISMATCH")
+    if int(b8109.get("limited_blocker_occurrences") or 0) != 280:
+        raise RuntimeError("V8109_BLOCK_SUMMARY_NOT_280")
+    if int((b8109.get("source_group_counts") or {}).get("INVESTMENT_SCORE_SOURCE_CACHE") or 0) != 57:
+        raise RuntimeError("V8109_BLOCK_SOURCE_CACHE_NOT_57")
+
+    s8110 = read_json(V8110_JSON)
+    if s8110.get("version") != V8110_VERSION:
+        raise RuntimeError("V8110_VERSION_MISMATCH")
+    if s8110.get("status") != "AUDIT_ONLY":
+        raise RuntimeError("V8110_STATUS_MISMATCH")
+    if int(s8110.get("current_contract_fully_recoverable_count") or 0) != 1:
+        raise RuntimeError("V8110_FULLY_RECOVERABLE_COUNT_NOT_1")
+    if s8110.get("current_contract_fully_recoverable_tickers") != [TARGET]:
+        raise RuntimeError("V8110_FULLY_RECOVERABLE_SET_MISMATCH")
+    if int(s8110.get("recoverable_blocker_occurrence_count") or 0) != 3:
+        raise RuntimeError("V8110_RECOVERABLE_BLOCKERS_NOT_3")
+    if int(s8110.get("official_revenue_semantic_audit_count") or 0) != 5:
+        raise RuntimeError("V8110_SEMANTIC_AUDIT_COUNT_NOT_5")
+    if any(v is not False for v in (s8110.get("hard_guards") or {}).values()):
+        raise RuntimeError("V8110_HARD_GUARD_NOT_FALSE")
+
+    rows8110 = read_csv(V8110_CSV)
+    row = next((r for r in rows8110 if ticker(r.get("ticker")) == TARGET), None)
+    if row is None:
+        raise RuntimeError("V8110_TARGET_ROW_MISSING")
+    if row.get("classification") != "CURRENT_V854_CONTRACT_FULLY_RECOVERABLE":
+        raise RuntimeError("V8110_TARGET_CLASSIFICATION_CHANGED")
+    if int(row.get("recoverable_blocker_count") or 0) != 3:
+        raise RuntimeError("V8110_TARGET_RECOVERABLE_COUNT_NOT_3")
+    if str(row.get("all_three_blockers_recoverable") or "").upper() != "TRUE":
+        raise RuntimeError("V8110_TARGET_NOT_ALL_THREE_RECOVERABLE")
+
+    rec = json.loads(row.get("blocker_recoverability_json") or "{}")
+    if set(rec) != CLAIMED_SOURCE_REASONS or not all(rec.values()):
+        raise RuntimeError("V8110_TARGET_REASON_EVIDENCE_MISMATCH")
+
+    values = json.loads(row.get("official_values_json") or "{}")
+    for field in RAW_VALIDATED_FIELDS:
+        if num(values.get(field)) is None:
+            raise RuntimeError(f"V8110_VALIDATED_FIELD_MISSING:{field}")
+    if num(values.get("financial_revenue_yoy_pct")) is None:
+        raise RuntimeError("V8110_FINANCIAL_REVENUE_YOY_MISSING")
+
+    return row, values
+
+
+def reproduce_v8109_exact():
+    # Reuse the already-tested V8.10.9 immutable V8.10.2 lineage builder,
+    # but never call its tracked-output writer.
+    base.validate_contracts()
+    base.materialize_v8102_frozen_inputs()
+
+    prior_source_rows = read_csv(V8109_SOURCE_CSV)
+    prior_source_map = {
+        ticker(r.get("ticker")): r
+        for r in prior_source_rows
+        if ticker(r.get("ticker"))
+    }
+    if set(prior_source_map) != {"001530", "066575"}:
+        raise RuntimeError("V8109_PRIOR_SOURCE_EXTENSION_SET_CHANGED")
+
+    shadow_prod = base.build_supply_overlay()
+    _, da_shadow_stats = base.reproduce_v8102_control(shadow_prod)
+    base.build_shadow_raw(prior_source_map)
+    base.build_shadow_fin(prior_source_map)
+
+    base.run_scorer(
+        CONTROL_CSV, CONTROL_JSON, CONTROL_LOG, CONTROL_DOC,
+        base.SHADOW_RAW, base.SHADOW_FIN, shadow_prod,
+        "2026-09-16-v8.11.1-control-reproduce-v8109",
+    )
+
+    expected_rows = read_csv(V8109_CSV)
+    control_rows = read_csv(CONTROL_CSV)
+    expected = {ticker(r.get("ticker")): r for r in expected_rows}
+    control = {ticker(r.get("ticker")): r for r in control_rows}
+
+    if len(expected) != 112 or len(control) != 112:
+        raise RuntimeError("V8111_CONTROL_ROW_COUNT_NOT_112")
+    if set(expected) != set(control):
+        raise RuntimeError("V8111_CONTROL_TICKER_UNIVERSE_CHANGED")
+
+    diffs = [code for code in sorted(expected) if expected[code] != control[code]]
+    if diffs:
+        raise RuntimeError(
+            "V8111_CONTROL_NOT_EXACT_V8109:" + ",".join(diffs)
+        )
+
+    summary = read_json(CONTROL_JSON)
+    if int(summary.get("ready_count") or 0) != 56:
+        raise RuntimeError("V8111_CONTROL_READY_NOT_56")
+    if int(summary.get("limited_count") or 0) != 56:
+        raise RuntimeError("V8111_CONTROL_LIMITED_NOT_56")
+
+    return expected, shadow_prod, da_shadow_stats
+
+
+def freeze_source_extension(audit_row, values):
+    source_row = {
+        "ticker": TARGET,
+        "name": audit_row.get("name") or TARGET_NAME,
+        "market": audit_row.get("market") or "KOSPI",
+        "source_status": "SOURCE_EXTENSION_ONLY_READY",
+        "source_version": VERSION,
+        "v8110_classification": audit_row.get("classification") or "",
+        "corp_code": audit_row.get("corp_code") or "",
+        "preferred_fs_div": audit_row.get("preferred_fs_div") or "",
+        "claimed_source_blocker_count": 3,
+        "claimed_source_blocker_reasons": ";".join(sorted(CLAIMED_SOURCE_REASONS)),
+        "financial_revenue_yoy_pct": values["financial_revenue_yoy_pct"],
+        **{field: values[field] for field in RAW_VALIDATED_FIELDS},
+        "evidence_ref": (
+            f"V8110:{V8110_RESULT_COMMIT}:"
+            "CURRENT_V854_CONTRACT_FULLY_RECOVERABLE:006370"
+        ),
+    }
+    fields = list(source_row.keys())
+    write_csv(SOURCE_CSV, [source_row], fields)
+
+    summary = {
+        "version": VERSION,
+        "v8109_version": V8109_VERSION,
+        "v8110_version": V8110_VERSION,
+        "v8109_result_commit": V8109_RESULT_COMMIT,
+        "v8110_result_commit": V8110_RESULT_COMMIT,
+        "policy_version": POLICY_VERSION,
+        "source_contract_version": SOURCE_CONTRACT_VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+        "status": "SOURCE_EXTENSION_ONLY_READY",
+        "source_count": 1,
+        "source_tickers": [TARGET],
+        "claimed_source_blocker_occurrences": 3,
+        "validated_raw_fields": list(RAW_VALIDATED_FIELDS),
+        "automatic_production_patch": {
+            "allowed": False,
+            "patched_ticker_count": 0,
+        },
+        "hard_guards": {
+            "production_api_changed": False,
+            "production_investment_score_written": False,
+            "scoring_policy_changed": False,
+            "source_cache_mutated": False,
+            "financial_cache_mutated": False,
+            "deep_source_promoted": False,
+            "da_source_promoted": False,
+            "netcash_source_promoted": False,
+            "source_value_imputed": False,
+            "semantic_financial_sector_rule_changed": False,
+        },
+        "next_step": "SHADOW_DRY_RUN_AGAINST_EXACT_V8109_BASELINE",
+    }
+    SOURCE_JSON.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    SOURCE_LOG.write_text(
+        "\n".join([
+            f"VERSION={VERSION}",
+            "STATUS=SOURCE_EXTENSION_ONLY_READY",
+            "SOURCE_COUNT=1",
+            "SOURCE_TICKERS=006370",
+            "CLAIMED_SOURCE_BLOCKERS=3",
+            "DEEP_SOURCE_PROMOTED=false",
+            "DA_SOURCE_PROMOTED=false",
+            "NETCASH_SOURCE_PROMOTED=false",
+            "SOURCE_VALUE_IMPUTED=false",
+            "SEMANTIC_FINANCIAL_SECTOR_RULE_CHANGED=false",
+        ]) + "\n",
+        encoding="utf-8",
+    )
+    SOURCE_DOC.parent.mkdir(parents=True, exist_ok=True)
+    SOURCE_DOC.write_text(
+        "\n".join([
+            "# V8.11.1 Daegu Department Store source-only extension",
+            "",
+            f"- Version: `{VERSION}`",
+            "- Ticker: 006370 대구백화점",
+            "- Evidence: V8.11.0 current V8.5.4 contract fully recovered all three source-cache missing-input reasons.",
+            "- Only validated annual/Q2 revenue and operating-profit fields are exposed to the shadow scorer.",
+            "- Deep cash/debt/D&A fields are deliberately blanked in the shadow row.",
+            "- No production cache is changed.",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+    return source_row
+
+
+def build_overlay_shadow_raw(source_row):
+    rows, fields = read_csv_with_fields(base.SHADOW_RAW)
+    if not rows or not fields:
+        raise RuntimeError("V8111_BASE_SHADOW_RAW_EMPTY")
+
+    idx = None
+    original = None
+    for i, row in enumerate(rows):
+        if ticker(row.get("ticker")) == TARGET:
+            idx = i
+            original = row
+            break
+    if idx is None or original is None:
+        raise RuntimeError("V8111_TARGET_RAW_ROW_MISSING")
+    if original.get("source_cache_status") != "LIMITED_RAW_SOURCE":
+        raise RuntimeError(
+            "V8111_TARGET_BASELINE_SOURCE_STATUS_CHANGED:"
+            + str(original.get("source_cache_status") or "")
+        )
+
+    patched = dict(original)
+    changed_fields = []
+    for field in RAW_VALIDATED_FIELDS:
+        before = str(original.get(field) or "")
+        after = str(source_row[field])
+        patched[field] = source_row[field]
+        if before != after:
+            changed_fields.append(field)
+
+    # Critical validation-fix:
+    # preserve every non-audited V8.10.9 field exactly.
+    for field in fields:
+        if field in RAW_VALIDATED_FIELDS:
+            continue
+        if patched.get(field) != original.get(field):
+            raise RuntimeError(
+                "V8111_NON_VALIDATED_RAW_FIELD_CHANGED:" + field
+            )
+
+    rows[idx] = patched
+    write_csv(SHADOW_RAW, rows, fields)
+    return {
+        "target": TARGET,
+        "baseline_source_cache_status": original.get("source_cache_status") or "",
+        "shadow_source_cache_status": patched.get("source_cache_status") or "",
+        "baseline_row_preserved_except_validated_fields": True,
+        "validated_fields_only": list(RAW_VALIDATED_FIELDS),
+        "changed_validated_fields": changed_fields,
+        "non_validated_field_change_count": 0,
+    }
+
+
+def build_shadow_fin(source_row):
+    rows, fields = read_csv_with_fields(base.SHADOW_FIN)
+    if not rows or not fields:
+        raise RuntimeError("V8111_BASE_SHADOW_FIN_EMPTY")
+
+    target_row = None
+    for row in rows:
+        if ticker(row.get("ticker")) == TARGET:
+            target_row = row
+            break
+    if target_row is None:
+        raise RuntimeError("V8111_TARGET_FINANCIAL_ROW_MISSING")
+
+    baseline_yoy = num(target_row.get("revenue_yoy_pct"))
+    evidence_yoy = num(source_row["financial_revenue_yoy_pct"])
+    if baseline_yoy is None:
+        raise RuntimeError("V8111_BASELINE_FINANCIAL_REVENUE_YOY_MISSING")
+    if evidence_yoy is None or abs(baseline_yoy - evidence_yoy) > 1e-9:
+        raise RuntimeError(
+            f"V8111_FINANCIAL_REVENUE_YOY_CONFLICT:{baseline_yoy}!={evidence_yoy}"
+        )
+
+    # No financial-cache field is patched in V8.11.1.
+    write_csv(SHADOW_FIN, rows, fields)
+    return {
+        "field": "revenue_yoy_pct",
+        "baseline": baseline_yoy,
+        "v8110_evidence": evidence_yoy,
+        "changed": False,
+        "financial_row_preserved": True,
+    }
+
+
+def run_shadow(baseline_map, shadow_prod, source_row, da_shadow_stats):
+    raw_audit = build_overlay_shadow_raw(source_row)
+    fin_audit = build_shadow_fin(source_row)
+
+    base.run_scorer(
+        OUT_CSV, OUT_JSON, OUT_LOG, OUT_DOC,
+        SHADOW_RAW, SHADOW_FIN, shadow_prod, VERSION,
+    )
+
+    rows = read_csv(OUT_CSV)
+    if len(rows) != 112:
+        raise RuntimeError(f"V8111_OUTPUT_ROW_COUNT:{len(rows)}")
+    after_map = {ticker(r.get("ticker")): r for r in rows}
+    if set(after_map) != set(baseline_map):
+        raise RuntimeError("V8111_TICKER_UNIVERSE_CHANGED")
+
+    non_target_diffs = [
+        code for code in sorted(after_map)
+        if code != TARGET and after_map[code] != baseline_map[code]
+    ]
+    if non_target_diffs:
+        raise RuntimeError(
+            "V8111_NON_TARGET_SCORE_ROW_DRIFT:" + ",".join(non_target_diffs)
+        )
+
+    before = missing_items(baseline_map[TARGET])
+    after = missing_items(after_map[TARGET])
+
+    if not CLAIMED_SOURCE_REASONS <= before:
+        raise RuntimeError(
+            "V8111_CLAIMED_SOURCE_REASON_NOT_IN_BASELINE:"
+            + "|".join(sorted(CLAIMED_SOURCE_REASONS - before))
+        )
+    still_claimed = sorted(CLAIMED_SOURCE_REASONS & after)
+    if still_claimed:
+        raise RuntimeError(
+            "V8111_CLAIMED_SOURCE_REASON_NOT_RESOLVED:"
+            + "|".join(still_claimed)
+        )
+
+    new_reasons = after - before
+    unexpected_new = sorted(new_reasons - {ALLOWED_SUCCESSOR_REASON})
+    if unexpected_new:
+        raise RuntimeError(
+            "V8111_UNEXPECTED_NEW_REASON:" + "|".join(unexpected_new)
+        )
+    if after != EXPECTED_TARGET_AFTER:
+        raise RuntimeError(
+            "V8111_TARGET_AFTER_SET_MISMATCH:"
+            + "|".join(sorted(after))
+        )
+
+    resolved = before - after
+    cascade = resolved - CLAIMED_SOURCE_REASONS
+    unexpected_cascade = sorted(cascade - ALLOWED_CASCADE_RESOLVED)
+    if unexpected_cascade:
+        raise RuntimeError(
+            "V8111_UNEXPECTED_CASCADE_RESOLUTION:" + "|".join(unexpected_cascade)
+        )
+
+    old_ready = {
+        code for code, row in baseline_map.items()
+        if row.get("score_status") == "READY"
+    }
+    new_ready = {
+        code for code, row in after_map.items()
+        if row.get("score_status") == "READY"
+    }
+    lost_ready = sorted(old_ready - new_ready)
+    newly_ready = sorted(new_ready - old_ready)
+    if lost_ready:
+        raise RuntimeError("V8111_READY_REGRESSION:" + ",".join(lost_ready))
+
+    baseline_blockers = sum(
+        len(missing_items(row))
+        for row in baseline_map.values()
+        if row.get("score_status") == "LIMITED"
+    )
+    after_blockers = sum(
+        len(missing_items(row))
+        for row in rows
+        if row.get("score_status") == "LIMITED"
+    )
+    if baseline_blockers != 280:
+        raise RuntimeError(f"V8111_BASELINE_BLOCKERS:{baseline_blockers}!=280")
+    if after_blockers != 276:
+        raise RuntimeError(
+            f"V8111_OVERALL_BLOCKER_COUNT_NOT_276:{after_blockers}"
+        )
+
+    blocker_summary = refresh_blockers(rows)
+    source_cache_after = int(
+        (blocker_summary.get("source_group_counts") or {})
+        .get("INVESTMENT_SCORE_SOURCE_CACHE") or 0
+    )
+    if source_cache_after != 54:
+        raise RuntimeError(
+            f"V8111_SOURCE_CACHE_BLOCKERS:{source_cache_after}!=54"
+        )
+
+    score_summary = read_json(OUT_JSON)
+    score_summary["version"] = VERSION
+    score_summary["status"] = "DRY_RUN_ONLY"
+    score_summary["v8111_source_extension_recheck"] = {
+        "baseline_version": V8109_VERSION,
+        "baseline_result_commit": V8109_RESULT_COMMIT,
+        "v8110_result_commit": V8110_RESULT_COMMIT,
+        "baseline_control_exact_match": True,
+        "baseline_ready_count": len(old_ready),
+        "after_ready_count": len(new_ready),
+        "ready_delta": len(new_ready) - len(old_ready),
+        "newly_ready_tickers": newly_ready,
+        "lost_ready_tickers": lost_ready,
+        "baseline_blocker_occurrences": baseline_blockers,
+        "after_blocker_occurrences": after_blockers,
+        "blocker_occurrences_reduced_by": baseline_blockers - after_blockers,
+        "baseline_source_cache_blockers": 57,
+        "after_source_cache_blockers": source_cache_after,
+        "source_cache_blockers_reduced_by": 57 - source_cache_after,
+        "v8110_claimed_source_blockers_resolved": 3,
+        "target_ticker": TARGET,
+        "target_status_before": baseline_map[TARGET].get("score_status") or "",
+        "target_status_after": after_map[TARGET].get("score_status") or "",
+        "target_expected_missing_after": sorted(EXPECTED_TARGET_AFTER),
+        "target_missing_before": sorted(before),
+        "target_missing_after": sorted(after),
+        "target_resolved_reasons": sorted(resolved),
+        "target_cascade_resolved_reasons": sorted(cascade),
+        "target_new_reasons": sorted(new_reasons),
+        "expected_policy_successor_reason": (
+            ALLOWED_SUCCESSOR_REASON if ALLOWED_SUCCESSOR_REASON in after else None
+        ),
+        "raw_overlay_audit": raw_audit,
+        "financial_overlay_audit": fin_audit,
+        "v8109_da_shadow_reproduction": da_shadow_stats,
+        "non_target_score_row_changed_count": len(non_target_diffs),
+    }
+    score_summary["hard_guards"] = {
+        "production_api_changed": False,
+        "production_investment_score_written": False,
+        "scoring_policy_changed": False,
+        "source_cache_mutated": False,
+        "financial_cache_mutated": False,
+        "deep_source_promoted": False,
+        "da_source_promoted": False,
+        "netcash_source_promoted": False,
+        "source_value_imputed": False,
+        "financial_sector_semantic_rule_changed": False,
+        "v8109_baseline_mutated": False,
+        "non_target_score_rows_unchanged": True,
+        "ready_regression_count": 0,
+    }
+    score_summary["next_step"] = (
+        "AUDIT_V8110_OFFICIAL_REVENUE_ACCOUNT_SEMANTICS_FOR_FIVE_FINANCIAL_TICKERS"
+    )
+    OUT_JSON.write_text(
+        json.dumps(score_summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    OUT_LOG.write_text(
+        "\n".join([
+            f"VERSION={VERSION}",
+            "STATUS=DRY_RUN_ONLY",
+            "BASELINE_CONTROL_EXACT_MATCH=true",
+            f"BASELINE_READY={len(old_ready)}",
+            f"AFTER_READY={len(new_ready)}",
+            f"READY_DELTA={len(new_ready) - len(old_ready)}",
+            "NEWLY_READY_TICKERS=" + ",".join(newly_ready),
+            f"BLOCKER_OCCURRENCES={baseline_blockers}->{after_blockers}",
+            f"BLOCKER_REDUCED_BY={baseline_blockers - after_blockers}",
+            f"SOURCE_CACHE_BLOCKERS=57->{source_cache_after}",
+            "V8110_CLAIMED_SOURCE_BLOCKERS_RESOLVED=3",
+            "TARGET_RESOLVED_REASONS=" + "|".join(sorted(resolved)),
+            "TARGET_NEW_REASONS=" + "|".join(sorted(new_reasons)),
+            "NON_TARGET_SCORE_ROWS_UNCHANGED=true",
+            "READY_REGRESSION_COUNT=0",
+            "DEEP_SOURCE_PROMOTED=false",
+            "DA_SOURCE_PROMOTED=false",
+            "NETCASH_SOURCE_PROMOTED=false",
+            "SOURCE_VALUE_IMPUTED=false",
+            "FINANCIAL_SECTOR_SEMANTIC_RULE_CHANGED=false",
+            "STATUS_OK=true",
+            "NEXT_STEP=AUDIT_V8110_OFFICIAL_REVENUE_ACCOUNT_SEMANTICS_FOR_FIVE_FINANCIAL_TICKERS",
+        ]) + "\n",
+        encoding="utf-8",
+    )
+
+    OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+    OUT_DOC.write_text(
+        "\n".join([
+            "# V8.11.1 Daegu Department Store combined shadow dry-run",
+            "",
+            f"- Version: `{VERSION}`",
+            f"- Exact baseline: `{V8109_VERSION}` / commit `{V8109_RESULT_COMMIT}`",
+            "- Only 006370 receives V8.11.0 validated annual/Q2 revenue and operating-profit fields.",
+            "- The exact V8.10.9 target raw row is preserved; only the 12 V8.11.0-validated annual/Q2 fields are overlaid.",
+            "- Cash/debt/D&A/net-cash/EV-EBITDA fields are not reconstructed or altered.",
+            "- The three V8.11.0 source-gap reasons must disappear.",
+            "- If validated negative annual operating profit exposes `ANNUAL_OP_DENOM_NONPOSITIVE`, it is recorded as an unchanged V880 policy-semantic blocker rather than treated as a source failure.",
+            "- Other 111 score rows must remain byte-equivalent at CSV-row level.",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+
+    return score_summary, blocker_summary
+
+
+def refresh_blockers(rows):
+    limited = [r for r in rows if r.get("score_status") == "LIMITED"]
+    out_rows = []
+    category_counts = Counter()
+    source_counts = Counter()
+    single_counts = Counter()
+    reason_counts = Counter()
+
+    for row in limited:
+        reasons = [
+            x for x in str(row.get("missing_components") or "").split(";")
+            if x
+        ]
+        if not reasons:
+            raise RuntimeError(
+                "V8111_LIMITED_WITHOUT_BLOCKER:" + ticker(row.get("ticker"))
+            )
+        for reason in reasons:
+            category, source_group, note = base.blocker.classify(reason)
+            category_counts[category] += 1
+            source_counts[source_group] += 1
+            reason_counts[reason] += 1
+            if len(reasons) == 1:
+                single_counts[source_group] += 1
+            out_rows.append({
+                "ticker": ticker(row.get("ticker")),
+                "name": row.get("name") or "",
+                "market": row.get("market") or "",
+                "missing_component_count": len(reasons),
+                "blocker_reason": reason,
+                "blocker_category": category,
+                "source_group": source_group,
+                "single_blocker_ticker": "TRUE" if len(reasons) == 1 else "FALSE",
+                "audit_note": note,
+            })
+
+    out_rows.sort(
+        key=lambda r: (
+            int(r["missing_component_count"]),
+            r["ticker"],
+            r["blocker_reason"],
+        )
+    )
+    write_csv(BLOCK_CSV, out_rows, list(out_rows[0].keys()))
+
+    priority = []
+    for source, occurrences in source_counts.items():
+        if source == "V880_SCORING_CONTRACT":
+            continue
+        priority.append({
+            "source_group": source,
+            "single_blocker_tickers": single_counts.get(source, 0),
+            "blocker_occurrences": occurrences,
+        })
+    priority.sort(
+        key=lambda x: (
+            -x["single_blocker_tickers"],
+            -x["blocker_occurrences"],
+            x["source_group"],
+        )
+    )
+
+    semantic_five = ["000810", "005830", "029780", "105560", "138930"]
+    summary = {
+        "version": VERSION,
+        "policy_version": POLICY_VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+        "status": "AUDIT_ONLY",
+        "production_unique_tickers": 112,
+        "ready_count": len([r for r in rows if r.get("score_status") == "READY"]),
+        "limited_count": len(limited),
+        "limited_blocker_occurrences": len(out_rows),
+        "single_blocker_ticker_count": len({
+            r["ticker"] for r in out_rows
+            if r["single_blocker_ticker"] == "TRUE"
+        }),
+        "blocker_category_counts": dict(category_counts),
+        "source_group_counts": dict(source_counts),
+        "source_recovery_priority_by_single_blocker": priority,
+        "top_blocker_reasons": reason_counts.most_common(40),
+        "known_exhausted_or_deferred_lanes": {
+            "EXACT_DA_SOURCE": "V8.10.3 current approved official paths exhausted for 10 single blockers",
+            "PRODUCTION_PRICE_METRICS_SINGLE_001020": "V8.10.4 official KRX OHLC incomplete",
+            "INVESTMENT_SCORE_SOURCE_CACHE_SINGLE_357250": "V8.10.4 official full-account source incomplete",
+        },
+        "next_actionable_lane": "V8110_OFFICIAL_REVENUE_ACCOUNT_SEMANTICS",
+        "next_actionable_lane_tickers": semantic_five,
+        "next_actionable_lane_prior_blocker_occurrences": 15,
+        "hard_guards": {
+            "production_api_changed": False,
+            "production_investment_score_written": False,
+            "scoring_policy_changed": False,
+            "source_values_imputed": False,
+            "financial_sector_semantic_rule_changed": False,
+        },
+        "next_step": "AUDIT_V8110_OFFICIAL_REVENUE_ACCOUNT_SEMANTICS_FOR_FIVE_FINANCIAL_TICKERS",
+    }
+    BLOCK_JSON.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    BLOCK_LOG.write_text(
+        "\n".join([
+            f"VERSION={VERSION}",
+            "STATUS=AUDIT_ONLY",
+            f"READY_COUNT={summary['ready_count']}",
+            f"LIMITED_COUNT={summary['limited_count']}",
+            f"LIMITED_BLOCKER_OCCURRENCES={summary['limited_blocker_occurrences']}",
+            f"SOURCE_CACHE_BLOCKERS={source_counts.get('INVESTMENT_SCORE_SOURCE_CACHE', 0)}",
+            f"POLICY_BLOCKERS={source_counts.get('V880_SCORING_CONTRACT', 0)}",
+            "NEXT_ACTIONABLE_LANE=V8110_OFFICIAL_REVENUE_ACCOUNT_SEMANTICS",
+            "STATUS_OK=true",
+        ]) + "\n",
+        encoding="utf-8",
+    )
+    BLOCK_DOC.parent.mkdir(parents=True, exist_ok=True)
+    BLOCK_DOC.write_text(
+        "\n".join([
+            "# V8.11.1 remaining blocker audit",
+            "",
+            "- 006370 current-contract source recovery has been shadow-applied.",
+            "- The next source issue is the five financial-sector tickers whose official revenue-like facts are filed under CIS and are outside the current V8.5.4 usable revenue contract.",
+            "- No semantic/account-spec change is made here.",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+    return summary
+
+
+def main():
+    audit_row, values = validate_inputs()
+    baseline_map, shadow_prod, da_shadow_stats = reproduce_v8109_exact()
+    source_row = freeze_source_extension(audit_row, values)
+    score_summary, blocker_summary = run_shadow(
+        baseline_map, shadow_prod, source_row, da_shadow_stats
+    )
+
+    print("V8111_DAEGU_SOURCE_FREEZE_AND_SHADOW_DRY_RUN=PASS")
+    print(json.dumps({
+        "ready": score_summary["v8111_source_extension_recheck"]["after_ready_count"],
+        "blockers": blocker_summary["limited_blocker_occurrences"],
+        "source_cache_blockers": blocker_summary["source_group_counts"].get(
+            "INVESTMENT_SCORE_SOURCE_CACHE", 0
+        ),
+        "next_step": blocker_summary["next_step"],
+    }, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()

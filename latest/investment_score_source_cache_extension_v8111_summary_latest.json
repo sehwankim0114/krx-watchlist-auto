@@ -1,0 +1,47 @@
+{
+  "version": "2026-09-16-v8.11.1-validation-fix-preserve-daegu-baseline-row",
+  "v8109_version": "2026-09-16-v8.10.9-freeze-v8106-source-against-frozen-v8102-validation-fix",
+  "v8110_version": "2026-09-16-v8.11.0-annual-quarter-official-revenue-recovery-audit",
+  "v8109_result_commit": "703a902f546b257d5e2aac3fcc4f37636bc72ec3",
+  "v8110_result_commit": "54aa99da306fc8c5cb5c8ee8c501606f45aa6c51",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "source_contract_version": "2026-09-10-v8.5.4-investment-score-source-contract",
+  "generated_at_kst": "2026-09-16T09:51:26+09:00",
+  "status": "SOURCE_EXTENSION_ONLY_READY",
+  "source_count": 1,
+  "source_tickers": [
+    "006370"
+  ],
+  "claimed_source_blocker_occurrences": 3,
+  "validated_raw_fields": [
+    "annual_revenue_y0",
+    "annual_revenue_y1",
+    "annual_revenue_y2",
+    "annual_operating_profit_y0",
+    "annual_operating_profit_y1",
+    "annual_operating_profit_y2",
+    "q2_revenue_current",
+    "q2_revenue_previous",
+    "q2_revenue_yoy_pct",
+    "q2_operating_profit_current",
+    "q2_operating_profit_previous",
+    "q2_operating_profit_yoy_pct"
+  ],
+  "automatic_production_patch": {
+    "allowed": false,
+    "patched_ticker_count": 0
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "source_cache_mutated": false,
+    "financial_cache_mutated": false,
+    "deep_source_promoted": false,
+    "da_source_promoted": false,
+    "netcash_source_promoted": false,
+    "source_value_imputed": false,
+    "semantic_financial_sector_rule_changed": false
+  },
+  "next_step": "SHADOW_DRY_RUN_AGAINST_EXACT_V8109_BASELINE"
+}

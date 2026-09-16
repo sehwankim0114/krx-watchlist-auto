@@ -1,0 +1,66 @@
+{
+  "version": "2026-09-16-v8.11.0-annual-quarter-official-revenue-recovery-audit",
+  "v8109_version": "2026-09-16-v8.10.9-freeze-v8106-source-against-frozen-v8102-validation-fix",
+  "v8105_version": "2026-09-15-v8.10.5-investment-source-cache-root-cause-audit",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "source_contract_version": "2026-09-10-v8.5.4-investment-score-source-contract",
+  "source_script_version": "investment_score_source_enricher_v854.py v1.0.1-transient-retention-guard",
+  "generated_at_kst": "2026-09-16T09:07:40+09:00",
+  "status": "AUDIT_ONLY",
+  "target_lane": "ANNUAL_AND_QUARTER_OFFICIAL_REAUDIT",
+  "target_ticker_count": 6,
+  "target_tickers": [
+    "000810",
+    "005830",
+    "006370",
+    "029780",
+    "105560",
+    "138930"
+  ],
+  "target_blocker_occurrences": 18,
+  "classification_counts": {
+    "OFFICIAL_REVENUE_LIKE_FACTS_OUTSIDE_USABLE_CURRENT_CONTRACT": 5,
+    "CURRENT_V854_CONTRACT_FULLY_RECOVERABLE": 1
+  },
+  "current_contract_fully_recoverable_count": 1,
+  "current_contract_fully_recoverable_tickers": [
+    "006370"
+  ],
+  "current_contract_partially_recoverable_count": 0,
+  "current_contract_partially_recoverable_tickers": [],
+  "official_revenue_semantic_audit_count": 5,
+  "official_revenue_semantic_audit_tickers": [
+    "000810",
+    "005830",
+    "029780",
+    "105560",
+    "138930"
+  ],
+  "no_usable_official_revenue_fact_count": 0,
+  "no_usable_official_revenue_fact_tickers": [],
+  "recoverable_blocker_occurrence_count": 3,
+  "api_telemetry": {
+    "attempted": 60,
+    "successful": 60,
+    "transport_failures": [],
+    "dart_status_failures": []
+  },
+  "automatic_promotion": {
+    "allowed": false,
+    "promoted_ticker_count": 0
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "source_cache_mutated": false,
+    "financial_cache_mutated": false,
+    "account_spec_changed": false,
+    "new_revenue_account_name_approved": false,
+    "financial_sector_exception_created": false,
+    "source_value_imputed": false,
+    "h1_used_directly_as_q2": false,
+    "ambiguous_account_promoted": false
+  },
+  "next_step": "FREEZE_V8110_CURRENT_CONTRACT_RECOVERABLE_FIELDS_SOURCE_ONLY_THEN_SHADOW_DRY_RUN"
+}

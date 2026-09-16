@@ -1,0 +1,52 @@
+{
+  "version": "2026-09-16-v8.11.7-controlled-production-source-contract-apply",
+  "generated_at_kst": "2026-09-16T19:29:33+09:00",
+  "status": "PRODUCTION_CODE_APPLIED_SOURCE_DATA_NOT_REFRESHED",
+  "v8116_result_commit": "ef7abaeb94a69289f73eeec2affb7ad0a6c80b3c",
+  "source_contract_version": "2026-09-16-v8.11.7-five-financial-cis-interest-revenue-contract",
+  "production_source_sha256": "05df059a7574016e9cc4a418c5fba1eafa25045f70e4d423f5af99d8197309f0",
+  "v8116_staged_candidate_sha256": "ad4e1984c86a78304bbc8004d3ed38ff919664a3f8fe4ef769acc4d82329554e",
+  "applied_scope_tickers": [
+    "000810",
+    "005830",
+    "029780",
+    "105560",
+    "138930"
+  ],
+  "contract": {
+    "account_key": "revenue",
+    "statement": "CIS",
+    "account_id": "ifrs-full_RevenueFromInterest",
+    "selection_rule": "EXACT_ID_UNIQUE_ONLY",
+    "duplicate_policy": "FAIL_CLOSED_NO_SELECTION",
+    "fallback": "UNCHANGED_V854_REVENUE_LOGIC",
+    "inactive_ticker_force_insert": false,
+    "broad_financial_sector_rule": false
+  },
+  "frozen_v8115_evidence": {
+    "source_rows": 242,
+    "raw_ready_before": 222,
+    "raw_ready_after": 226,
+    "raw_ready_delta": 4,
+    "scorer_universe_count": 221,
+    "ready_before": 5,
+    "ready_after": 8,
+    "ready_delta": 3,
+    "blockers_before": 2178,
+    "blockers_after": 2166,
+    "blockers_reduced_by": 12
+  },
+  "hard_guards": {
+    "production_source_enricher_modified": true,
+    "production_source_cache_modified": false,
+    "production_source_run_log_modified": false,
+    "production_financial_cache_modified": false,
+    "production_api_modified": false,
+    "scoring_policy_modified": false,
+    "source_values_imputed": false,
+    "broad_financial_sector_rule_created": false,
+    "inactive_target_force_inserted": false,
+    "production_source_data_refresh_executed": false
+  },
+  "next_step": "RUN_PRODUCTION_SOURCE_REFRESH_AND_POST_APPLY_REGRESSION_V8118"
+}

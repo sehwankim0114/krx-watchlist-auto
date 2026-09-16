@@ -42,8 +42,8 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 
-SCRIPT_VERSION = "investment_score_source_enricher_v854.py v1.0.1-transient-retention-guard"
-SOURCE_CONTRACT_VERSION = "2026-09-10-v8.5.4-investment-score-source-contract"
+SCRIPT_VERSION = "investment_score_source_enricher_v854.py v8.11.7-five-financial-cis-interest-revenue"
+SOURCE_CONTRACT_VERSION = "2026-09-16-v8.11.7-five-financial-cis-interest-revenue-contract"
 SCORE_POLICY_VERSION = "2026-07-01-v6.0-score-policy"
 KST = ZoneInfo("Asia/Seoul")
 
@@ -56,6 +56,18 @@ RUN_LOG = "investment_score_source_run_log_latest.txt"
 
 VALID_IDENTITY = {"MATCH", "MATCH_NORMALIZED", "NAME_NOT_AVAILABLE"}
 VALID_FINANCIAL_STATUS = {"READY", "PARTIAL"}
+
+# V8.11.6 staged candidate: evidence-approved exact revenue semantics only.
+# This is intentionally ticker-scoped and fail-closed.
+FINANCIAL_REVENUE_CIS_EXACT_TICKERS = {
+    "000810",
+    "005830",
+    "029780",
+    "105560",
+    "138930",
+}
+FINANCIAL_REVENUE_CIS_EXACT_STATEMENT = "CIS"
+FINANCIAL_REVENUE_CIS_EXACT_ACCOUNT_ID = "ifrs-full_RevenueFromInterest"
 
 ACCOUNT_SPECS = {
     "revenue": {
@@ -447,6 +459,17 @@ def dominant_period(targets: Sequence[Mapping[str, str]]) -> Tuple[int, str]:
     return int(year), code
 
 
+def exact_cis_interest_revenue_hits(
+    rows: Sequence[Mapping[str, Any]],
+) -> List[Dict[str, Any]]:
+    return [
+        dict(row)
+        for row in rows
+        if norm_text(row.get("sj_div")) == FINANCIAL_REVENUE_CIS_EXACT_STATEMENT
+        and norm_text(row.get("account_id")) == FINANCIAL_REVENUE_CIS_EXACT_ACCOUNT_ID
+    ]
+
+
 def query_multi_period(
     client: OpenDartClient,
     targets: Sequence[Mapping[str, str]],
@@ -474,8 +497,51 @@ def query_multi_period(
             if corp_code and fs_div:
                 result[corp_code][fs_div].append(dict(item))
         time.sleep(0.08)
-    return result
 
+    # Narrow staged extension:
+    # only audited tickers receive one exact CIS interest-revenue row from
+    # the official full-account endpoint. No fuzzy alias or sector-wide rule.
+    for target in targets:
+        ticker = clean_ticker(target.get("ticker"))
+        if ticker not in FINANCIAL_REVENUE_CIS_EXACT_TICKERS:
+            continue
+
+        corp_code = clean_corp_code(target.get("corp_code"))
+        fs_div = norm_text(target.get("preferred_fs_div")) or "CFS"
+        if not corp_code:
+            continue
+
+        payload = client.get_json(
+            FULL_ACCOUNT_URL,
+            {
+                "corp_code": corp_code,
+                "bsns_year": str(year),
+                "reprt_code": report_code,
+                "fs_div": fs_div,
+            },
+            f"narrow-revenue:{ticker}:{year}:{report_code}:{fs_div}",
+        )
+        status = norm_text(payload.get("status"))
+        items = payload.get("list") if isinstance(payload.get("list"), list) else []
+        if status != "000":
+            continue
+
+        hits = exact_cis_interest_revenue_hits(items)
+        if len(hits) != 1:
+            # Fail closed: ambiguous or absent exact account is not promoted.
+            continue
+
+        selected_rows = result[corp_code][fs_div]
+        preexisting = exact_cis_interest_revenue_hits(selected_rows)
+        if len(preexisting) > 1:
+            raise RuntimeError(
+                "AMBIGUOUS_PREEXISTING_EXACT_CIS_INTEREST_REVENUE:"
+                f"{ticker}:{year}:{report_code}:{len(preexisting)}"
+            )
+        if not preexisting:
+            selected_rows.append(hits[0])
+
+    return result
 
 def select_fs_rows(
     by_fs: Mapping[str, Sequence[Mapping[str, Any]]],
@@ -492,13 +558,32 @@ def select_fs_rows(
     return "", []
 
 
-def account_values(rows: Sequence[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
+def account_values(
+    rows: Sequence[Mapping[str, Any]],
+    ticker: str = "",
+) -> Dict[str, Dict[str, Any]]:
     output: Dict[str, Dict[str, Any]] = {}
+    ticker = clean_ticker(ticker)
+
     for key, spec in ACCOUNT_SPECS.items():
-        chosen = choose_account(rows, spec)
+        chosen = None
+
+        if key == "revenue" and ticker in FINANCIAL_REVENUE_CIS_EXACT_TICKERS:
+            exact_hits = exact_cis_interest_revenue_hits(rows)
+            if len(exact_hits) == 1:
+                chosen = exact_hits[0]
+            elif len(exact_hits) > 1:
+                # Fail closed; never guess among duplicate exact rows.
+                chosen = None
+            else:
+                chosen = choose_account(rows, spec)
+        else:
+            chosen = choose_account(rows, spec)
+
         if chosen is None:
             output[key] = {"found": False}
             continue
+
         output[key] = {
             "found": True,
             "account_nm": norm_text(chosen.get("account_nm")),
@@ -509,7 +594,6 @@ def account_values(rows: Sequence[Mapping[str, Any]]) -> Dict[str, Dict[str, Any
             "bfefrmtrm_amount": parse_number(chosen.get("bfefrmtrm_amount")),
         }
     return output
-
 
 def cumulative_value(account: Mapping[str, Any]) -> Optional[float]:
     if not account.get("found"):
@@ -758,7 +842,7 @@ def build_rows(
             annual_data.get(corp_code, {}),
             target["preferred_fs_div"],
         )
-        annual_accounts = account_values(annual_rows)
+        annual_accounts = account_values(annual_rows, target["ticker"])
         annual_ready = all(
             annual_accounts[key].get("found")
             and annual_accounts[key].get("thstrm_amount") is not None
@@ -791,7 +875,7 @@ def build_rows(
                 target["preferred_fs_div"],
             )
             period_fs[period] = fs_div
-            period_accounts[period] = account_values(rows)
+            period_accounts[period] = account_values(rows, target["ticker"])
 
         q2_values: Dict[str, Tuple[Optional[float], Optional[float]]] = {}
         quarter_ready = True

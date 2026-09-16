@@ -1,0 +1,53 @@
+{
+  "version": "2026-09-16-v8.11.2-financial-revenue-semantic-alignment-audit",
+  "v8111_version": "2026-09-16-v8.11.1-validation-fix-preserve-daegu-baseline-row",
+  "v8110_version": "2026-09-16-v8.11.0-annual-quarter-official-revenue-recovery-audit",
+  "v8111_result_commit": "295dd21da55135c5d26b89cebb6318ade7b09211",
+  "v8110_result_commit": "54aa99da306fc8c5cb5c8ee8c501606f45aa6c51",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "source_contract_version": "2026-09-10-v8.5.4-investment-score-source-contract",
+  "generated_at_kst": "2026-09-16T10:09:17+09:00",
+  "status": "AUDIT_ONLY",
+  "target_ticker_count": 5,
+  "target_tickers": [
+    "000810",
+    "005830",
+    "029780",
+    "105560",
+    "138930"
+  ],
+  "target_blocker_occurrences": 15,
+  "candidate_statement": "CIS",
+  "candidate_account_id": "ifrs-full_RevenueFromInterest",
+  "candidate_account_name": "이자수익",
+  "fully_aligned_count": 5,
+  "fully_aligned_tickers": [
+    "000810",
+    "005830",
+    "029780",
+    "105560",
+    "138930"
+  ],
+  "mismatch_count": 0,
+  "mismatch_tickers": [],
+  "all_five_financial_cache_exact_match": true,
+  "automatic_semantic_extension": {
+    "allowed": false,
+    "approved": false,
+    "reason": "AUDIT_ONLY_NO_SOURCE_CONTRACT_CHANGE"
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "scoring_policy_changed": false,
+    "source_cache_mutated": false,
+    "financial_cache_mutated": false,
+    "source_contract_changed": false,
+    "new_revenue_account_approved": false,
+    "financial_sector_exception_created": false,
+    "source_value_imputed": false,
+    "h1_used_directly_as_q2": false,
+    "ambiguous_revenue_account_promoted": false
+  },
+  "next_step": "SHADOW_TEST_EXPLICIT_NARROW_CIS_INTEREST_REVENUE_EXTENSION_FOR_FIVE_FINANCIAL_TICKERS"
+}

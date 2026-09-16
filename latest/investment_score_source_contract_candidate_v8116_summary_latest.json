@@ -1,0 +1,65 @@
+{
+  "version": "2026-09-16-v8.11.6-freeze-v8115-stage-production-candidate",
+  "v8115_version": "2026-09-16-v8.11.5-temp-source-enricher-full-refresh-regression",
+  "v8115_result_commit": "c6758c8f9a269d2907ee17fb1726fb3de37362dc",
+  "generated_at_kst": "2026-09-16T19:25:56+09:00",
+  "status": "STAGED_CANDIDATE_ONLY",
+  "base_source_contract_version": "2026-09-10-v8.5.4-investment-score-source-contract",
+  "candidate_source_contract_version": "2026-09-16-v8.11.6-staged-five-financial-cis-interest-revenue-contract",
+  "base_source_sha256": "dd8db545dcd88c837c756f74588efd2166e6a3773a3add87ff53b290976de278",
+  "candidate_source_sha256": "ad4e1984c86a78304bbc8004d3ed38ff919664a3f8fe4ef769acc4d82329554e",
+  "patch_sha256": "ed0f09263e182d43ec9f27afb04ce6ee594808b5e02821523e38ba0db67d3f25",
+  "audited_scope_tickers": [
+    "000810",
+    "005830",
+    "029780",
+    "105560",
+    "138930"
+  ],
+  "v8115_frozen_evidence": {
+    "source_rows": 242,
+    "raw_ready_before": 222,
+    "raw_ready_after": 226,
+    "raw_ready_delta": 4,
+    "scorer_universe_count": 221,
+    "ready_before": 5,
+    "ready_after": 8,
+    "ready_delta": 3,
+    "blockers_before": 2178,
+    "blockers_after": 2166,
+    "blockers_reduced_by": 12,
+    "newly_ready_tickers": [
+      "000810",
+      "005830",
+      "105560"
+    ]
+  },
+  "candidate_contract": {
+    "account_key": "revenue",
+    "statement": "CIS",
+    "account_id": "ifrs-full_RevenueFromInterest",
+    "selection_rule": "EXACT_ID_UNIQUE_ONLY",
+    "ticker_scope": [
+      "000810",
+      "005830",
+      "029780",
+      "105560",
+      "138930"
+    ],
+    "inactive_ticker_force_insert": false,
+    "fallback_for_no_exact_hit": "UNCHANGED_V854_REVENUE_LOGIC",
+    "duplicate_exact_hit_policy": "FAIL_CLOSED_NO_SELECTION",
+    "full_account_fetch_scope": "AUDITED_TICKERS_PRESENT_IN_CURRENT_TARGETS_ONLY"
+  },
+  "hard_guards": {
+    "production_source_enricher_modified": false,
+    "production_source_cache_modified": false,
+    "production_api_modified": false,
+    "scoring_policy_modified": false,
+    "broad_financial_sector_rule_created": false,
+    "new_fuzzy_alias_created": false,
+    "inactive_target_force_inserted": false,
+    "source_value_imputed": false
+  },
+  "next_step": "STAGED_PRODUCTION_PATCH_READY_FOR_CONTROLLED_APPLY_V8117"
+}

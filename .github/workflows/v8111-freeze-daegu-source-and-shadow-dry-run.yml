@@ -1,4 +1,4 @@
-name: Freeze Daegu source and shadow dry-run v8.11.1
+name: Freeze Daegu source and shadow dry-run v8.11.1 validation-fix
 
 on:
   workflow_dispatch:
@@ -75,7 +75,7 @@ jobs:
 
           import investment_score_source_extension_v8109 as base
 
-          VERSION = "2026-09-16-v8.11.1-freeze-daegu-source-and-shadow-dry-run"
+          VERSION = "2026-09-16-v8.11.1-validation-fix-preserve-daegu-baseline-row"
           V8109_VERSION = "2026-09-16-v8.10.9-freeze-v8106-source-against-frozen-v8102-validation-fix"
           V8110_VERSION = "2026-09-16-v8.11.0-annual-quarter-official-revenue-recovery-audit"
           V8109_RESULT_COMMIT = "703a902f546b257d5e2aac3fcc4f37636bc72ec3"
@@ -95,7 +95,13 @@ jobs:
           }
           ALLOWED_SUCCESSOR_REASON = "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE"
           ALLOWED_CASCADE_RESOLVED = {
+              "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
               "PSR 또는 대체 가치지표:MISSING_PSR_INPUT",
+          }
+
+          EXPECTED_TARGET_AFTER = {
+              "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
+              "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
           }
 
           V8109_CSV = ROOT / "latest/investment_score_v880_dry_run_v8109_latest.csv"
@@ -410,7 +416,7 @@ jobs:
               return source_row
 
 
-          def build_isolated_shadow_raw(source_row):
+          def build_overlay_shadow_raw(source_row):
               rows, fields = read_csv_with_fields(base.SHADOW_RAW)
               if not rows or not fields:
                   raise RuntimeError("V8111_BASE_SHADOW_RAW_EMPTY")
@@ -424,62 +430,41 @@ jobs:
                       break
               if idx is None or original is None:
                   raise RuntimeError("V8111_TARGET_RAW_ROW_MISSING")
+              if original.get("source_cache_status") != "LIMITED_RAW_SOURCE":
+                  raise RuntimeError(
+                      "V8111_TARGET_BASELINE_SOURCE_STATUS_CHANGED:"
+                      + str(original.get("source_cache_status") or "")
+                  )
 
-              synthetic = {field: "" for field in fields}
-              for field in (
-                  "ticker", "name", "market", "corp_code", "corp_name",
-                  "source_contract_version", "score_policy_version",
-                  "financial_basis_at_source", "preferred_fs_div",
-              ):
-                  synthetic[field] = original.get(field) or ""
-
-              synthetic.update({
-                  "ticker": TARGET,
-                  "name": source_row["name"],
-                  "market": source_row["market"],
-                  "corp_code": source_row["corp_code"] or original.get("corp_code") or "",
-                  "source_contract_version": SOURCE_CONTRACT_VERSION,
-                  "source_cache_status": "READY_RAW_SOURCE",
-                  "source_cache_reason": "V8110_VALIDATED_SOURCE_ONLY_SHADOW",
-                  "preferred_fs_div": source_row["preferred_fs_div"] or "CFS",
-                  "annual_source_year": "2025",
-                  "annual_fs_div": source_row["preferred_fs_div"] or "CFS",
-                  "three_year_source_status": "READY",
-                  "quarter_source_status": "READY_Q2_SOURCE",
-                  "quarter_current_year": "2026",
-                  "deep_source_status": "",
-                  "net_cash_policy_status": "",
-                  "ev_ebitda_source_status": "",
-                  "investment_score_status": "SOURCE_ONLY_NOT_PRODUCTION",
-                  "score_threshold_policy_status": "NOT_DEFINED",
-                  "fetched_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
-              })
+              patched = dict(original)
+              changed_fields = []
               for field in RAW_VALIDATED_FIELDS:
-                  synthetic[field] = source_row[field]
+                  before = str(original.get(field) or "")
+                  after = str(source_row[field])
+                  patched[field] = source_row[field]
+                  if before != after:
+                      changed_fields.append(field)
 
-              # Explicit isolation: no deep/cash/debt/D&A or net-income fields can hitchhike.
-              for field in (
-                  "annual_net_income_y0", "annual_net_income_y1", "annual_net_income_y2",
-                  "deep_source_year", "deep_fs_div",
-                  "cash_and_cash_equivalents",
-                  "core_debt_candidates_json",
-                  "lease_liability_candidates_json",
-                  "other_financial_liability_candidates_json",
-                  "depreciation_amortization_candidates_json",
-                  "net_cash_value",
-                  "ev_ebitda_value",
-              ):
-                  if field in synthetic:
-                      synthetic[field] = ""
+              # Critical validation-fix:
+              # preserve every non-audited V8.10.9 field exactly.
+              for field in fields:
+                  if field in RAW_VALIDATED_FIELDS:
+                      continue
+                  if patched.get(field) != original.get(field):
+                      raise RuntimeError(
+                          "V8111_NON_VALIDATED_RAW_FIELD_CHANGED:" + field
+                      )
 
-              rows[idx] = synthetic
+              rows[idx] = patched
               write_csv(SHADOW_RAW, rows, fields)
               return {
                   "target": TARGET,
                   "baseline_source_cache_status": original.get("source_cache_status") or "",
-                  "shadow_source_cache_status": synthetic["source_cache_status"],
-                  "deep_fields_isolated": True,
+                  "shadow_source_cache_status": patched.get("source_cache_status") or "",
+                  "baseline_row_preserved_except_validated_fields": True,
                   "validated_fields_only": list(RAW_VALIDATED_FIELDS),
+                  "changed_validated_fields": changed_fields,
+                  "non_validated_field_change_count": 0,
               }
 
 
@@ -488,35 +473,36 @@ jobs:
               if not rows or not fields:
                   raise RuntimeError("V8111_BASE_SHADOW_FIN_EMPTY")
 
-              found = False
-              audit = {}
-              evidence_yoy = num(source_row["financial_revenue_yoy_pct"])
+              target_row = None
               for row in rows:
-                  if ticker(row.get("ticker")) != TARGET:
-                      continue
-                  found = True
-                  before = num(row.get("revenue_yoy_pct"))
-                  if before is not None and abs(before - evidence_yoy) > 1e-9:
-                      raise RuntimeError(
-                          f"V8111_FINANCIAL_REVENUE_YOY_CONFLICT:{before}!={evidence_yoy}"
-                      )
-                  row["revenue_yoy_pct"] = source_row["financial_revenue_yoy_pct"]
-                  audit = {
-                      "field": "revenue_yoy_pct",
-                      "before": before,
-                      "after": evidence_yoy,
-                      "changed": before is None,
-                  }
-                  break
-              if not found:
+                  if ticker(row.get("ticker")) == TARGET:
+                      target_row = row
+                      break
+              if target_row is None:
                   raise RuntimeError("V8111_TARGET_FINANCIAL_ROW_MISSING")
 
+              baseline_yoy = num(target_row.get("revenue_yoy_pct"))
+              evidence_yoy = num(source_row["financial_revenue_yoy_pct"])
+              if baseline_yoy is None:
+                  raise RuntimeError("V8111_BASELINE_FINANCIAL_REVENUE_YOY_MISSING")
+              if evidence_yoy is None or abs(baseline_yoy - evidence_yoy) > 1e-9:
+                  raise RuntimeError(
+                      f"V8111_FINANCIAL_REVENUE_YOY_CONFLICT:{baseline_yoy}!={evidence_yoy}"
+                  )
+
+              # No financial-cache field is patched in V8.11.1.
               write_csv(SHADOW_FIN, rows, fields)
-              return audit
+              return {
+                  "field": "revenue_yoy_pct",
+                  "baseline": baseline_yoy,
+                  "v8110_evidence": evidence_yoy,
+                  "changed": False,
+                  "financial_row_preserved": True,
+              }
 
 
           def run_shadow(baseline_map, shadow_prod, source_row, da_shadow_stats):
-              raw_audit = build_isolated_shadow_raw(source_row)
+              raw_audit = build_overlay_shadow_raw(source_row)
               fin_audit = build_shadow_fin(source_row)
 
               base.run_scorer(
@@ -561,6 +547,11 @@ jobs:
                   raise RuntimeError(
                       "V8111_UNEXPECTED_NEW_REASON:" + "|".join(unexpected_new)
                   )
+              if after != EXPECTED_TARGET_AFTER:
+                  raise RuntimeError(
+                      "V8111_TARGET_AFTER_SET_MISMATCH:"
+                      + "|".join(sorted(after))
+                  )
 
               resolved = before - after
               cascade = resolved - CLAIMED_SOURCE_REASONS
@@ -595,9 +586,9 @@ jobs:
               )
               if baseline_blockers != 280:
                   raise RuntimeError(f"V8111_BASELINE_BLOCKERS:{baseline_blockers}!=280")
-              if after_blockers > 278:
+              if after_blockers != 276:
                   raise RuntimeError(
-                      f"V8111_OVERALL_BLOCKER_REDUCTION_LT_2:{after_blockers}"
+                      f"V8111_OVERALL_BLOCKER_COUNT_NOT_276:{after_blockers}"
                   )
 
               blocker_summary = refresh_blockers(rows)
@@ -633,6 +624,7 @@ jobs:
                   "target_ticker": TARGET,
                   "target_status_before": baseline_map[TARGET].get("score_status") or "",
                   "target_status_after": after_map[TARGET].get("score_status") or "",
+                  "target_expected_missing_after": sorted(EXPECTED_TARGET_AFTER),
                   "target_missing_before": sorted(before),
                   "target_missing_after": sorted(after),
                   "target_resolved_reasons": sorted(resolved),
@@ -705,7 +697,8 @@ jobs:
                       f"- Version: `{VERSION}`",
                       f"- Exact baseline: `{V8109_VERSION}` / commit `{V8109_RESULT_COMMIT}`",
                       "- Only 006370 receives V8.11.0 validated annual/Q2 revenue and operating-profit fields.",
-                      "- Deep cash/debt/D&A fields are isolated and cannot be promoted by this workflow.",
+                      "- The exact V8.10.9 target raw row is preserved; only the 12 V8.11.0-validated annual/Q2 fields are overlaid.",
+                      "- Cash/debt/D&A/net-cash/EV-EBITDA fields are not reconstructed or altered.",
                       "- The three V8.11.0 source-gap reasons must disappear.",
                       "- If validated negative annual operating profit exposes `ANNUAL_OP_DENOM_NONPOSITIVE`, it is recorded as an unchanged V880 policy-semantic blocker rather than treated as a source failure.",
                       "- Other 111 score rows must remain byte-equivalent at CSV-row level.",
@@ -928,8 +921,8 @@ jobs:
           assert r["baseline_ready_count"] == 56
           assert r["lost_ready_tickers"] == []
           assert r["baseline_blocker_occurrences"] == 280
-          assert r["after_blocker_occurrences"] <= 278
-          assert r["blocker_occurrences_reduced_by"] >= 2
+          assert r["after_blocker_occurrences"] == 276
+          assert r["blocker_occurrences_reduced_by"] == 4
           assert r["baseline_source_cache_blockers"] == 57
           assert r["after_source_cache_blockers"] == 54
           assert r["source_cache_blockers_reduced_by"] == 3
@@ -946,9 +939,22 @@ jobs:
           assert set(r["target_new_reasons"]) <= {
               "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE"
           }
-          assert set(r["target_cascade_resolved_reasons"]) <= {
-              "PSR 또는 대체 가치지표:MISSING_PSR_INPUT"
+          assert set(r["target_cascade_resolved_reasons"]) == {
+              "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+              "PSR 또는 대체 가치지표:MISSING_PSR_INPUT",
           }
+          assert set(r["target_missing_after"]) == {
+              "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
+              "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
+          }
+          assert r["target_status_after"] == "LIMITED"
+          assert r["after_ready_count"] == 56
+          assert r["ready_delta"] == 0
+          assert r["newly_ready_tickers"] == []
+          assert r["raw_overlay_audit"]["baseline_row_preserved_except_validated_fields"] is True
+          assert r["raw_overlay_audit"]["non_validated_field_change_count"] == 0
+          assert r["financial_overlay_audit"]["changed"] is False
+          assert r["financial_overlay_audit"]["financial_row_preserved"] is True
 
           assert blocks["status"] == "AUDIT_ONLY"
           assert len(blocker_rows) == blocks["limited_blocker_occurrences"]
@@ -1107,6 +1113,6 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Freeze Daegu source and shadow dry-run v8.11.1"
+          git commit -m "Fix Daegu source shadow preservation v8.11.1"
           git pull --rebase origin main
           git push origin HEAD:main

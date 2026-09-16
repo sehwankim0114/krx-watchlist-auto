@@ -1,0 +1,23 @@
+{
+  "status": "PROPOSAL_ONLY",
+  "base_source_script": "investment_score_source_enricher_v854.py",
+  "base_source_script_sha256": "dd8db545dcd88c837c756f74588efd2166e6a3773a3add87ff53b290976de278",
+  "base_source_contract_version": "2026-09-10-v8.5.4-investment-score-source-contract",
+  "audited_contract_scope": {
+    "tickers": [
+      "000810",
+      "005830",
+      "029780",
+      "105560",
+      "138930"
+    ],
+    "account_key": "revenue",
+    "statement": "CIS",
+    "account_id": "ifrs-full_RevenueFromInterest",
+    "selection_rule": "EXACT_ID_UNIQUE_ONLY",
+    "fallback_for_all_other_tickers": "UNCHANGED_V854_CHOOSE_ACCOUNT"
+  },
+  "activation_rule": "RULE_REMAINS_DEFINED_FOR_ALL_FIVE; IT_EXECUTES_ONLY_WHEN_THE_AUDITED_TICKER_IS_IN_THE_CURRENT_SOURCE_TARGET_UNIVERSE",
+  "automatic_apply": false,
+  "production_mutation": false
+}

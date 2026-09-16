@@ -1,0 +1,252 @@
+{
+  "version": "2026-09-16-v8.11.4-validation-fix2-dynamic-source-row-count",
+  "v8113_version": "2026-09-16-v8.11.3-validation-fix2-hard-guard-types",
+  "v8113_result_commit": "c50855caf31e076b36ae83ce9f6ba760060141e4",
+  "v8112_version": "2026-09-16-v8.11.2-financial-revenue-semantic-alignment-audit",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "source_contract_version": "2026-09-10-v8.5.4-investment-score-source-contract",
+  "generated_at_kst": "2026-09-16T16:23:41+09:00",
+  "status": "AUDIT_ONLY",
+  "patch_status": "PROPOSAL_ONLY_NOT_APPLIED",
+  "audited_contract_scope_count": 5,
+  "audited_contract_scope_tickers": [
+    "000810",
+    "005830",
+    "029780",
+    "105560",
+    "138930"
+  ],
+  "current_source_active_count": 4,
+  "current_source_active_tickers": [
+    "000810",
+    "005830",
+    "029780",
+    "105560"
+  ],
+  "current_inactive_count": 1,
+  "current_inactive_tickers": [
+    "138930"
+  ],
+  "current_inactive_evidence": {
+    "138930": {
+      "name": "BNK금융지주",
+      "classification": "NOT_CURRENTLY_ACTIVE_TARGET",
+      "historical_semantic_evidence_preserved": true,
+      "current_financial_cache_present": false,
+      "current_source_cache_present": false,
+      "current_production_present": false,
+      "reason": "DYNAMIC_TABLE_TARGET_UNIVERSE_ABSENCE"
+    }
+  },
+  "current_production_active_tickers": [
+    "000810",
+    "005830",
+    "029780",
+    "105560"
+  ],
+  "current_scorer_active_count": 4,
+  "current_scorer_active_tickers": [
+    "000810",
+    "005830",
+    "029780",
+    "105560"
+  ],
+  "current_scorer_inactive_tickers": [
+    "138930"
+  ],
+  "current_source_cache_rows": 242,
+  "current_source_log_targets": 242,
+  "current_source_log_raw_ready": 222,
+  "current_scorer_universe_count": 167,
+  "control_ready_count": 10,
+  "shadow_ready_count": 13,
+  "ready_delta": 3,
+  "newly_ready_tickers": [
+    "000810",
+    "005830",
+    "105560"
+  ],
+  "lost_ready_tickers": [],
+  "control_blocker_occurrences": 797,
+  "shadow_blocker_occurrences": 785,
+  "blocker_occurrences_reduced_by": 12,
+  "expected_active_score_blockers_resolved": 12,
+  "current_source_rows_patched_in_shadow": 4,
+  "current_source_revenue_fields_patched_in_shadow": 24,
+  "target_results": {
+    "000810": {
+      "name": "삼성화재",
+      "current_activation": "ACTIVE_SCORER_TARGET",
+      "status_before": "LIMITED",
+      "status_after": "READY",
+      "missing_before": [
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+      ],
+      "missing_after": [],
+      "resolved_source_reasons": [
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+      ],
+      "resolved_blocker_count": 3
+    },
+    "005830": {
+      "name": "DB손해보험",
+      "current_activation": "ACTIVE_SCORER_TARGET",
+      "status_before": "LIMITED",
+      "status_after": "READY",
+      "missing_before": [
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+      ],
+      "missing_after": [],
+      "resolved_source_reasons": [
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+      ],
+      "resolved_blocker_count": 3
+    },
+    "029780": {
+      "name": "삼성카드",
+      "current_activation": "ACTIVE_SCORER_TARGET",
+      "status_before": "LIMITED",
+      "status_after": "LIMITED",
+      "missing_before": [
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
+        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+      ],
+      "missing_after": [
+        "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+      ],
+      "resolved_source_reasons": [
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+      ],
+      "resolved_blocker_count": 3
+    },
+    "105560": {
+      "name": "KB금융",
+      "current_activation": "ACTIVE_SCORER_TARGET",
+      "status_before": "LIMITED",
+      "status_after": "READY",
+      "missing_before": [
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+      ],
+      "missing_after": [],
+      "resolved_source_reasons": [
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+      ],
+      "resolved_blocker_count": 3
+    },
+    "138930": {
+      "name": "BNK금융지주",
+      "current_activation": "NOT_CURRENTLY_ACTIVE_TARGET",
+      "historical_semantic_evidence_preserved": true,
+      "current_score_row_present": false
+    }
+  },
+  "non_active_score_row_changed_count": 0,
+  "source_row_audit": [
+    {
+      "ticker": "000810",
+      "name": "삼성화재",
+      "current_activation": "ACTIVE_SOURCE_TARGET",
+      "baseline_source_cache_status": "LIMITED_RAW_SOURCE",
+      "baseline_source_cache_reason": "3Y_ANNUAL_LIMITED,QUARTER_LIMITED",
+      "candidate_statement": "CIS",
+      "candidate_account_id": "ifrs-full_RevenueFromInterest",
+      "changed_field_count": 6,
+      "changed_fields": "annual_revenue_y0;annual_revenue_y1;annual_revenue_y2;q2_revenue_current;q2_revenue_previous;q2_revenue_yoy_pct",
+      "non_revenue_field_change_count": 0
+    },
+    {
+      "ticker": "005830",
+      "name": "DB손해보험",
+      "current_activation": "ACTIVE_SOURCE_TARGET",
+      "baseline_source_cache_status": "LIMITED_RAW_SOURCE",
+      "baseline_source_cache_reason": "3Y_ANNUAL_LIMITED,QUARTER_LIMITED",
+      "candidate_statement": "CIS",
+      "candidate_account_id": "ifrs-full_RevenueFromInterest",
+      "changed_field_count": 6,
+      "changed_fields": "annual_revenue_y0;annual_revenue_y1;annual_revenue_y2;q2_revenue_current;q2_revenue_previous;q2_revenue_yoy_pct",
+      "non_revenue_field_change_count": 0
+    },
+    {
+      "ticker": "029780",
+      "name": "삼성카드",
+      "current_activation": "ACTIVE_SOURCE_TARGET",
+      "baseline_source_cache_status": "LIMITED_RAW_SOURCE",
+      "baseline_source_cache_reason": "3Y_ANNUAL_LIMITED,QUARTER_LIMITED",
+      "candidate_statement": "CIS",
+      "candidate_account_id": "ifrs-full_RevenueFromInterest",
+      "changed_field_count": 6,
+      "changed_fields": "annual_revenue_y0;annual_revenue_y1;annual_revenue_y2;q2_revenue_current;q2_revenue_previous;q2_revenue_yoy_pct",
+      "non_revenue_field_change_count": 0
+    },
+    {
+      "ticker": "105560",
+      "name": "KB금융",
+      "current_activation": "ACTIVE_SOURCE_TARGET",
+      "baseline_source_cache_status": "LIMITED_RAW_SOURCE",
+      "baseline_source_cache_reason": "3Y_ANNUAL_LIMITED,QUARTER_LIMITED",
+      "candidate_statement": "CIS",
+      "candidate_account_id": "ifrs-full_RevenueFromInterest",
+      "changed_field_count": 6,
+      "changed_fields": "annual_revenue_y0;annual_revenue_y1;annual_revenue_y2;q2_revenue_current;q2_revenue_previous;q2_revenue_yoy_pct",
+      "non_revenue_field_change_count": 0
+    },
+    {
+      "ticker": "138930",
+      "name": "BNK금융지주",
+      "current_activation": "NOT_CURRENTLY_ACTIVE_TARGET",
+      "baseline_source_cache_status": "",
+      "baseline_source_cache_reason": "",
+      "candidate_statement": "CIS",
+      "candidate_account_id": "ifrs-full_RevenueFromInterest",
+      "changed_field_count": 0,
+      "changed_fields": "",
+      "non_revenue_field_change_count": 0
+    }
+  ],
+  "proposed_contract": {
+    "scope_tickers": [
+      "000810",
+      "005830",
+      "029780",
+      "105560",
+      "138930"
+    ],
+    "account_key": "revenue",
+    "statement": "CIS",
+    "account_id": "ifrs-full_RevenueFromInterest",
+    "selection_rule": "EXACT_ID_UNIQUE_ONLY",
+    "activation_rule": "ONLY_WHEN_AUDITED_TICKER_IS_IN_CURRENT_SOURCE_TARGET_UNIVERSE",
+    "all_other_tickers": "UNCHANGED_V854_LOGIC"
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "source_enricher_changed": false,
+    "production_source_cache_mutated": false,
+    "financial_cache_mutated": false,
+    "scoring_policy_changed": false,
+    "broad_financial_sector_exception_created": false,
+    "fuzzy_cis_revenue_match_allowed": false,
+    "inactive_target_force_inserted": false,
+    "source_value_imputed": false,
+    "non_active_score_rows_unchanged": true,
+    "ready_regression_count": 0
+  },
+  "next_step": "APPLY_NARROW_PATCH_TO_TEMP_SOURCE_ENRICHER_AND_RUN_FULL_CURRENT_SOURCE_REFRESH_REGRESSION"
+}

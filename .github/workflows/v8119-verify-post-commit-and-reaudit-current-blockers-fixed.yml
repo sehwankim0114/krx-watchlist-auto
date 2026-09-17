@@ -1,0 +1,949 @@
+name: Verify post-commit source contract and reaudit current blockers v8.11.9
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8119-verify-post-commit-and-reaudit-current-blockers.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8119-post-commit-blocker-reaudit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Capture protected hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f latest/investment_score_production_refresh_v8118_summary_latest.json
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_source_enricher_v854.py \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_da_current_single_recoverability_v8103_summary_latest.json \
+            latest/investment_score_next_single_source_v8104_summary_latest.json \
+            latest/investment_score_production_refresh_v8118_summary_latest.json \
+            > /tmp/v8119_protected.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -name '*.json' -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8119_api.before
+
+      - name: Create and run V8.11.9 auditor
+        shell: bash
+        run: |
+          cat > investment_score_post_commit_blocker_reaudit_v8119.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import csv
+          import json
+          import subprocess
+          from collections import Counter, defaultdict
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_dry_run_v882 as scorer
+
+          VERSION = "2026-09-17-v8.11.9-post-commit-source-contract-and-current-blocker-reaudit"
+          POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          SOURCE_CONTRACT = "2026-09-16-v8.11.7-five-financial-cis-interest-revenue-contract"
+          V8118_VERSION = "2026-09-16-v8.11.8-production-source-refresh-post-apply-regression"
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+
+          SOURCE = ROOT / "latest/investment_score_source_cache_latest.csv"
+          SOURCE_LOG = ROOT / "latest/investment_score_source_run_log_latest.txt"
+          V8118_JSON = ROOT / "latest/investment_score_production_refresh_v8118_summary_latest.json"
+          V8103_JSON = ROOT / "latest/investment_score_da_current_single_recoverability_v8103_summary_latest.json"
+          V8104_JSON = ROOT / "latest/investment_score_next_single_source_v8104_summary_latest.json"
+
+          TMP_CSV = Path("/tmp/investment_score_v8119_current.csv")
+          TMP_JSON = Path("/tmp/investment_score_v8119_current_summary.json")
+          TMP_LOG = Path("/tmp/investment_score_v8119_current.log")
+          TMP_DOC = Path("/tmp/investment_score_v8119_current.md")
+
+          OUT_CSV = ROOT / "latest/investment_score_current_blockers_v8119.csv"
+          OUT_JSON = ROOT / "latest/investment_score_current_blockers_v8119_summary_latest.json"
+          OUT_LOG = ROOT / "latest/investment_score_current_blockers_v8119_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_current_blockers_v8119.md"
+
+          AUDITED_ACTIVE = {"000810", "005830", "029780", "105560"}
+          AUDITED_INACTIVE = {"138930"}
+
+          REVENUE_SOURCE_REASONS = {
+              "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+              "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+              "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+          }
+
+          V8104_EXHAUSTED = {"001020", "357250"}
+
+
+          def ticker(value):
+              s = "".join(ch for ch in str(value or "") if ch.isdigit())
+              return s.zfill(6) if s else ""
+
+
+          def read_json(path: Path):
+              return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
+          def read_csv(path: Path):
+              with path.open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
+
+
+          def read_kv(path: Path):
+              out = {}
+              for line in path.read_text(encoding="utf-8-sig").splitlines():
+                  if "=" in line:
+                      k, v = line.split("=", 1)
+                      out[k.strip()] = v.strip()
+              return out
+
+
+          def split_reasons(text):
+              return [x for x in str(text or "").split(";") if x]
+
+
+          def classify(reason):
+              if reason == "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE":
+                  return (
+                      "SOURCE_EVIDENCE_GAP",
+                      "PRODUCTION_ANALYSIS_SUPPLY",
+                      "공시·수급 없음 판정을 확정할 만큼 source completeness가 부족함",
+                  )
+
+              if reason == "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE":
+                  return (
+                      "POLICY_SEMANTIC_BLOCKER",
+                      "V880_SCORING_CONTRACT",
+                      "전년도 연간 영업이익 분모가 비양수이며 승인 계약상 의미 blocker",
+                  )
+
+              if reason.startswith("PER:") or reason.startswith("PBR:"):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "FINANCIAL_VALUATION_CACHE",
+                      "밸류에이션 또는 관련 이익·ROE 입력 보강 필요",
+                  )
+
+              if reason.startswith("EV/EBITDA:"):
+                  tail = reason.split("EV/EBITDA:", 1)[1]
+                  parts = tail.split(":")
+                  debt_status = parts[-2] if len(parts) >= 2 else ""
+                  da_status = parts[-1] if parts else ""
+                  if da_status == "NO_EXACT_CANDIDATE":
+                      return (
+                          "SOURCE_DATA_GAP",
+                          "EXACT_DA_SOURCE",
+                          f"승인 exact D&A 원천 부족; debt_status={debt_status}, da_status={da_status}",
+                      )
+                  if debt_status == "NO_EXACT_CANDIDATE":
+                      return (
+                          "SOURCE_DATA_GAP",
+                          "EXACT_CORE_DEBT_SOURCE",
+                          f"승인 exact core-debt 원천 부족; debt_status={debt_status}, da_status={da_status}",
+                      )
+                  if debt_status in {"OK", "EMPTY_AS_ZERO"} and da_status in {"OK", "EMPTY_AS_ZERO"}:
+                      return (
+                          "SOURCE_DATA_GAP",
+                          "EV_EBITDA_OTHER_INPUT",
+                          "D&A/debt exact 상태 통과 후 다른 EV/EBITDA 입력 점검 필요",
+                      )
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "EV_EBITDA_INPUT",
+                      f"EV/EBITDA 입력 상태 재감사 필요: {tail}",
+                  )
+
+              if reason.startswith("PSR 또는 대체 가치지표:"):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "FINANCIAL_AND_RAW_SOURCE",
+                      "시가총액 또는 연간 매출 입력 보강 필요",
+                  )
+
+              raw_prefixes = (
+                  "매출 성장과 안정성:",
+                  "최근 3년 매출 성장률:",
+                  "최근 3년 영업이익 성장률:",
+                  "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+              )
+              if reason.startswith(raw_prefixes):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "INVESTMENT_SCORE_SOURCE_CACHE",
+                      "연간/분기 재무 raw source 보강 필요",
+                  )
+
+              financial_prefixes = (
+                  "영업이익 성장과 흑자 여부:",
+                  "순이익 흐름:",
+                  "영업이익률:",
+                  "ROE:",
+                  "부채비율:",
+                  "흑자 지속성과 이익 안정성:",
+              )
+              if reason.startswith(financial_prefixes):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "FINANCIAL_VALUATION_CACHE",
+                      "재무·수익성 cache 입력 보강 필요",
+                  )
+
+              if reason.startswith("영업현금흐름:"):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "OCF_AND_REVENUE_SOURCE",
+                      "영업현금흐름 또는 연간 매출 입력 보강 필요",
+                  )
+
+              price_prefixes = (
+                  "1개월 가격흐름:",
+                  "3개월 가격흐름:",
+                  "기간 저가·고가 대비 현재위치:",
+                  "과열·급락 위험:",
+                  "20일 평균 거래대금과 거래량:",
+              )
+              if reason.startswith(price_prefixes):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "PRODUCTION_PRICE_METRICS",
+                      "가격·스윙·ATR·거래활동 metric 보강 필요",
+                  )
+
+              if reason.startswith("하루평균 절대등락률:"):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "PRICE_ELASTICITY_20D",
+                      "20거래일 가격탄력 source 보강 필요",
+                  )
+
+              if reason.startswith("순현금·기업가치 상태:"):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "NETCASH_INPUT",
+                      "시가총액·현금·승인 core debt 원천 보강 필요",
+                  )
+
+              return (
+                  "UNCLASSIFIED_REVIEW",
+                  "UNKNOWN",
+                  "자동 분류되지 않은 blocker이므로 사람 검토 필요",
+              )
+
+
+          def get_v8118_result_commit():
+              commit = subprocess.check_output(
+                  [
+                      "git", "log", "-1", "--format=%H", "--",
+                      str(V8118_JSON),
+                  ],
+                  text=True,
+              ).strip()
+              if not commit:
+                  raise RuntimeError("V8119_V8118_RESULT_COMMIT_NOT_FOUND")
+
+              changed = set(
+                  subprocess.check_output(
+                      ["git", "show", "--pretty=format:", "--name-only", commit],
+                      text=True,
+                  ).splitlines()
+              )
+              expected = {
+                  "latest/investment_score_source_cache_latest.csv",
+                  "latest/investment_score_source_run_log_latest.txt",
+                  "latest/investment_score_production_refresh_v8118_summary_latest.json",
+              }
+              if not expected <= changed:
+                  raise RuntimeError(
+                      "V8119_V8118_RESULT_COMMIT_MISSING_EXPECTED_FILES:"
+                      + ",".join(sorted(expected - changed))
+                  )
+
+              subprocess.run(
+                  ["git", "merge-base", "--is-ancestor", commit, "HEAD"],
+                  check=True,
+              )
+
+              dangerous = {
+                  "investment_score_source_enricher_v854.py",
+                  "investment_score_dry_run_v882.py",
+                  "config/investment_score_policy_v880.json",
+                  "latest/investment_score_source_cache_latest.csv",
+                  "latest/investment_score_source_run_log_latest.txt",
+                  "latest/financial_valuation_cache_latest.csv",
+              }
+              drift = set(
+                  subprocess.check_output(
+                      ["git", "diff", "--name-only", f"{commit}..HEAD"],
+                      text=True,
+                  ).splitlines()
+              )
+              harmful = sorted(
+                  p for p in drift
+                  if p in dangerous or p.startswith("api/two_table_v1/")
+              )
+              if harmful:
+                  raise RuntimeError(
+                      "V8119_POST_V8118_PROTECTED_DRIFT:"
+                      + ",".join(harmful)
+                  )
+              return commit
+
+
+          def validate_post_commit_state():
+              s = read_json(V8118_JSON)
+              if s.get("version") != V8118_VERSION:
+                  raise RuntimeError("V8119_V8118_VERSION_MISMATCH")
+              if s.get("status") != "PRODUCTION_SOURCE_REFRESH_APPLIED_POST_REGRESSION_PASS":
+                  raise RuntimeError("V8119_V8118_NOT_APPLIED")
+              if s.get("source_contract_version") != SOURCE_CONTRACT:
+                  raise RuntimeError("V8119_SOURCE_CONTRACT_MISMATCH")
+              if set(s.get("active_source_target_tickers") or []) != AUDITED_ACTIVE:
+                  raise RuntimeError("V8119_V8118_ACTIVE_SET_CHANGED")
+              if set(s.get("inactive_target_tickers") or []) != AUDITED_INACTIVE:
+                  raise RuntimeError("V8119_V8118_INACTIVE_SET_CHANGED")
+              if int(s.get("blocker_occurrences_reduced_by") or 0) != 12:
+                  raise RuntimeError("V8119_V8118_BLOCKER_REDUCTION_CHANGED")
+              if int(s.get("ready_delta") or 0) != 3:
+                  raise RuntimeError("V8119_V8118_READY_DELTA_CHANGED")
+              if s.get("lost_ready_tickers") != []:
+                  raise RuntimeError("V8119_V8118_READY_REGRESSION_PRESENT")
+              if int(s.get("non_target_source_semantic_drift_count") or 0) != 0:
+                  raise RuntimeError("V8119_V8118_SOURCE_DRIFT_PRESENT")
+              if int(s.get("non_target_score_row_changed_count") or 0) != 0:
+                  raise RuntimeError("V8119_V8118_SCORE_DRIFT_PRESENT")
+
+              source_rows = {
+                  ticker(r.get("ticker")): r
+                  for r in read_csv(SOURCE)
+                  if ticker(r.get("ticker"))
+              }
+              for code in sorted(AUDITED_ACTIVE):
+                  row = source_rows.get(code)
+                  if row is None:
+                      raise RuntimeError("V8119_ACTIVE_SOURCE_ROW_MISSING:" + code)
+                  if row.get("source_cache_status") != "READY_RAW_SOURCE":
+                      raise RuntimeError("V8119_ACTIVE_SOURCE_NOT_READY:" + code)
+                  if row.get("source_contract_version") != SOURCE_CONTRACT:
+                      raise RuntimeError("V8119_ACTIVE_SOURCE_CONTRACT_MISMATCH:" + code)
+
+              if "138930" in source_rows:
+                  raise RuntimeError("V8119_INACTIVE_BNK_FORCE_INSERTED")
+
+              source_log = read_kv(SOURCE_LOG)
+              if source_log.get("SOURCE_CONTRACT_VERSION") != SOURCE_CONTRACT:
+                  raise RuntimeError("V8119_SOURCE_LOG_CONTRACT_MISMATCH")
+              if source_log.get("SOURCE_RETENTION_GUARD") != "PASS":
+                  raise RuntimeError("V8119_SOURCE_RETENTION_NOT_PASS")
+
+              return s, source_rows, source_log
+
+
+          def run_current_scorer():
+              old = {
+                  "VERSION": scorer.VERSION,
+                  "RAW": scorer.RAW,
+                  "OUT_CSV": scorer.OUT_CSV,
+                  "OUT_JSON": scorer.OUT_JSON,
+                  "OUT_LOG": scorer.OUT_LOG,
+                  "OUT_DOC": scorer.OUT_DOC,
+              }
+              try:
+                  scorer.VERSION = VERSION
+                  scorer.RAW = SOURCE
+                  scorer.OUT_CSV = TMP_CSV
+                  scorer.OUT_JSON = TMP_JSON
+                  scorer.OUT_LOG = TMP_LOG
+                  scorer.OUT_DOC = TMP_DOC
+                  rc = scorer.main()
+              finally:
+                  for k, v in old.items():
+                      setattr(scorer, k, v)
+              if rc not in (None, 0):
+                  raise RuntimeError(f"V8119_SCORER_FAILED:{rc}")
+
+
+          def recovery_status(ticker_code, source_group, single, da_exhausted):
+              if source_group == "V880_SCORING_CONTRACT":
+                  return "POLICY_SEMANTIC_DEFER"
+
+              if source_group == "EXACT_DA_SOURCE" and ticker_code in da_exhausted:
+                  return "EXHAUSTED_V8103_APPROVED_OFFICIAL_PATHS"
+
+              if ticker_code == "001020" and source_group in {
+                  "PRODUCTION_PRICE_METRICS",
+                  "PRICE_ELASTICITY_20D",
+              }:
+                  return "EXHAUSTED_V8104_OFFICIAL_KRX_OHLC_INCOMPLETE"
+
+              if ticker_code == "357250" and source_group == "INVESTMENT_SCORE_SOURCE_CACHE":
+                  return "EXHAUSTED_V8104_OFFICIAL_FULL_ACCOUNT_INCOMPLETE"
+
+              if single:
+                  return "ACTIONABLE_SINGLE_BLOCKER_REAUDIT"
+
+              return "MULTI_BLOCKER_SOURCE_LANE"
+
+
+          def main():
+              for path in (SOURCE, SOURCE_LOG, V8118_JSON, V8103_JSON, V8104_JSON):
+                  if not path.is_file():
+                      raise RuntimeError("V8119_MISSING_INPUT:" + str(path))
+
+              result_commit = get_v8118_result_commit()
+              v8118, source_rows, source_log = validate_post_commit_state()
+
+              s8103 = read_json(V8103_JSON)
+              if s8103.get("version") != "2026-09-15-v8.10.3-current-single-da-recoverability-audit":
+                  raise RuntimeError("V8119_V8103_VERSION_CHANGED")
+              da_exhausted = set(s8103.get("currently_exhausted_tickers") or [])
+
+              s8104 = read_json(V8104_JSON)
+              if s8104.get("version") != "2026-09-15-v8.10.4-next-single-source-recoverability-audit":
+                  raise RuntimeError("V8119_V8104_VERSION_CHANGED")
+              if set(s8104.get("targets") or []) != V8104_EXHAUSTED:
+                  raise RuntimeError("V8119_V8104_TARGETS_CHANGED")
+
+              run_current_scorer()
+              score_rows = read_csv(TMP_CSV)
+              score_map = {
+                  ticker(r.get("ticker")): r
+                  for r in score_rows
+                  if ticker(r.get("ticker"))
+              }
+
+              # Strong post-V8118 target proof.
+              for code in ("000810", "005830", "105560"):
+                  row = score_map.get(code)
+                  if row is None or row.get("score_status") != "READY":
+                      raise RuntimeError("V8119_TARGET_READY_NOT_PERSISTED:" + code)
+
+              card = score_map.get("029780")
+              if card is None or card.get("score_status") != "LIMITED":
+                  raise RuntimeError("V8119_SAMSUNG_CARD_STATUS_CHANGED")
+              if split_reasons(card.get("missing_components")) != [
+                  "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+              ]:
+                  raise RuntimeError("V8119_SAMSUNG_CARD_REMAINDER_CHANGED")
+
+              for code in AUDITED_ACTIVE:
+                  row = score_map.get(code)
+                  if row is None:
+                      raise RuntimeError("V8119_AUDITED_SCORE_ROW_MISSING:" + code)
+                  if REVENUE_SOURCE_REASONS & set(split_reasons(row.get("missing_components"))):
+                      raise RuntimeError("V8119_REVENUE_SOURCE_BLOCKER_REAPPEARED:" + code)
+
+              ready = [r for r in score_rows if r.get("score_status") == "READY"]
+              limited = [r for r in score_rows if r.get("score_status") == "LIMITED"]
+              if len(ready) + len(limited) != len(score_rows):
+                  raise RuntimeError("V8119_UNKNOWN_SCORE_STATUS_PRESENT")
+
+              out_rows = []
+              reason_counter = Counter()
+              category_counter = Counter()
+              source_counter = Counter()
+              single_source_counter = Counter()
+              actionable_single_counter = Counter()
+              recovery_counter = Counter()
+              source_tickers = defaultdict(set)
+
+              for row in limited:
+                  reasons = split_reasons(row.get("missing_components"))
+                  if not reasons:
+                      raise RuntimeError(
+                          "V8119_LIMITED_WITHOUT_REASON:" + str(row.get("ticker") or "")
+                      )
+                  single = len(reasons) == 1
+                  code = ticker(row.get("ticker"))
+
+                  for reason in reasons:
+                      category, source_group, note = classify(reason)
+                      status = recovery_status(code, source_group, single, da_exhausted)
+
+                      reason_counter[reason] += 1
+                      category_counter[category] += 1
+                      source_counter[source_group] += 1
+                      source_tickers[source_group].add(code)
+                      recovery_counter[status] += 1
+
+                      if single:
+                          single_source_counter[source_group] += 1
+                          if status == "ACTIONABLE_SINGLE_BLOCKER_REAUDIT":
+                              actionable_single_counter[source_group] += 1
+
+                      out_rows.append({
+                          "ticker": code,
+                          "name": row.get("name") or "",
+                          "market": row.get("market") or "",
+                          "financial_sector": row.get("financial_sector") or "",
+                          "raw_source_mode": row.get("raw_source_mode") or "",
+                          "missing_component_count": len(reasons),
+                          "blocker_reason": reason,
+                          "blocker_category": category,
+                          "source_group": source_group,
+                          "single_blocker_ticker": "TRUE" if single else "FALSE",
+                          "recovery_status": status,
+                          "audit_note": note,
+                      })
+
+              if not out_rows:
+                  raise RuntimeError("V8119_NO_BLOCKERS")
+
+              out_rows.sort(
+                  key=lambda r: (
+                      int(r["missing_component_count"]),
+                      r["ticker"],
+                      r["blocker_reason"],
+                  )
+              )
+              OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+              write_fields = list(out_rows[0].keys())
+              with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+                  w = csv.DictWriter(f, fieldnames=write_fields, lineterminator="\\n")
+                  w.writeheader()
+                  w.writerows(out_rows)
+
+              source_priority = []
+              for source_group, count in source_counter.most_common():
+                  source_priority.append({
+                      "source_group": source_group,
+                      "blocker_occurrences": count,
+                      "ticker_count": len(source_tickers[source_group]),
+                      "single_blocker_tickers": single_source_counter.get(source_group, 0),
+                      "actionable_single_blocker_tickers": actionable_single_counter.get(
+                          source_group, 0
+                      ),
+                  })
+
+              actionable_groups = [
+                  x for x in source_priority
+                  if x["source_group"] != "V880_SCORING_CONTRACT"
+                  and x["actionable_single_blocker_tickers"] > 0
+              ]
+              actionable_groups.sort(
+                  key=lambda x: (
+                      -x["actionable_single_blocker_tickers"],
+                      -x["blocker_occurrences"],
+                      x["source_group"],
+                  )
+              )
+
+              if actionable_groups:
+                  next_group = actionable_groups[0]["source_group"]
+                  next_reason = "HIGHEST_ACTIONABLE_SINGLE_BLOCKER_COUNT"
+              else:
+                  multi_candidates = [
+                      x for x in source_priority
+                      if x["source_group"] != "V880_SCORING_CONTRACT"
+                  ]
+                  multi_candidates.sort(
+                      key=lambda x: (-x["blocker_occurrences"], x["source_group"])
+                  )
+                  next_group = (
+                      multi_candidates[0]["source_group"]
+                      if multi_candidates else "NONE"
+                  )
+                  next_reason = "NO_ACTIONABLE_SINGLE_BLOCKERS_USE_LARGEST_NONPOLICY_GROUP"
+
+              single_tickers = sorted({
+                  r["ticker"]
+                  for r in out_rows
+                  if r["single_blocker_ticker"] == "TRUE"
+              })
+              actionable_single_tickers = sorted({
+                  r["ticker"]
+                  for r in out_rows
+                  if r["recovery_status"] == "ACTIONABLE_SINGLE_BLOCKER_REAUDIT"
+              })
+
+              summary = {
+                  "version": VERSION,
+                  "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+                  "status": "AUDIT_ONLY",
+                  "policy_version": POLICY_VERSION,
+                  "source_contract_version": SOURCE_CONTRACT,
+                  "v8118_version": V8118_VERSION,
+                  "v8118_result_commit": result_commit,
+                  "production_source_row_count": len(source_rows),
+                  "scorer_universe_count": len(score_rows),
+                  "ready_count": len(ready),
+                  "limited_count": len(limited),
+                  "ready_pct": round(len(ready) * 100.0 / len(score_rows), 4),
+                  "limited_blocker_occurrences": len(out_rows),
+                  "single_blocker_ticker_count": len(single_tickers),
+                  "single_blocker_tickers": single_tickers,
+                  "actionable_single_blocker_ticker_count": len(actionable_single_tickers),
+                  "actionable_single_blocker_tickers": actionable_single_tickers,
+                  "blocker_category_counts": dict(category_counter),
+                  "source_group_counts": dict(source_counter),
+                  "recovery_status_counts": dict(recovery_counter),
+                  "top_reasons": [
+                      {"reason": reason, "count": count}
+                      for reason, count in reason_counter.most_common(30)
+                  ],
+                  "source_priority": source_priority,
+                  "known_exhausted_evidence": {
+                      "v8103_exact_da_exhausted_count": len(da_exhausted),
+                      "v8103_exact_da_exhausted_tickers": sorted(da_exhausted),
+                      "v8104_exhausted_tickers": sorted(V8104_EXHAUSTED),
+                  },
+                  "v8118_target_persistence": {
+                      "ready_tickers": ["000810", "005830", "105560"],
+                      "samsung_card_status": "LIMITED",
+                      "samsung_card_only_blocker":
+                          "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
+                      "revenue_source_blockers_reappeared_count": 0,
+                  },
+                  "next_actionable_source_group": next_group,
+                  "next_actionable_selection_reason": next_reason,
+                  "hard_guards": {
+                      "production_source_cache_modified": False,
+                      "production_source_run_log_modified": False,
+                      "production_financial_cache_modified": False,
+                      "production_api_modified": False,
+                      "production_investment_score_written": False,
+                      "scoring_policy_modified": False,
+                      "exhausted_lane_auto_requeried": False,
+                      "policy_blocker_auto_modified": False,
+                      "source_value_imputed": False,
+                  },
+                  "next_step": "AUDIT_NEXT_ACTIONABLE_SOURCE_GROUP_FROM_V8119",
+              }
+
+              OUT_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+
+              OUT_LOG.write_text(
+                  "\n".join([
+                      f"VERSION={VERSION}",
+                      "STATUS=AUDIT_ONLY",
+                      f"V8118_RESULT_COMMIT={result_commit}",
+                      f"SOURCE_CONTRACT_VERSION={SOURCE_CONTRACT}",
+                      f"PRODUCTION_SOURCE_ROWS={len(source_rows)}",
+                      f"SCORER_UNIVERSE={len(score_rows)}",
+                      f"READY={len(ready)}",
+                      f"LIMITED={len(limited)}",
+                      f"BLOCKER_OCCURRENCES={len(out_rows)}",
+                      f"SINGLE_BLOCKER_TICKERS={len(single_tickers)}",
+                      f"ACTIONABLE_SINGLE_BLOCKER_TICKERS={len(actionable_single_tickers)}",
+                      f"NEXT_ACTIONABLE_SOURCE_GROUP={next_group}",
+                      f"NEXT_ACTIONABLE_SELECTION_REASON={next_reason}",
+                      "V8118_REVENUE_SOURCE_BLOCKER_REAPPEARED=0",
+                      "PRODUCTION_SOURCE_CACHE_MODIFIED=false",
+                      "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+                      "SCORING_POLICY_MODIFIED=false",
+                      "EXHAUSTED_LANE_AUTO_REQUERIED=false",
+                      "STATUS_OK=true",
+                      "NEXT_STEP=AUDIT_NEXT_ACTIONABLE_SOURCE_GROUP_FROM_V8119",
+                  ]) + "\n",
+                  encoding="utf-8",
+              )
+
+              OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+              OUT_DOC.write_text(
+                  "\n".join([
+                      "# V8.11.9 post-commit source-contract verification and current blocker reaudit",
+                      "",
+                      f"- Version: `{VERSION}`",
+                      f"- V8.11.8 result commit: `{result_commit}`",
+                      f"- Current scorer universe: {len(score_rows)}",
+                      f"- READY / LIMITED: {len(ready)} / {len(limited)}",
+                      f"- Current blocker occurrences: {len(out_rows)}",
+                      f"- Current single-blocker tickers: {len(single_tickers)}",
+                      f"- Actionable single-blocker tickers: {len(actionable_single_tickers)}",
+                      f"- Next actionable source group: `{next_group}`",
+                      "",
+                      "## Guardrails",
+                      "",
+                      "- No production source/financial/API/policy mutation.",
+                      "- V8103 exact-D&A exhausted tickers are not automatically re-queried.",
+                      "- V8104 exhausted price/full-account single blockers are not automatically re-queried.",
+                      "- Policy semantic blockers are not altered.",
+                      "",
+                  ]),
+                  encoding="utf-8",
+              )
+
+              print("V8119_POST_COMMIT_AND_BLOCKER_REAUDIT=PASS")
+
+
+          if __name__ == "__main__":
+              main()
+
+          PY
+
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path("investment_score_post_commit_blocker_reaudit_v8119.py")
+          t = p.read_text(encoding="utf-8")
+          p.write_text(t.rstrip() + "\n", encoding="utf-8", newline="\n")
+
+          if p.read_bytes().endswith(b"\n\n"):
+              raise SystemExit("V8119_AUDITOR_BLANK_LINE_AT_EOF")
+          print("V8119_AUDITOR_EOF_NORMALIZED=PASS")
+          PY
+
+          python -m py_compile \
+            investment_score_post_commit_blocker_reaudit_v8119.py
+
+          python investment_score_post_commit_blocker_reaudit_v8119.py \
+            | tee /tmp/v8119_stdout.txt
+
+          grep -q '^V8119_POST_COMMIT_AND_BLOCKER_REAUDIT=PASS$' \
+            /tmp/v8119_stdout.txt
+          grep -q '^STATUS_OK=true$' \
+            latest/investment_score_current_blockers_v8119_run_log_latest.txt
+          grep -q '^V8118_REVENUE_SOURCE_BLOCKER_REAPPEARED=0$' \
+            latest/investment_score_current_blockers_v8119_run_log_latest.txt
+          grep -q '^EXHAUSTED_LANE_AUTO_REQUERIED=false$' \
+            latest/investment_score_current_blockers_v8119_run_log_latest.txt
+
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path("latest/investment_score_current_blockers_v8119.csv")
+          data = p.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+          p.write_bytes(data)
+          if b"\r" in p.read_bytes():
+              raise SystemExit("V8119_CSV_CR_REMAINS")
+          print("V8119_CSV_LF_NORMALIZED=PASS")
+          PY
+
+      - name: Validate V8.11.9 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          s = json.loads(
+              Path(
+                  "latest/investment_score_current_blockers_v8119_summary_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          assert s["status"] == "AUDIT_ONLY"
+          assert (
+              s["policy_version"]
+              == "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          )
+          assert (
+              s["source_contract_version"]
+              == "2026-09-16-v8.11.7-five-financial-cis-interest-revenue-contract"
+          )
+          assert s["scorer_universe_count"] > 0
+          assert s["ready_count"] + s["limited_count"] == s["scorer_universe_count"]
+          assert s["limited_blocker_occurrences"] > 0
+          assert (
+              s["v8118_target_persistence"]["revenue_source_blockers_reappeared_count"]
+              == 0
+          )
+          assert set(s["v8118_target_persistence"]["ready_tickers"]) == {
+              "000810","005830","105560"
+          }
+          assert s["v8118_target_persistence"]["samsung_card_status"] == "LIMITED"
+          assert (
+              s["v8118_target_persistence"]["samsung_card_only_blocker"]
+              == "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+          )
+
+          exhausted = s["known_exhausted_evidence"]
+          assert exhausted["v8103_exact_da_exhausted_count"] == 10
+          assert set(exhausted["v8104_exhausted_tickers"]) == {
+              "001020","357250"
+          }
+
+          assert s["next_actionable_source_group"]
+          assert s["next_actionable_selection_reason"]
+          assert s["next_step"] == "AUDIT_NEXT_ACTIONABLE_SOURCE_GROUP_FROM_V8119"
+
+          h = s["hard_guards"]
+          assert all(v is False for v in h.values())
+
+          with Path(
+              "latest/investment_score_current_blockers_v8119.csv"
+          ).open(encoding="utf-8-sig", newline="") as f:
+              rows = list(csv.DictReader(f))
+
+          assert len(rows) == s["limited_blocker_occurrences"]
+          assert not any(
+              r["ticker"] in {"000810","005830","105560"}
+              for r in rows
+          )
+
+          card_rows = [
+              r for r in rows
+              if r["ticker"] == "029780"
+          ]
+          assert len(card_rows) == 1
+          assert (
+              card_rows[0]["blocker_reason"]
+              == "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+          )
+
+          print("V8119_OUTPUT_VALIDATION=PASS")
+          PY
+
+      - name: Verify protected production state unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_source_enricher_v854.py \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_da_current_single_recoverability_v8103_summary_latest.json \
+            latest/investment_score_next_single_source_v8104_summary_latest.json \
+            latest/investment_score_production_refresh_v8118_summary_latest.json \
+            > /tmp/v8119_protected.after
+
+          diff -u /tmp/v8119_protected.before /tmp/v8119_protected.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -name '*.json' -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8119_api.after
+          diff -u /tmp/v8119_api.before /tmp/v8119_api.after
+
+          echo "V8119_PRODUCTION_STATE_UNCHANGED=PASS"
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "investment_score_post_commit_blocker_reaudit_v8119.py",
+              "latest/investment_score_current_blockers_v8119.csv",
+              "latest/investment_score_current_blockers_v8119_summary_latest.json",
+              "latest/investment_score_current_blockers_v8119_run_log_latest.txt",
+              "docs/investment_score_current_blockers_v8119.md",
+          }
+
+          changed = {
+              line[3:]
+              for line in subprocess.check_output(
+                  [
+                      "git","status","--porcelain","--untracked-files=all"
+                  ],
+                  text=True,
+              ).splitlines()
+              if line
+          }
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit(
+                  "V8119_UNEXPECTED_CHANGED_FILES:"
+                  + ",".join(unexpected)
+              )
+          print("V8119_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+      - name: Refuse concurrent protected drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "investment_score_source_enricher_v854.py",
+              "investment_score_dry_run_v882.py",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/investment_score_source_run_log_latest.txt",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/investment_score_production_refresh_v8118_summary_latest.json",
+          }
+          upstream = set(
+              subprocess.check_output(
+                  ["git","diff","--name-only","HEAD..origin/main"],
+                  text=True,
+              ).splitlines()
+          )
+          dangerous = sorted(
+              p for p in upstream
+              if p in protected or p.startswith("api/two_table_v1/")
+          )
+          if dangerous:
+              raise SystemExit(
+                  "V8119_CONCURRENT_PROTECTED_DRIFT:"
+                  + ",".join(dangerous)
+              )
+          print("V8119_NO_CONCURRENT_PROTECTED_DRIFT=PASS")
+          PY
+
+      - name: Commit and push audit outputs only
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_post_commit_blocker_reaudit_v8119.py \
+            latest/investment_score_current_blockers_v8119.csv \
+            latest/investment_score_current_blockers_v8119_summary_latest.json \
+            latest/investment_score_current_blockers_v8119_run_log_latest.txt \
+            docs/investment_score_current_blockers_v8119.md
+
+          git diff --cached --check
+          echo "V8119_GIT_DIFF_CHECK=PASS"
+
+          git commit -m "Reaudit current investment score blockers v8.11.9"
+          git pull --rebase origin main
+          git push origin HEAD:main

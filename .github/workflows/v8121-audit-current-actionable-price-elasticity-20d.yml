@@ -1,0 +1,736 @@
+name: Audit current actionable price elasticity 20D official recovery v8.12.1
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8121-audit-current-actionable-price-elasticity-20d.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8121-current-actionable-price-elasticity
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      TZ: Asia/Seoul
+      KRX_AUTH_KEY: ${{ secrets.KRX_AUTH_KEY }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify V8.12.0 lineage and capture protected hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -n "${KRX_AUTH_KEY:-}" || {
+            echo "::error::KRX_AUTH_KEY secret is missing"
+            exit 1
+          }
+
+          git merge-base --is-ancestor \
+            973aff06f65c5e48ddf7366ef45c9b8681f78c4a HEAD
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            investment_score_source_enricher_v854.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/universe_raw_history_latest.csv \
+            latest/investment_score_current_blockers_v8119.csv \
+            latest/investment_score_current_blockers_v8119_summary_latest.json \
+            latest/investment_score_exact_da_actionable_v8120_summary_latest.json \
+            > /tmp/v8121_protected.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -name '*.json' -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8121_api.before
+
+          echo "V8121_LINEAGE=PASS"
+
+      - name: Create and run V8.12.1 auditor
+        shell: bash
+        run: |
+          cat > investment_score_price_elasticity_actionable_v8121.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import csv
+          import json
+          import math
+          import os
+          import time
+          from collections import Counter
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import pandas as pd
+          import collect_universe as universe
+
+          VERSION = "2026-09-17-v8.12.1-current-actionable-price-elasticity-20d-official-recovery-audit"
+          V8119_VERSION = "2026-09-17-v8.11.9-post-commit-source-contract-and-current-blocker-reaudit"
+          V8119_RESULT_COMMIT = "f470876fe7365e9590bcc5f61b88a2131d3322b5"
+          V8120_VERSION = "2026-09-17-v8.12.0-current-actionable-exact-da-official-recovery-audit"
+          V8120_RESULT_COMMIT = "973aff06f65c5e48ddf7366ef45c9b8681f78c4a"
+          POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+
+          BLOCK_CSV = ROOT / "latest/investment_score_current_blockers_v8119.csv"
+          BLOCK_JSON = ROOT / "latest/investment_score_current_blockers_v8119_summary_latest.json"
+          V8120_JSON = ROOT / "latest/investment_score_exact_da_actionable_v8120_summary_latest.json"
+          HISTORY = ROOT / "latest/universe_raw_history_latest.csv"
+          PRICE_CACHE = ROOT / "latest/investment_score_price_elasticity_20d_latest.csv"
+          API_FILES = [
+              ROOT / "api/two_table_v1/kospi.json",
+              ROOT / "api/two_table_v1/decliners.json",
+              ROOT / "api/two_table_v1/decliners24.json",
+          ]
+
+          OUT_CSV = ROOT / "latest/investment_score_price_elasticity_actionable_v8121.csv"
+          OUT_JSON = ROOT / "latest/investment_score_price_elasticity_actionable_v8121_summary_latest.json"
+          OUT_LOG = ROOT / "latest/investment_score_price_elasticity_actionable_v8121_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_price_elasticity_actionable_v8121.md"
+
+          EXPECTED_ACTIONABLE = {
+              "003530": "한화투자증권",
+              "004800": "효성",
+              "006260": "LS",
+              "006800": "미래에셋증권",
+              "008060": "대덕",
+              "010060": "OCI홀딩스",
+              "027410": "BGF",
+              "034730": "SK",
+          }
+          PRICE_REASON = "하루평균 절대등락률:MISSING_ELASTICITY"
+          WINDOW_RETURNS = 20
+          MIN_VALID_CLOSES = 21
+          CALENDAR_BUFFER_SESSIONS = 40
+
+
+          def ticker(value):
+              s = "".join(ch for ch in str(value or "") if ch.isdigit())
+              return s.zfill(6) if s else ""
+
+
+          def num(value):
+              try:
+                  if value is None or isinstance(value, bool):
+                      return None
+                  s = str(value).strip().replace(",", "")
+                  if s in {"", "-", "None", "null", "nan", "NaN"}:
+                      return None
+                  x = float(s)
+                  return x if math.isfinite(x) else None
+              except Exception:
+                  return None
+
+
+          def read_json(path):
+              return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+
+          def read_csv(path):
+              with Path(path).open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
+
+
+          def recursive_hits(obj, code):
+              hits = []
+              if isinstance(obj, dict):
+                  direct = ticker(obj.get("ticker") or obj.get("code") or obj.get("stock_code"))
+                  if direct == code:
+                      hits.append(obj)
+                  for value in obj.values():
+                      hits.extend(recursive_hits(value, code))
+              elif isinstance(obj, list):
+                  for value in obj:
+                      hits.extend(recursive_hits(value, code))
+              return hits
+
+
+          def extract_basis_from_hit(hit):
+              metrics = hit.get("metrics") if isinstance(hit.get("metrics"), dict) else {}
+              for value in (
+                  metrics.get("basis_date"),
+                  hit.get("basis_date"),
+                  hit.get("asof_date"),
+                  hit.get("date"),
+              ):
+                  text = str(value or "").strip()
+                  if not text:
+                      continue
+                  try:
+                      return pd.Timestamp(text).normalize()
+                  except Exception:
+                      pass
+              return None
+
+
+          def current_basis_by_ticker():
+              basis = {}
+              hit_counts = Counter()
+              for path in API_FILES:
+                  if not path.is_file():
+                      continue
+                  payload = read_json(path)
+                  for code in EXPECTED_ACTIONABLE:
+                      for hit in recursive_hits(payload, code):
+                          day = extract_basis_from_hit(hit)
+                          if day is not None:
+                              basis.setdefault(code, set()).add(day)
+                              hit_counts[code] += 1
+
+              resolved = {}
+              for code in sorted(EXPECTED_ACTIONABLE):
+                  days = sorted(basis.get(code, set()))
+                  if not days:
+                      raise RuntimeError("V8121_API_BASIS_MISSING:" + code)
+                  resolved[code] = days[-1]
+
+              unique = sorted(set(resolved.values()))
+              if len(unique) != 1:
+                  raise RuntimeError(
+                      "V8121_TARGET_BASIS_DATES_DIVERGED:"
+                      + ",".join(str(x.date()) for x in unique)
+                  )
+              return resolved, unique[0], hit_counts
+
+
+          def valid_close_row(row):
+              close = num(row.get("close"))
+              return close is not None and close > 0
+
+
+          def calc_avg_daily_move_pct(rows):
+              ordered = sorted(rows, key=lambda r: pd.Timestamp(r["date"]))
+              closes = [num(r.get("close")) for r in ordered]
+              if len(closes) < MIN_VALID_CLOSES:
+                  return None, [], []
+
+              returns = []
+              return_dates = []
+              for i in range(1, len(closes)):
+                  prev, cur = closes[i - 1], closes[i]
+                  if prev is None or cur is None or prev <= 0 or cur <= 0:
+                      continue
+                  returns.append(cur / prev - 1.0)
+                  return_dates.append(pd.Timestamp(ordered[i]["date"]).date().isoformat())
+
+              if len(returns) < WINDOW_RETURNS:
+                  return None, returns, return_dates
+
+              last20 = returns[-WINDOW_RETURNS:]
+              last20_dates = return_dates[-WINDOW_RETURNS:]
+              value = round(sum(abs(x) for x in last20) / WINDOW_RETURNS * 100.0, 2)
+              return value, last20, last20_dates
+
+
+          def main():
+              krx_key = os.environ.get("KRX_AUTH_KEY", "").strip()
+              if not krx_key:
+                  raise RuntimeError("V8121_KRX_AUTH_KEY_MISSING")
+
+              for path in (BLOCK_CSV, BLOCK_JSON, V8120_JSON, HISTORY, PRICE_CACHE):
+                  if not path.is_file():
+                      raise RuntimeError("V8121_MISSING_INPUT:" + str(path))
+
+              s8119 = read_json(BLOCK_JSON)
+              if s8119.get("version") != V8119_VERSION or s8119.get("status") != "AUDIT_ONLY":
+                  raise RuntimeError("V8121_V8119_CONTRACT_MISMATCH")
+              if s8119.get("policy_version") != POLICY_VERSION:
+                  raise RuntimeError("V8121_POLICY_VERSION_MISMATCH")
+
+              rows8119 = read_csv(BLOCK_CSV)
+              actionable = {
+                  ticker(r.get("ticker")): str(r.get("name") or "")
+                  for r in rows8119
+                  if r.get("source_group") == "PRICE_ELASTICITY_20D"
+                  and str(r.get("single_blocker_ticker") or "").upper() == "TRUE"
+                  and r.get("recovery_status") == "ACTIONABLE_SINGLE_BLOCKER_REAUDIT"
+                  and r.get("blocker_reason") == PRICE_REASON
+              }
+              if set(actionable) != set(EXPECTED_ACTIONABLE):
+                  raise RuntimeError("V8121_ACTIONABLE_SET_MISMATCH:" + ",".join(sorted(actionable)))
+
+              s8120 = read_json(V8120_JSON)
+              if s8120.get("version") != V8120_VERSION or s8120.get("status") != "AUDIT_ONLY":
+                  raise RuntimeError("V8121_V8120_CONTRACT_MISMATCH")
+              if s8120.get("next_step") != "MOVE_TO_NEXT_ACTIONABLE_LANE_PRICE_ELASTICITY_20D":
+                  raise RuntimeError("V8121_V8120_HANDOFF_MISMATCH")
+              if int(s8120.get("both_approved_exact_recoverable_count") or 0) != 0:
+                  raise RuntimeError("V8121_DA_RECOVERABLE_NOT_ZERO")
+
+              existing = {
+                  ticker(r.get("ticker")): r
+                  for r in read_csv(PRICE_CACHE)
+                  if ticker(r.get("ticker"))
+              }
+              already_ready = {
+                  code for code in EXPECTED_ACTIONABLE
+                  if code in existing
+                  and str(existing[code].get("elasticity_source_status") or "") == "READY"
+                  and num(existing[code].get("avg_daily_move_pct")) is not None
+                  and (num(existing[code].get("elasticity_window_sessions")) or 0) >= WINDOW_RETURNS
+              }
+              if already_ready:
+                  raise RuntimeError(
+                      "V8121_TARGET_ALREADY_READY_IN_PRODUCTION_CACHE:"
+                      + ",".join(sorted(already_ready))
+                  )
+
+              _, basis, api_hit_counts = current_basis_by_ticker()
+
+              raw = universe.read_csv_if_exists(HISTORY)
+              hist = universe.normalize_history_dtypes(raw)
+              if hist.empty:
+                  raise RuntimeError("V8121_OFFICIAL_HISTORY_EMPTY")
+
+              kospi = hist[(hist["market"] == "KOSPI") & (hist["date"] <= basis)].copy()
+              sessions = sorted(pd.Timestamp(x).normalize() for x in kospi["date"].dropna().unique())
+              if not sessions:
+                  raise RuntimeError("V8121_KOSPI_SESSION_CALENDAR_EMPTY")
+              if sessions[-1] != basis:
+                  raise RuntimeError(
+                      f"V8121_HISTORY_NOT_CURRENT_TO_API_BASIS:{sessions[-1].date()}!={basis.date()}"
+                  )
+              if len(sessions) < CALENDAR_BUFFER_SESSIONS:
+                  raise RuntimeError(f"V8121_SESSION_CALENDAR_TOO_SHORT:{len(sessions)}")
+
+              target_sessions = sessions[-CALENDAR_BUFFER_SESSIONS:]
+              target_set = set(target_sessions)
+              by_ticker = {code: {} for code in EXPECTED_ACTIONABLE}
+
+              for _, row in kospi.iterrows():
+                  code = ticker(row.get("ticker"))
+                  if code not in EXPECTED_ACTIONABLE:
+                      continue
+                  day = pd.Timestamp(row["date"]).normalize()
+                  if day not in target_set:
+                      continue
+                  data = row.to_dict()
+                  data["date"] = day
+                  if valid_close_row(data):
+                      by_ticker[code][day] = data
+
+              initial_counts = {code: len(by_ticker[code]) for code in EXPECTED_ACTIONABLE}
+              missing_dates = sorted({
+                  day
+                  for code in EXPECTED_ACTIONABLE
+                  for day in target_sessions
+                  if day not in by_ticker[code]
+              })
+
+              fetch_date_count = 0
+              fetch_success_date_count = 0
+              for day in missing_dates:
+                  bas_dd = day.strftime("%Y%m%d")
+                  logs = []
+                  raw_day = universe.request_krx_openapi(
+                      universe.OPENAPI_STOCK_URLS["KOSPI"],
+                      krx_key,
+                      bas_dd,
+                      logs,
+                      "V8121_KOSPI_STOCK",
+                  )
+                  fetch_date_count += 1
+                  norm = universe.normalize_stock_rows(raw_day, "KOSPI", bas_dd, logs)
+                  if norm is not None and not norm.empty:
+                      fetch_success_date_count += 1
+                      for code in EXPECTED_ACTIONABLE:
+                          match = norm[norm["ticker"] == code]
+                          if match.empty:
+                              continue
+                          data = match.iloc[-1].to_dict()
+                          data["date"] = pd.Timestamp(data["date"]).normalize()
+                          if valid_close_row(data):
+                              by_ticker[code][day] = data
+                  time.sleep(0.08)
+
+              out_rows = []
+              recoverable, insufficient = [], []
+              classes = Counter()
+
+              for code in sorted(EXPECTED_ACTIONABLE):
+                  valid_rows = [
+                      by_ticker[code][day]
+                      for day in target_sessions
+                      if day in by_ticker[code] and valid_close_row(by_ticker[code][day])
+                  ]
+                  avg_move, returns, return_dates = calc_avg_daily_move_pct(valid_rows)
+
+                  if avg_move is not None:
+                      classification = "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE"
+                      recoverable.append(code)
+                  else:
+                      classification = "INSUFFICIENT_OFFICIAL_CLOSE_SESSIONS"
+                      insufficient.append(code)
+                  classes[classification] += 1
+
+                  used_rows = sorted(valid_rows, key=lambda r: pd.Timestamp(r["date"]))[-MIN_VALID_CLOSES:]
+                  used_close_dates = [pd.Timestamp(r["date"]).date().isoformat() for r in used_rows]
+
+                  out_rows.append({
+                      "ticker": code,
+                      "name": EXPECTED_ACTIONABLE[code],
+                      "basis_date": basis.date().isoformat(),
+                      "api_basis_hit_count": api_hit_counts.get(code, 0),
+                      "calendar_buffer_sessions": len(target_sessions),
+                      "initial_valid_close_count": initial_counts[code],
+                      "final_valid_close_count": len(valid_rows),
+                      "required_valid_close_count": MIN_VALID_CLOSES,
+                      "elasticity_window_sessions": WINDOW_RETURNS,
+                      "avg_daily_move_pct": f"{avg_move:.2f}" if avg_move is not None else "",
+                      "classification": classification,
+                      "used_close_dates_json": json.dumps(
+                          used_close_dates, ensure_ascii=False, separators=(",", ":")
+                      ),
+                      "last20_return_dates_json": json.dumps(
+                          return_dates[-WINDOW_RETURNS:], ensure_ascii=False, separators=(",", ":")
+                      ),
+                      "last20_returns_json": json.dumps(
+                          [round(x, 10) for x in returns[-WINDOW_RETURNS:]],
+                          ensure_ascii=False, separators=(",", ":")
+                      ),
+                      "source": "KRX_OFFICIAL_STK_BYDD_TRD",
+                  })
+
+              if len(out_rows) != 8:
+                  raise RuntimeError(f"V8121_OUTPUT_COUNT_NOT_8:{len(out_rows)}")
+
+              OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+              fields = list(out_rows[0].keys())
+              with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+                  w = csv.DictWriter(f, fieldnames=fields, lineterminator="\n")
+                  w.writeheader()
+                  w.writerows(out_rows)
+
+              summary = {
+                  "version": VERSION,
+                  "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+                  "status": "AUDIT_ONLY",
+                  "policy_version": POLICY_VERSION,
+                  "v8119_version": V8119_VERSION,
+                  "v8119_result_commit": V8119_RESULT_COMMIT,
+                  "v8120_version": V8120_VERSION,
+                  "v8120_result_commit": V8120_RESULT_COMMIT,
+                  "metric_contract": {
+                      "metric": "avg_daily_move_pct",
+                      "definition": "mean(abs(close_t / close_t_minus_1 - 1)) over latest 20 official close returns * 100",
+                      "return_count": WINDOW_RETURNS,
+                      "minimum_valid_closes": MIN_VALID_CLOSES,
+                      "atr_substitution_allowed": False,
+                  },
+                  "target_count": 8,
+                  "target_tickers": sorted(EXPECTED_ACTIONABLE),
+                  "basis_date": basis.date().isoformat(),
+                  "calendar_buffer_sessions": len(target_sessions),
+                  "krx_refetch_date_count": fetch_date_count,
+                  "krx_refetch_success_date_count": fetch_success_date_count,
+                  "classification_counts": dict(classes),
+                  "recoverable_count": len(recoverable),
+                  "recoverable_tickers": sorted(recoverable),
+                  "insufficient_count": len(insufficient),
+                  "insufficient_tickers": sorted(insufficient),
+                  "hard_guards": {
+                      "production_price_elasticity_cache_modified": False,
+                      "production_source_cache_modified": False,
+                      "production_financial_cache_modified": False,
+                      "production_api_modified": False,
+                      "scoring_policy_modified": False,
+                      "atr_used_as_elasticity_substitute": False,
+                      "nonofficial_price_source_used": False,
+                      "source_promoted": False,
+                  },
+                  "next_step": (
+                      "FREEZE_RECOVERABLE_PRICE_ELASTICITY_AND_SHADOW_SCORE"
+                      if recoverable
+                      else "AUDIT_ACTIONABLE_SUPPLY_SINGLE_FROM_V8119"
+                  ),
+              }
+
+              OUT_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+              OUT_LOG.write_text(
+                  "\n".join([
+                      f"VERSION={VERSION}",
+                      "STATUS=AUDIT_ONLY",
+                      "TARGET_COUNT=8",
+                      f"BASIS_DATE={basis.date().isoformat()}",
+                      f"CALENDAR_BUFFER_SESSIONS={len(target_sessions)}",
+                      f"KRX_REFETCH_DATE_COUNT={fetch_date_count}",
+                      f"KRX_REFETCH_SUCCESS_DATE_COUNT={fetch_success_date_count}",
+                      f"RECOVERABLE={len(recoverable)}",
+                      f"INSUFFICIENT={len(insufficient)}",
+                      "ATR_SUBSTITUTION_USED=false",
+                      "NONOFFICIAL_PRICE_SOURCE_USED=false",
+                      "PRODUCTION_PRICE_ELASTICITY_CACHE_MODIFIED=false",
+                      "SOURCE_PROMOTED=false",
+                      "SCORING_POLICY_MODIFIED=false",
+                      "STATUS_OK=true",
+                      f"NEXT_STEP={summary['next_step']}",
+                  ]) + "\n",
+                  encoding="utf-8",
+              )
+              OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+              OUT_DOC.write_text(
+                  "\n".join([
+                      "# V8.12.1 current actionable price-elasticity official recovery audit",
+                      "",
+                      "- Official KRX close prices only.",
+                      "- Latest 20 close-to-close returns.",
+                      "- avg_daily_move_pct = mean(abs(return)) * 100.",
+                      "- ATR is not a substitute.",
+                      "- AUDIT_ONLY; no production cache mutation.",
+                      "",
+                      f"- Recoverable: {len(recoverable)}",
+                      f"- Insufficient: {len(insufficient)}",
+                      f"- Next: `{summary['next_step']}`",
+                      "",
+                  ]),
+                  encoding="utf-8",
+              )
+
+              print("V8121_CURRENT_ACTIONABLE_PRICE_ELASTICITY_AUDIT=PASS")
+
+
+          if __name__ == "__main__":
+              main()
+
+          PY
+
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("investment_score_price_elasticity_actionable_v8121.py")
+          text = p.read_text(encoding="utf-8")
+          p.write_text(text.rstrip() + "\n", encoding="utf-8", newline="\n")
+          assert not p.read_bytes().endswith(b"\n\n")
+          print("V8121_AUDITOR_EOF_NORMALIZED=PASS")
+          PY
+
+          python -m py_compile investment_score_price_elasticity_actionable_v8121.py
+
+          python investment_score_price_elasticity_actionable_v8121.py \
+            | tee /tmp/v8121_stdout.txt
+
+          grep -q '^V8121_CURRENT_ACTIONABLE_PRICE_ELASTICITY_AUDIT=PASS$' \
+            /tmp/v8121_stdout.txt
+          grep -q '^STATUS_OK=true$' \
+            latest/investment_score_price_elasticity_actionable_v8121_run_log_latest.txt
+          grep -q '^ATR_SUBSTITUTION_USED=false$' \
+            latest/investment_score_price_elasticity_actionable_v8121_run_log_latest.txt
+          grep -q '^NONOFFICIAL_PRICE_SOURCE_USED=false$' \
+            latest/investment_score_price_elasticity_actionable_v8121_run_log_latest.txt
+          grep -q '^SOURCE_PROMOTED=false$' \
+            latest/investment_score_price_elasticity_actionable_v8121_run_log_latest.txt
+
+      - name: Validate V8.12.1 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          s = json.loads(
+              Path(
+                  "latest/investment_score_price_elasticity_actionable_v8121_summary_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          assert (
+              s["version"]
+              == "2026-09-17-v8.12.1-current-actionable-price-elasticity-20d-official-recovery-audit"
+          )
+          assert s["status"] == "AUDIT_ONLY"
+          assert s["v8119_result_commit"] == "f470876fe7365e9590bcc5f61b88a2131d3322b5"
+          assert s["v8120_result_commit"] == "973aff06f65c5e48ddf7366ef45c9b8681f78c4a"
+          assert s["target_count"] == 8
+          assert set(s["target_tickers"]) == {
+              "003530","004800","006260","006800",
+              "008060","010060","027410","034730",
+          }
+
+          metric = s["metric_contract"]
+          assert metric["return_count"] == 20
+          assert metric["minimum_valid_closes"] == 21
+          assert metric["atr_substitution_allowed"] is False
+          assert s["recoverable_count"] + s["insufficient_count"] == 8
+
+          h = s["hard_guards"]
+          assert all(v is False for v in h.values())
+
+          assert s["next_step"] in {
+              "FREEZE_RECOVERABLE_PRICE_ELASTICITY_AND_SHADOW_SCORE",
+              "AUDIT_ACTIONABLE_SUPPLY_SINGLE_FROM_V8119",
+          }
+
+          with Path(
+              "latest/investment_score_price_elasticity_actionable_v8121.csv"
+          ).open(encoding="utf-8-sig", newline="") as f:
+              rows = list(csv.DictReader(f))
+
+          assert len(rows) == 8
+          assert len({r["ticker"] for r in rows}) == 8
+
+          for r in rows:
+              if r["classification"] == "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE":
+                  assert int(r["elasticity_window_sessions"]) == 20
+                  assert float(r["avg_daily_move_pct"]) >= 0
+                  assert len(json.loads(r["last20_returns_json"])) == 20
+                  assert len(json.loads(r["last20_return_dates_json"])) == 20
+
+          print("V8121_OUTPUT_VALIDATION=PASS")
+          PY
+
+      - name: Verify protected production state unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            investment_score_source_enricher_v854.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/universe_raw_history_latest.csv \
+            latest/investment_score_current_blockers_v8119.csv \
+            latest/investment_score_current_blockers_v8119_summary_latest.json \
+            latest/investment_score_exact_da_actionable_v8120_summary_latest.json \
+            > /tmp/v8121_protected.after
+
+          diff -u /tmp/v8121_protected.before /tmp/v8121_protected.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -name '*.json' -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8121_api.after
+          diff -u /tmp/v8121_api.before /tmp/v8121_api.after
+
+          echo "V8121_PRODUCTION_STATE_UNCHANGED=PASS"
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+          allowed = {
+              "investment_score_price_elasticity_actionable_v8121.py",
+              "latest/investment_score_price_elasticity_actionable_v8121.csv",
+              "latest/investment_score_price_elasticity_actionable_v8121_summary_latest.json",
+              "latest/investment_score_price_elasticity_actionable_v8121_run_log_latest.txt",
+              "docs/investment_score_price_elasticity_actionable_v8121.md",
+          }
+          changed = {
+              line[3:]
+              for line in subprocess.check_output(
+                  ["git","status","--porcelain","--untracked-files=all"],
+                  text=True,
+              ).splitlines()
+              if line
+          }
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit(
+                  "V8121_UNEXPECTED_CHANGED_FILES:" + ",".join(unexpected)
+              )
+          print("V8121_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+      - name: Refuse concurrent protected drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "investment_score_dry_run_v882.py",
+              "investment_score_source_enricher_v854.py",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/investment_score_source_run_log_latest.txt",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/investment_score_price_elasticity_20d_latest.csv",
+              "latest/universe_raw_history_latest.csv",
+              "latest/investment_score_current_blockers_v8119.csv",
+              "latest/investment_score_current_blockers_v8119_summary_latest.json",
+              "latest/investment_score_exact_da_actionable_v8120_summary_latest.json",
+          }
+          upstream = set(
+              subprocess.check_output(
+                  ["git","diff","--name-only","HEAD..origin/main"],
+                  text=True,
+              ).splitlines()
+          )
+          dangerous = sorted(
+              p for p in upstream
+              if p in protected or p.startswith("api/two_table_v1/")
+          )
+          if dangerous:
+              raise SystemExit(
+                  "V8121_CONCURRENT_PROTECTED_DRIFT:" + ",".join(dangerous)
+              )
+          print("V8121_NO_CONCURRENT_PROTECTED_DRIFT=PASS")
+          PY
+
+      - name: Commit and push audit outputs only
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_price_elasticity_actionable_v8121.py \
+            latest/investment_score_price_elasticity_actionable_v8121.csv \
+            latest/investment_score_price_elasticity_actionable_v8121_summary_latest.json \
+            latest/investment_score_price_elasticity_actionable_v8121_run_log_latest.txt \
+            docs/investment_score_price_elasticity_actionable_v8121.md
+
+          git diff --cached --check
+          echo "V8121_GIT_DIFF_CHECK=PASS"
+
+          git commit -m "Audit current actionable price elasticity v8.12.1"
+          git pull --rebase origin main
+          git push origin HEAD:main

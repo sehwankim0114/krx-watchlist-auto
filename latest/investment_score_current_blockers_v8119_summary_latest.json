@@ -1,0 +1,326 @@
+{
+  "version": "2026-09-17-v8.11.9-post-commit-source-contract-and-current-blocker-reaudit",
+  "generated_at_kst": "2026-09-17T10:14:08+09:00",
+  "status": "AUDIT_ONLY",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "source_contract_version": "2026-09-16-v8.11.7-five-financial-cis-interest-revenue-contract",
+  "v8118_version": "2026-09-16-v8.11.8-production-source-refresh-post-apply-regression",
+  "v8118_result_commit": "50a5babd10380ebb6f3dbebbfd2c2b4b221fb8df",
+  "production_source_row_count": 242,
+  "scorer_universe_count": 221,
+  "ready_count": 8,
+  "limited_count": 213,
+  "ready_pct": 3.6199,
+  "limited_blocker_occurrences": 2166,
+  "single_blocker_ticker_count": 30,
+  "single_blocker_tickers": [
+    "002420",
+    "002450",
+    "003230",
+    "003530",
+    "004170",
+    "004800",
+    "004910",
+    "005930",
+    "006260",
+    "006800",
+    "008060",
+    "009420",
+    "010060",
+    "010130",
+    "012450",
+    "018260",
+    "022100",
+    "027410",
+    "028050",
+    "029780",
+    "034020",
+    "034730",
+    "047050",
+    "058730",
+    "058860",
+    "069620",
+    "267270",
+    "373220",
+    "456040",
+    "475560"
+  ],
+  "actionable_single_blocker_ticker_count": 26,
+  "actionable_single_blocker_tickers": [
+    "002450",
+    "003230",
+    "003530",
+    "004170",
+    "004800",
+    "004910",
+    "005930",
+    "006260",
+    "006800",
+    "008060",
+    "009420",
+    "010060",
+    "010130",
+    "018260",
+    "027410",
+    "028050",
+    "029780",
+    "034020",
+    "034730",
+    "047050",
+    "058860",
+    "069620",
+    "267270",
+    "373220",
+    "456040",
+    "475560"
+  ],
+  "blocker_category_counts": {
+    "SOURCE_DATA_GAP": 2059,
+    "SOURCE_EVIDENCE_GAP": 90,
+    "POLICY_SEMANTIC_BLOCKER": 17
+  },
+  "source_group_counts": {
+    "INVESTMENT_SCORE_SOURCE_CACHE": 439,
+    "FINANCIAL_VALUATION_CACHE": 889,
+    "PRICE_ELASTICITY_20D": 168,
+    "PRODUCTION_ANALYSIS_SUPPLY": 90,
+    "OCF_AND_REVENUE_SOURCE": 146,
+    "EXACT_DA_SOURCE": 171,
+    "FINANCIAL_AND_RAW_SOURCE": 97,
+    "NETCASH_INPUT": 97,
+    "PRODUCTION_PRICE_METRICS": 51,
+    "V880_SCORING_CONTRACT": 17,
+    "EV_EBITDA_OTHER_INPUT": 1
+  },
+  "recovery_status_counts": {
+    "MULTI_BLOCKER_SOURCE_LANE": 2120,
+    "POLICY_SEMANTIC_DEFER": 17,
+    "EXHAUSTED_V8104_OFFICIAL_KRX_OHLC_INCOMPLETE": 1,
+    "ACTIONABLE_SINGLE_BLOCKER_REAUDIT": 26,
+    "EXHAUSTED_V8103_APPROVED_OFFICIAL_PATHS": 2
+  },
+  "top_reasons": [
+    {
+      "reason": "하루평균 절대등락률:MISSING_ELASTICITY",
+      "count": 168
+    },
+    {
+      "reason": "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+      "count": 146
+    },
+    {
+      "reason": "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+      "count": 116
+    },
+    {
+      "reason": "PER:MISSING_PER",
+      "count": 114
+    },
+    {
+      "reason": "영업이익 성장과 흑자 여부:MISSING_OP_PROFIT",
+      "count": 113
+    },
+    {
+      "reason": "순이익 흐름:MISSING_EARNINGS_TREND",
+      "count": 113
+    },
+    {
+      "reason": "영업이익률:MISSING_MARGIN",
+      "count": 113
+    },
+    {
+      "reason": "ROE:MISSING_ROE",
+      "count": 113
+    },
+    {
+      "reason": "PBR:MISSING_PBR_OR_ROE",
+      "count": 113
+    },
+    {
+      "reason": "흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND",
+      "count": 113
+    },
+    {
+      "reason": "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+      "count": 109
+    },
+    {
+      "reason": "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+      "count": 108
+    },
+    {
+      "reason": "최근 3년 영업이익 성장률:MISSING_3Y_OP",
+      "count": 106
+    },
+    {
+      "reason": "부채비율:MISSING_DEBT_RATIO",
+      "count": 97
+    },
+    {
+      "reason": "PSR 또는 대체 가치지표:MISSING_PSR_INPUT",
+      "count": 97
+    },
+    {
+      "reason": "EV/EBITDA:EV_EBITDA_INPUT:NO_EXACT_CANDIDATE:NO_EXACT_CANDIDATE",
+      "count": 92
+    },
+    {
+      "reason": "순현금·기업가치 상태:NETCASH_INPUT:NO_EXACT_CANDIDATE",
+      "count": 92
+    },
+    {
+      "reason": "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
+      "count": 90
+    },
+    {
+      "reason": "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
+      "count": 65
+    },
+    {
+      "reason": "과열·급락 위험:MISSING_RISK_INPUT",
+      "count": 31
+    },
+    {
+      "reason": "기간 저가·고가 대비 현재위치:MISSING_POSITION",
+      "count": 20
+    },
+    {
+      "reason": "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
+      "count": 17
+    },
+    {
+      "reason": "EV/EBITDA:EV_EBITDA_INPUT:EMPTY_AS_ZERO:NO_EXACT_CANDIDATE",
+      "count": 14
+    },
+    {
+      "reason": "순현금·기업가치 상태:NETCASH_INPUT:OK",
+      "count": 5
+    },
+    {
+      "reason": "EV/EBITDA:EV_EBITDA_INPUT:OK:OK",
+      "count": 1
+    }
+  ],
+  "source_priority": [
+    {
+      "source_group": "FINANCIAL_VALUATION_CACHE",
+      "blocker_occurrences": 889,
+      "ticker_count": 114,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0
+    },
+    {
+      "source_group": "INVESTMENT_SCORE_SOURCE_CACHE",
+      "blocker_occurrences": 439,
+      "ticker_count": 118,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0
+    },
+    {
+      "source_group": "EXACT_DA_SOURCE",
+      "blocker_occurrences": 171,
+      "ticker_count": 171,
+      "single_blocker_tickers": 19,
+      "actionable_single_blocker_tickers": 17
+    },
+    {
+      "source_group": "PRICE_ELASTICITY_20D",
+      "blocker_occurrences": 168,
+      "ticker_count": 168,
+      "single_blocker_tickers": 8,
+      "actionable_single_blocker_tickers": 8
+    },
+    {
+      "source_group": "OCF_AND_REVENUE_SOURCE",
+      "blocker_occurrences": 146,
+      "ticker_count": 146,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0
+    },
+    {
+      "source_group": "FINANCIAL_AND_RAW_SOURCE",
+      "blocker_occurrences": 97,
+      "ticker_count": 97,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0
+    },
+    {
+      "source_group": "NETCASH_INPUT",
+      "blocker_occurrences": 97,
+      "ticker_count": 97,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0
+    },
+    {
+      "source_group": "PRODUCTION_ANALYSIS_SUPPLY",
+      "blocker_occurrences": 90,
+      "ticker_count": 90,
+      "single_blocker_tickers": 1,
+      "actionable_single_blocker_tickers": 1
+    },
+    {
+      "source_group": "PRODUCTION_PRICE_METRICS",
+      "blocker_occurrences": 51,
+      "ticker_count": 31,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0
+    },
+    {
+      "source_group": "V880_SCORING_CONTRACT",
+      "blocker_occurrences": 17,
+      "ticker_count": 17,
+      "single_blocker_tickers": 2,
+      "actionable_single_blocker_tickers": 0
+    },
+    {
+      "source_group": "EV_EBITDA_OTHER_INPUT",
+      "blocker_occurrences": 1,
+      "ticker_count": 1,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0
+    }
+  ],
+  "known_exhausted_evidence": {
+    "v8103_exact_da_exhausted_count": 10,
+    "v8103_exact_da_exhausted_tickers": [
+      "001560",
+      "011200",
+      "012450",
+      "012690",
+      "017670",
+      "020560",
+      "022100",
+      "023960",
+      "078520",
+      "483650"
+    ],
+    "v8104_exhausted_tickers": [
+      "001020",
+      "357250"
+    ]
+  },
+  "v8118_target_persistence": {
+    "ready_tickers": [
+      "000810",
+      "005830",
+      "105560"
+    ],
+    "samsung_card_status": "LIMITED",
+    "samsung_card_only_blocker": "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
+    "revenue_source_blockers_reappeared_count": 0
+  },
+  "next_actionable_source_group": "EXACT_DA_SOURCE",
+  "next_actionable_selection_reason": "HIGHEST_ACTIONABLE_SINGLE_BLOCKER_COUNT",
+  "hard_guards": {
+    "production_source_cache_modified": false,
+    "production_source_run_log_modified": false,
+    "production_financial_cache_modified": false,
+    "production_api_modified": false,
+    "production_investment_score_written": false,
+    "scoring_policy_modified": false,
+    "exhausted_lane_auto_requeried": false,
+    "policy_blocker_auto_modified": false,
+    "source_value_imputed": false
+  },
+  "next_step": "AUDIT_NEXT_ACTIONABLE_SOURCE_GROUP_FROM_V8119"
+}

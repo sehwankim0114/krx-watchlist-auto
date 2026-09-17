@@ -1,4 +1,4 @@
-name: Verify post-commit source contract and reaudit current blockers v8.11.9
+name: Verify post-commit source contract and reaudit current blockers v8.11.9 validation-fix
 
 on:
   workflow_dispatch:
@@ -538,7 +538,7 @@ jobs:
               OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
               write_fields = list(out_rows[0].keys())
               with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
-                  w = csv.DictWriter(f, fieldnames=write_fields, lineterminator="\\n")
+                  w = csv.DictWriter(f, fieldnames=write_fields, lineterminator="\n")
                   w.writeheader()
                   w.writerows(out_rows)
 

@@ -1,7 +1,7 @@
 {
   "script": "supply_burden_enricher.py v2.0.0-check-status-separated",
   "policy_version": "2026-07-01-v6.0-supply-status-separated",
-  "run_at_kst": "2026-09-17T10:40:00+09:00",
+  "run_at_kst": "2026-09-18T10:36:51+09:00",
   "status": "LIMITED",
   "check_scope": "DART 최근 90일 공시 제목 기준",
   "check_limited_reason": "DART_WHOLE_MARKET_LOOKBACK_CAPPED_90D_FROM_180D",
@@ -10,32 +10,32 @@
   "effective_lookback_days": 90,
   "dart_whole_market_max_days": 90,
   "target_tickers": 2706,
-  "hit_reports": 11203,
-  "supply_burden_detected_tickers": 1750,
-  "danger_tickers": 598,
-  "warning_tickers": 619,
-  "caution_tickers": 533,
+  "hit_reports": 11172,
+  "supply_burden_detected_tickers": 1746,
+  "danger_tickers": 601,
+  "warning_tickers": 611,
+  "caution_tickers": 534,
   "dart_status": {
-    "bgn_de": "20260619",
-    "end_de": "20260917",
+    "bgn_de": "20260620",
+    "end_de": "20260918",
     "lookback_days": 90,
     "corp_cls": {
       "Y": {
-        "pages_requested": 153,
-        "total_page": 153,
-        "raw_reports": 15204,
-        "target_reports": 15204,
-        "matched_reports": 4082
+        "pages_requested": 152,
+        "total_page": 152,
+        "raw_reports": 15172,
+        "target_reports": 15172,
+        "matched_reports": 4078
       },
       "K": {
         "pages_requested": 165,
         "total_page": 165,
-        "raw_reports": 16493,
-        "target_reports": 16387,
-        "matched_reports": 7121
+        "raw_reports": 16463,
+        "target_reports": 16358,
+        "matched_reports": 7094
       }
     },
-    "api_calls": 318,
+    "api_calls": 317,
     "api_errors": []
   },
   "enrich_results": [
@@ -44,7 +44,7 @@
       "status": "OK",
       "rows": 10,
       "matched_rows": 10,
-      "burden_detected_rows": 9,
+      "burden_detected_rows": 8,
       "check_limited_rows": 10,
       "check_failed_rows": 0,
       "note": ""
@@ -64,7 +64,7 @@
       "status": "OK",
       "rows": 10,
       "matched_rows": 10,
-      "burden_detected_rows": 9,
+      "burden_detected_rows": 8,
       "check_limited_rows": 10,
       "check_failed_rows": 0,
       "note": ""
@@ -114,7 +114,7 @@
       "status": "OK",
       "rows": 1785,
       "matched_rows": 1785,
-      "burden_detected_rows": 1182,
+      "burden_detected_rows": 1179,
       "check_limited_rows": 1785,
       "check_failed_rows": 0,
       "note": ""
@@ -134,7 +134,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 25,
+      "burden_detected_rows": 22,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -144,7 +144,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 22,
+      "burden_detected_rows": 23,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -154,7 +154,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 25,
+      "burden_detected_rows": 22,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -224,7 +224,7 @@
       "status": "OK",
       "rows": 20,
       "matched_rows": 20,
-      "burden_detected_rows": 16,
+      "burden_detected_rows": 17,
       "check_limited_rows": 20,
       "check_failed_rows": 0,
       "note": ""
@@ -244,7 +244,7 @@
       "status": "OK",
       "rows": 20,
       "matched_rows": 20,
-      "burden_detected_rows": 16,
+      "burden_detected_rows": 17,
       "check_limited_rows": 20,
       "check_failed_rows": 0,
       "note": ""
@@ -264,7 +264,7 @@
       "status": "OK",
       "rows": 40,
       "matched_rows": 40,
-      "burden_detected_rows": 31,
+      "burden_detected_rows": 30,
       "check_limited_rows": 40,
       "check_failed_rows": 0,
       "note": ""
@@ -384,7 +384,7 @@
       "status": "OK",
       "rows": 921,
       "matched_rows": 921,
-      "burden_detected_rows": 568,
+      "burden_detected_rows": 567,
       "check_limited_rows": 921,
       "check_failed_rows": 0,
       "note": ""

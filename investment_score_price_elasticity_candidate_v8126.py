@@ -1,0 +1,635 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import csv
+import json
+import math
+import os
+import subprocess
+import time
+from collections import Counter
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import pandas as pd
+
+import collect_universe as universe
+import investment_score_dry_run_v882 as scorer
+
+VERSION = "2026-09-21-v8.12.6-stage-current-universe-price-elasticity-refresh"
+V8125_VERSION = "2026-09-21-v8.12.5-freeze-active-price-elasticity-and-shadow-score"
+V8125_RESULT_COMMIT = "b7c60a66784c0c93888ae8bbc1e03e825d162dcd"
+POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+
+ROOT = Path(".")
+KST = ZoneInfo("Asia/Seoul")
+
+HISTORY = ROOT / "latest/universe_raw_history_latest.csv"
+PROD_CACHE = ROOT / "latest/investment_score_price_elasticity_20d_latest.csv"
+PROD_META = ROOT / "latest/investment_score_price_elasticity_20d_latest.json"
+V8125_SUMMARY = ROOT / "latest/investment_score_price_elasticity_shadow_v8125_summary_latest.json"
+
+CANDIDATE_CSV = ROOT / "latest/investment_score_price_elasticity_candidate_v8126.csv"
+CANDIDATE_JSON = ROOT / "latest/investment_score_price_elasticity_candidate_v8126_summary_latest.json"
+REGRESSION_CSV = ROOT / "latest/investment_score_price_elasticity_candidate_v8126_regression.csv"
+SUMMARY_OUT = ROOT / "latest/investment_score_price_elasticity_candidate_v8126_regression_summary_latest.json"
+LOG_OUT = ROOT / "latest/investment_score_price_elasticity_candidate_v8126_run_log_latest.txt"
+DOC_OUT = ROOT / "docs/investment_score_price_elasticity_candidate_v8126.md"
+
+BASE_CSV = Path("/tmp/v8126_baseline.csv")
+BASE_JSON = Path("/tmp/v8126_baseline.json")
+BASE_LOG = Path("/tmp/v8126_baseline.log")
+BASE_DOC = Path("/tmp/v8126_baseline.md")
+CAND_CSV = Path("/tmp/v8126_candidate_score.csv")
+CAND_JSON = Path("/tmp/v8126_candidate_score.json")
+CAND_LOG = Path("/tmp/v8126_candidate_score.log")
+CAND_DOC = Path("/tmp/v8126_candidate_score.md")
+
+EXPECTED_TARGETS = {
+    "000320","001800","003470","003540",
+    "005440","006840","026890","034830",
+    "039490","107590","244920","323410",
+}
+
+ELASTICITY_ITEM = "하루평균 절대등락률"
+ELASTICITY_REASON = "하루평균 절대등락률:MISSING_ELASTICITY"
+
+WINDOW_RETURNS = 20
+MIN_VALID_CLOSES = 21
+CALENDAR_BUFFER_SESSIONS = 40
+EXPECTED_UNIVERSE_COUNT = 149
+
+
+def ticker(value):
+    s = "".join(ch for ch in str(value or "") if ch.isdigit())
+    return s.zfill(6) if s else ""
+
+
+def num(value):
+    try:
+        if value is None or isinstance(value, bool):
+            return None
+        s = str(value).strip().replace(",", "")
+        if s in {"", "-", "None", "null", "nan", "NaN"}:
+            return None
+        x = float(s)
+        return x if math.isfinite(x) else None
+    except Exception:
+        return None
+
+
+def read_json(path):
+    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+
+def read_rows(path):
+    with Path(path).open(encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def write_rows(path, rows, fields=None):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if fields is None:
+        fields = list(rows[0].keys()) if rows else []
+    with path.open("w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields, lineterminator="\n")
+        w.writeheader()
+        w.writerows(rows)
+
+
+def valid_close(row):
+    x = num(row.get("close"))
+    return x is not None and x > 0
+
+
+def calc_metric(rows):
+    ordered = sorted(rows, key=lambda r: pd.Timestamp(r["date"]))
+    if len(ordered) < MIN_VALID_CLOSES:
+        return None
+
+    window = ordered[-MIN_VALID_CLOSES:]
+    closes = [num(r.get("close")) for r in window]
+    dates = [pd.Timestamp(r["date"]).date().isoformat() for r in window]
+    if len(closes) != 21 or any(x is None or x <= 0 for x in closes):
+        return None
+
+    abs_moves = [abs(cur - prev) for prev, cur in zip(closes[:-1], closes[1:])]
+    abs_returns = [
+        abs(cur / prev - 1.0) * 100.0
+        for prev, cur in zip(closes[:-1], closes[1:])
+    ]
+    if len(abs_returns) != 20:
+        return None
+
+    return {
+        "window_start_date": dates[0],
+        "window_end_date": dates[-1],
+        "close_observation_count": 21,
+        "daily_return_observation_count": 20,
+        "avg_daily_move_abs": round(sum(abs_moves) / 20.0, 4),
+        "avg_daily_move_pct": round(sum(abs_returns) / 20.0, 4),
+    }
+
+
+def run_scorer(elasticity_path, out_csv, out_json, out_log, out_doc):
+    old = {
+        "VERSION": scorer.VERSION,
+        "ELASTICITY": scorer.ELASTICITY,
+        "OUT_CSV": scorer.OUT_CSV,
+        "OUT_JSON": scorer.OUT_JSON,
+        "OUT_LOG": scorer.OUT_LOG,
+        "OUT_DOC": scorer.OUT_DOC,
+    }
+    try:
+        scorer.VERSION = VERSION
+        scorer.ELASTICITY = Path(elasticity_path)
+        scorer.OUT_CSV = Path(out_csv)
+        scorer.OUT_JSON = Path(out_json)
+        scorer.OUT_LOG = Path(out_log)
+        scorer.OUT_DOC = Path(out_doc)
+        rc = scorer.main()
+    finally:
+        for k, v in old.items():
+            setattr(scorer, k, v)
+    if rc not in (None, 0):
+        raise RuntimeError(f"V8126_SCORER_FAILED:{rc}")
+
+
+def split_missing(text):
+    return [x for x in str(text or "").split(";") if x]
+
+
+def comp_map(row):
+    return json.loads(row.get("component_points_json") or "{}")
+
+
+def without_elasticity(comp):
+    return {k: v for k, v in comp.items() if k != ELASTICITY_ITEM}
+
+
+def main():
+    key = os.environ.get("KRX_AUTH_KEY", "").strip()
+    if not key:
+        raise RuntimeError("V8126_KRX_AUTH_KEY_MISSING")
+
+    for p in (HISTORY, PROD_CACHE, PROD_META, V8125_SUMMARY):
+        if not p.is_file():
+            raise RuntimeError("V8126_MISSING_INPUT:" + str(p))
+
+    subprocess.run(
+        ["git", "merge-base", "--is-ancestor", V8125_RESULT_COMMIT, "HEAD"],
+        check=True,
+    )
+
+    s8125 = read_json(V8125_SUMMARY)
+    if s8125.get("version") != V8125_VERSION:
+        raise RuntimeError("V8126_V8125_VERSION_MISMATCH")
+    if s8125.get("status") != "SOURCE_ONLY_FROZEN_SHADOW_PASS":
+        raise RuntimeError("V8126_V8125_STATUS_MISMATCH")
+    if s8125.get("policy_version") != POLICY_VERSION:
+        raise RuntimeError("V8126_POLICY_VERSION_MISMATCH")
+    if int(s8125.get("current_scorer_universe_count") or 0) != EXPECTED_UNIVERSE_COUNT:
+        raise RuntimeError("V8126_V8125_UNIVERSE_NOT_149")
+    if int(s8125.get("ready_delta") or 0) != 12:
+        raise RuntimeError("V8126_V8125_READY_DELTA_CHANGED")
+    if set(s8125.get("newly_ready_tickers") or []) != EXPECTED_TARGETS:
+        raise RuntimeError("V8126_V8125_TARGET_SET_CHANGED")
+    if int(s8125.get("non_target_score_row_changed_count") or 0) != 0:
+        raise RuntimeError("V8126_V8125_NON_TARGET_DRIFT_NOT_ZERO")
+
+    prod_meta = read_json(PROD_META)
+    if prod_meta.get("version") != "2026-09-12-v8.7.5-price-elasticity-20-session-source":
+        raise RuntimeError("V8126_PROD_ELASTICITY_VERSION_CHANGED")
+    if prod_meta.get("basis_date") != "2026-09-11":
+        raise RuntimeError("V8126_PROD_BASIS_NOT_EXPECTED_20260911")
+    if int(prod_meta.get("production_unique_tickers") or 0) != 112:
+        raise RuntimeError("V8126_PROD_CACHE_COUNT_NOT_112")
+
+    prod_rows = scorer.production_rows()
+    if len(prod_rows) != EXPECTED_UNIVERSE_COUNT:
+        raise RuntimeError(
+            f"V8126_CURRENT_UNIVERSE_NOT_149:{len(prod_rows)}"
+        )
+    if not EXPECTED_TARGETS <= set(prod_rows):
+        raise RuntimeError(
+            "V8126_TARGET_LEFT_CURRENT_UNIVERSE:"
+            + ",".join(sorted(EXPECTED_TARGETS - set(prod_rows)))
+        )
+
+    existing_cache = {
+        ticker(r.get("ticker")): r
+        for r in read_rows(PROD_CACHE)
+        if ticker(r.get("ticker"))
+    }
+    if len(existing_cache) != 112:
+        raise RuntimeError("V8126_PROD_CACHE_ROW_COUNT_NOT_112")
+    overlap = sorted(EXPECTED_TARGETS & set(existing_cache))
+    if overlap:
+        raise RuntimeError(
+            "V8126_TARGET_UNEXPECTEDLY_ALREADY_IN_PROD_CACHE:"
+            + ",".join(overlap)
+        )
+
+    raw = universe.read_csv_if_exists(HISTORY)
+    hist = universe.normalize_history_dtypes(raw)
+    if hist.empty:
+        raise RuntimeError("V8126_OFFICIAL_HISTORY_EMPTY")
+
+    kospi_all = hist[hist["market"] == "KOSPI"].copy()
+    sessions = sorted(
+        pd.Timestamp(x).normalize()
+        for x in kospi_all["date"].dropna().unique()
+    )
+    if len(sessions) < CALENDAR_BUFFER_SESSIONS:
+        raise RuntimeError(
+            f"V8126_SESSION_CALENDAR_TOO_SHORT:{len(sessions)}"
+        )
+
+    basis = sessions[-1]
+    if basis.date().isoformat() != "2026-09-18":
+        raise RuntimeError(
+            "V8126_BASIS_DRIFTED:"
+            + basis.date().isoformat()
+        )
+
+    target_sessions = sessions[-CALENDAR_BUFFER_SESSIONS:]
+    target_set = set(target_sessions)
+    universe_codes = set(prod_rows)
+
+    by_code = {code: {} for code in universe_codes}
+    for _, row in kospi_all.iterrows():
+        code = ticker(row.get("ticker"))
+        if code not in universe_codes:
+            continue
+        day = pd.Timestamp(row["date"]).normalize()
+        if day not in target_set:
+            continue
+        data = row.to_dict()
+        data["date"] = day
+        if valid_close(data):
+            by_code[code][day] = data
+
+    missing_dates = sorted({
+        day
+        for code in universe_codes
+        for day in target_sessions
+        if day not in by_code[code]
+    })
+
+    fetch_count = 0
+    fetch_success = 0
+    for day in missing_dates:
+        bas_dd = day.strftime("%Y%m%d")
+        logs = []
+        raw_day = universe.request_krx_openapi(
+            universe.OPENAPI_STOCK_URLS["KOSPI"],
+            key,
+            bas_dd,
+            logs,
+            "V8126_KOSPI_STOCK",
+        )
+        fetch_count += 1
+        norm = universe.normalize_stock_rows(
+            raw_day,
+            "KOSPI",
+            bas_dd,
+            logs,
+        )
+        if norm is not None and not norm.empty:
+            fetch_success += 1
+            for code in universe_codes:
+                match = norm[norm["ticker"] == code]
+                if match.empty:
+                    continue
+                data = match.iloc[-1].to_dict()
+                data["date"] = pd.Timestamp(data["date"]).normalize()
+                if valid_close(data):
+                    by_code[code][day] = data
+        time.sleep(0.08)
+
+    candidate = []
+    ready_codes = []
+    limited_codes = []
+
+    fields = [
+        "ticker",
+        "name",
+        "basis_date",
+        "window_start_date",
+        "window_end_date",
+        "close_observation_count",
+        "daily_return_observation_count",
+        "avg_daily_move_abs",
+        "avg_daily_move_pct",
+        "source_status",
+    ]
+
+    for code in sorted(universe_codes):
+        rows = [
+            by_code[code][d]
+            for d in target_sessions
+            if d in by_code[code] and valid_close(by_code[code][d])
+        ]
+        metric = calc_metric(rows)
+        name = str((prod_rows.get(code) or {}).get("name") or "")
+
+        if metric is None:
+            limited_codes.append(code)
+            candidate.append({
+                "ticker": code,
+                "name": name,
+                "basis_date": basis.date().isoformat(),
+                "window_start_date": "",
+                "window_end_date": "",
+                "close_observation_count": len(rows),
+                "daily_return_observation_count": max(0, len(rows) - 1),
+                "avg_daily_move_abs": "",
+                "avg_daily_move_pct": "",
+                "source_status": "LIMITED_INSUFFICIENT_HISTORY",
+            })
+        else:
+            ready_codes.append(code)
+            candidate.append({
+                "ticker": code,
+                "name": name,
+                "basis_date": basis.date().isoformat(),
+                **metric,
+                "source_status": "READY",
+            })
+
+    if len(candidate) != EXPECTED_UNIVERSE_COUNT:
+        raise RuntimeError("V8126_CANDIDATE_ROW_COUNT_NOT_149")
+    if {r["ticker"] for r in candidate} != universe_codes:
+        raise RuntimeError("V8126_CANDIDATE_TICKER_SET_MISMATCH")
+    if not EXPECTED_TARGETS <= set(ready_codes):
+        raise RuntimeError(
+            "V8126_EXPECTED_12_NOT_ALL_READY:"
+            + ",".join(sorted(EXPECTED_TARGETS - set(ready_codes)))
+        )
+
+    write_rows(CANDIDATE_CSV, candidate, fields)
+
+    candidate_meta = {
+        "version": VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+        "status": "STAGED_CANDIDATE_ONLY",
+        "basis_date": basis.date().isoformat(),
+        "production_candidate_ticker_count": len(candidate),
+        "ready_ticker_count": len(ready_codes),
+        "limited_ticker_count": len(limited_codes),
+        "limited_tickers": sorted(limited_codes),
+        "formula": "mean(abs(close_t/close_t_minus_1-1)*100) for latest 20 trading-session returns",
+        "close_observations_required": 21,
+        "daily_return_observations_required": 20,
+        "source": "official KRX STK_BYDD_TRD current-universe full-refresh candidate",
+        "krx_refetch_date_count": fetch_count,
+        "krx_refetch_success_date_count": fetch_success,
+        "production_cache_row_count_before": len(existing_cache),
+        "production_cache_basis_date_before": prod_meta.get("basis_date"),
+        "candidate_cache_row_count": len(candidate),
+        "candidate_cache_basis_date": basis.date().isoformat(),
+        "hard_guards": {
+            "production_price_elasticity_cache_modified": False,
+            "production_price_elasticity_metadata_modified": False,
+            "production_api_modified": False,
+            "scoring_policy_modified": False,
+            "atr_substituted": False,
+            "nonofficial_price_source_used": False,
+        },
+    }
+    CANDIDATE_JSON.write_text(
+        json.dumps(candidate_meta, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    run_scorer(PROD_CACHE, BASE_CSV, BASE_JSON, BASE_LOG, BASE_DOC)
+    run_scorer(CANDIDATE_CSV, CAND_CSV, CAND_JSON, CAND_LOG, CAND_DOC)
+
+    base = {ticker(r.get("ticker")): r for r in read_rows(BASE_CSV)}
+    cand = {ticker(r.get("ticker")): r for r in read_rows(CAND_CSV)}
+
+    if set(base) != universe_codes or set(cand) != universe_codes:
+        raise RuntimeError("V8126_SCORER_UNIVERSE_MISMATCH")
+
+    lost_ready = []
+    non_elasticity_component_drift = []
+    unexpected_missing_change = []
+    elasticity_removed = []
+    elasticity_introduced = []
+    changed_ready_score = []
+    regression_rows = []
+
+    for code in sorted(universe_codes):
+        b = base[code]
+        c = cand[code]
+
+        b_comp = comp_map(b)
+        c_comp = comp_map(c)
+        if without_elasticity(b_comp) != without_elasticity(c_comp):
+            non_elasticity_component_drift.append(code)
+
+        bm = set(split_missing(b.get("missing_components")))
+        cm = set(split_missing(c.get("missing_components")))
+
+        b_other = bm - {ELASTICITY_REASON}
+        c_other = cm - {ELASTICITY_REASON}
+        if b_other != c_other:
+            unexpected_missing_change.append(code)
+
+        if ELASTICITY_REASON in bm and ELASTICITY_REASON not in cm:
+            elasticity_removed.append(code)
+        if ELASTICITY_REASON not in bm and ELASTICITY_REASON in cm:
+            elasticity_introduced.append(code)
+
+        if b.get("score_status") == "READY" and c.get("score_status") != "READY":
+            lost_ready.append(code)
+
+        if (
+            b.get("score_status") == "READY"
+            and c.get("score_status") == "READY"
+            and (
+                b.get("score_total") != c.get("score_total")
+                or b.get("score_band") != c.get("score_band")
+            )
+        ):
+            changed_ready_score.append(code)
+
+        regression_rows.append({
+            "ticker": code,
+            "name": b.get("name") or c.get("name") or "",
+            "candidate_source_status": next(
+                r["source_status"] for r in candidate if r["ticker"] == code
+            ),
+            "baseline_status": b.get("score_status") or "",
+            "candidate_status": c.get("score_status") or "",
+            "baseline_missing_count": b.get("missing_component_count") or "",
+            "candidate_missing_count": c.get("missing_component_count") or "",
+            "elasticity_missing_before": "TRUE" if ELASTICITY_REASON in bm else "FALSE",
+            "elasticity_missing_after": "TRUE" if ELASTICITY_REASON in cm else "FALSE",
+            "baseline_score_total": b.get("score_total") or "",
+            "candidate_score_total": c.get("score_total") or "",
+            "baseline_score_band": b.get("score_band") or "",
+            "candidate_score_band": c.get("score_band") or "",
+        })
+
+    if non_elasticity_component_drift:
+        raise RuntimeError(
+            "V8126_NON_ELASTICITY_COMPONENT_DRIFT:"
+            + ",".join(non_elasticity_component_drift[:20])
+        )
+    if unexpected_missing_change:
+        raise RuntimeError(
+            "V8126_UNEXPECTED_MISSING_CHANGE:"
+            + ",".join(unexpected_missing_change[:20])
+        )
+    if elasticity_introduced:
+        raise RuntimeError(
+            "V8126_ELASTICITY_REGRESSION_INTRODUCED:"
+            + ",".join(elasticity_introduced[:20])
+        )
+    if lost_ready:
+        raise RuntimeError(
+            "V8126_LOST_READY:" + ",".join(lost_ready[:20])
+        )
+    if not EXPECTED_TARGETS <= set(elasticity_removed):
+        raise RuntimeError(
+            "V8126_EXPECTED_12_REASON_NOT_REMOVED:"
+            + ",".join(sorted(EXPECTED_TARGETS - set(elasticity_removed)))
+        )
+
+    for code in EXPECTED_TARGETS:
+        if base[code].get("score_status") != "LIMITED":
+            raise RuntimeError("V8126_TARGET_BASELINE_NOT_LIMITED:" + code)
+        if split_missing(base[code].get("missing_components")) != [ELASTICITY_REASON]:
+            raise RuntimeError("V8126_TARGET_NOT_SINGLE_ELASTICITY:" + code)
+        if cand[code].get("score_status") != "READY":
+            raise RuntimeError("V8126_TARGET_CANDIDATE_NOT_READY:" + code)
+
+    write_rows(REGRESSION_CSV, regression_rows)
+
+    bsum = read_json(BASE_JSON)
+    csum = read_json(CAND_JSON)
+    b_ready = int(bsum.get("ready_count") or 0)
+    c_ready = int(csum.get("ready_count") or 0)
+
+    b_blockers = sum(int(r.get("missing_component_count") or 0) for r in base.values())
+    c_blockers = sum(int(r.get("missing_component_count") or 0) for r in cand.values())
+    blocker_reduction = b_blockers - c_blockers
+
+    if c_ready - b_ready != 12:
+        raise RuntimeError(f"V8126_READY_DELTA_NOT_12:{c_ready-b_ready}")
+    if blocker_reduction != len(elasticity_removed):
+        raise RuntimeError(
+            f"V8126_BLOCKER_REDUCTION_MISMATCH:{blocker_reduction}!={len(elasticity_removed)}"
+        )
+
+    summary = {
+        "version": VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+        "status": "STAGED_CANDIDATE_REGRESSION_PASS",
+        "policy_version": POLICY_VERSION,
+        "v8125_version": V8125_VERSION,
+        "v8125_result_commit": V8125_RESULT_COMMIT,
+        "production_cache_before": {
+            "row_count": len(existing_cache),
+            "basis_date": prod_meta.get("basis_date"),
+        },
+        "candidate_cache": {
+            "row_count": len(candidate),
+            "basis_date": basis.date().isoformat(),
+            "ready_count": len(ready_codes),
+            "limited_count": len(limited_codes),
+            "limited_tickers": sorted(limited_codes),
+        },
+        "current_scorer_universe_count": len(base),
+        "baseline_ready_count": b_ready,
+        "candidate_ready_count": c_ready,
+        "ready_delta": c_ready - b_ready,
+        "baseline_blocker_occurrences": b_blockers,
+        "candidate_blocker_occurrences": c_blockers,
+        "blocker_occurrences_reduced_by": blocker_reduction,
+        "elasticity_reason_removed_count": len(elasticity_removed),
+        "elasticity_reason_removed_tickers": sorted(elasticity_removed),
+        "expected_12_newly_ready_tickers": sorted(EXPECTED_TARGETS),
+        "lost_ready_count": 0,
+        "non_elasticity_component_drift_count": 0,
+        "unexpected_non_elasticity_missing_change_count": 0,
+        "elasticity_regression_introduced_count": 0,
+        "previously_ready_score_or_band_changed_count": len(changed_ready_score),
+        "previously_ready_score_or_band_changed_tickers": sorted(changed_ready_score),
+        "hard_guards": {
+            "production_price_elasticity_cache_modified": False,
+            "production_price_elasticity_metadata_modified": False,
+            "production_api_modified": False,
+            "production_source_cache_modified": False,
+            "production_financial_cache_modified": False,
+            "scoring_policy_modified": False,
+            "non_elasticity_component_changed": False,
+            "lost_ready_present": False,
+            "atr_substituted": False,
+            "nonofficial_price_source_used": False,
+        },
+        "next_step": "CONTROLLED_PRODUCTION_PRICE_ELASTICITY_REFRESH_V8127",
+    }
+
+    SUMMARY_OUT.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    LOG_OUT.write_text(
+        "\n".join([
+            f"VERSION={VERSION}",
+            "STATUS=STAGED_CANDIDATE_REGRESSION_PASS",
+            f"PRODUCTION_CACHE_ROWS_BEFORE={len(existing_cache)}",
+            f"PRODUCTION_CACHE_BASIS_BEFORE={prod_meta.get('basis_date')}",
+            f"CANDIDATE_CACHE_ROWS={len(candidate)}",
+            f"CANDIDATE_CACHE_BASIS={basis.date().isoformat()}",
+            f"CANDIDATE_READY={len(ready_codes)}",
+            f"CANDIDATE_LIMITED={len(limited_codes)}",
+            f"BASELINE_READY={b_ready}",
+            f"CANDIDATE_SCORE_READY={c_ready}",
+            f"READY_DELTA={c_ready-b_ready}",
+            f"ELASTICITY_REASON_REMOVED={len(elasticity_removed)}",
+            f"BLOCKER_REDUCED_BY={blocker_reduction}",
+            "LOST_READY=0",
+            "NON_ELASTICITY_COMPONENT_DRIFT=0",
+            "ELASTICITY_REGRESSION_INTRODUCED=0",
+            "PRODUCTION_PRICE_ELASTICITY_CACHE_MODIFIED=false",
+            "PRODUCTION_API_MODIFIED=false",
+            "SCORING_POLICY_MODIFIED=false",
+            "STATUS_OK=true",
+            "NEXT_STEP=CONTROLLED_PRODUCTION_PRICE_ELASTICITY_REFRESH_V8127",
+        ]) + "\n",
+        encoding="utf-8",
+    )
+
+    DOC_OUT.parent.mkdir(parents=True, exist_ok=True)
+    DOC_OUT.write_text(
+        "\n".join([
+            "# V8.12.6 current-universe price-elasticity refresh candidate",
+            "",
+            f"- Production cache before: {len(existing_cache)} rows, basis {prod_meta.get('basis_date')}",
+            f"- Staged candidate: {len(candidate)} rows, basis {basis.date().isoformat()}",
+            f"- Candidate READY/LIMITED: {len(ready_codes)}/{len(limited_codes)}",
+            f"- Scorer READY delta: {c_ready-b_ready}",
+            f"- Elasticity blockers removed: {len(elasticity_removed)}",
+            f"- Total blocker reduction: {blocker_reduction}",
+            "- Lost READY: 0",
+            "- Non-elasticity component drift: 0",
+            "",
+            "This step stages a full current-universe candidate only. Production cache, API, policy, and score outputs are not modified.",
+            "",
+            "Next: `CONTROLLED_PRODUCTION_PRICE_ELASTICITY_REFRESH_V8127`",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+
+    print("V8126_STAGE_CURRENT_UNIVERSE_ELASTICITY_REFRESH=PASS")
+
+
+if __name__ == "__main__":
+    main()

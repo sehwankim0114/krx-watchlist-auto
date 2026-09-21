@@ -1,0 +1,28 @@
+{
+  "version": "2026-09-21-v8.12.6-stage-current-universe-price-elasticity-refresh",
+  "generated_at_kst": "2026-09-21T20:07:09+09:00",
+  "status": "STAGED_CANDIDATE_ONLY",
+  "basis_date": "2026-09-18",
+  "production_candidate_ticker_count": 149,
+  "ready_ticker_count": 149,
+  "limited_ticker_count": 0,
+  "limited_tickers": [],
+  "formula": "mean(abs(close_t/close_t_minus_1-1)*100) for latest 20 trading-session returns",
+  "close_observations_required": 21,
+  "daily_return_observations_required": 20,
+  "source": "official KRX STK_BYDD_TRD current-universe full-refresh candidate",
+  "krx_refetch_date_count": 40,
+  "krx_refetch_success_date_count": 40,
+  "production_cache_row_count_before": 112,
+  "production_cache_basis_date_before": "2026-09-11",
+  "candidate_cache_row_count": 149,
+  "candidate_cache_basis_date": "2026-09-18",
+  "hard_guards": {
+    "production_price_elasticity_cache_modified": false,
+    "production_price_elasticity_metadata_modified": false,
+    "production_api_modified": false,
+    "scoring_policy_modified": false,
+    "atr_substituted": false,
+    "nonofficial_price_source_used": false
+  }
+}

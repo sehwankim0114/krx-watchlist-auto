@@ -1,0 +1,282 @@
+{
+  "version": "2026-09-21-v8.13.4-post-ocf-current-blocker-reaudit",
+  "generated_at_kst": "2026-09-21T21:27:37+09:00",
+  "status": "AUDIT_ONLY_POST_OCF_PROMOTION",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v8133a_version": "2026-09-21-v8.13.3a-controlled-production-ocf-refresh",
+  "v8133a_result_commit": "8598ef22821fc4913fbe541b833174041eafda74",
+  "v8128_version": "2026-09-21-v8.12.8-post-apply-current-blocker-reaudit",
+  "v8129_version": "2026-09-21-v8.12.9-current-actionable-exact-da-single-blocker-audit",
+  "scorer_universe_count": 149,
+  "ready_count": 23,
+  "limited_count": 126,
+  "ready_pct": 15.4362,
+  "limited_blocker_occurrences": 732,
+  "change_from_v8128": {
+    "ready_delta": 4,
+    "limited_delta": -4,
+    "blocker_occurrence_delta": -64,
+    "ocf_blockers_removed": 64,
+    "non_ocf_blocker_drift_count": 0
+  },
+  "blocker_category_counts": {
+    "SOURCE_DATA_GAP": 680,
+    "SOURCE_EVIDENCE_GAP": 44,
+    "POLICY_SEMANTIC_BLOCKER": 8
+  },
+  "source_group_counts": {
+    "INVESTMENT_SCORE_SOURCE_CACHE": 164,
+    "FINANCIAL_VALUATION_CACHE": 293,
+    "OCF_AND_REVENUE_SOURCE": 31,
+    "EXACT_DA_SOURCE": 107,
+    "FINANCIAL_AND_RAW_SOURCE": 34,
+    "NETCASH_INPUT": 33,
+    "PRODUCTION_ANALYSIS_SUPPLY": 44,
+    "V880_SCORING_CONTRACT": 8,
+    "PRODUCTION_PRICE_METRICS": 18
+  },
+  "recovery_status_counts": {
+    "MULTI_BLOCKER_SOURCE_LANE": 675,
+    "ACTIONABLE_SINGLE_BLOCKER_REAUDIT": 33,
+    "POLICY_SEMANTIC_DEFER": 8,
+    "EXHAUSTED_APPROVED_OFFICIAL_DA_PATHS": 16
+  },
+  "source_priority": [
+    {
+      "source_group": "FINANCIAL_VALUATION_CACHE",
+      "blocker_occurrences": 293,
+      "ticker_count": 38,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0,
+      "actionable_single_blocker_ticker_list": []
+    },
+    {
+      "source_group": "INVESTMENT_SCORE_SOURCE_CACHE",
+      "blocker_occurrences": 164,
+      "ticker_count": 48,
+      "single_blocker_tickers": 1,
+      "actionable_single_blocker_tickers": 1,
+      "actionable_single_blocker_ticker_list": [
+        "365550"
+      ]
+    },
+    {
+      "source_group": "EXACT_DA_SOURCE",
+      "blocker_occurrences": 107,
+      "ticker_count": 107,
+      "single_blocker_tickers": 44,
+      "actionable_single_blocker_tickers": 28,
+      "actionable_single_blocker_ticker_list": [
+        "000150",
+        "000490",
+        "000660",
+        "000760",
+        "001630",
+        "001680",
+        "002350",
+        "003620",
+        "004490",
+        "005300",
+        "006400",
+        "007070",
+        "011210",
+        "014830",
+        "034230",
+        "039130",
+        "073240",
+        "079160",
+        "079550",
+        "082740",
+        "089590",
+        "090370",
+        "095570",
+        "105630",
+        "112610",
+        "128820",
+        "185750",
+        "227840"
+      ]
+    },
+    {
+      "source_group": "PRODUCTION_ANALYSIS_SUPPLY",
+      "blocker_occurrences": 44,
+      "ticker_count": 44,
+      "single_blocker_tickers": 4,
+      "actionable_single_blocker_tickers": 4,
+      "actionable_single_blocker_ticker_list": [
+        "007540",
+        "029780",
+        "084690",
+        "114090"
+      ]
+    },
+    {
+      "source_group": "FINANCIAL_AND_RAW_SOURCE",
+      "blocker_occurrences": 34,
+      "ticker_count": 34,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0,
+      "actionable_single_blocker_ticker_list": []
+    },
+    {
+      "source_group": "NETCASH_INPUT",
+      "blocker_occurrences": 33,
+      "ticker_count": 33,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0,
+      "actionable_single_blocker_ticker_list": []
+    },
+    {
+      "source_group": "OCF_AND_REVENUE_SOURCE",
+      "blocker_occurrences": 31,
+      "ticker_count": 31,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0,
+      "actionable_single_blocker_ticker_list": []
+    },
+    {
+      "source_group": "PRODUCTION_PRICE_METRICS",
+      "blocker_occurrences": 18,
+      "ticker_count": 12,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0,
+      "actionable_single_blocker_ticker_list": []
+    },
+    {
+      "source_group": "V880_SCORING_CONTRACT",
+      "blocker_occurrences": 8,
+      "ticker_count": 8,
+      "single_blocker_tickers": 1,
+      "actionable_single_blocker_tickers": 0,
+      "actionable_single_blocker_ticker_list": []
+    }
+  ],
+  "known_exhausted_evidence": {
+    "exact_da_exhausted_union_count": 32,
+    "exact_da_exhausted_union_tickers": [
+      "001560",
+      "002450",
+      "003230",
+      "004170",
+      "004370",
+      "004910",
+      "005930",
+      "009420",
+      "010130",
+      "011200",
+      "012450",
+      "012690",
+      "017670",
+      "018260",
+      "020560",
+      "021240",
+      "022100",
+      "023960",
+      "028050",
+      "034020",
+      "047050",
+      "047810",
+      "058860",
+      "069620",
+      "078520",
+      "097950",
+      "214320",
+      "267270",
+      "373220",
+      "456040",
+      "475560",
+      "483650"
+    ],
+    "v8104_exhausted_tickers": [
+      "001020",
+      "357250"
+    ]
+  },
+  "next_actionable_source_group": "EXACT_DA_SOURCE",
+  "next_actionable_single_blocker_count": 28,
+  "next_actionable_tickers": [
+    "000150",
+    "000490",
+    "000660",
+    "000760",
+    "001630",
+    "001680",
+    "002350",
+    "003620",
+    "004490",
+    "005300",
+    "006400",
+    "007070",
+    "011210",
+    "014830",
+    "034230",
+    "039130",
+    "073240",
+    "079160",
+    "079550",
+    "082740",
+    "089590",
+    "090370",
+    "095570",
+    "105630",
+    "112610",
+    "128820",
+    "185750",
+    "227840"
+  ],
+  "next_actionable_names": [
+    "두산",
+    "대동",
+    "SK하이닉스",
+    "이화산업",
+    "종근당홀딩스",
+    "대상",
+    "넥센타이어",
+    "KG모빌리티",
+    "세방전지",
+    "롯데칠성",
+    "삼성SDI",
+    "GS리테일",
+    "현대위아",
+    "유니드",
+    "파라다이스",
+    "하나투어",
+    "금호타이어",
+    "CJ CGV",
+    "LIG디펜스앤에어로스페이스",
+    "한화엔진",
+    "제주항공",
+    "메타랩스",
+    "AJ네트웍스",
+    "한세실업",
+    "씨에스윈드",
+    "대성산업",
+    "종근당",
+    "현대코퍼레이션홀딩스"
+  ],
+  "secondary_actionable_groups": {
+    "PRODUCTION_ANALYSIS_SUPPLY": [
+      "007540",
+      "029780",
+      "084690",
+      "114090"
+    ],
+    "INVESTMENT_SCORE_SOURCE_CACHE": [
+      "365550"
+    ]
+  },
+  "next_actionable_selection_reason": "HIGHEST_ACTIONABLE_SINGLE_BLOCKER_COUNT_AFTER_OCF_PROMOTION",
+  "hard_guards": {
+    "production_ocf_cache_modified": false,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_price_elasticity_cache_modified": false,
+    "production_api_modified": false,
+    "production_investment_score_written": false,
+    "scoring_policy_modified": false,
+    "exhausted_lane_auto_requeried": false,
+    "source_value_imputed": false,
+    "non_ocf_blocker_drift_present": false
+  },
+  "next_step": "AUDIT_CURRENT_ACTIONABLE_EXACT_DA_SINGLE_BLOCKERS_V8135"
+}

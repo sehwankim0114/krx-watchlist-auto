@@ -1,0 +1,60 @@
+{
+  "version": "2026-09-17-v8.12.1-current-actionable-price-elasticity-20d-official-recovery-audit",
+  "generated_at_kst": "2026-09-21T19:39:33+09:00",
+  "status": "AUDIT_ONLY",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v8119_version": "2026-09-17-v8.11.9-post-commit-source-contract-and-current-blocker-reaudit",
+  "v8119_result_commit": "f470876fe7365e9590bcc5f61b88a2131d3322b5",
+  "v8120_version": "2026-09-17-v8.12.0-current-actionable-exact-da-official-recovery-audit",
+  "v8120_result_commit": "f7bebe27d13aa2759d35a0af58679b698a130deb",
+  "metric_contract": {
+    "metric": "avg_daily_move_pct",
+    "definition": "mean(abs(close_t / close_t_minus_1 - 1)) over latest 20 official close returns * 100",
+    "return_count": 20,
+    "minimum_valid_closes": 21,
+    "atr_substitution_allowed": false
+  },
+  "target_count": 8,
+  "target_tickers": [
+    "003530",
+    "004800",
+    "006260",
+    "006800",
+    "008060",
+    "010060",
+    "027410",
+    "034730"
+  ],
+  "basis_date": "2026-09-18",
+  "basis_source": "OFFICIAL_KRX_HISTORY_MAX_KOSPI_SESSION",
+  "calendar_buffer_sessions": 40,
+  "krx_refetch_date_count": 40,
+  "krx_refetch_success_date_count": 40,
+  "classification_counts": {
+    "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE": 8
+  },
+  "recoverable_count": 8,
+  "recoverable_tickers": [
+    "003530",
+    "004800",
+    "006260",
+    "006800",
+    "008060",
+    "010060",
+    "027410",
+    "034730"
+  ],
+  "insufficient_count": 0,
+  "insufficient_tickers": [],
+  "hard_guards": {
+    "production_price_elasticity_cache_modified": false,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_api_modified": false,
+    "scoring_policy_modified": false,
+    "atr_used_as_elasticity_substitute": false,
+    "nonofficial_price_source_used": false,
+    "source_promoted": false
+  },
+  "next_step": "FREEZE_RECOVERABLE_PRICE_ELASTICITY_AND_SHADOW_SCORE"
+}

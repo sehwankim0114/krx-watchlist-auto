@@ -1,0 +1,72 @@
+{
+  "version": "2026-09-21-v8.13.0-current-actionable-ocf-single-blocker-audit",
+  "generated_at_kst": "2026-09-21T20:49:37+09:00",
+  "status": "AUDIT_ONLY_CURRENT_ACTIONABLE_OCF",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v8128_version": "2026-09-21-v8.12.8-post-apply-current-blocker-reaudit",
+  "v8128_result_commit": "282b37236be05eb7ecbc04356f8c305cc0bcccbe",
+  "v8129_version": "2026-09-21-v8.12.9-current-actionable-exact-da-single-blocker-audit",
+  "v8129_result_commit": "658b08079bc45110271a85d799722950b024e8ed",
+  "ocf_contract_version": "2026-09-12-v8.7.4-audited-operating-cash-flow-source",
+  "approved_exact_account_id": "ifrs-full_CashFlowsFromUsedInOperatingActivities",
+  "target_count": 4,
+  "target_tickers": [
+    "000080",
+    "002710",
+    "007690",
+    "042700"
+  ],
+  "target_names": [
+    "하이트진로",
+    "TCC스틸",
+    "국도화학",
+    "한미반도체"
+  ],
+  "targets_absent_from_existing_ocf_cache": [
+    "000080",
+    "002710",
+    "007690",
+    "042700"
+  ],
+  "annual_source_year": 2025,
+  "report_code": "11011",
+  "classification_counts": {
+    "RECOVERABLE_EXACT_OCF": 4
+  },
+  "recoverable_count": 4,
+  "recoverable_tickers": [
+    "000080",
+    "002710",
+    "007690",
+    "042700"
+  ],
+  "no_approved_exact_count": 0,
+  "no_approved_exact_tickers": [],
+  "official_query_incomplete_count": 0,
+  "official_query_incomplete_tickers": [],
+  "conflict_count": 0,
+  "conflict_tickers": [],
+  "retry_policy": {
+    "transport_attempts_per_fs_div": 3,
+    "fs_div_order": [
+      "CFS",
+      "OFS"
+    ],
+    "fail_closed_on_incomplete": true
+  },
+  "hard_guards": {
+    "production_ocf_cache_modified": false,
+    "production_ocf_metadata_modified": false,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_price_elasticity_cache_modified": false,
+    "production_api_modified": false,
+    "production_investment_score_written": false,
+    "scoring_policy_modified": false,
+    "source_value_imputed": false,
+    "alternate_ocf_account_id_approved": false,
+    "target_force_inserted": false,
+    "source_promoted": false
+  },
+  "next_step": "FREEZE_RECOVERABLE_OCF_AND_SHADOW_SCORE_V8131"
+}

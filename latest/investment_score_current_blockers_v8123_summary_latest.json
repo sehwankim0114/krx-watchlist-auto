@@ -1,0 +1,181 @@
+{
+  "version": "2026-09-21-v8.12.3-current-blocker-reaudit-after-universe-drift",
+  "generated_at_kst": "2026-09-21T19:49:27+09:00",
+  "status": "AUDIT_ONLY",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v8122_result_commit": "83f3f06827615889d2cf228a02fba90fd6586ac1",
+  "scorer_universe_count": 149,
+  "ready_count": 7,
+  "limited_count": 142,
+  "ready_pct": 4.698,
+  "limited_blocker_occurrences": 911,
+  "blocker_category_counts": {
+    "SOURCE_DATA_GAP": 859,
+    "SOURCE_EVIDENCE_GAP": 44,
+    "POLICY_SEMANTIC_BLOCKER": 8
+  },
+  "source_group_counts": {
+    "INVESTMENT_SCORE_SOURCE_CACHE": 164,
+    "FINANCIAL_VALUATION_CACHE": 293,
+    "OCF_AND_REVENUE_SOURCE": 95,
+    "EXACT_DA_SOURCE": 107,
+    "FINANCIAL_AND_RAW_SOURCE": 34,
+    "NETCASH_INPUT": 33,
+    "PRICE_ELASTICITY_20D": 115,
+    "PRODUCTION_ANALYSIS_SUPPLY": 44,
+    "V880_SCORING_CONTRACT": 8,
+    "PRODUCTION_PRICE_METRICS": 18
+  },
+  "recovery_status_counts": {
+    "MULTI_BLOCKER_SOURCE_LANE": 874,
+    "ACTIONABLE_SINGLE_BLOCKER_REAUDIT": 18,
+    "POLICY_SEMANTIC_DEFER": 8,
+    "EXHAUSTED_APPROVED_OFFICIAL_DA_PATHS": 11
+  },
+  "source_priority": [
+    {
+      "source_group": "FINANCIAL_VALUATION_CACHE",
+      "blocker_occurrences": 293,
+      "ticker_count": 38,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0,
+      "frozen_source_ready_single_tickers": 0
+    },
+    {
+      "source_group": "INVESTMENT_SCORE_SOURCE_CACHE",
+      "blocker_occurrences": 164,
+      "ticker_count": 48,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0,
+      "frozen_source_ready_single_tickers": 0
+    },
+    {
+      "source_group": "PRICE_ELASTICITY_20D",
+      "blocker_occurrences": 115,
+      "ticker_count": 115,
+      "single_blocker_tickers": 12,
+      "actionable_single_blocker_tickers": 12,
+      "frozen_source_ready_single_tickers": 0
+    },
+    {
+      "source_group": "EXACT_DA_SOURCE",
+      "blocker_occurrences": 107,
+      "ticker_count": 107,
+      "single_blocker_tickers": 16,
+      "actionable_single_blocker_tickers": 5,
+      "frozen_source_ready_single_tickers": 0
+    },
+    {
+      "source_group": "OCF_AND_REVENUE_SOURCE",
+      "blocker_occurrences": 95,
+      "ticker_count": 95,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0,
+      "frozen_source_ready_single_tickers": 0
+    },
+    {
+      "source_group": "PRODUCTION_ANALYSIS_SUPPLY",
+      "blocker_occurrences": 44,
+      "ticker_count": 44,
+      "single_blocker_tickers": 1,
+      "actionable_single_blocker_tickers": 1,
+      "frozen_source_ready_single_tickers": 0
+    },
+    {
+      "source_group": "FINANCIAL_AND_RAW_SOURCE",
+      "blocker_occurrences": 34,
+      "ticker_count": 34,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0,
+      "frozen_source_ready_single_tickers": 0
+    },
+    {
+      "source_group": "NETCASH_INPUT",
+      "blocker_occurrences": 33,
+      "ticker_count": 33,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0,
+      "frozen_source_ready_single_tickers": 0
+    },
+    {
+      "source_group": "PRODUCTION_PRICE_METRICS",
+      "blocker_occurrences": 18,
+      "ticker_count": 12,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0,
+      "frozen_source_ready_single_tickers": 0
+    },
+    {
+      "source_group": "V880_SCORING_CONTRACT",
+      "blocker_occurrences": 8,
+      "ticker_count": 8,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0,
+      "frozen_source_ready_single_tickers": 0
+    }
+  ],
+  "known_exhausted_evidence": {
+    "exact_da_exhausted_union_count": 27,
+    "exact_da_exhausted_union_tickers": [
+      "001560",
+      "002450",
+      "003230",
+      "004170",
+      "004910",
+      "005930",
+      "009420",
+      "010130",
+      "011200",
+      "012450",
+      "012690",
+      "017670",
+      "018260",
+      "020560",
+      "022100",
+      "023960",
+      "028050",
+      "034020",
+      "047050",
+      "058860",
+      "069620",
+      "078520",
+      "267270",
+      "373220",
+      "456040",
+      "475560",
+      "483650"
+    ],
+    "v8104_exhausted_tickers": [
+      "001020",
+      "357250"
+    ]
+  },
+  "frozen_price_elasticity_evidence": {
+    "source_frozen_count": 8,
+    "source_frozen_tickers": [
+      "003530",
+      "004800",
+      "006260",
+      "006800",
+      "008060",
+      "010060",
+      "027410",
+      "034730"
+    ],
+    "currently_active_frozen_single_blocker_count": 0
+  },
+  "next_actionable_source_group": "PRICE_ELASTICITY_20D",
+  "next_actionable_selection_reason": "HIGHEST_ACTIONABLE_SINGLE_BLOCKER_COUNT",
+  "hard_guards": {
+    "production_price_elasticity_cache_modified": false,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_api_modified": false,
+    "production_investment_score_written": false,
+    "scoring_policy_modified": false,
+    "exhausted_lane_auto_requeried": false,
+    "frozen_source_force_inserted_for_inactive_ticker": false,
+    "source_value_imputed": false
+  },
+  "next_step": "AUDIT_NEXT_ACTIONABLE_SOURCE_GROUP_FROM_V8123"
+}

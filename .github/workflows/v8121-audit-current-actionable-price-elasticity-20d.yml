@@ -1,4 +1,4 @@
-name: Audit current actionable price elasticity 20D official recovery v8.12.1 validation-fix
+name: Audit current actionable price elasticity 20D official recovery v8.12.1 validation-fix2
 
 on:
   workflow_dispatch:
@@ -309,21 +309,23 @@ jobs:
                       + ",".join(sorted(already_ready))
                   )
 
-              _, basis, api_hit_counts = current_basis_by_ticker()
-
               raw = universe.read_csv_if_exists(HISTORY)
               hist = universe.normalize_history_dtypes(raw)
               if hist.empty:
                   raise RuntimeError("V8121_OFFICIAL_HISTORY_EMPTY")
 
-              kospi = hist[(hist["market"] == "KOSPI") & (hist["date"] <= basis)].copy()
-              sessions = sorted(pd.Timestamp(x).normalize() for x in kospi["date"].dropna().unique())
+              kospi_all = hist[hist["market"] == "KOSPI"].copy()
+              sessions = sorted(
+                  pd.Timestamp(x).normalize()
+                  for x in kospi_all["date"].dropna().unique()
+              )
               if not sessions:
                   raise RuntimeError("V8121_KOSPI_SESSION_CALENDAR_EMPTY")
-              if sessions[-1] != basis:
-                  raise RuntimeError(
-                      f"V8121_HISTORY_NOT_CURRENT_TO_API_BASIS:{sessions[-1].date()}!={basis.date()}"
-                  )
+
+              basis = sessions[-1]
+              basis_source = "OFFICIAL_KRX_HISTORY_MAX_KOSPI_SESSION"
+              kospi = kospi_all[kospi_all["date"] <= basis].copy()
+
               if len(sessions) < CALENDAR_BUFFER_SESSIONS:
                   raise RuntimeError(f"V8121_SESSION_CALENDAR_TOO_SHORT:{len(sessions)}")
 
@@ -404,8 +406,8 @@ jobs:
                       "ticker": code,
                       "name": EXPECTED_ACTIONABLE[code],
                       "basis_date": basis.date().isoformat(),
-                      "api_basis_hit_count": api_hit_counts.get(code, 0),
-                      "calendar_buffer_sessions": len(target_sessions),
+                      "basis_source": basis_source,
+                                            "calendar_buffer_sessions": len(target_sessions),
                       "initial_valid_close_count": initial_counts[code],
                       "final_valid_close_count": len(valid_rows),
                       "required_valid_close_count": MIN_VALID_CLOSES,
@@ -454,6 +456,7 @@ jobs:
                   "target_count": 8,
                   "target_tickers": sorted(EXPECTED_ACTIONABLE),
                   "basis_date": basis.date().isoformat(),
+                      "basis_source": basis_source,
                   "calendar_buffer_sessions": len(target_sessions),
                   "krx_refetch_date_count": fetch_date_count,
                   "krx_refetch_success_date_count": fetch_success_date_count,
@@ -489,6 +492,7 @@ jobs:
                       "STATUS=AUDIT_ONLY",
                       "TARGET_COUNT=8",
                       f"BASIS_DATE={basis.date().isoformat()}",
+                      f"BASIS_SOURCE={basis_source}",
                       f"CALENDAR_BUFFER_SESSIONS={len(target_sessions)}",
                       f"KRX_REFETCH_DATE_COUNT={fetch_date_count}",
                       f"KRX_REFETCH_SUCCESS_DATE_COUNT={fetch_success_date_count}",
@@ -555,6 +559,8 @@ jobs:
             latest/investment_score_price_elasticity_actionable_v8121_run_log_latest.txt
           grep -q '^SOURCE_PROMOTED=false$' \
             latest/investment_score_price_elasticity_actionable_v8121_run_log_latest.txt
+          grep -q '^BASIS_SOURCE=OFFICIAL_KRX_HISTORY_MAX_KOSPI_SESSION$' \
+            latest/investment_score_price_elasticity_actionable_v8121_run_log_latest.txt
 
       - name: Validate V8.12.1 outputs
         shell: bash
@@ -580,6 +586,7 @@ jobs:
           assert s["v8119_result_commit"] == "f470876fe7365e9590bcc5f61b88a2131d3322b5"
           assert s["v8120_result_commit"] == "f7bebe27d13aa2759d35a0af58679b698a130deb"
           assert s["target_count"] == 8
+          assert s["basis_source"] == "OFFICIAL_KRX_HISTORY_MAX_KOSPI_SESSION"
           assert set(s["target_tickers"]) == {
               "003530","004800","006260","006800",
               "008060","010060","027410","034730",

@@ -1,0 +1,77 @@
+{
+  "version": "2026-09-21-v8.13.2b-independent-current-universe-ocf-refresh",
+  "generated_at_kst": "2026-09-21T21:20:37+09:00",
+  "status": "STAGED_CANDIDATE_REGRESSION_PASS",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v8131_version": "2026-09-21-v8.13.1-freeze-recoverable-ocf-and-shadow-score",
+  "v8131_result_commit": "b34523f3eabf2ee3309d8f44f9c97f2b54a2feaf",
+  "ocf_contract_version": "2026-09-12-v8.7.4-audited-operating-cash-flow-source",
+  "current_scorer_universe_count": 149,
+  "production_ocf_before": {
+    "row_count": 112,
+    "current_universe_overlap": 34,
+    "current_overlap_ready": 34
+  },
+  "candidate_ocf": {
+    "row_count": 149,
+    "ready_count": 147,
+    "limited_count": 2,
+    "reused_current_production_ready": 34,
+    "v8131_frozen_ready": 4,
+    "resolved_query_targets": 109,
+    "unique_corp_queries": 109,
+    "strict_identity_unresolved_count": 2,
+    "strict_identity_unresolved_tickers": [
+      "000480",
+      "002200"
+    ],
+    "source_mode_counts": {
+      "REUSED_CURRENT_PRODUCTION_READY": 34,
+      "V8131_FROZEN_READY": 4,
+      "CURRENT_DART_STOCK_CODE_EXACT_NAME": 23,
+      "PREFERRED_INHERIT_EXACT_COMMON": 7,
+      "CURRENT_FINANCIAL_CORP_IDENTITY": 79,
+      "UNRESOLVED_CURRENT_IDENTITY": 2
+    },
+    "fetch_classification_counts": {
+      "RECOVERABLE_EXACT_OCF": 109
+    }
+  },
+  "scorer_regression": {
+    "baseline_ready_count": 19,
+    "baseline_limited_count": 130,
+    "candidate_ready_count": 23,
+    "candidate_limited_count": 126,
+    "ready_delta": 4,
+    "newly_ready_count": 4,
+    "newly_ready_tickers": [
+      "000080",
+      "002710",
+      "007690",
+      "042700"
+    ],
+    "baseline_blocker_occurrences": 796,
+    "candidate_blocker_occurrences": 732,
+    "blocker_occurrences_reduced_by": 64,
+    "ocf_reason_removed_count": 64,
+    "lost_ready_count": 0,
+    "previously_ready_score_or_band_changed_count": 0,
+    "non_ocf_missing_reason_drift_count": 0,
+    "added_missing_reason_count": 0
+  },
+  "hard_guards": {
+    "production_ocf_cache_modified": false,
+    "production_ocf_metadata_modified": false,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_price_elasticity_cache_modified": false,
+    "production_api_modified": false,
+    "scoring_policy_modified": false,
+    "production_score_written": false,
+    "source_value_imputed": false,
+    "alternate_ocf_account_id_used": false,
+    "unresolved_identity_force_mapped": false,
+    "nonofficial_ocf_source_used": false
+  },
+  "next_step": "CONTROLLED_PRODUCTION_OCF_REFRESH_V8133"
+}

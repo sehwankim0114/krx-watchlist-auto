@@ -1,0 +1,588 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import csv
+import json
+from collections import Counter, defaultdict
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import investment_score_dry_run_v882 as scorer
+
+VERSION = "2026-09-21-v8.12.8-post-apply-current-blocker-reaudit"
+POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+V8127_VERSION = "2026-09-21-v8.12.7-controlled-production-price-elasticity-refresh"
+V8127_RESULT_COMMIT = "7a8e5dbe9729aeda98c4be5c10d9b90255fbc81c"
+V8123_VERSION = "2026-09-21-v8.12.3-current-blocker-reaudit-after-universe-drift"
+
+ROOT = Path(".")
+KST = ZoneInfo("Asia/Seoul")
+
+V8127 = ROOT / "latest/investment_score_price_elasticity_production_refresh_v8127_summary_latest.json"
+V8123_CSV = ROOT / "latest/investment_score_current_blockers_v8123.csv"
+V8123_JSON = ROOT / "latest/investment_score_current_blockers_v8123_summary_latest.json"
+ELASTICITY_CSV = ROOT / "latest/investment_score_price_elasticity_20d_latest.csv"
+ELASTICITY_META = ROOT / "latest/investment_score_price_elasticity_20d_latest.json"
+
+TMP_CSV = Path("/tmp/v8128_score.csv")
+TMP_JSON = Path("/tmp/v8128_score_summary.json")
+TMP_LOG = Path("/tmp/v8128_score.log")
+TMP_DOC = Path("/tmp/v8128_score.md")
+
+OUT_CSV = ROOT / "latest/investment_score_current_blockers_v8128.csv"
+OUT_JSON = ROOT / "latest/investment_score_current_blockers_v8128_summary_latest.json"
+OUT_LOG = ROOT / "latest/investment_score_current_blockers_v8128_run_log_latest.txt"
+OUT_DOC = ROOT / "docs/investment_score_current_blockers_v8128.md"
+
+ELASTICITY_REASON = "하루평균 절대등락률:MISSING_ELASTICITY"
+EXPECTED_UNIVERSE = 149
+EXPECTED_READY = 19
+EXPECTED_LIMITED = 130
+EXPECTED_BLOCKERS = 796
+EXPECTED_REMOVED_ELASTICITY = 115
+EXPECTED_ACTIONABLE_EXACT_DA = {
+    "004370": "농심",
+    "021240": "코웨이",
+    "047810": "한국항공우주",
+    "097950": "CJ제일제당",
+    "214320": "이노션",
+}
+
+
+def ticker(value):
+    s = "".join(ch for ch in str(value or "") if ch.isdigit())
+    return s.zfill(6) if s else ""
+
+
+def read_json(path):
+    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+
+def read_rows(path):
+    with Path(path).open(encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def split_reasons(text):
+    return [x for x in str(text or "").split(";") if x]
+
+
+def classify(reason):
+    if reason == "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE":
+        return (
+            "SOURCE_EVIDENCE_GAP",
+            "PRODUCTION_ANALYSIS_SUPPLY",
+            "공시·수급 없음 판정을 확정할 만큼 source completeness가 부족함",
+        )
+    if reason == "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE":
+        return (
+            "POLICY_SEMANTIC_BLOCKER",
+            "V880_SCORING_CONTRACT",
+            "전년도 연간 영업이익 분모가 비양수이며 승인 계약상 의미 blocker",
+        )
+    if reason.startswith(("PER:", "PBR:")):
+        return (
+            "SOURCE_DATA_GAP",
+            "FINANCIAL_VALUATION_CACHE",
+            "밸류에이션 또는 관련 이익·ROE 입력 보강 필요",
+        )
+    if reason.startswith("EV/EBITDA:"):
+        tail = reason.split("EV/EBITDA:", 1)[1]
+        parts = tail.split(":")
+        debt_status = parts[-2] if len(parts) >= 2 else ""
+        da_status = parts[-1] if parts else ""
+        if da_status == "NO_EXACT_CANDIDATE":
+            return (
+                "SOURCE_DATA_GAP",
+                "EXACT_DA_SOURCE",
+                f"승인 exact D&A 원천 부족; debt_status={debt_status}, da_status={da_status}",
+            )
+        if debt_status == "NO_EXACT_CANDIDATE":
+            return (
+                "SOURCE_DATA_GAP",
+                "EXACT_CORE_DEBT_SOURCE",
+                f"승인 exact core-debt 원천 부족; debt_status={debt_status}, da_status={da_status}",
+            )
+        if debt_status in {"OK", "EMPTY_AS_ZERO"} and da_status in {"OK", "EMPTY_AS_ZERO"}:
+            return (
+                "SOURCE_DATA_GAP",
+                "EV_EBITDA_OTHER_INPUT",
+                "D&A/debt exact 상태 통과 후 다른 EV/EBITDA 입력 점검 필요",
+            )
+        return (
+            "SOURCE_DATA_GAP",
+            "EV_EBITDA_INPUT",
+            f"EV/EBITDA 입력 상태 재감사 필요: {tail}",
+        )
+    if reason.startswith("PSR 또는 대체 가치지표:"):
+        return (
+            "SOURCE_DATA_GAP",
+            "FINANCIAL_AND_RAW_SOURCE",
+            "시가총액 또는 연간 매출 입력 보강 필요",
+        )
+    if reason.startswith((
+        "매출 성장과 안정성:",
+        "최근 3년 매출 성장률:",
+        "최근 3년 영업이익 성장률:",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+    )):
+        return (
+            "SOURCE_DATA_GAP",
+            "INVESTMENT_SCORE_SOURCE_CACHE",
+            "연간/분기 재무 raw source 보강 필요",
+        )
+    if reason.startswith((
+        "영업이익 성장과 흑자 여부:",
+        "순이익 흐름:",
+        "영업이익률:",
+        "ROE:",
+        "부채비율:",
+        "흑자 지속성과 이익 안정성:",
+    )):
+        return (
+            "SOURCE_DATA_GAP",
+            "FINANCIAL_VALUATION_CACHE",
+            "재무·수익성 cache 입력 보강 필요",
+        )
+    if reason.startswith("영업현금흐름:"):
+        return (
+            "SOURCE_DATA_GAP",
+            "OCF_AND_REVENUE_SOURCE",
+            "영업현금흐름 또는 연간 매출 입력 보강 필요",
+        )
+    if reason.startswith((
+        "1개월 가격흐름:",
+        "3개월 가격흐름:",
+        "기간 저가·고가 대비 현재위치:",
+        "과열·급락 위험:",
+        "20일 평균 거래대금과 거래량:",
+    )):
+        return (
+            "SOURCE_DATA_GAP",
+            "PRODUCTION_PRICE_METRICS",
+            "가격·스윙·ATR·거래활동 metric 보강 필요",
+        )
+    if reason.startswith("하루평균 절대등락률:"):
+        return (
+            "SOURCE_DATA_GAP",
+            "PRICE_ELASTICITY_20D",
+            "20거래일 가격탄력 source 보강 필요",
+        )
+    if reason.startswith("순현금·기업가치 상태:"):
+        return (
+            "SOURCE_DATA_GAP",
+            "NETCASH_INPUT",
+            "시가총액·현금·승인 core debt 원천 보강 필요",
+        )
+    return (
+        "UNCLASSIFIED_REVIEW",
+        "UNKNOWN",
+        "자동 분류되지 않은 blocker이므로 사람 검토 필요",
+    )
+
+
+def recovery_status(code, source_group, single, da_exhausted, v8104_exhausted):
+    if source_group == "V880_SCORING_CONTRACT":
+        return "POLICY_SEMANTIC_DEFER"
+
+    if source_group == "EXACT_DA_SOURCE" and code in da_exhausted:
+        return "EXHAUSTED_APPROVED_OFFICIAL_DA_PATHS"
+
+    if code in v8104_exhausted:
+        if code == "001020" and source_group == "PRODUCTION_PRICE_METRICS":
+            return "EXHAUSTED_V8104_OFFICIAL_KRX_OHLC_INCOMPLETE"
+        if code == "357250" and source_group == "INVESTMENT_SCORE_SOURCE_CACHE":
+            return "EXHAUSTED_V8104_OFFICIAL_FULL_ACCOUNT_INCOMPLETE"
+
+    if single:
+        return "ACTIONABLE_SINGLE_BLOCKER_REAUDIT"
+
+    return "MULTI_BLOCKER_SOURCE_LANE"
+
+
+def run_scorer():
+    old = {
+        "VERSION": scorer.VERSION,
+        "OUT_CSV": scorer.OUT_CSV,
+        "OUT_JSON": scorer.OUT_JSON,
+        "OUT_LOG": scorer.OUT_LOG,
+        "OUT_DOC": scorer.OUT_DOC,
+    }
+    try:
+        scorer.VERSION = VERSION
+        scorer.OUT_CSV = TMP_CSV
+        scorer.OUT_JSON = TMP_JSON
+        scorer.OUT_LOG = TMP_LOG
+        scorer.OUT_DOC = TMP_DOC
+        rc = scorer.main()
+    finally:
+        for k, v in old.items():
+            setattr(scorer, k, v)
+    if rc not in (None, 0):
+        raise RuntimeError(f"V8128_SCORER_FAILED:{rc}")
+
+
+def main():
+    for p in (V8127, V8123_CSV, V8123_JSON, ELASTICITY_CSV, ELASTICITY_META):
+        if not p.is_file():
+            raise RuntimeError("V8128_MISSING_INPUT:" + str(p))
+
+    s8127 = read_json(V8127)
+    s8123 = read_json(V8123_JSON)
+    emeta = read_json(ELASTICITY_META)
+
+    if s8127.get("version") != V8127_VERSION:
+        raise RuntimeError("V8128_V8127_VERSION_MISMATCH")
+    if s8127.get("status") != "PRODUCTION_PRICE_ELASTICITY_REFRESH_APPLIED_POST_REGRESSION_PASS":
+        raise RuntimeError("V8128_V8127_STATUS_MISMATCH")
+    if s8127.get("policy_version") != POLICY_VERSION:
+        raise RuntimeError("V8128_POLICY_VERSION_MISMATCH")
+    if int((s8127.get("production_after") or {}).get("row_count") or 0) != EXPECTED_UNIVERSE:
+        raise RuntimeError("V8128_V8127_PROD_COUNT_NOT_149")
+    if int((s8127.get("production_after") or {}).get("scorer_ready_count") or 0) != EXPECTED_READY:
+        raise RuntimeError("V8128_V8127_READY_NOT_19")
+    if int((s8127.get("production_after") or {}).get("blocker_occurrences") or 0) != EXPECTED_BLOCKERS:
+        raise RuntimeError("V8128_V8127_BLOCKERS_NOT_796")
+    if int(s8127.get("lost_ready_count") or 0) != 0:
+        raise RuntimeError("V8128_V8127_READY_REGRESSION_PRESENT")
+
+    if emeta.get("refresh_version") != V8127_VERSION:
+        raise RuntimeError("V8128_ELASTICITY_REFRESH_VERSION_MISMATCH")
+    if emeta.get("basis_date") != "2026-09-18":
+        raise RuntimeError("V8128_ELASTICITY_BASIS_MISMATCH")
+    if int(emeta.get("production_unique_tickers") or 0) != EXPECTED_UNIVERSE:
+        raise RuntimeError("V8128_ELASTICITY_ROWS_NOT_149")
+    if int(emeta.get("ready_tickers") or 0) != EXPECTED_UNIVERSE:
+        raise RuntimeError("V8128_ELASTICITY_READY_NOT_149")
+    if int(emeta.get("limited_tickers") or 0) != 0:
+        raise RuntimeError("V8128_ELASTICITY_LIMITED_NOT_ZERO")
+
+    elasticity_rows = read_rows(ELASTICITY_CSV)
+    if len(elasticity_rows) != EXPECTED_UNIVERSE:
+        raise RuntimeError("V8128_ELASTICITY_CSV_ROWS_NOT_149")
+    if {r.get("source_status") for r in elasticity_rows} != {"READY"}:
+        raise RuntimeError("V8128_ELASTICITY_CSV_NOT_ALL_READY")
+
+    if s8123.get("version") != V8123_VERSION:
+        raise RuntimeError("V8128_V8123_VERSION_MISMATCH")
+    if int(s8123.get("scorer_universe_count") or 0) != EXPECTED_UNIVERSE:
+        raise RuntimeError("V8128_V8123_UNIVERSE_MISMATCH")
+    if int(s8123.get("ready_count") or 0) != 7:
+        raise RuntimeError("V8128_V8123_READY_CHANGED")
+    if int(s8123.get("limited_blocker_occurrences") or 0) != 911:
+        raise RuntimeError("V8128_V8123_BLOCKERS_CHANGED")
+    if int((s8123.get("source_group_counts") or {}).get("PRICE_ELASTICITY_20D") or 0) != EXPECTED_REMOVED_ELASTICITY:
+        raise RuntimeError("V8128_V8123_ELASTICITY_COUNT_NOT_115")
+
+    da_exhausted = set(
+        (s8123.get("known_exhausted_evidence") or {}).get(
+            "exact_da_exhausted_union_tickers"
+        ) or []
+    )
+    if len(da_exhausted) != 27:
+        raise RuntimeError("V8128_DA_EXHAUSTED_UNION_NOT_27")
+    v8104_exhausted = set(
+        (s8123.get("known_exhausted_evidence") or {}).get(
+            "v8104_exhausted_tickers"
+        ) or []
+    )
+    if v8104_exhausted != {"001020", "357250"}:
+        raise RuntimeError("V8128_V8104_EXHAUSTED_SET_CHANGED")
+
+    baseline_rows = read_rows(V8123_CSV)
+    expected_pairs = Counter(
+        (ticker(r.get("ticker")), r.get("blocker_reason") or "")
+        for r in baseline_rows
+        if (r.get("source_group") or "") != "PRICE_ELASTICITY_20D"
+    )
+    removed_elasticity = sum(
+        1
+        for r in baseline_rows
+        if (r.get("source_group") or "") == "PRICE_ELASTICITY_20D"
+    )
+    if removed_elasticity != EXPECTED_REMOVED_ELASTICITY:
+        raise RuntimeError("V8128_BASELINE_REMOVED_ELASTICITY_NOT_115")
+    if sum(expected_pairs.values()) != EXPECTED_BLOCKERS:
+        raise RuntimeError("V8128_EXPECTED_POST_BLOCKERS_NOT_796")
+
+    run_scorer()
+    rows = read_rows(TMP_CSV)
+    score_summary = read_json(TMP_JSON)
+
+    if len(rows) != EXPECTED_UNIVERSE:
+        raise RuntimeError(f"V8128_SCORER_UNIVERSE_NOT_149:{len(rows)}")
+    ready = [r for r in rows if r.get("score_status") == "READY"]
+    limited = [r for r in rows if r.get("score_status") == "LIMITED"]
+    if len(ready) != EXPECTED_READY or len(limited) != EXPECTED_LIMITED:
+        raise RuntimeError(
+            f"V8128_READY_LIMITED_MISMATCH:{len(ready)}:{len(limited)}"
+        )
+    if int(score_summary.get("ready_count") or 0) != EXPECTED_READY:
+        raise RuntimeError("V8128_SCORE_SUMMARY_READY_NOT_19")
+    if int(score_summary.get("limited_count") or 0) != EXPECTED_LIMITED:
+        raise RuntimeError("V8128_SCORE_SUMMARY_LIMITED_NOT_130")
+
+    out_rows = []
+    current_pairs = Counter()
+    reason_counter = Counter()
+    category_counter = Counter()
+    source_counter = Counter()
+    source_tickers = defaultdict(set)
+    single_counter = Counter()
+    actionable_counter = Counter()
+    recovery_counter = Counter()
+    actionable_tickers = defaultdict(set)
+
+    for row in limited:
+        reasons = split_reasons(row.get("missing_components"))
+        code = ticker(row.get("ticker"))
+        if not reasons:
+            raise RuntimeError("V8128_LIMITED_WITHOUT_REASON:" + code)
+        if ELASTICITY_REASON in reasons:
+            raise RuntimeError("V8128_ELASTICITY_BLOCKER_REMAINED:" + code)
+        single = len(reasons) == 1
+
+        for reason in reasons:
+            category, group, note = classify(reason)
+            status = recovery_status(
+                code, group, single, da_exhausted, v8104_exhausted
+            )
+
+            current_pairs[(code, reason)] += 1
+            reason_counter[reason] += 1
+            category_counter[category] += 1
+            source_counter[group] += 1
+            source_tickers[group].add(code)
+            recovery_counter[status] += 1
+
+            if single:
+                single_counter[group] += 1
+                if status == "ACTIONABLE_SINGLE_BLOCKER_REAUDIT":
+                    actionable_counter[group] += 1
+                    actionable_tickers[group].add(code)
+
+            out_rows.append({
+                "ticker": code,
+                "name": row.get("name") or "",
+                "market": row.get("market") or "",
+                "missing_component_count": len(reasons),
+                "blocker_reason": reason,
+                "blocker_category": category,
+                "source_group": group,
+                "single_blocker_ticker": "TRUE" if single else "FALSE",
+                "recovery_status": status,
+                "audit_note": note,
+            })
+
+    if len(out_rows) != EXPECTED_BLOCKERS:
+        raise RuntimeError(f"V8128_BLOCKER_COUNT_NOT_796:{len(out_rows)}")
+    if current_pairs != expected_pairs:
+        missing = list((expected_pairs - current_pairs).elements())[:20]
+        extra = list((current_pairs - expected_pairs).elements())[:20]
+        raise RuntimeError(
+            "V8128_NON_ELASTICITY_BLOCKER_DRIFT:"
+            + "missing=" + repr(missing)
+            + ";extra=" + repr(extra)
+        )
+
+    expected_group_counts = {
+        "FINANCIAL_VALUATION_CACHE": 293,
+        "INVESTMENT_SCORE_SOURCE_CACHE": 164,
+        "EXACT_DA_SOURCE": 107,
+        "OCF_AND_REVENUE_SOURCE": 95,
+        "PRODUCTION_ANALYSIS_SUPPLY": 44,
+        "FINANCIAL_AND_RAW_SOURCE": 34,
+        "NETCASH_INPUT": 33,
+        "PRODUCTION_PRICE_METRICS": 18,
+        "V880_SCORING_CONTRACT": 8,
+    }
+    if dict(source_counter) != expected_group_counts:
+        raise RuntimeError(
+            "V8128_SOURCE_GROUP_COUNTS_CHANGED:" + repr(dict(source_counter))
+        )
+    if category_counter != Counter({
+        "SOURCE_DATA_GAP": 744,
+        "SOURCE_EVIDENCE_GAP": 44,
+        "POLICY_SEMANTIC_BLOCKER": 8,
+    }):
+        raise RuntimeError(
+            "V8128_CATEGORY_COUNTS_CHANGED:" + repr(dict(category_counter))
+        )
+    if recovery_counter != Counter({
+        "MULTI_BLOCKER_SOURCE_LANE": 765,
+        "ACTIONABLE_SINGLE_BLOCKER_REAUDIT": 12,
+        "EXHAUSTED_APPROVED_OFFICIAL_DA_PATHS": 11,
+        "POLICY_SEMANTIC_DEFER": 8,
+    }):
+        raise RuntimeError(
+            "V8128_RECOVERY_COUNTS_CHANGED:" + repr(dict(recovery_counter))
+        )
+
+    out_rows.sort(
+        key=lambda r: (
+            int(r["missing_component_count"]),
+            r["ticker"],
+            r["blocker_reason"],
+        )
+    )
+
+    OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+    fields = list(out_rows[0].keys())
+    with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields, lineterminator="\n")
+        w.writeheader()
+        w.writerows(out_rows)
+
+    priority = []
+    for group, count in source_counter.most_common():
+        priority.append({
+            "source_group": group,
+            "blocker_occurrences": count,
+            "ticker_count": len(source_tickers[group]),
+            "single_blocker_tickers": single_counter.get(group, 0),
+            "actionable_single_blocker_tickers": actionable_counter.get(group, 0),
+            "actionable_single_blocker_ticker_list": sorted(
+                actionable_tickers[group]
+            ),
+        })
+
+    actionable_groups = [
+        x for x in priority
+        if x["source_group"] != "V880_SCORING_CONTRACT"
+        and x["actionable_single_blocker_tickers"] > 0
+    ]
+    actionable_groups.sort(
+        key=lambda x: (
+            -x["actionable_single_blocker_tickers"],
+            -x["blocker_occurrences"],
+            x["source_group"],
+        )
+    )
+    if not actionable_groups:
+        raise RuntimeError("V8128_NO_ACTIONABLE_SINGLE_BLOCKER_GROUP")
+
+    next_group = actionable_groups[0]["source_group"]
+    next_tickers = actionable_groups[0][
+        "actionable_single_blocker_ticker_list"
+    ]
+    if next_group != "EXACT_DA_SOURCE":
+        raise RuntimeError("V8128_NEXT_GROUP_NOT_EXACT_DA:" + next_group)
+    if set(next_tickers) != set(EXPECTED_ACTIONABLE_EXACT_DA):
+        raise RuntimeError(
+            "V8128_EXACT_DA_ACTIONABLE_SET_CHANGED:"
+            + ",".join(next_tickers)
+        )
+
+    summary = {
+        "version": VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+        "status": "AUDIT_ONLY_POST_ELASTICITY_PROMOTION",
+        "policy_version": POLICY_VERSION,
+        "v8127_version": V8127_VERSION,
+        "v8127_result_commit": V8127_RESULT_COMMIT,
+        "v8123_version": V8123_VERSION,
+        "scorer_universe_count": len(rows),
+        "ready_count": len(ready),
+        "limited_count": len(limited),
+        "ready_pct": round(len(ready) * 100.0 / len(rows), 4),
+        "limited_blocker_occurrences": len(out_rows),
+        "change_from_v8123": {
+            "ready_delta": len(ready) - int(s8123.get("ready_count") or 0),
+            "limited_delta": len(limited) - int(s8123.get("limited_count") or 0),
+            "blocker_occurrence_delta": len(out_rows) - int(
+                s8123.get("limited_blocker_occurrences") or 0
+            ),
+            "price_elasticity_blockers_removed": removed_elasticity,
+            "non_elasticity_blocker_drift_count": 0,
+        },
+        "blocker_category_counts": dict(category_counter),
+        "source_group_counts": dict(source_counter),
+        "recovery_status_counts": dict(recovery_counter),
+        "source_priority": priority,
+        "known_exhausted_evidence": {
+            "exact_da_exhausted_union_count": len(da_exhausted),
+            "exact_da_exhausted_union_tickers": sorted(da_exhausted),
+            "v8104_exhausted_tickers": sorted(v8104_exhausted),
+        },
+        "next_actionable_source_group": next_group,
+        "next_actionable_single_blocker_count": len(next_tickers),
+        "next_actionable_tickers": next_tickers,
+        "next_actionable_names": [
+            EXPECTED_ACTIONABLE_EXACT_DA[x] for x in next_tickers
+        ],
+        "next_actionable_selection_reason": "HIGHEST_ACTIONABLE_SINGLE_BLOCKER_COUNT_AFTER_ELASTICITY_PROMOTION",
+        "hard_guards": {
+            "production_price_elasticity_cache_modified": False,
+            "production_source_cache_modified": False,
+            "production_financial_cache_modified": False,
+            "production_ocf_cache_modified": False,
+            "production_api_modified": False,
+            "production_investment_score_written": False,
+            "scoring_policy_modified": False,
+            "exhausted_lane_auto_requeried": False,
+            "source_value_imputed": False,
+            "non_elasticity_blocker_drift_present": False,
+        },
+        "next_step": "AUDIT_CURRENT_ACTIONABLE_EXACT_DA_SINGLE_BLOCKERS_V8129",
+    }
+
+    OUT_JSON.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    OUT_LOG.write_text(
+        "\n".join([
+            f"VERSION={VERSION}",
+            "STATUS=AUDIT_ONLY_POST_ELASTICITY_PROMOTION",
+            f"SCORER_UNIVERSE={len(rows)}",
+            f"READY={len(ready)}",
+            f"LIMITED={len(limited)}",
+            f"BLOCKER_OCCURRENCES={len(out_rows)}",
+            f"PRICE_ELASTICITY_BLOCKERS_REMOVED={removed_elasticity}",
+            "NON_ELASTICITY_BLOCKER_DRIFT=0",
+            f"ACTIONABLE_SINGLE_BLOCKERS={sum(actionable_counter.values())}",
+            f"NEXT_ACTIONABLE_SOURCE_GROUP={next_group}",
+            f"NEXT_ACTIONABLE_SINGLE_BLOCKER_COUNT={len(next_tickers)}",
+            f"NEXT_ACTIONABLE_TICKERS={','.join(next_tickers)}",
+            "PRODUCTION_DATA_MODIFIED=false",
+            "SCORING_POLICY_MODIFIED=false",
+            "EXHAUSTED_LANE_AUTO_REQUERIED=false",
+            "STATUS_OK=true",
+            "NEXT_STEP=AUDIT_CURRENT_ACTIONABLE_EXACT_DA_SINGLE_BLOCKERS_V8129",
+        ]) + "\n",
+        encoding="utf-8",
+    )
+
+    OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+    OUT_DOC.write_text(
+        "\n".join([
+            "# V8.12.8 post-apply current blocker reaudit",
+            "",
+            f"- Current scorer universe: {len(rows)}",
+            f"- READY / LIMITED: {len(ready)} / {len(limited)}",
+            f"- Blocker occurrences: {len(out_rows)}",
+            f"- Price-elasticity blockers removed vs V8.12.3: {removed_elasticity}",
+            "- Non-elasticity blocker drift: 0",
+            f"- Next actionable source group: `{next_group}`",
+            f"- Next actionable single blockers: {len(next_tickers)}",
+            "- Targets: " + ", ".join(
+                f"{code} {EXPECTED_ACTIONABLE_EXACT_DA[code]}"
+                for code in next_tickers
+            ),
+            "",
+            "No production cache, API, scoring policy, or production score artifact is modified.",
+            "Previously exhausted exact-D&A paths are not automatically requeried.",
+            "",
+            "Next: `AUDIT_CURRENT_ACTIONABLE_EXACT_DA_SINGLE_BLOCKERS_V8129`",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+
+    print("V8128_POST_APPLY_CURRENT_BLOCKER_REAUDIT=PASS")
+
+
+if __name__ == "__main__":
+    main()

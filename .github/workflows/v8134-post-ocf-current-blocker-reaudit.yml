@@ -1,0 +1,935 @@
+name: Post-OCF current blocker reaudit v8.13.4
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8134-post-ocf-current-blocker-reaudit.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8134-post-ocf-current-blocker-reaudit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify lineage and capture protected hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git merge-base --is-ancestor \
+            8598ef22821fc4913fbe541b833174041eafda74 HEAD
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_ocf_source_latest.json \
+            latest/investment_score_ocf_source_run_log_latest.txt \
+            latest/investment_score_ocf_production_refresh_v8133a_summary_latest.json \
+            latest/investment_score_current_blockers_v8128.csv \
+            latest/investment_score_current_blockers_v8128_summary_latest.json \
+            latest/investment_score_exact_da_actionable_v8129_summary_latest.json \
+            latest/investment_score_ocf_candidate_v8132_regression.csv \
+            > /tmp/v8134_protected.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -name '*.json' -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8134_api.before
+
+          echo "V8134_LINEAGE=PASS"
+
+      - name: Create V8.13.4 blocker reaudit
+        shell: bash
+        run: |
+          cat > investment_score_current_blocker_reaudit_v8134.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import csv
+          import json
+          from collections import Counter, defaultdict
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_dry_run_v882 as scorer
+
+          VERSION = "2026-09-21-v8.13.4-post-ocf-current-blocker-reaudit"
+          POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          V8133A_VERSION = "2026-09-21-v8.13.3a-controlled-production-ocf-refresh"
+          V8133A_RESULT_COMMIT = "8598ef22821fc4913fbe541b833174041eafda74"
+          V8128_VERSION = "2026-09-21-v8.12.8-post-apply-current-blocker-reaudit"
+          V8129_VERSION = "2026-09-21-v8.12.9-current-actionable-exact-da-single-blocker-audit"
+          OCF_CONTRACT_VERSION = "2026-09-12-v8.7.4-audited-operating-cash-flow-source"
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+
+          V8133A = ROOT / "latest/investment_score_ocf_production_refresh_v8133a_summary_latest.json"
+          OCF_META = ROOT / "latest/investment_score_ocf_source_latest.json"
+          OCF_CSV = ROOT / "latest/investment_score_ocf_source_latest.csv"
+          V8128_CSV = ROOT / "latest/investment_score_current_blockers_v8128.csv"
+          V8128_JSON = ROOT / "latest/investment_score_current_blockers_v8128_summary_latest.json"
+          V8129_JSON = ROOT / "latest/investment_score_exact_da_actionable_v8129_summary_latest.json"
+          V8132_REG = ROOT / "latest/investment_score_ocf_candidate_v8132_regression.csv"
+
+          TMP_CSV = Path("/tmp/v8134_score.csv")
+          TMP_JSON = Path("/tmp/v8134_score_summary.json")
+          TMP_LOG = Path("/tmp/v8134_score.log")
+          TMP_DOC = Path("/tmp/v8134_score.md")
+
+          OUT_CSV = ROOT / "latest/investment_score_current_blockers_v8134.csv"
+          OUT_JSON = ROOT / "latest/investment_score_current_blockers_v8134_summary_latest.json"
+          OUT_LOG = ROOT / "latest/investment_score_current_blockers_v8134_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_current_blockers_v8134.md"
+
+          OCF_REASON = "영업현금흐름:MISSING_OCF_MARGIN_INPUT"
+
+          EXPECTED_UNIVERSE = 149
+          EXPECTED_READY = 23
+          EXPECTED_LIMITED = 126
+          EXPECTED_BLOCKERS = 732
+          EXPECTED_OCF_REMOVED = 64
+
+          EXPECTED_GROUP_COUNTS = {
+              "FINANCIAL_VALUATION_CACHE": 293,
+              "INVESTMENT_SCORE_SOURCE_CACHE": 164,
+              "EXACT_DA_SOURCE": 107,
+              "PRODUCTION_ANALYSIS_SUPPLY": 44,
+              "FINANCIAL_AND_RAW_SOURCE": 34,
+              "NETCASH_INPUT": 33,
+              "OCF_AND_REVENUE_SOURCE": 31,
+              "PRODUCTION_PRICE_METRICS": 18,
+              "V880_SCORING_CONTRACT": 8,
+          }
+
+          EXPECTED_CATEGORY_COUNTS = {
+              "SOURCE_DATA_GAP": 680,
+              "SOURCE_EVIDENCE_GAP": 44,
+              "POLICY_SEMANTIC_BLOCKER": 8,
+          }
+
+          EXPECTED_RECOVERY_COUNTS = {
+              "MULTI_BLOCKER_SOURCE_LANE": 675,
+              "ACTIONABLE_SINGLE_BLOCKER_REAUDIT": 33,
+              "EXHAUSTED_APPROVED_OFFICIAL_DA_PATHS": 16,
+              "POLICY_SEMANTIC_DEFER": 8,
+          }
+
+          EXPECTED_ACTIONABLE_EXACT_DA = {
+              "000150": "두산",
+              "000490": "대동",
+              "000660": "SK하이닉스",
+              "000760": "이화산업",
+              "001630": "종근당홀딩스",
+              "001680": "대상",
+              "002350": "넥센타이어",
+              "003620": "KG모빌리티",
+              "004490": "세방전지",
+              "005300": "롯데칠성",
+              "006400": "삼성SDI",
+              "007070": "GS리테일",
+              "011210": "현대위아",
+              "014830": "유니드",
+              "034230": "파라다이스",
+              "039130": "하나투어",
+              "073240": "금호타이어",
+              "079160": "CJ CGV",
+              "079550": "LIG디펜스앤에어로스페이스",
+              "082740": "한화엔진",
+              "089590": "제주항공",
+              "090370": "메타랩스",
+              "095570": "AJ네트웍스",
+              "105630": "한세실업",
+              "112610": "씨에스윈드",
+              "128820": "대성산업",
+              "185750": "종근당",
+              "227840": "현대코퍼레이션홀딩스",
+          }
+
+          EXPECTED_ACTIONABLE_SUPPLY = {
+              "007540", "029780", "084690", "114090"
+          }
+          EXPECTED_ACTIONABLE_SCORE_CACHE = {"365550"}
+
+          def ticker(value):
+              s = "".join(ch for ch in str(value or "") if ch.isdigit())
+              return s.zfill(6) if s else ""
+
+          def read_json(path):
+              return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+          def read_rows(path):
+              with Path(path).open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
+
+          def split_reasons(text):
+              return [x for x in str(text or "").split(";") if x]
+
+          def classify(reason):
+              if reason == "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE":
+                  return (
+                      "SOURCE_EVIDENCE_GAP",
+                      "PRODUCTION_ANALYSIS_SUPPLY",
+                      "공시·수급 없음 판정을 확정할 만큼 source completeness가 부족함",
+                  )
+              if reason == "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE":
+                  return (
+                      "POLICY_SEMANTIC_BLOCKER",
+                      "V880_SCORING_CONTRACT",
+                      "전년도 연간 영업이익 분모가 비양수이며 승인 계약상 의미 blocker",
+                  )
+              if reason.startswith(("PER:", "PBR:")):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "FINANCIAL_VALUATION_CACHE",
+                      "밸류에이션 또는 관련 이익·ROE 입력 보강 필요",
+                  )
+              if reason.startswith("EV/EBITDA:"):
+                  tail = reason.split("EV/EBITDA:", 1)[1]
+                  parts = tail.split(":")
+                  debt_status = parts[-2] if len(parts) >= 2 else ""
+                  da_status = parts[-1] if parts else ""
+                  if da_status == "NO_EXACT_CANDIDATE":
+                      return (
+                          "SOURCE_DATA_GAP",
+                          "EXACT_DA_SOURCE",
+                          f"승인 exact D&A 원천 부족; debt_status={debt_status}, da_status={da_status}",
+                      )
+                  if debt_status == "NO_EXACT_CANDIDATE":
+                      return (
+                          "SOURCE_DATA_GAP",
+                          "EXACT_CORE_DEBT_SOURCE",
+                          f"승인 exact core-debt 원천 부족; debt_status={debt_status}, da_status={da_status}",
+                      )
+                  if debt_status in {"OK", "EMPTY_AS_ZERO"} and da_status in {"OK", "EMPTY_AS_ZERO"}:
+                      return (
+                          "SOURCE_DATA_GAP",
+                          "EV_EBITDA_OTHER_INPUT",
+                          "D&A/debt exact 상태 통과 후 다른 EV/EBITDA 입력 점검 필요",
+                      )
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "EV_EBITDA_INPUT",
+                      f"EV/EBITDA 입력 상태 재감사 필요: {tail}",
+                  )
+              if reason.startswith("PSR 또는 대체 가치지표:"):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "FINANCIAL_AND_RAW_SOURCE",
+                      "시가총액 또는 연간 매출 입력 보강 필요",
+                  )
+              if reason.startswith((
+                  "매출 성장과 안정성:",
+                  "최근 3년 매출 성장률:",
+                  "최근 3년 영업이익 성장률:",
+                  "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+              )):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "INVESTMENT_SCORE_SOURCE_CACHE",
+                      "연간/분기 재무 raw source 보강 필요",
+                  )
+              if reason.startswith((
+                  "영업이익 성장과 흑자 여부:",
+                  "순이익 흐름:",
+                  "영업이익률:",
+                  "ROE:",
+                  "부채비율:",
+                  "흑자 지속성과 이익 안정성:",
+              )):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "FINANCIAL_VALUATION_CACHE",
+                      "재무·수익성 cache 입력 보강 필요",
+                  )
+              if reason.startswith("영업현금흐름:"):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "OCF_AND_REVENUE_SOURCE",
+                      "영업현금흐름 또는 연간 매출 입력 보강 필요",
+                  )
+              if reason.startswith((
+                  "1개월 가격흐름:",
+                  "3개월 가격흐름:",
+                  "기간 저가·고가 대비 현재위치:",
+                  "과열·급락 위험:",
+                  "20일 평균 거래대금과 거래량:",
+              )):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "PRODUCTION_PRICE_METRICS",
+                      "가격·스윙·ATR·거래활동 metric 보강 필요",
+                  )
+              if reason.startswith("하루평균 절대등락률:"):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "PRICE_ELASTICITY_20D",
+                      "20거래일 가격탄력 source 보강 필요",
+                  )
+              if reason.startswith("순현금·기업가치 상태:"):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "NETCASH_INPUT",
+                      "시가총액·현금·승인 core debt 원천 보강 필요",
+                  )
+              return (
+                  "UNCLASSIFIED_REVIEW",
+                  "UNKNOWN",
+                  "자동 분류되지 않은 blocker이므로 사람 검토 필요",
+              )
+
+          def recovery_status(code, source_group, single, da_exhausted, v8104_exhausted):
+              if source_group == "V880_SCORING_CONTRACT":
+                  return "POLICY_SEMANTIC_DEFER"
+
+              if source_group == "EXACT_DA_SOURCE" and code in da_exhausted:
+                  return "EXHAUSTED_APPROVED_OFFICIAL_DA_PATHS"
+
+              if code in v8104_exhausted:
+                  if code == "001020" and source_group == "PRODUCTION_PRICE_METRICS":
+                      return "EXHAUSTED_V8104_OFFICIAL_KRX_OHLC_INCOMPLETE"
+                  if code == "357250" and source_group == "INVESTMENT_SCORE_SOURCE_CACHE":
+                      return "EXHAUSTED_V8104_OFFICIAL_FULL_ACCOUNT_INCOMPLETE"
+
+              if single:
+                  return "ACTIONABLE_SINGLE_BLOCKER_REAUDIT"
+
+              return "MULTI_BLOCKER_SOURCE_LANE"
+
+          def run_scorer():
+              old = {
+                  "VERSION": scorer.VERSION,
+                  "OUT_CSV": scorer.OUT_CSV,
+                  "OUT_JSON": scorer.OUT_JSON,
+                  "OUT_LOG": scorer.OUT_LOG,
+                  "OUT_DOC": scorer.OUT_DOC,
+              }
+              try:
+                  scorer.VERSION = VERSION
+                  scorer.OUT_CSV = TMP_CSV
+                  scorer.OUT_JSON = TMP_JSON
+                  scorer.OUT_LOG = TMP_LOG
+                  scorer.OUT_DOC = TMP_DOC
+                  rc = scorer.main()
+              finally:
+                  for key, value in old.items():
+                      setattr(scorer, key, value)
+              if rc not in (None, 0):
+                  raise RuntimeError("V8134_SCORER_FAILED:" + str(rc))
+
+          def main():
+              for p in (
+                  V8133A, OCF_META, OCF_CSV, V8128_CSV, V8128_JSON,
+                  V8129_JSON, V8132_REG,
+              ):
+                  if not p.is_file():
+                      raise RuntimeError("V8134_MISSING_INPUT:" + str(p))
+
+              s8133 = read_json(V8133A)
+              s8128 = read_json(V8128_JSON)
+              s8129 = read_json(V8129_JSON)
+              ocf_meta = read_json(OCF_META)
+
+              if s8133.get("version") != V8133A_VERSION:
+                  raise RuntimeError("V8134_V8133A_VERSION_MISMATCH")
+              if s8133.get("status") != "PRODUCTION_OCF_REFRESH_APPLIED_POST_REGRESSION_PASS":
+                  raise RuntimeError("V8134_V8133A_STATUS_MISMATCH")
+              if s8133.get("candidate_result_commit") != "4d575a4bdcd8884c7f866fcfa23f4b330a4e6564":
+                  raise RuntimeError("V8134_CANDIDATE_LINEAGE_MISMATCH")
+              if (s8133.get("production_after") or {}).get("row_count") != 149:
+                  raise RuntimeError("V8134_PRODUCTION_OCF_ROWS_NOT_149")
+              if (s8133.get("production_after") or {}).get("source_ready_count") != 147:
+                  raise RuntimeError("V8134_SOURCE_READY_NOT_147")
+              if (s8133.get("production_after") or {}).get("source_limited_count") != 2:
+                  raise RuntimeError("V8134_SOURCE_LIMITED_NOT_2")
+              if (s8133.get("production_after") or {}).get("scorer_ready_count") != 23:
+                  raise RuntimeError("V8134_POST_READY_NOT_23")
+              if (s8133.get("production_after") or {}).get("blocker_occurrences") != 732:
+                  raise RuntimeError("V8134_POST_BLOCKERS_NOT_732")
+              if s8133.get("post_score_equals_staged_candidate") is not True:
+                  raise RuntimeError("V8134_POST_NOT_EQUAL_CANDIDATE")
+
+              if ocf_meta.get("version") != OCF_CONTRACT_VERSION:
+                  raise RuntimeError("V8134_OCF_CONTRACT_VERSION_MISMATCH")
+              if ocf_meta.get("refresh_version") != V8133A_VERSION:
+                  raise RuntimeError("V8134_OCF_REFRESH_VERSION_MISMATCH")
+              if int(ocf_meta.get("production_unique_tickers") or 0) != 149:
+                  raise RuntimeError("V8134_OCF_META_ROWS_NOT_149")
+              if int(ocf_meta.get("operating_cash_flow_ready") or 0) != 147:
+                  raise RuntimeError("V8134_OCF_META_READY_NOT_147")
+              if int(ocf_meta.get("operating_cash_flow_limited") or 0) != 2:
+                  raise RuntimeError("V8134_OCF_META_LIMITED_NOT_2")
+
+              ocf_rows = read_rows(OCF_CSV)
+              if len(ocf_rows) != 149:
+                  raise RuntimeError("V8134_OCF_CSV_ROWS_NOT_149")
+              if sum(r.get("source_status") == "READY" for r in ocf_rows) != 147:
+                  raise RuntimeError("V8134_OCF_CSV_READY_NOT_147")
+
+              if s8128.get("version") != V8128_VERSION:
+                  raise RuntimeError("V8134_V8128_VERSION_MISMATCH")
+              if int(s8128.get("limited_blocker_occurrences") or 0) != 796:
+                  raise RuntimeError("V8134_V8128_BLOCKERS_CHANGED")
+
+              if s8129.get("version") != V8129_VERSION:
+                  raise RuntimeError("V8134_V8129_VERSION_MISMATCH")
+              prior_exhausted = set(s8129.get("prior_exhausted_not_requeried_tickers") or [])
+              newly_exhausted = set(s8129.get("newly_exhausted_no_approved_exact_tickers") or [])
+              da_exhausted = prior_exhausted | newly_exhausted
+              if len(prior_exhausted) != 27:
+                  raise RuntimeError("V8134_PRIOR_DA_EXHAUSTED_NOT_27")
+              if len(newly_exhausted) != 5:
+                  raise RuntimeError("V8134_NEW_DA_EXHAUSTED_NOT_5")
+              if len(da_exhausted) != 32:
+                  raise RuntimeError("V8134_DA_EXHAUSTED_UNION_NOT_32")
+
+              v8104_exhausted = set(
+                  (s8128.get("known_exhausted_evidence") or {}).get(
+                      "v8104_exhausted_tickers"
+                  ) or []
+              )
+              if v8104_exhausted != {"001020", "357250"}:
+                  raise RuntimeError("V8134_V8104_EXHAUSTED_SET_CHANGED")
+
+              regression_rows = read_rows(V8132_REG)
+              removed_ocf_tickers = {
+                  ticker(r.get("ticker"))
+                  for r in regression_rows
+                  if OCF_REASON in split_reasons(r.get("removed_reasons"))
+              }
+              if len(removed_ocf_tickers) != EXPECTED_OCF_REMOVED:
+                  raise RuntimeError(
+                      "V8134_OCF_REMOVED_SET_NOT_64:"
+                      + str(len(removed_ocf_tickers))
+                  )
+
+              baseline_rows = read_rows(V8128_CSV)
+              expected_pairs = Counter()
+              for r in baseline_rows:
+                  code = ticker(r.get("ticker"))
+                  reason = r.get("blocker_reason") or ""
+                  if code in removed_ocf_tickers and reason == OCF_REASON:
+                      continue
+                  expected_pairs[(code, reason)] += 1
+
+              if sum(expected_pairs.values()) != EXPECTED_BLOCKERS:
+                  raise RuntimeError("V8134_EXPECTED_POST_PAIRS_NOT_732")
+
+              run_scorer()
+              rows = read_rows(TMP_CSV)
+              score_summary = read_json(TMP_JSON)
+
+              if len(rows) != EXPECTED_UNIVERSE:
+                  raise RuntimeError("V8134_SCORER_UNIVERSE_NOT_149")
+              ready = [r for r in rows if r.get("score_status") == "READY"]
+              limited = [r for r in rows if r.get("score_status") == "LIMITED"]
+              if (len(ready), len(limited)) != (EXPECTED_READY, EXPECTED_LIMITED):
+                  raise RuntimeError(
+                      f"V8134_READY_LIMITED_MISMATCH:{len(ready)}:{len(limited)}"
+                  )
+              if int(score_summary.get("ready_count") or 0) != EXPECTED_READY:
+                  raise RuntimeError("V8134_SCORE_SUMMARY_READY_NOT_23")
+              if int(score_summary.get("limited_count") or 0) != EXPECTED_LIMITED:
+                  raise RuntimeError("V8134_SCORE_SUMMARY_LIMITED_NOT_126")
+
+              out_rows = []
+              current_pairs = Counter()
+              category_counter = Counter()
+              source_counter = Counter()
+              source_tickers = defaultdict(set)
+              single_counter = Counter()
+              actionable_counter = Counter()
+              actionable_tickers = defaultdict(set)
+              recovery_counter = Counter()
+
+              for row in limited:
+                  reasons = split_reasons(row.get("missing_components"))
+                  code = ticker(row.get("ticker"))
+                  if not reasons:
+                      raise RuntimeError("V8134_LIMITED_WITHOUT_REASON:" + code)
+                  single = len(reasons) == 1
+
+                  for reason in reasons:
+                      category, group, note = classify(reason)
+                      status = recovery_status(
+                          code,
+                          group,
+                          single,
+                          da_exhausted,
+                          v8104_exhausted,
+                      )
+
+                      current_pairs[(code, reason)] += 1
+                      category_counter[category] += 1
+                      source_counter[group] += 1
+                      source_tickers[group].add(code)
+                      recovery_counter[status] += 1
+
+                      if single:
+                          single_counter[group] += 1
+                          if status == "ACTIONABLE_SINGLE_BLOCKER_REAUDIT":
+                              actionable_counter[group] += 1
+                              actionable_tickers[group].add(code)
+
+                      out_rows.append({
+                          "ticker": code,
+                          "name": row.get("name") or "",
+                          "market": row.get("market") or "",
+                          "missing_component_count": len(reasons),
+                          "blocker_reason": reason,
+                          "blocker_category": category,
+                          "source_group": group,
+                          "single_blocker_ticker": "TRUE" if single else "FALSE",
+                          "recovery_status": status,
+                          "audit_note": note,
+                      })
+
+              if len(out_rows) != EXPECTED_BLOCKERS:
+                  raise RuntimeError(
+                      "V8134_BLOCKER_COUNT_NOT_732:" + str(len(out_rows))
+                  )
+              if current_pairs != expected_pairs:
+                  missing = list((expected_pairs - current_pairs).elements())[:20]
+                  extra = list((current_pairs - expected_pairs).elements())[:20]
+                  raise RuntimeError(
+                      "V8134_POST_OCF_BLOCKER_DRIFT:"
+                      + "missing=" + repr(missing)
+                      + ";extra=" + repr(extra)
+                  )
+
+              if dict(source_counter) != EXPECTED_GROUP_COUNTS:
+                  raise RuntimeError(
+                      "V8134_SOURCE_GROUP_COUNTS_CHANGED:"
+                      + repr(dict(source_counter))
+                  )
+              if dict(category_counter) != EXPECTED_CATEGORY_COUNTS:
+                  raise RuntimeError(
+                      "V8134_CATEGORY_COUNTS_CHANGED:"
+                      + repr(dict(category_counter))
+                  )
+              if dict(recovery_counter) != EXPECTED_RECOVERY_COUNTS:
+                  raise RuntimeError(
+                      "V8134_RECOVERY_COUNTS_CHANGED:"
+                      + repr(dict(recovery_counter))
+                  )
+
+              if set(actionable_tickers["EXACT_DA_SOURCE"]) != set(EXPECTED_ACTIONABLE_EXACT_DA):
+                  raise RuntimeError("V8134_ACTIONABLE_EXACT_DA_SET_CHANGED")
+              if set(actionable_tickers["PRODUCTION_ANALYSIS_SUPPLY"]) != EXPECTED_ACTIONABLE_SUPPLY:
+                  raise RuntimeError("V8134_ACTIONABLE_SUPPLY_SET_CHANGED")
+              if set(actionable_tickers["INVESTMENT_SCORE_SOURCE_CACHE"]) != EXPECTED_ACTIONABLE_SCORE_CACHE:
+                  raise RuntimeError("V8134_ACTIONABLE_SCORE_CACHE_SET_CHANGED")
+
+              out_rows.sort(
+                  key=lambda r: (
+                      int(r["missing_component_count"]),
+                      r["ticker"],
+                      r["blocker_reason"],
+                  )
+              )
+
+              OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+              fields = list(out_rows[0].keys())
+              with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+                  w = csv.DictWriter(f, fieldnames=fields, lineterminator="\n")
+                  w.writeheader()
+                  w.writerows(out_rows)
+
+              priority = []
+              for group, count in source_counter.most_common():
+                  priority.append({
+                      "source_group": group,
+                      "blocker_occurrences": count,
+                      "ticker_count": len(source_tickers[group]),
+                      "single_blocker_tickers": single_counter.get(group, 0),
+                      "actionable_single_blocker_tickers": actionable_counter.get(group, 0),
+                      "actionable_single_blocker_ticker_list": sorted(
+                          actionable_tickers[group]
+                      ),
+                  })
+
+              actionable_groups = [
+                  x for x in priority
+                  if x["source_group"] != "V880_SCORING_CONTRACT"
+                  and x["actionable_single_blocker_tickers"] > 0
+              ]
+              actionable_groups.sort(
+                  key=lambda x: (
+                      -x["actionable_single_blocker_tickers"],
+                      -x["blocker_occurrences"],
+                      x["source_group"],
+                  )
+              )
+              if not actionable_groups:
+                  raise RuntimeError("V8134_NO_ACTIONABLE_SINGLE_BLOCKER_GROUP")
+
+              next_group = actionable_groups[0]["source_group"]
+              next_tickers = actionable_groups[0][
+                  "actionable_single_blocker_ticker_list"
+              ]
+
+              if next_group != "EXACT_DA_SOURCE":
+                  raise RuntimeError("V8134_NEXT_GROUP_NOT_EXACT_DA:" + next_group)
+              if set(next_tickers) != set(EXPECTED_ACTIONABLE_EXACT_DA):
+                  raise RuntimeError("V8134_NEXT_EXACT_DA_SET_CHANGED")
+
+              summary = {
+                  "version": VERSION,
+                  "generated_at_kst": datetime.now(KST).isoformat(
+                      timespec="seconds"
+                  ),
+                  "status": "AUDIT_ONLY_POST_OCF_PROMOTION",
+                  "policy_version": POLICY_VERSION,
+                  "v8133a_version": V8133A_VERSION,
+                  "v8133a_result_commit": V8133A_RESULT_COMMIT,
+                  "v8128_version": V8128_VERSION,
+                  "v8129_version": V8129_VERSION,
+                  "scorer_universe_count": len(rows),
+                  "ready_count": len(ready),
+                  "limited_count": len(limited),
+                  "ready_pct": round(len(ready) * 100.0 / len(rows), 4),
+                  "limited_blocker_occurrences": len(out_rows),
+                  "change_from_v8128": {
+                      "ready_delta": len(ready) - int(s8128.get("ready_count") or 0),
+                      "limited_delta": len(limited) - int(s8128.get("limited_count") or 0),
+                      "blocker_occurrence_delta": len(out_rows) - int(
+                          s8128.get("limited_blocker_occurrences") or 0
+                      ),
+                      "ocf_blockers_removed": EXPECTED_OCF_REMOVED,
+                      "non_ocf_blocker_drift_count": 0,
+                  },
+                  "blocker_category_counts": dict(category_counter),
+                  "source_group_counts": dict(source_counter),
+                  "recovery_status_counts": dict(recovery_counter),
+                  "source_priority": priority,
+                  "known_exhausted_evidence": {
+                      "exact_da_exhausted_union_count": len(da_exhausted),
+                      "exact_da_exhausted_union_tickers": sorted(da_exhausted),
+                      "v8104_exhausted_tickers": sorted(v8104_exhausted),
+                  },
+                  "next_actionable_source_group": next_group,
+                  "next_actionable_single_blocker_count": len(next_tickers),
+                  "next_actionable_tickers": next_tickers,
+                  "next_actionable_names": [
+                      EXPECTED_ACTIONABLE_EXACT_DA[x] for x in next_tickers
+                  ],
+                  "secondary_actionable_groups": {
+                      "PRODUCTION_ANALYSIS_SUPPLY": sorted(
+                          actionable_tickers["PRODUCTION_ANALYSIS_SUPPLY"]
+                      ),
+                      "INVESTMENT_SCORE_SOURCE_CACHE": sorted(
+                          actionable_tickers["INVESTMENT_SCORE_SOURCE_CACHE"]
+                      ),
+                  },
+                  "next_actionable_selection_reason": (
+                      "HIGHEST_ACTIONABLE_SINGLE_BLOCKER_COUNT_AFTER_OCF_PROMOTION"
+                  ),
+                  "hard_guards": {
+                      "production_ocf_cache_modified": False,
+                      "production_source_cache_modified": False,
+                      "production_financial_cache_modified": False,
+                      "production_price_elasticity_cache_modified": False,
+                      "production_api_modified": False,
+                      "production_investment_score_written": False,
+                      "scoring_policy_modified": False,
+                      "exhausted_lane_auto_requeried": False,
+                      "source_value_imputed": False,
+                      "non_ocf_blocker_drift_present": False,
+                  },
+                  "next_step": (
+                      "AUDIT_CURRENT_ACTIONABLE_EXACT_DA_SINGLE_BLOCKERS_V8135"
+                  ),
+              }
+
+              OUT_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+
+              OUT_LOG.write_text(
+                  "\n".join([
+                      f"VERSION={VERSION}",
+                      "STATUS=AUDIT_ONLY_POST_OCF_PROMOTION",
+                      f"SCORER_UNIVERSE={len(rows)}",
+                      f"READY={len(ready)}",
+                      f"LIMITED={len(limited)}",
+                      f"BLOCKER_OCCURRENCES={len(out_rows)}",
+                      "OCF_BLOCKERS_REMOVED=64",
+                      "NON_OCF_BLOCKER_DRIFT=0",
+                      f"ACTIONABLE_SINGLE_BLOCKERS={sum(actionable_counter.values())}",
+                      f"NEXT_ACTIONABLE_SOURCE_GROUP={next_group}",
+                      f"NEXT_ACTIONABLE_SINGLE_BLOCKER_COUNT={len(next_tickers)}",
+                      f"NEXT_ACTIONABLE_TICKERS={','.join(next_tickers)}",
+                      "SECONDARY_SUPPLY_ACTIONABLE=4",
+                      "SECONDARY_SCORE_CACHE_ACTIONABLE=1",
+                      "PRODUCTION_DATA_MODIFIED=false",
+                      "SCORING_POLICY_MODIFIED=false",
+                      "EXHAUSTED_LANE_AUTO_REQUERIED=false",
+                      "STATUS_OK=true",
+                      "NEXT_STEP=AUDIT_CURRENT_ACTIONABLE_EXACT_DA_SINGLE_BLOCKERS_V8135",
+                  ]) + "\n",
+                  encoding="utf-8",
+              )
+
+              OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+              OUT_DOC.write_text(
+                  "\n".join([
+                      "# V8.13.4 post-OCF current blocker reaudit",
+                      "",
+                      f"- Current scorer universe: {len(rows)}",
+                      f"- READY / LIMITED: {len(ready)} / {len(limited)}",
+                      f"- Blocker occurrences: {len(out_rows)}",
+                      "- OCF blockers removed vs V8.12.8: 64",
+                      "- Non-OCF blocker drift: 0",
+                      f"- Actionable single blockers: {sum(actionable_counter.values())}",
+                      f"- Next actionable source group: `{next_group}`",
+                      f"- Next exact-D&A targets: {len(next_tickers)}",
+                      "- Secondary actionable supply targets: 4",
+                      "- Secondary actionable score-cache targets: 1",
+                      "",
+                      "No production cache, API, scoring policy, or production score artifact is modified.",
+                      "Previously exhausted exact-D&A paths are not automatically requeried.",
+                      "",
+                      "Next: `AUDIT_CURRENT_ACTIONABLE_EXACT_DA_SINGLE_BLOCKERS_V8135`",
+                      "",
+                  ]),
+                  encoding="utf-8",
+              )
+
+              print("V8134_POST_OCF_CURRENT_BLOCKER_REAUDIT=PASS")
+
+          if __name__ == "__main__":
+              main()
+          PY
+
+          python -m py_compile investment_score_current_blocker_reaudit_v8134.py
+          python investment_score_current_blocker_reaudit_v8134.py \
+            | tee /tmp/v8134_stdout.txt
+
+          grep -q '^V8134_POST_OCF_CURRENT_BLOCKER_REAUDIT=PASS$' \
+            /tmp/v8134_stdout.txt
+          grep -q '^STATUS_OK=true$' \
+            latest/investment_score_current_blockers_v8134_run_log_latest.txt
+          grep -q '^READY=23$' \
+            latest/investment_score_current_blockers_v8134_run_log_latest.txt
+          grep -q '^LIMITED=126$' \
+            latest/investment_score_current_blockers_v8134_run_log_latest.txt
+          grep -q '^BLOCKER_OCCURRENCES=732$' \
+            latest/investment_score_current_blockers_v8134_run_log_latest.txt
+          grep -q '^OCF_BLOCKERS_REMOVED=64$' \
+            latest/investment_score_current_blockers_v8134_run_log_latest.txt
+          grep -q '^NON_OCF_BLOCKER_DRIFT=0$' \
+            latest/investment_score_current_blockers_v8134_run_log_latest.txt
+          grep -q '^NEXT_ACTIONABLE_SINGLE_BLOCKER_COUNT=28$' \
+            latest/investment_score_current_blockers_v8134_run_log_latest.txt
+          grep -q '^SECONDARY_SUPPLY_ACTIONABLE=4$' \
+            latest/investment_score_current_blockers_v8134_run_log_latest.txt
+
+      - name: Validate V8.13.4 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          s = json.loads(
+              Path(
+                  "latest/investment_score_current_blockers_v8134_summary_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          assert s["version"] == "2026-09-21-v8.13.4-post-ocf-current-blocker-reaudit"
+          assert s["status"] == "AUDIT_ONLY_POST_OCF_PROMOTION"
+          assert s["v8133a_result_commit"] == "8598ef22821fc4913fbe541b833174041eafda74"
+          assert s["scorer_universe_count"] == 149
+          assert s["ready_count"] == 23
+          assert s["limited_count"] == 126
+          assert s["limited_blocker_occurrences"] == 732
+          assert s["change_from_v8128"]["ready_delta"] == 4
+          assert s["change_from_v8128"]["limited_delta"] == -4
+          assert s["change_from_v8128"]["blocker_occurrence_delta"] == -64
+          assert s["change_from_v8128"]["ocf_blockers_removed"] == 64
+          assert s["change_from_v8128"]["non_ocf_blocker_drift_count"] == 0
+          assert s["source_group_counts"]["OCF_AND_REVENUE_SOURCE"] == 31
+          assert s["recovery_status_counts"]["ACTIONABLE_SINGLE_BLOCKER_REAUDIT"] == 33
+          assert s["known_exhausted_evidence"]["exact_da_exhausted_union_count"] == 32
+          assert s["next_actionable_source_group"] == "EXACT_DA_SOURCE"
+          assert s["next_actionable_single_blocker_count"] == 28
+          assert len(s["next_actionable_tickers"]) == 28
+          assert len(s["secondary_actionable_groups"]["PRODUCTION_ANALYSIS_SUPPLY"]) == 4
+          assert s["secondary_actionable_groups"]["INVESTMENT_SCORE_SOURCE_CACHE"] == ["365550"]
+          assert s["next_step"] == "AUDIT_CURRENT_ACTIONABLE_EXACT_DA_SINGLE_BLOCKERS_V8135"
+          assert all(v is False for v in s["hard_guards"].values())
+
+          with Path(
+              "latest/investment_score_current_blockers_v8134.csv"
+          ).open(encoding="utf-8-sig", newline="") as f:
+              rows = list(csv.DictReader(f))
+          assert len(rows) == 732
+
+          print("V8134_OUTPUT_VALIDATION=PASS")
+          PY
+
+      - name: Verify production state unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_ocf_source_latest.json \
+            latest/investment_score_ocf_source_run_log_latest.txt \
+            latest/investment_score_ocf_production_refresh_v8133a_summary_latest.json \
+            latest/investment_score_current_blockers_v8128.csv \
+            latest/investment_score_current_blockers_v8128_summary_latest.json \
+            latest/investment_score_exact_da_actionable_v8129_summary_latest.json \
+            latest/investment_score_ocf_candidate_v8132_regression.csv \
+            > /tmp/v8134_protected.after
+
+          diff -u /tmp/v8134_protected.before /tmp/v8134_protected.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -name '*.json' -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8134_api.after
+          diff -u /tmp/v8134_api.before /tmp/v8134_api.after
+
+          echo "V8134_PRODUCTION_STATE_UNCHANGED=PASS"
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "investment_score_current_blocker_reaudit_v8134.py",
+              "latest/investment_score_current_blockers_v8134.csv",
+              "latest/investment_score_current_blockers_v8134_summary_latest.json",
+              "latest/investment_score_current_blockers_v8134_run_log_latest.txt",
+              "docs/investment_score_current_blockers_v8134.md",
+          }
+
+          changed = {
+              line[3:]
+              for line in subprocess.check_output(
+                  ["git","status","--porcelain","--untracked-files=all"],
+                  text=True,
+              ).splitlines()
+              if line
+          }
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit(
+                  "V8134_UNEXPECTED_CHANGED_FILES:"
+                  + ",".join(unexpected)
+              )
+          print("V8134_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+      - name: Refuse concurrent protected drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "investment_score_dry_run_v882.py",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/investment_score_price_elasticity_20d_latest.csv",
+              "latest/investment_score_ocf_source_latest.csv",
+              "latest/investment_score_ocf_source_latest.json",
+              "latest/investment_score_ocf_source_run_log_latest.txt",
+              "latest/investment_score_ocf_production_refresh_v8133a_summary_latest.json",
+              "latest/investment_score_current_blockers_v8128.csv",
+              "latest/investment_score_current_blockers_v8128_summary_latest.json",
+              "latest/investment_score_exact_da_actionable_v8129_summary_latest.json",
+              "latest/investment_score_ocf_candidate_v8132_regression.csv",
+          }
+
+          upstream = set(
+              subprocess.check_output(
+                  ["git","diff","--name-only","HEAD..origin/main"],
+                  text=True,
+              ).splitlines()
+          )
+          dangerous = sorted(
+              p for p in upstream
+              if p in protected or p.startswith("api/two_table_v1/")
+          )
+          if dangerous:
+              raise SystemExit(
+                  "V8134_CONCURRENT_PROTECTED_DRIFT:"
+                  + ",".join(dangerous)
+              )
+
+          print("V8134_NO_CONCURRENT_PROTECTED_DRIFT=PASS")
+          PY
+
+      - name: Commit and push V8.13.4 audit
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_current_blocker_reaudit_v8134.py \
+            latest/investment_score_current_blockers_v8134.csv \
+            latest/investment_score_current_blockers_v8134_summary_latest.json \
+            latest/investment_score_current_blockers_v8134_run_log_latest.txt \
+            docs/investment_score_current_blockers_v8134.md
+
+          git diff --cached --check
+          echo "V8134_GIT_DIFF_CHECK=PASS"
+
+          git commit -m "Reaudit post-OCF current investment score blockers v8.13.4"
+          git pull --rebase origin main
+          git push origin HEAD:main

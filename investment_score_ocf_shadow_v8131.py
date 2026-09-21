@@ -1,0 +1,456 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import csv
+import json
+import subprocess
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import investment_score_dry_run_v882 as scorer
+
+VERSION = "2026-09-21-v8.13.1-freeze-recoverable-ocf-and-shadow-score"
+POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+V8130_VERSION = "2026-09-21-v8.13.0-current-actionable-ocf-single-blocker-audit"
+V8130_RESULT_COMMIT = "3a18d8195eda9112cce3a8c331a8db718e6eae86"
+OCF_CONTRACT_VERSION = "2026-09-12-v8.7.4-audited-operating-cash-flow-source"
+
+ROOT = Path(".")
+KST = ZoneInfo("Asia/Seoul")
+
+AUDIT_CSV = ROOT / "latest/investment_score_ocf_actionable_v8130.csv"
+AUDIT_JSON = ROOT / "latest/investment_score_ocf_actionable_v8130_summary_latest.json"
+PROD_OCF = ROOT / "latest/investment_score_ocf_source_latest.csv"
+PROD_OCF_JSON = ROOT / "latest/investment_score_ocf_source_latest.json"
+
+SOURCE_OUT = ROOT / "latest/investment_score_ocf_source_v8131.csv"
+COMPARE_OUT = ROOT / "latest/investment_score_ocf_shadow_v8131.csv"
+SUMMARY_OUT = ROOT / "latest/investment_score_ocf_shadow_v8131_summary_latest.json"
+LOG_OUT = ROOT / "latest/investment_score_ocf_shadow_v8131_run_log_latest.txt"
+DOC_OUT = ROOT / "docs/investment_score_ocf_shadow_v8131.md"
+
+TMP_OCF = Path("/tmp/v8131_shadow_ocf.csv")
+BASE_CSV = Path("/tmp/v8131_baseline_score.csv")
+BASE_JSON = Path("/tmp/v8131_baseline_score.json")
+BASE_LOG = Path("/tmp/v8131_baseline_score.log")
+BASE_DOC = Path("/tmp/v8131_baseline_score.md")
+SHADOW_CSV = Path("/tmp/v8131_shadow_score.csv")
+SHADOW_JSON = Path("/tmp/v8131_shadow_score.json")
+SHADOW_LOG = Path("/tmp/v8131_shadow_score.log")
+SHADOW_DOC = Path("/tmp/v8131_shadow_score.md")
+
+EXPECTED = {
+    "000080": "하이트진로",
+    "002710": "TCC스틸",
+    "007690": "국도화학",
+    "042700": "한미반도체",
+}
+MISSING_REASON = "영업현금흐름:MISSING_OCF_MARGIN_INPUT"
+IFRS_OCF_ID = "ifrs-full_CashFlowsFromUsedInOperatingActivities"
+
+def ticker(value):
+    s = "".join(ch for ch in str(value or "") if ch.isdigit())
+    return s.zfill(6) if s else ""
+
+def read_json(path):
+    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+def read_rows(path):
+    with Path(path).open(encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+def write_rows(path, rows, fields=None):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if fields is None:
+        fields = list(rows[0].keys()) if rows else []
+    with path.open("w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(
+            f,
+            fieldnames=fields,
+            lineterminator="\n",
+        )
+        w.writeheader()
+        w.writerows(rows)
+
+def split_missing(text):
+    return [x for x in str(text or "").split(";") if x]
+
+def stable(row):
+    return json.dumps(
+        row,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+def run_scorer(ocf_path, out_csv, out_json, out_log, out_doc):
+    old = {
+        "VERSION": scorer.VERSION,
+        "OCF": scorer.OCF,
+        "OUT_CSV": scorer.OUT_CSV,
+        "OUT_JSON": scorer.OUT_JSON,
+        "OUT_LOG": scorer.OUT_LOG,
+        "OUT_DOC": scorer.OUT_DOC,
+    }
+    try:
+        scorer.VERSION = VERSION
+        scorer.OCF = Path(ocf_path)
+        scorer.OUT_CSV = Path(out_csv)
+        scorer.OUT_JSON = Path(out_json)
+        scorer.OUT_LOG = Path(out_log)
+        scorer.OUT_DOC = Path(out_doc)
+        rc = scorer.main()
+    finally:
+        for key, value in old.items():
+            setattr(scorer, key, value)
+    if rc not in (None, 0):
+        raise RuntimeError("V8131_SCORER_FAILED:" + str(rc))
+
+def main():
+    for p in (AUDIT_CSV, AUDIT_JSON, PROD_OCF, PROD_OCF_JSON):
+        if not p.is_file():
+            raise RuntimeError("V8131_MISSING_INPUT:" + str(p))
+
+    subprocess.run(
+        [
+            "git",
+            "merge-base",
+            "--is-ancestor",
+            V8130_RESULT_COMMIT,
+            "HEAD",
+        ],
+        check=True,
+    )
+
+    s8130 = read_json(AUDIT_JSON)
+    if s8130.get("version") != V8130_VERSION:
+        raise RuntimeError("V8131_V8130_VERSION_MISMATCH")
+    if s8130.get("status") != "AUDIT_ONLY_CURRENT_ACTIONABLE_OCF":
+        raise RuntimeError("V8131_V8130_STATUS_MISMATCH")
+    if s8130.get("policy_version") != POLICY_VERSION:
+        raise RuntimeError("V8131_POLICY_VERSION_MISMATCH")
+    if int(s8130.get("target_count") or 0) != 4:
+        raise RuntimeError("V8131_TARGET_COUNT_MISMATCH")
+    if int(s8130.get("recoverable_count") or 0) != 4:
+        raise RuntimeError("V8131_NOT_ALL_RECOVERABLE")
+    if int(s8130.get("official_query_incomplete_count") or 0) != 0:
+        raise RuntimeError("V8131_QUERY_INCOMPLETE")
+    if int(s8130.get("conflict_count") or 0) != 0:
+        raise RuntimeError("V8131_CONFLICT_NOT_ZERO")
+    if set(s8130.get("recoverable_tickers") or []) != set(EXPECTED):
+        raise RuntimeError("V8131_RECOVERABLE_SET_MISMATCH")
+    if s8130.get("next_step") != "FREEZE_RECOVERABLE_OCF_AND_SHADOW_SCORE_V8131":
+        raise RuntimeError("V8131_NEXT_STEP_MISMATCH")
+
+    prod_meta = read_json(PROD_OCF_JSON)
+    if prod_meta.get("version") != OCF_CONTRACT_VERSION:
+        raise RuntimeError("V8131_OCF_CONTRACT_VERSION_MISMATCH")
+    if prod_meta.get("status") != "READY_SOURCE_ONLY":
+        raise RuntimeError("V8131_OCF_SOURCE_STATUS_MISMATCH")
+    if prod_meta.get("account_id_policy") != "EXACT_ONLY:" + IFRS_OCF_ID:
+        raise RuntimeError("V8131_OCF_POLICY_MISMATCH")
+
+    audit_rows = {
+        ticker(r.get("ticker")): r
+        for r in read_rows(AUDIT_CSV)
+        if ticker(r.get("ticker"))
+    }
+    if set(audit_rows) != set(EXPECTED):
+        raise RuntimeError("V8131_AUDIT_SET_MISMATCH")
+
+    prod_rows = read_rows(PROD_OCF)
+    if not prod_rows:
+        raise RuntimeError("V8131_PRODUCTION_OCF_EMPTY")
+    prod_fields = list(prod_rows[0].keys())
+    prod_map = {
+        ticker(r.get("ticker")): r
+        for r in prod_rows
+        if ticker(r.get("ticker"))
+    }
+
+    overlap = sorted(set(EXPECTED) & set(prod_map))
+    if overlap:
+        raise RuntimeError(
+            "V8131_TARGET_ALREADY_IN_PRODUCTION_OCF:"
+            + ",".join(overlap)
+        )
+
+    frozen_rows = []
+    shadow_map = dict(prod_map)
+
+    for code in sorted(EXPECTED):
+        r = audit_rows[code]
+        if r.get("name") != EXPECTED[code]:
+            raise RuntimeError("V8131_NAME_MISMATCH:" + code)
+        if r.get("classification") != "RECOVERABLE_EXACT_OCF":
+            raise RuntimeError("V8131_NOT_RECOVERABLE:" + code)
+        if r.get("source_status") != "READY":
+            raise RuntimeError("V8131_SOURCE_NOT_READY:" + code)
+        if r.get("account_id") != IFRS_OCF_ID:
+            raise RuntimeError("V8131_ACCOUNT_ID_MISMATCH:" + code)
+        if not str(r.get("operating_cash_flow_annual") or "").strip():
+            raise RuntimeError("V8131_OCF_VALUE_EMPTY:" + code)
+        if r.get("source_fs_div") not in {"CFS", "OFS"}:
+            raise RuntimeError("V8131_FS_DIV_BAD:" + code)
+
+        try:
+            account_names = json.loads(
+                r.get("account_names_json") or "[]"
+            )
+        except Exception:
+            account_names = []
+        account_nm = (
+            str(account_names[0])
+            if isinstance(account_names, list) and account_names
+            else "영업활동현금흐름"
+        )
+
+        frozen = {
+            "ticker": code,
+            "name": EXPECTED[code],
+            "source_mode": "DIRECT_EXACT_IFRS_V8130",
+            "source_ticker": code,
+            "source_corp_code": r.get("corp_code") or "",
+            "source_fs_div": r.get("source_fs_div") or "",
+            "account_id": IFRS_OCF_ID,
+            "account_nm": account_nm,
+            "operating_cash_flow_annual": r["operating_cash_flow_annual"],
+            "source_status": "READY",
+            "inheritance_evidence": "",
+            "note": "V8.13.0 audited exact annual OCF",
+        }
+        frozen_rows.append(frozen)
+
+        row = {field: "" for field in prod_fields}
+        row.update(frozen)
+        shadow_map[code] = row
+
+    write_rows(SOURCE_OUT, frozen_rows, prod_fields)
+    write_rows(
+        TMP_OCF,
+        [shadow_map[k] for k in sorted(shadow_map)],
+        prod_fields,
+    )
+
+    run_scorer(
+        PROD_OCF,
+        BASE_CSV,
+        BASE_JSON,
+        BASE_LOG,
+        BASE_DOC,
+    )
+    run_scorer(
+        TMP_OCF,
+        SHADOW_CSV,
+        SHADOW_JSON,
+        SHADOW_LOG,
+        SHADOW_DOC,
+    )
+
+    base = {
+        ticker(r.get("ticker")): r
+        for r in read_rows(BASE_CSV)
+    }
+    shadow = {
+        ticker(r.get("ticker")): r
+        for r in read_rows(SHADOW_CSV)
+    }
+
+    if set(base) != set(shadow):
+        raise RuntimeError("V8131_SCORER_UNIVERSE_CHANGED")
+    if len(base) != 149:
+        raise RuntimeError(
+            "V8131_SCORER_UNIVERSE_NOT_149:" + str(len(base))
+        )
+    if not set(EXPECTED) <= set(base):
+        raise RuntimeError("V8131_TARGET_INACTIVE")
+
+    non_target_changed = [
+        code
+        for code in sorted(set(base) - set(EXPECTED))
+        if stable(base[code]) != stable(shadow[code])
+    ]
+    if non_target_changed:
+        raise RuntimeError(
+            "V8131_NON_TARGET_SCORE_DRIFT:"
+            + ",".join(non_target_changed[:20])
+        )
+
+    compare = []
+    newly_ready = []
+
+    for code in sorted(EXPECTED):
+        b = base[code]
+        s = shadow[code]
+        bm = split_missing(b.get("missing_components"))
+        sm = split_missing(s.get("missing_components"))
+
+        if b.get("score_status") != "LIMITED":
+            raise RuntimeError("V8131_BASELINE_NOT_LIMITED:" + code)
+        if bm != [MISSING_REASON]:
+            raise RuntimeError(
+                "V8131_BASELINE_NOT_SINGLE_OCF:"
+                + code
+                + ":"
+                + "|".join(bm)
+            )
+        if MISSING_REASON in sm:
+            raise RuntimeError("V8131_OCF_REASON_NOT_REMOVED:" + code)
+        if s.get("score_status") != "READY":
+            raise RuntimeError("V8131_SHADOW_NOT_READY:" + code)
+
+        newly_ready.append(code)
+        compare.append({
+            "ticker": code,
+            "name": EXPECTED[code],
+            "operating_cash_flow_annual": audit_rows[code][
+                "operating_cash_flow_annual"
+            ],
+            "source_fs_div": audit_rows[code]["source_fs_div"],
+            "baseline_status": b.get("score_status") or "",
+            "shadow_status": s.get("score_status") or "",
+            "baseline_missing_components": ";".join(bm),
+            "shadow_missing_components": ";".join(sm),
+            "baseline_score_total": b.get("score_total") or "",
+            "shadow_score_total": s.get("score_total") or "",
+        })
+
+    write_rows(COMPARE_OUT, compare)
+
+    bsum = read_json(BASE_JSON)
+    ssum = read_json(SHADOW_JSON)
+
+    b_ready = int(bsum.get("ready_count") or 0)
+    s_ready = int(ssum.get("ready_count") or 0)
+    b_limited = int(bsum.get("limited_count") or 0)
+    s_limited = int(ssum.get("limited_count") or 0)
+
+    b_blockers = sum(
+        int(r.get("missing_component_count") or 0)
+        for r in base.values()
+    )
+    s_blockers = sum(
+        int(r.get("missing_component_count") or 0)
+        for r in shadow.values()
+    )
+
+    if b_ready != 19 or b_limited != 130:
+        raise RuntimeError(
+            f"V8131_BASELINE_COUNT_CHANGED:{b_ready}:{b_limited}"
+        )
+    if b_blockers != 796:
+        raise RuntimeError(
+            "V8131_BASELINE_BLOCKERS_CHANGED:" + str(b_blockers)
+        )
+    if s_ready != 23 or s_limited != 126:
+        raise RuntimeError(
+            f"V8131_SHADOW_COUNT_NOT_23_126:{s_ready}:{s_limited}"
+        )
+    if s_ready - b_ready != 4:
+        raise RuntimeError("V8131_READY_DELTA_NOT_4")
+    if b_blockers - s_blockers != 4:
+        raise RuntimeError("V8131_BLOCKER_DELTA_NOT_4")
+
+    summary = {
+        "version": VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(
+            timespec="seconds"
+        ),
+        "status": "SOURCE_ONLY_FROZEN_SHADOW_PASS",
+        "policy_version": POLICY_VERSION,
+        "v8130_version": V8130_VERSION,
+        "v8130_result_commit": V8130_RESULT_COMMIT,
+        "ocf_contract_version": OCF_CONTRACT_VERSION,
+        "source_frozen_count": 4,
+        "source_frozen_tickers": sorted(EXPECTED),
+        "current_scorer_universe_count": len(base),
+        "production_ocf_row_count": len(prod_rows),
+        "shadow_ocf_row_count": len(shadow_map),
+        "baseline_ready_count": b_ready,
+        "baseline_limited_count": b_limited,
+        "shadow_ready_count": s_ready,
+        "shadow_limited_count": s_limited,
+        "ready_delta": 4,
+        "newly_ready_count": 4,
+        "newly_ready_tickers": sorted(newly_ready),
+        "baseline_blocker_occurrences": b_blockers,
+        "shadow_blocker_occurrences": s_blockers,
+        "blocker_occurrences_reduced_by": 4,
+        "ocf_reason_removed_count": 4,
+        "ocf_reason_removed_tickers": sorted(EXPECTED),
+        "non_target_score_row_changed_count": 0,
+        "hard_guards": {
+            "production_ocf_cache_modified": False,
+            "production_ocf_metadata_modified": False,
+            "production_source_cache_modified": False,
+            "production_financial_cache_modified": False,
+            "production_price_elasticity_cache_modified": False,
+            "production_api_modified": False,
+            "scoring_policy_modified": False,
+            "source_value_imputed": False,
+            "alternate_ocf_account_id_used": False,
+            "production_score_written": False,
+        },
+        "next_step": "STAGE_CURRENT_UNIVERSE_OCF_REFRESH_V8132",
+    }
+
+    SUMMARY_OUT.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    LOG_OUT.write_text(
+        "\n".join([
+            f"VERSION={VERSION}",
+            "STATUS=SOURCE_ONLY_FROZEN_SHADOW_PASS",
+            "SOURCE_FROZEN_COUNT=4",
+            f"CURRENT_SCORER_UNIVERSE={len(base)}",
+            f"PRODUCTION_OCF_ROWS={len(prod_rows)}",
+            f"SHADOW_OCF_ROWS={len(shadow_map)}",
+            f"BASELINE_READY={b_ready}",
+            f"BASELINE_LIMITED={b_limited}",
+            f"SHADOW_READY={s_ready}",
+            f"SHADOW_LIMITED={s_limited}",
+            "READY_DELTA=4",
+            f"BASELINE_BLOCKERS={b_blockers}",
+            f"SHADOW_BLOCKERS={s_blockers}",
+            "BLOCKER_REDUCED_BY=4",
+            "NON_TARGET_SCORE_ROW_CHANGED_COUNT=0",
+            "PRODUCTION_OCF_CACHE_MODIFIED=false",
+            "PRODUCTION_SCORE_WRITTEN=false",
+            "SCORING_POLICY_MODIFIED=false",
+            "STATUS_OK=true",
+            "NEXT_STEP=STAGE_CURRENT_UNIVERSE_OCF_REFRESH_V8132",
+        ]) + "\n",
+        encoding="utf-8",
+    )
+
+    DOC_OUT.parent.mkdir(parents=True, exist_ok=True)
+    DOC_OUT.write_text(
+        "\n".join([
+            "# V8.13.1 recoverable OCF freeze and shadow score",
+            "",
+            "- Four exact annual OCF values audited in V8.13.0 are frozen as source-only candidates.",
+            "- Production OCF cache is not modified.",
+            "- Each target must be baseline LIMITED only by MISSING_OCF_MARGIN_INPUT.",
+            "- Each target must become READY under the shadow OCF cache.",
+            "- Non-target scorer row drift must be zero.",
+            "",
+            f"- Baseline READY/LIMITED: {b_ready}/{b_limited}",
+            f"- Shadow READY/LIMITED: {s_ready}/{s_limited}",
+            f"- Baseline/shadow blockers: {b_blockers}/{s_blockers}",
+            "- READY delta: 4",
+            "- Blocker reduction: 4",
+            "",
+            "Next: `STAGE_CURRENT_UNIVERSE_OCF_REFRESH_V8132`",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+
+    print("V8131_OCF_FREEZE_SHADOW=PASS")
+
+if __name__ == "__main__":
+    main()

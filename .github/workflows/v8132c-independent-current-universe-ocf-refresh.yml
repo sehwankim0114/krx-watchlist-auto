@@ -1,0 +1,1284 @@
+name: Independent current-universe OCF refresh v8.13.2C
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8132c-independent-current-universe-ocf-refresh.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8132c-independent-current-universe-ocf-stage
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify V8.13.1 lineage and capture protected hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -n "${DART_API_KEY:-}" || {
+            echo "::error::DART_API_KEY secret is missing"
+            exit 1
+          }
+
+          git merge-base --is-ancestor \
+            b34523f3eabf2ee3309d8f44f9c97f2b54a2feaf HEAD
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/financial_valuation_cache_latest.csv \
+            latest/dart_corp_code_map_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_ocf_source_latest.json \
+            latest/investment_score_ocf_source_run_log_latest.txt \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_v8131.csv \
+            latest/investment_score_ocf_shadow_v8131_summary_latest.json \
+            > /tmp/v8132c_protected.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -name '*.json' -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8132c_api.before
+
+          echo "V8132C_LINEAGE=PASS"
+
+      - name: Create and run V8.13.2 current-universe OCF candidate builder
+        shell: bash
+        run: |
+          cat > investment_score_ocf_candidate_v8132c.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import csv
+          import json
+          import os
+          import re
+          import subprocess
+          import time
+          import urllib.parse
+          import urllib.request
+          from collections import Counter, defaultdict
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_dry_run_v882 as scorer
+
+          VERSION = "2026-09-21-v8.13.2c-independent-current-universe-ocf-refresh"
+          POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          V8131_VERSION = "2026-09-21-v8.13.1-freeze-recoverable-ocf-and-shadow-score"
+          V8131_RESULT_COMMIT = "b34523f3eabf2ee3309d8f44f9c97f2b54a2feaf"
+          OCF_CONTRACT_VERSION = "2026-09-12-v8.7.4-audited-operating-cash-flow-source"
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+          IFRS_OCF_ID = "ifrs-full_CashFlowsFromUsedInOperatingActivities"
+          DART_URL = "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json"
+
+          PROD_OCF = ROOT / "latest/investment_score_ocf_source_latest.csv"
+          PROD_OCF_JSON = ROOT / "latest/investment_score_ocf_source_latest.json"
+          FIN = ROOT / "latest/financial_valuation_cache_latest.csv"
+          CORP_MAP = ROOT / "latest/dart_corp_code_map_latest.csv"
+          FROZEN = ROOT / "latest/investment_score_ocf_source_v8131.csv"
+          V8131_JSON = ROOT / "latest/investment_score_ocf_shadow_v8131_summary_latest.json"
+
+          OUT_CSV = ROOT / "latest/investment_score_ocf_candidate_v8132c.csv"
+          OUT_JSON = ROOT / "latest/investment_score_ocf_candidate_v8132c_summary_latest.json"
+          OUT_REG = ROOT / "latest/investment_score_ocf_candidate_v8132c_regression.csv"
+          OUT_LOG = ROOT / "latest/investment_score_ocf_candidate_v8132c_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_ocf_candidate_v8132c.md"
+
+          BASE_CSV = Path("/tmp/v8132c_baseline_score.csv")
+          BASE_JSON = Path("/tmp/v8132c_baseline_score.json")
+          BASE_LOG = Path("/tmp/v8132c_baseline_score.log")
+          BASE_DOC = Path("/tmp/v8132c_baseline_score.md")
+          CAND_CSV = Path("/tmp/v8132c_candidate_score.csv")
+          CAND_JSON = Path("/tmp/v8132c_candidate_score.json")
+          CAND_LOG = Path("/tmp/v8132c_candidate_score.log")
+          CAND_DOC = Path("/tmp/v8132c_candidate_score.md")
+
+          EXPECTED_UNIVERSE = 149
+          EXPECTED_PROD_OCF_ROWS = 112
+          EXPECTED_CURRENT_OVERLAP = 34
+          EXPECTED_FROZEN = {
+              "000080",
+              "002710",
+              "007690",
+              "042700",
+          }
+          EXPECTED_UNRESOLVED = {
+              "000480",
+              "002200",
+          }
+          OCF_MISSING_REASON = "영업현금흐름:MISSING_OCF_MARGIN_INPUT"
+
+          def ticker(value):
+              s = re.sub(r"[^0-9]", "", str(value or "").strip())
+              return s.zfill(6) if s else ""
+
+          def corp(value):
+              s = re.sub(r"[^0-9]", "", str(value or "").strip())
+              return s.zfill(8) if s else ""
+
+          def norm(value):
+              return str(value or "").strip()
+
+          def norm_name(value):
+              text = norm(value).lower()
+              text = text.replace("주식회사", "").replace("(주)", "").replace("㈜", "")
+              return re.sub(r"[^0-9a-z가-힣]", "", text)
+
+          def preferred_base_name(value):
+              text = norm(value)
+              text = re.sub(r"(?:\d+우b?|우b?|우)$", "", text, flags=re.IGNORECASE)
+              return text.strip()
+
+          def num(value):
+              text = norm(value).replace(",", "")
+              if text in {"", "-", "None", "null", "nan", "NaN"}:
+                  return None
+              neg = text.startswith("(") and text.endswith(")")
+              if neg:
+                  text = text[1:-1]
+              text = re.sub(r"[^0-9eE+\-.]", "", text)
+              if text in {"", "-", "+", ".", "-.", "+."}:
+                  return None
+              try:
+                  x = float(text)
+              except ValueError:
+                  return None
+              return -abs(x) if neg else x
+
+          def read_json(path):
+              return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+          def read_rows(path):
+              with Path(path).open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
+
+          def write_rows(path, rows, fields):
+              path = Path(path)
+              path.parent.mkdir(parents=True, exist_ok=True)
+              with path.open("w", encoding="utf-8-sig", newline="") as f:
+                  w = csv.DictWriter(
+                      f,
+                      fieldnames=fields,
+                      lineterminator="\n",
+                  )
+                  w.writeheader()
+                  w.writerows(rows)
+
+          def split_missing(text):
+              return [x for x in str(text or "").split(";") if x]
+
+          def stable_score_and_band(row):
+              return (
+                  row.get("score_status") or "",
+                  row.get("score_total") or "",
+                  row.get("score_band") or "",
+                  row.get("component_points_json") or "",
+              )
+
+          def run_scorer(ocf_path, out_csv, out_json, out_log, out_doc):
+              old = {
+                  "VERSION": scorer.VERSION,
+                  "OCF": scorer.OCF,
+                  "OUT_CSV": scorer.OUT_CSV,
+                  "OUT_JSON": scorer.OUT_JSON,
+                  "OUT_LOG": scorer.OUT_LOG,
+                  "OUT_DOC": scorer.OUT_DOC,
+              }
+              try:
+                  scorer.VERSION = VERSION
+                  scorer.OCF = Path(ocf_path)
+                  scorer.OUT_CSV = Path(out_csv)
+                  scorer.OUT_JSON = Path(out_json)
+                  scorer.OUT_LOG = Path(out_log)
+                  scorer.OUT_DOC = Path(out_doc)
+                  rc = scorer.main()
+              finally:
+                  for key, value in old.items():
+                      setattr(scorer, key, value)
+              if rc not in (None, 0):
+                  raise RuntimeError("V8132C_SCORER_FAILED:" + str(rc))
+
+          def build_corp_index(rows):
+              out = defaultdict(list)
+              for row in rows:
+                  code = ticker(row.get("stock_code"))
+                  cc = corp(row.get("corp_code"))
+                  if code and cc:
+                      out[code].append({
+                          "corp_code": cc,
+                          "corp_name": norm(row.get("corp_name")),
+                      })
+              return out
+
+          def fin_direct_identity(code, fin_map):
+              row = fin_map.get(code)
+              if not row:
+                  return None
+              if row.get("corp_identity_status") not in {
+                  "MATCH",
+                  "MATCH_NORMALIZED",
+              }:
+                  return None
+              cc = corp(row.get("corp_code"))
+              if not cc:
+                  return None
+              return {
+                  "corp_code": cc,
+                  "source_mode": "CURRENT_FINANCIAL_CORP_IDENTITY",
+                  "source_ticker": code,
+                  "inheritance_evidence": "",
+              }
+
+          def exact_name_identity(code, name, corp_index):
+              matches = [
+                  x for x in corp_index.get(code, [])
+                  if norm_name(x["corp_name"]) == norm_name(name)
+              ]
+              codes = sorted({x["corp_code"] for x in matches})
+              if len(codes) != 1:
+                  return None
+              return {
+                  "corp_code": codes[0],
+                  "source_mode": "CURRENT_DART_STOCK_CODE_EXACT_NAME",
+                  "source_ticker": code,
+                  "inheritance_evidence": "",
+              }
+
+          def preferred_identity(code, name, prod_row, fin_map, corp_index):
+              bench = (prod_row.get("metrics") or {}).get("sector_benchmark") or {}
+              mode = norm(bench.get("selection_mode"))
+              common = ticker(bench.get("common_ticker"))
+              if not mode.startswith("PREFERRED_INHERIT_") or not common:
+                  return None
+
+              direct = fin_direct_identity(common, fin_map)
+              if direct:
+                  return {
+                      "corp_code": direct["corp_code"],
+                      "source_mode": "PREFERRED_INHERIT_EXACT_COMMON",
+                      "source_ticker": common,
+                      "inheritance_evidence": mode,
+                  }
+
+              base = preferred_base_name(name)
+              exact = [
+                  x for x in corp_index.get(common, [])
+                  if norm_name(x["corp_name"]) == norm_name(base)
+              ]
+              exact_codes = sorted({x["corp_code"] for x in exact})
+              if len(exact_codes) == 1:
+                  return {
+                      "corp_code": exact_codes[0],
+                      "source_mode": "PREFERRED_INHERIT_EXACT_COMMON",
+                      "source_ticker": common,
+                      "inheritance_evidence": mode + ":EXACT_COMMON_NAME",
+                  }
+
+              all_codes = sorted({
+                  x["corp_code"] for x in corp_index.get(common, [])
+              })
+              if len(all_codes) == 1:
+                  return {
+                      "corp_code": all_codes[0],
+                      "source_mode": "PREFERRED_INHERIT_EXACT_COMMON",
+                      "source_ticker": common,
+                      "inheritance_evidence": mode + ":UNIQUE_COMMON_STOCK_CODE",
+                  }
+              return None
+
+          def request_payload(api_key, corp_code, fs_div):
+              query = urllib.parse.urlencode({
+                  "crtfc_key": api_key,
+                  "corp_code": corp_code,
+                  "bsns_year": "2025",
+                  "reprt_code": "11011",
+                  "fs_div": fs_div,
+              })
+              req = urllib.request.Request(
+                  f"{DART_URL}?{query}",
+                  headers={
+                      "User-Agent": "krx-watchlist-v8132-ocf-current-universe",
+                      "Accept": "application/json",
+                      "Cache-Control": "no-cache",
+                  },
+              )
+              errors = []
+              for attempt in range(1, 4):
+                  try:
+                      with urllib.request.urlopen(req, timeout=35) as response:
+                          payload = json.loads(
+                              response.read(12_000_000).decode("utf-8")
+                          )
+                      return payload, errors
+                  except Exception as exc:
+                      errors.append(
+                          f"attempt{attempt}:{type(exc).__name__}:{exc}"
+                      )
+                      if attempt < 3:
+                          time.sleep(float(attempt))
+              return None, errors
+
+          def fetch_exact_ocf(api_key, corp_code):
+              attempts = []
+              for fs_div in ("CFS", "OFS"):
+                  payload, transport_errors = request_payload(
+                      api_key,
+                      corp_code,
+                      fs_div,
+                  )
+                  if payload is None:
+                      attempts.append({
+                          "fs_div": fs_div,
+                          "transport_status": "ERROR",
+                          "transport_errors": transport_errors,
+                          "dart_status": "",
+                          "dart_message": "",
+                          "exact_match_count": 0,
+                          "unique_numeric_values": [],
+                          "account_names": [],
+                      })
+                      continue
+
+                  status = norm(payload.get("status"))
+                  message = norm(payload.get("message"))
+                  items = payload.get("list")
+                  if not isinstance(items, list):
+                      items = []
+
+                  matches = [
+                      item for item in items
+                      if norm(item.get("sj_div")) == "CF"
+                      and norm(item.get("account_id")) == IFRS_OCF_ID
+                  ]
+                  values = sorted({
+                      num(item.get("thstrm_amount"))
+                      for item in matches
+                      if num(item.get("thstrm_amount")) is not None
+                  })
+                  names = sorted({
+                      norm(item.get("account_nm"))
+                      for item in matches
+                      if norm(item.get("account_nm"))
+                  })
+
+                  attempts.append({
+                      "fs_div": fs_div,
+                      "transport_status": "OK",
+                      "transport_errors": transport_errors,
+                      "dart_status": status,
+                      "dart_message": message,
+                      "exact_match_count": len(matches),
+                      "unique_numeric_values": values,
+                      "account_names": names,
+                  })
+
+                  if status != "000":
+                      continue
+                  if len(values) == 1:
+                      return {
+                          "classification": "RECOVERABLE_EXACT_OCF",
+                          "amount": values[0],
+                          "fs_div": fs_div,
+                          "account_names": names,
+                          "attempts": attempts,
+                      }
+                  if len(values) > 1:
+                      return {
+                          "classification": "EXACT_OCF_VALUE_CONFLICT",
+                          "amount": None,
+                          "fs_div": fs_div,
+                          "account_names": names,
+                          "attempts": attempts,
+                      }
+
+              official_complete = any(
+                  a["transport_status"] == "OK"
+                  and a["dart_status"] in {"000", "013"}
+                  for a in attempts
+              )
+              hard_statuses = sorted({
+                  a["dart_status"]
+                  for a in attempts
+                  if a["transport_status"] == "OK"
+                  and a["dart_status"] not in {"", "000", "013"}
+              })
+              return {
+                  "classification": (
+                      "NO_APPROVED_EXACT_OCF"
+                      if official_complete and not hard_statuses
+                      else "OFFICIAL_QUERY_INCOMPLETE"
+                  ),
+                  "amount": None,
+                  "fs_div": "",
+                  "account_names": [],
+                  "attempts": attempts,
+              }
+
+          def candidate_row(
+              fields,
+              *,
+              code,
+              name,
+              identity=None,
+              fetched=None,
+              unresolved_note="",
+          ):
+              row = {field: "" for field in fields}
+              row["ticker"] = code
+              row["name"] = name
+              row["account_id"] = IFRS_OCF_ID
+
+              if unresolved_note:
+                  row.update({
+                      "source_mode": "UNRESOLVED_CURRENT_IDENTITY",
+                      "source_status": "LIMITED",
+                      "note": unresolved_note,
+                  })
+                  return row
+
+              if identity is None or fetched is None:
+                  raise RuntimeError("V8132C_INTERNAL_CANDIDATE_ROW_ERROR")
+
+              row["source_mode"] = identity["source_mode"]
+              row["source_ticker"] = identity["source_ticker"]
+              row["source_corp_code"] = identity["corp_code"]
+              row["inheritance_evidence"] = identity["inheritance_evidence"]
+
+              if fetched["classification"] == "RECOVERABLE_EXACT_OCF":
+                  names = fetched["account_names"]
+                  row["source_fs_div"] = fetched["fs_div"]
+                  row["account_nm"] = names[0] if names else "영업활동현금흐름"
+                  row["operating_cash_flow_annual"] = fetched["amount"]
+                  row["source_status"] = "READY"
+                  row["note"] = "V8.13.2 current-universe official exact OCF"
+              elif fetched["classification"] == "NO_APPROVED_EXACT_OCF":
+                  row["source_status"] = "LIMITED"
+                  row["note"] = "NO_APPROVED_EXACT_OCF"
+              else:
+                  raise RuntimeError(
+                      "V8132C_UNEXPECTED_FETCH_CLASS:"
+                      + fetched["classification"]
+                  )
+              return row
+
+          def main():
+              api_key = os.environ.get("DART_API_KEY", "").strip()
+              if not api_key:
+                  raise RuntimeError("V8132C_DART_API_KEY_MISSING")
+
+              for p in (
+                  PROD_OCF,
+                  PROD_OCF_JSON,
+                  FIN,
+                  CORP_MAP,
+                  FROZEN,
+                  V8131_JSON,
+              ):
+                  if not p.is_file():
+                      raise RuntimeError("V8132C_MISSING_INPUT:" + str(p))
+
+              subprocess.run(
+                  [
+                      "git",
+                      "merge-base",
+                      "--is-ancestor",
+                      V8131_RESULT_COMMIT,
+                      "HEAD",
+                  ],
+                  check=True,
+              )
+
+              s8131 = read_json(V8131_JSON)
+              if s8131.get("version") != V8131_VERSION:
+                  raise RuntimeError("V8132C_V8131_VERSION_MISMATCH")
+              if s8131.get("status") != "SOURCE_ONLY_FROZEN_SHADOW_PASS":
+                  raise RuntimeError("V8132C_V8131_STATUS_MISMATCH")
+              if int(s8131.get("source_frozen_count") or 0) != 4:
+                  raise RuntimeError("V8132C_V8131_FROZEN_COUNT_CHANGED")
+              if set(s8131.get("source_frozen_tickers") or []) != EXPECTED_FROZEN:
+                  raise RuntimeError("V8132C_V8131_FROZEN_SET_CHANGED")
+              if int(s8131.get("shadow_ready_count") or 0) != 23:
+                  raise RuntimeError("V8132C_V8131_SHADOW_READY_CHANGED")
+              if int(s8131.get("shadow_blocker_occurrences") or 0) != 792:
+                  raise RuntimeError("V8132C_V8131_SHADOW_BLOCKERS_CHANGED")
+
+              prod_meta = read_json(PROD_OCF_JSON)
+              if prod_meta.get("version") != OCF_CONTRACT_VERSION:
+                  raise RuntimeError("V8132C_OCF_CONTRACT_VERSION_MISMATCH")
+              if prod_meta.get("status") != "READY_SOURCE_ONLY":
+                  raise RuntimeError("V8132C_OCF_PROD_STATUS_MISMATCH")
+              if prod_meta.get("account_id_policy") != "EXACT_ONLY:" + IFRS_OCF_ID:
+                  raise RuntimeError("V8132C_OCF_ACCOUNT_POLICY_MISMATCH")
+
+              universe = scorer.production_rows()
+              if len(universe) != EXPECTED_UNIVERSE:
+                  raise RuntimeError(
+                      "V8132C_CURRENT_UNIVERSE_NOT_149:"
+                      + str(len(universe))
+                  )
+
+              prod_rows = read_rows(PROD_OCF)
+              if len(prod_rows) != EXPECTED_PROD_OCF_ROWS:
+                  raise RuntimeError(
+                      "V8132C_PROD_OCF_ROWS_CHANGED:"
+                      + str(len(prod_rows))
+                  )
+              fields = list(prod_rows[0].keys())
+              prod_map = {
+                  ticker(r.get("ticker")): r
+                  for r in prod_rows
+                  if ticker(r.get("ticker"))
+              }
+
+              current_codes = set(universe)
+              overlap = sorted(current_codes & set(prod_map))
+              if len(overlap) != EXPECTED_CURRENT_OVERLAP:
+                  raise RuntimeError(
+                      "V8132C_CURRENT_OVERLAP_NOT_34:"
+                      + str(len(overlap))
+                  )
+              bad_overlap = [
+                  code for code in overlap
+                  if prod_map[code].get("source_status") != "READY"
+                  or prod_map[code].get("account_id") != IFRS_OCF_ID
+                  or not str(
+                      prod_map[code].get("operating_cash_flow_annual") or ""
+                  ).strip()
+              ]
+              if bad_overlap:
+                  raise RuntimeError(
+                      "V8132C_BAD_CURRENT_PROD_OCF:"
+                      + ",".join(bad_overlap)
+                  )
+
+              frozen_rows = {
+                  ticker(r.get("ticker")): r
+                  for r in read_rows(FROZEN)
+                  if ticker(r.get("ticker"))
+              }
+              if set(frozen_rows) != EXPECTED_FROZEN:
+                  raise RuntimeError("V8132C_FROZEN_SOURCE_SET_MISMATCH")
+
+              fin_map = {
+                  ticker(r.get("ticker")): r
+                  for r in read_rows(FIN)
+                  if ticker(r.get("ticker"))
+              }
+              corp_index = build_corp_index(read_rows(CORP_MAP))
+
+              candidate = {}
+              source_origin = {}
+
+              for code in overlap:
+                  row = dict(prod_map[code])
+                  row["name"] = str(universe[code].get("name") or row.get("name") or "")
+                  candidate[code] = row
+                  source_origin[code] = "REUSED_CURRENT_PRODUCTION_READY"
+
+              for code in sorted(EXPECTED_FROZEN):
+                  if code in candidate:
+                      raise RuntimeError(
+                          "V8132C_FROZEN_ALREADY_IN_CURRENT_PROD:"
+                          + code
+                      )
+                  row = dict(frozen_rows[code])
+                  row["name"] = str(universe[code].get("name") or row.get("name") or "")
+                  candidate[code] = row
+                  source_origin[code] = "V8131_FROZEN_READY"
+
+              unresolved = {}
+              identities = {}
+
+              remaining = sorted(current_codes - set(candidate))
+              if len(remaining) != 111:
+                  raise RuntimeError(
+                      "V8132C_REMAINING_NOT_111:"
+                      + str(len(remaining))
+                  )
+
+              for code in remaining:
+                  prow = universe[code]
+                  name = str(prow.get("name") or "")
+
+                  ident = fin_direct_identity(code, fin_map)
+                  if ident is None:
+                      ident = exact_name_identity(
+                          code,
+                          name,
+                          corp_index,
+                      )
+                  if ident is None:
+                      ident = preferred_identity(
+                          code,
+                          name,
+                          prow,
+                          fin_map,
+                          corp_index,
+                      )
+
+                  if ident is None:
+                      unresolved[code] = {
+                          "name": name,
+                          "note": "CURRENT_CORP_IDENTITY_NOT_STRICTLY_RESOLVED",
+                      }
+                  else:
+                      identities[code] = ident
+
+              if set(unresolved) != EXPECTED_UNRESOLVED:
+                  raise RuntimeError(
+                      "V8132C_UNRESOLVED_SET_CHANGED:"
+                      + ",".join(sorted(unresolved))
+                  )
+              if len(identities) != 109:
+                  raise RuntimeError(
+                      "V8132C_RESOLVED_QUERY_TARGETS_NOT_109:"
+                      + str(len(identities))
+                  )
+
+              fetch_cache = {}
+              fetch_class_counts = Counter()
+              official_incomplete = []
+              conflicts = []
+
+              for code in sorted(identities):
+                  ident = identities[code]
+                  cc = ident["corp_code"]
+                  if cc not in fetch_cache:
+                      result = fetch_exact_ocf(api_key, cc)
+                      fetch_cache[cc] = result
+                      time.sleep(0.08)
+                  result = fetch_cache[cc]
+                  fetch_class_counts[result["classification"]] += 1
+
+                  if result["classification"] == "OFFICIAL_QUERY_INCOMPLETE":
+                      official_incomplete.append(code)
+                      continue
+                  if result["classification"] == "EXACT_OCF_VALUE_CONFLICT":
+                      conflicts.append(code)
+                      continue
+
+                  candidate[code] = candidate_row(
+                      fields,
+                      code=code,
+                      name=str(universe[code].get("name") or ""),
+                      identity=ident,
+                      fetched=result,
+                  )
+                  source_origin[code] = ident["source_mode"]
+
+              if official_incomplete:
+                  raise RuntimeError(
+                      "V8132C_OFFICIAL_QUERY_INCOMPLETE:"
+                      + ",".join(sorted(official_incomplete))
+                  )
+              if conflicts:
+                  raise RuntimeError(
+                      "V8132C_EXACT_OCF_CONFLICT:"
+                      + ",".join(sorted(conflicts))
+                  )
+
+              for code, info in unresolved.items():
+                  candidate[code] = candidate_row(
+                      fields,
+                      code=code,
+                      name=info["name"],
+                      unresolved_note=info["note"],
+                  )
+                  source_origin[code] = "UNRESOLVED_CURRENT_IDENTITY"
+
+              if set(candidate) != current_codes:
+                  missing = sorted(current_codes - set(candidate))
+                  extra = sorted(set(candidate) - current_codes)
+                  raise RuntimeError(
+                      "V8132C_CANDIDATE_SET_MISMATCH:"
+                      + "missing=" + ",".join(missing)
+                      + "|extra=" + ",".join(extra)
+                  )
+              if len(candidate) != EXPECTED_UNIVERSE:
+                  raise RuntimeError("V8132C_CANDIDATE_ROWS_NOT_149")
+
+              candidate_rows = [candidate[k] for k in sorted(candidate)]
+              write_rows(OUT_CSV, candidate_rows, fields)
+
+              candidate_ready = sum(
+                  1 for r in candidate_rows
+                  if r.get("source_status") == "READY"
+              )
+              candidate_limited = len(candidate_rows) - candidate_ready
+
+              run_scorer(
+                  PROD_OCF,
+                  BASE_CSV,
+                  BASE_JSON,
+                  BASE_LOG,
+                  BASE_DOC,
+              )
+              run_scorer(
+                  OUT_CSV,
+                  CAND_CSV,
+                  CAND_JSON,
+                  CAND_LOG,
+                  CAND_DOC,
+              )
+
+              base = {
+                  ticker(r.get("ticker")): r
+                  for r in read_rows(BASE_CSV)
+              }
+              cand = {
+                  ticker(r.get("ticker")): r
+                  for r in read_rows(CAND_CSV)
+              }
+              if set(base) != current_codes or set(cand) != current_codes:
+                  raise RuntimeError("V8132C_SCORER_UNIVERSE_MISMATCH")
+
+              bsum = read_json(BASE_JSON)
+              csum = read_json(CAND_JSON)
+              b_ready = int(bsum.get("ready_count") or 0)
+              b_limited = int(bsum.get("limited_count") or 0)
+              c_ready = int(csum.get("ready_count") or 0)
+              c_limited = int(csum.get("limited_count") or 0)
+
+              b_blockers = sum(
+                  int(r.get("missing_component_count") or 0)
+                  for r in base.values()
+              )
+              c_blockers = sum(
+                  int(r.get("missing_component_count") or 0)
+                  for r in cand.values()
+              )
+
+              if (b_ready, b_limited, b_blockers) != (19, 130, 796):
+                  raise RuntimeError(
+                      "V8132C_BASELINE_CHANGED:"
+                      f"{b_ready}:{b_limited}:{b_blockers}"
+                  )
+              if c_ready < 23:
+                  raise RuntimeError(
+                      "V8132C_CANDIDATE_READY_LT_23:" + str(c_ready)
+                  )
+              if c_blockers > 792:
+                  raise RuntimeError(
+                      "V8132C_CANDIDATE_BLOCKERS_GT_792:"
+                      + str(c_blockers)
+                  )
+
+              regression_rows = []
+              removed_ocf_count = 0
+              non_ocf_drift = []
+              added_reason_tickers = []
+              lost_ready = []
+              prior_ready_score_changed = []
+              newly_ready = []
+
+              for code in sorted(current_codes):
+                  b = base[code]
+                  c = cand[code]
+                  bm = split_missing(b.get("missing_components"))
+                  cm = split_missing(c.get("missing_components"))
+                  bset = set(bm)
+                  cset = set(cm)
+
+                  added = sorted(cset - bset)
+                  removed = sorted(bset - cset)
+
+                  if added:
+                      added_reason_tickers.append(code)
+                  bad_removed = [
+                      reason for reason in removed
+                      if reason != OCF_MISSING_REASON
+                  ]
+                  if bad_removed:
+                      non_ocf_drift.append(code)
+                  if OCF_MISSING_REASON in removed:
+                      removed_ocf_count += 1
+
+                  if b.get("score_status") == "READY":
+                      if c.get("score_status") != "READY":
+                          lost_ready.append(code)
+                      if stable_score_and_band(b) != stable_score_and_band(c):
+                          prior_ready_score_changed.append(code)
+
+                  if (
+                      b.get("score_status") == "LIMITED"
+                      and c.get("score_status") == "READY"
+                  ):
+                      newly_ready.append(code)
+
+                  if added or removed or b.get("score_status") != c.get("score_status"):
+                      regression_rows.append({
+                          "ticker": code,
+                          "name": str(universe[code].get("name") or ""),
+                          "source_origin": source_origin.get(code, ""),
+                          "candidate_ocf_status": candidate[code].get("source_status") or "",
+                          "baseline_status": b.get("score_status") or "",
+                          "candidate_status": c.get("score_status") or "",
+                          "baseline_missing_components": ";".join(bm),
+                          "candidate_missing_components": ";".join(cm),
+                          "removed_reasons": ";".join(removed),
+                          "added_reasons": ";".join(added),
+                          "baseline_score_total": b.get("score_total") or "",
+                          "candidate_score_total": c.get("score_total") or "",
+                      })
+
+              if added_reason_tickers:
+                  raise RuntimeError(
+                      "V8132C_BLOCKER_REASON_ADDED:"
+                      + ",".join(added_reason_tickers[:20])
+                  )
+              if non_ocf_drift:
+                  raise RuntimeError(
+                      "V8132C_NON_OCF_REASON_REMOVED:"
+                      + ",".join(non_ocf_drift[:20])
+                  )
+              if lost_ready:
+                  raise RuntimeError(
+                      "V8132C_LOST_READY:"
+                      + ",".join(lost_ready)
+                  )
+              if prior_ready_score_changed:
+                  raise RuntimeError(
+                      "V8132C_PRIOR_READY_SCORE_CHANGED:"
+                      + ",".join(prior_ready_score_changed)
+                  )
+
+              for code in EXPECTED_FROZEN:
+                  if code not in newly_ready:
+                      raise RuntimeError(
+                          "V8132C_FROZEN_TARGET_NOT_NEWLY_READY:"
+                          + code
+                      )
+
+              if b_blockers - c_blockers != removed_ocf_count:
+                  raise RuntimeError(
+                      "V8132C_BLOCKER_REDUCTION_NOT_EQUAL_OCF_REMOVAL"
+                  )
+              if removed_ocf_count < 4:
+                  raise RuntimeError(
+                      "V8132C_OCF_REMOVAL_LT_4:"
+                      + str(removed_ocf_count)
+                  )
+
+              reg_fields = [
+                  "ticker",
+                  "name",
+                  "source_origin",
+                  "candidate_ocf_status",
+                  "baseline_status",
+                  "candidate_status",
+                  "baseline_missing_components",
+                  "candidate_missing_components",
+                  "removed_reasons",
+                  "added_reasons",
+                  "baseline_score_total",
+                  "candidate_score_total",
+              ]
+              write_rows(OUT_REG, regression_rows, reg_fields)
+
+              source_modes = Counter(source_origin.values())
+              summary = {
+                  "version": VERSION,
+                  "generated_at_kst": datetime.now(KST).isoformat(
+                      timespec="seconds"
+                  ),
+                  "status": "STAGED_CANDIDATE_REGRESSION_PASS",
+                  "policy_version": POLICY_VERSION,
+                  "v8131_version": V8131_VERSION,
+                  "v8131_result_commit": V8131_RESULT_COMMIT,
+                  "ocf_contract_version": OCF_CONTRACT_VERSION,
+                  "current_scorer_universe_count": EXPECTED_UNIVERSE,
+                  "production_ocf_before": {
+                      "row_count": len(prod_rows),
+                      "current_universe_overlap": len(overlap),
+                      "current_overlap_ready": len(overlap),
+                  },
+                  "candidate_ocf": {
+                      "row_count": len(candidate_rows),
+                      "ready_count": candidate_ready,
+                      "limited_count": candidate_limited,
+                      "reused_current_production_ready": len(overlap),
+                      "v8131_frozen_ready": len(EXPECTED_FROZEN),
+                      "resolved_query_targets": len(identities),
+                      "unique_corp_queries": len(fetch_cache),
+                      "strict_identity_unresolved_count": len(unresolved),
+                      "strict_identity_unresolved_tickers": sorted(unresolved),
+                      "source_mode_counts": dict(source_modes),
+                      "fetch_classification_counts": dict(fetch_class_counts),
+                      "dart_status_policy": {
+                          "000": "OFFICIAL_SUCCESS",
+                          "013": "OFFICIAL_NO_DATA_NOT_TRANSPORT_FAILURE",
+                          "other_nonzero": "FAIL_CLOSED_OFFICIAL_QUERY_INCOMPLETE"
+                      },
+                  },
+                  "scorer_regression": {
+                      "baseline_ready_count": b_ready,
+                      "baseline_limited_count": b_limited,
+                      "candidate_ready_count": c_ready,
+                      "candidate_limited_count": c_limited,
+                      "ready_delta": c_ready - b_ready,
+                      "newly_ready_count": len(newly_ready),
+                      "newly_ready_tickers": sorted(newly_ready),
+                      "baseline_blocker_occurrences": b_blockers,
+                      "candidate_blocker_occurrences": c_blockers,
+                      "blocker_occurrences_reduced_by": b_blockers - c_blockers,
+                      "ocf_reason_removed_count": removed_ocf_count,
+                      "lost_ready_count": 0,
+                      "previously_ready_score_or_band_changed_count": 0,
+                      "non_ocf_missing_reason_drift_count": 0,
+                      "added_missing_reason_count": 0,
+                  },
+                  "hard_guards": {
+                      "production_ocf_cache_modified": False,
+                      "production_ocf_metadata_modified": False,
+                      "production_source_cache_modified": False,
+                      "production_financial_cache_modified": False,
+                      "production_price_elasticity_cache_modified": False,
+                      "production_api_modified": False,
+                      "scoring_policy_modified": False,
+                      "production_score_written": False,
+                      "source_value_imputed": False,
+                      "alternate_ocf_account_id_used": False,
+                      "unresolved_identity_force_mapped": False,
+                      "nonofficial_ocf_source_used": False,
+                  },
+                  "next_step": "CONTROLLED_PRODUCTION_OCF_REFRESH_V8133",
+              }
+
+              OUT_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+
+              OUT_LOG.write_text(
+                  "\n".join([
+                      f"VERSION={VERSION}",
+                      "STATUS=STAGED_CANDIDATE_REGRESSION_PASS",
+                      f"CURRENT_UNIVERSE={EXPECTED_UNIVERSE}",
+                      f"PRODUCTION_OCF_ROWS={len(prod_rows)}",
+                      f"CURRENT_PRODUCTION_OVERLAP={len(overlap)}",
+                      f"V8131_FROZEN={len(EXPECTED_FROZEN)}",
+                      f"RESOLVED_QUERY_TARGETS={len(identities)}",
+                      f"UNIQUE_CORP_QUERIES={len(fetch_cache)}",
+                      f"UNRESOLVED_IDENTITY={len(unresolved)}",
+                      "DART_STATUS_013_POLICY=OFFICIAL_NO_DATA",
+                      f"CANDIDATE_OCF_READY={candidate_ready}",
+                      f"CANDIDATE_OCF_LIMITED={candidate_limited}",
+                      f"BASELINE_READY={b_ready}",
+                      f"CANDIDATE_READY={c_ready}",
+                      f"READY_DELTA={c_ready-b_ready}",
+                      f"BASELINE_BLOCKERS={b_blockers}",
+                      f"CANDIDATE_BLOCKERS={c_blockers}",
+                      f"BLOCKER_REDUCED_BY={b_blockers-c_blockers}",
+                      f"OCF_REASON_REMOVED={removed_ocf_count}",
+                      "LOST_READY=0",
+                      "PREVIOUSLY_READY_SCORE_OR_BAND_CHANGED=0",
+                      "NON_OCF_MISSING_REASON_DRIFT=0",
+                      "ADDED_MISSING_REASON=0",
+                      "PRODUCTION_OCF_CACHE_MODIFIED=false",
+                      "PRODUCTION_SCORE_WRITTEN=false",
+                      "STATUS_OK=true",
+                      "NEXT_STEP=CONTROLLED_PRODUCTION_OCF_REFRESH_V8133",
+                  ]) + "\n",
+                  encoding="utf-8",
+              )
+
+              OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+              OUT_DOC.write_text(
+                  "\n".join([
+                      "# V8.13.2 current-universe OCF refresh candidate",
+                      "",
+                      "- Current scorer universe: 149 tickers.",
+                      "- Reuse only current production OCF rows already READY.",
+                      "- Add four V8.13.1 exact OCF frozen rows.",
+                      "- Resolve remaining identities only through approved financial identity, exact DART stock-code/name identity, or verified preferred-common mapping.",
+                      "- CR홀딩스(000480) and 한국수출포장(002200) remain LIMITED because identity is not forced.",
+                      "- Accepted OCF account ID only: ifrs-full_CashFlowsFromUsedInOperatingActivities.",
+                      "- Missing OCF is never imputed as zero.",
+                      "- Candidate is shadow-tested; production OCF is not modified.",
+                      "",
+                      f"- Candidate OCF READY/LIMITED: {candidate_ready}/{candidate_limited}",
+                      f"- Scorer READY baseline/candidate: {b_ready}/{c_ready}",
+                      f"- Blockers baseline/candidate: {b_blockers}/{c_blockers}",
+                      f"- OCF reasons removed: {removed_ocf_count}",
+                      f"- Newly READY: {len(newly_ready)}",
+                      "",
+                      "Next: `CONTROLLED_PRODUCTION_OCF_REFRESH_V8133`",
+                      "",
+                  ]),
+                  encoding="utf-8",
+              )
+
+              print("V8132C_CURRENT_UNIVERSE_OCF_CANDIDATE=PASS")
+
+          if __name__ == "__main__":
+              main()
+          PY
+
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("investment_score_ocf_candidate_v8132c.py")
+          t = p.read_text(encoding="utf-8")
+          p.write_text(t.rstrip() + "\n", encoding="utf-8", newline="\n")
+          assert not p.read_bytes().endswith(b"\n\n")
+          print("V8132C_BUILDER_EOF_NORMALIZED=PASS")
+          PY
+
+          python -m py_compile investment_score_ocf_candidate_v8132c.py
+
+          python investment_score_ocf_candidate_v8132c.py \
+            | tee /tmp/v8132c_stdout.txt
+
+          grep -q '^V8132C_CURRENT_UNIVERSE_OCF_CANDIDATE=PASS$' \
+            /tmp/v8132c_stdout.txt
+          grep -q '^STATUS_OK=true$' \
+            latest/investment_score_ocf_candidate_v8132c_run_log_latest.txt
+          grep -q '^CURRENT_UNIVERSE=149$' \
+            latest/investment_score_ocf_candidate_v8132c_run_log_latest.txt
+          grep -q '^CURRENT_PRODUCTION_OVERLAP=34$' \
+            latest/investment_score_ocf_candidate_v8132c_run_log_latest.txt
+          grep -q '^V8131_FROZEN=4$' \
+            latest/investment_score_ocf_candidate_v8132c_run_log_latest.txt
+          grep -q '^RESOLVED_QUERY_TARGETS=109$' \
+            latest/investment_score_ocf_candidate_v8132c_run_log_latest.txt
+          grep -q '^UNRESOLVED_IDENTITY=2$' \
+            latest/investment_score_ocf_candidate_v8132c_run_log_latest.txt
+          grep -q '^DART_STATUS_013_POLICY=OFFICIAL_NO_DATA$' \
+            latest/investment_score_ocf_candidate_v8132c_run_log_latest.txt
+          grep -q '^LOST_READY=0$' \
+            latest/investment_score_ocf_candidate_v8132c_run_log_latest.txt
+          grep -q '^NON_OCF_MISSING_REASON_DRIFT=0$' \
+            latest/investment_score_ocf_candidate_v8132c_run_log_latest.txt
+          grep -q '^PRODUCTION_OCF_CACHE_MODIFIED=false$' \
+            latest/investment_score_ocf_candidate_v8132c_run_log_latest.txt
+
+      - name: Validate V8.13.2 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          s = json.loads(
+              Path(
+                  "latest/investment_score_ocf_candidate_v8132c_summary_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          assert s["version"] == "2026-09-21-v8.13.2c-independent-current-universe-ocf-refresh"
+          assert s["status"] == "STAGED_CANDIDATE_REGRESSION_PASS"
+          assert s["v8131_result_commit"] == "b34523f3eabf2ee3309d8f44f9c97f2b54a2feaf"
+          assert s["current_scorer_universe_count"] == 149
+          assert s["production_ocf_before"]["row_count"] == 112
+          assert s["production_ocf_before"]["current_universe_overlap"] == 34
+
+          c = s["candidate_ocf"]
+          assert c["row_count"] == 149
+          assert c["reused_current_production_ready"] == 34
+          assert c["v8131_frozen_ready"] == 4
+          assert c["resolved_query_targets"] == 109
+          assert c["strict_identity_unresolved_count"] == 2
+          assert set(c["strict_identity_unresolved_tickers"]) == {
+              "000480",
+              "002200",
+          }
+          assert c["ready_count"] + c["limited_count"] == 149
+
+          r = s["scorer_regression"]
+          assert r["baseline_ready_count"] == 19
+          assert r["baseline_limited_count"] == 130
+          assert r["candidate_ready_count"] >= 23
+          assert r["candidate_limited_count"] <= 126
+          assert r["ready_delta"] >= 4
+          assert r["baseline_blocker_occurrences"] == 796
+          assert r["candidate_blocker_occurrences"] <= 792
+          assert r["blocker_occurrences_reduced_by"] >= 4
+          assert r["ocf_reason_removed_count"] >= 4
+          assert r["lost_ready_count"] == 0
+          assert r["previously_ready_score_or_band_changed_count"] == 0
+          assert r["non_ocf_missing_reason_drift_count"] == 0
+          assert r["added_missing_reason_count"] == 0
+
+          assert s["next_step"] == "CONTROLLED_PRODUCTION_OCF_REFRESH_V8133"
+          assert all(v is False for v in s["hard_guards"].values())
+
+          with Path(
+              "latest/investment_score_ocf_candidate_v8132c.csv"
+          ).open(encoding="utf-8-sig", newline="") as f:
+              rows = list(csv.DictReader(f))
+          assert len(rows) == 149
+          assert len({r["ticker"] for r in rows}) == 149
+          assert all(
+              r["account_id"] == "ifrs-full_CashFlowsFromUsedInOperatingActivities"
+              for r in rows
+          )
+
+          print("V8132C_OUTPUT_VALIDATION=PASS")
+          PY
+
+      - name: Verify production state unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/financial_valuation_cache_latest.csv \
+            latest/dart_corp_code_map_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_ocf_source_latest.json \
+            latest/investment_score_ocf_source_run_log_latest.txt \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_v8131.csv \
+            latest/investment_score_ocf_shadow_v8131_summary_latest.json \
+            > /tmp/v8132c_protected.after
+
+          diff -u /tmp/v8132c_protected.before /tmp/v8132c_protected.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -name '*.json' -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8132c_api.after
+          diff -u /tmp/v8132c_api.before /tmp/v8132c_api.after
+
+          echo "V8132C_PRODUCTION_STATE_UNCHANGED=PASS"
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "investment_score_ocf_candidate_v8132c.py",
+              "latest/investment_score_ocf_candidate_v8132c.csv",
+              "latest/investment_score_ocf_candidate_v8132c_summary_latest.json",
+              "latest/investment_score_ocf_candidate_v8132c_regression.csv",
+              "latest/investment_score_ocf_candidate_v8132c_run_log_latest.txt",
+              "docs/investment_score_ocf_candidate_v8132c.md",
+          }
+
+          changed = {
+              line[3:]
+              for line in subprocess.check_output(
+                  ["git","status","--porcelain","--untracked-files=all"],
+                  text=True,
+              ).splitlines()
+              if line
+          }
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit(
+                  "V8132C_UNEXPECTED_CHANGED_FILES:"
+                  + ",".join(unexpected)
+              )
+          print("V8132C_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+      - name: Refuse concurrent protected drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "investment_score_dry_run_v882.py",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/dart_corp_code_map_latest.csv",
+              "latest/investment_score_ocf_source_latest.csv",
+              "latest/investment_score_ocf_source_latest.json",
+              "latest/investment_score_ocf_source_run_log_latest.txt",
+              "latest/investment_score_price_elasticity_20d_latest.csv",
+              "latest/investment_score_ocf_source_v8131.csv",
+              "latest/investment_score_ocf_shadow_v8131_summary_latest.json",
+          }
+
+          upstream = set(
+              subprocess.check_output(
+                  ["git","diff","--name-only","HEAD..origin/main"],
+                  text=True,
+              ).splitlines()
+          )
+          dangerous = sorted(
+              p for p in upstream
+              if p in protected or p.startswith("api/two_table_v1/")
+          )
+          if dangerous:
+              raise SystemExit(
+                  "V8132C_CONCURRENT_PROTECTED_DRIFT:"
+                  + ",".join(dangerous)
+              )
+
+          print("V8132C_NO_CONCURRENT_PROTECTED_DRIFT=PASS")
+          PY
+
+      - name: Commit and push staged candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_ocf_candidate_v8132c.py \
+            latest/investment_score_ocf_candidate_v8132c.csv \
+            latest/investment_score_ocf_candidate_v8132c_summary_latest.json \
+            latest/investment_score_ocf_candidate_v8132c_regression.csv \
+            latest/investment_score_ocf_candidate_v8132c_run_log_latest.txt \
+            docs/investment_score_ocf_candidate_v8132c.md
+
+          git diff --cached --check
+          echo "V8132C_GIT_DIFF_CHECK=PASS"
+
+          git commit -m "Stage independent current-universe OCF refresh v8.13.2C"
+          git pull --rebase origin main
+          git push origin HEAD:main

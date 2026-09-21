@@ -1,0 +1,91 @@
+{
+  "version": "2026-09-21-v8.13.8b-stage-current-universe-supply-source-integration",
+  "generated_at_kst": "2026-09-21T21:51:45+09:00",
+  "status": "STAGED_CANDIDATE_REGRESSION_PASS",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "supply_policy_version": "2026-07-01-v6.0-supply-status-separated",
+  "v8137_version": "2026-09-21-v8.13.7-freeze-current-actionable-supply-and-shadow-score",
+  "v8137_result_commit": "4c334c6b4210ccfe05bd990da19597a6d21da9ba",
+  "current_scorer_universe_count": 149,
+  "source_candidate_count": 8,
+  "source_candidate_tickers": [
+    "001440",
+    "007540",
+    "029780",
+    "066570",
+    "071840",
+    "084690",
+    "086280",
+    "114090"
+  ],
+  "v8101_current_overlap_reaudited_count": 4,
+  "v8101_current_overlap_reaudited_tickers": [
+    "001440",
+    "066570",
+    "071840",
+    "086280"
+  ],
+  "latest_source_precedence_excluded_from_v8101": [
+    "029780"
+  ],
+  "v8137_current_source_count": 4,
+  "v8137_current_source_tickers": [
+    "007540",
+    "029780",
+    "084690",
+    "114090"
+  ],
+  "classification_counts": {
+    "COMPLETE_180D_POSITIVE_BURDEN": 5,
+    "COMPLETE_180D_NO_POSITIVE_BURDEN": 3
+  },
+  "supply_level_counts": {
+    "위험": 1,
+    "주의": 4,
+    "없음": 3
+  },
+  "baseline_ready_count": 23,
+  "baseline_limited_count": 126,
+  "candidate_ready_count": 27,
+  "candidate_limited_count": 122,
+  "ready_delta": 4,
+  "newly_ready_count": 4,
+  "newly_ready_tickers": [
+    "007540",
+    "029780",
+    "084690",
+    "114090"
+  ],
+  "baseline_blocker_occurrences": 732,
+  "candidate_blocker_occurrences": 724,
+  "blocker_occurrences_reduced_by": 8,
+  "supply_reason_removed_count": 8,
+  "changed_score_row_count": 8,
+  "changed_score_tickers": [
+    "001440",
+    "007540",
+    "029780",
+    "066570",
+    "071840",
+    "084690",
+    "086280",
+    "114090"
+  ],
+  "non_target_score_row_changed_count": 0,
+  "existing_ready_score_row_changed_count": 0,
+  "hard_guards": {
+    "production_api_modified": false,
+    "production_supply_status_overridden": false,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_ocf_cache_modified": false,
+    "production_price_elasticity_cache_modified": false,
+    "production_investment_score_written": false,
+    "scoring_policy_modified": false,
+    "supply_policy_modified": false,
+    "issuer_mapping_guessed": false,
+    "incomplete_query_promoted": false,
+    "stale_v8101_rows_reused_without_reaudit": false
+  },
+  "next_step": "CONTROLLED_PRODUCTION_SUPPLY_INTEGRATION_V8139"
+}

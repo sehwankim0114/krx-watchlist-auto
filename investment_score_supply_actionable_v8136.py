@@ -1,0 +1,941 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import ast
+import csv
+import io
+import json
+import os
+import time
+import urllib.parse
+import urllib.request
+import zipfile
+from collections import Counter, defaultdict
+from datetime import date, datetime, timedelta
+from pathlib import Path
+from zoneinfo import ZoneInfo
+import xml.etree.ElementTree as ET
+
+VERSION = "2026-09-21-v8.13.6-current-actionable-supply-single-blocker-audit"
+POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+SUPPLY_POLICY_VERSION = "2026-07-01-v6.0-supply-status-separated"
+V8134_VERSION = "2026-09-21-v8.13.4-post-ocf-current-blocker-reaudit"
+V8135_VERSION = "2026-09-21-v8.13.5-current-actionable-exact-da-single-blocker-audit"
+
+ROOT = Path(".")
+KST = ZoneInfo("Asia/Seoul")
+
+BLOCK_CSV = ROOT / "latest/investment_score_current_blockers_v8134.csv"
+BLOCK_JSON = ROOT / "latest/investment_score_current_blockers_v8134_summary_latest.json"
+V8135_JSON = ROOT / "latest/investment_score_exact_da_actionable_v8135_summary_latest.json"
+FIN = ROOT / "latest/financial_valuation_cache_latest.csv"
+SUPPLY_ENRICHER = ROOT / "supply_burden_enricher.py"
+
+OUT_CSV = ROOT / "latest/investment_score_supply_actionable_v8136.csv"
+OUT_JSON = ROOT / "latest/investment_score_supply_actionable_v8136_summary_latest.json"
+OUT_LOG = ROOT / "latest/investment_score_supply_actionable_v8136_run_log_latest.txt"
+OUT_DOC = ROOT / "docs/investment_score_supply_actionable_v8136.md"
+
+CORP_CODE_URL = "https://opendart.fss.or.kr/api/corpCode.xml"
+LIST_URL = "https://opendart.fss.or.kr/api/list.json"
+
+TARGET_REASON = "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+REQUESTED_LOOKBACK_DAYS = 180
+CHUNK_DAYS = 90
+REQUEST_TIMEOUT = 35
+REQUEST_ATTEMPTS = 4
+PAGE_COUNT = 100
+
+EXPECTED = {
+    "007540": "샘표",
+    "029780": "삼성카드",
+    "084690": "대상홀딩스",
+    "114090": "GKL",
+}
+
+def read_json(path: Path):
+    return json.loads(path.read_text(encoding="utf-8-sig"))
+
+def read_csv(path: Path):
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+def ticker(value):
+    s = "".join(ch for ch in str(value or "") if ch.isdigit())
+    return s.zfill(6) if s else ""
+
+def truthy(value):
+    return str(value or "").strip().upper() == "TRUE"
+
+def literal_constant_from_python(path: Path, name: str):
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = []
+            value = None
+            if isinstance(node, ast.Assign):
+                targets = node.targets
+                value = node.value
+            else:
+                targets = [node.target]
+                value = node.value
+            for target in targets:
+                if isinstance(target, ast.Name) and target.id == name:
+                    return ast.literal_eval(value)
+    raise RuntimeError(
+        "V8136_SUPPLY_CONTRACT_CONSTANT_NOT_FOUND:" + name
+    )
+
+def load_supply_contract():
+    text = SUPPLY_ENRICHER.read_text(encoding="utf-8")
+    if SUPPLY_POLICY_VERSION not in text:
+        raise RuntimeError(
+            "V8136_SUPPLY_POLICY_VERSION_NOT_FOUND"
+        )
+    keyword_rules = literal_constant_from_python(
+        SUPPLY_ENRICHER,
+        "KEYWORD_RULES",
+    )
+    relief_keywords = literal_constant_from_python(
+        SUPPLY_ENRICHER,
+        "RELIEF_KEYWORDS",
+    )
+    if not keyword_rules:
+        raise RuntimeError("V8136_SUPPLY_KEYWORD_RULES_EMPTY")
+    return keyword_rules, relief_keywords
+
+def request_bytes(url: str, attempts=REQUEST_ATTEMPTS):
+    last = None
+    for attempt in range(1, attempts + 1):
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "krx-watchlist-v8136-targeted-supply-audit",
+                "Accept": "*/*",
+                "Cache-Control": "no-cache",
+            },
+        )
+        try:
+            with urllib.request.urlopen(
+                req,
+                timeout=REQUEST_TIMEOUT,
+            ) as response:
+                return response.read()
+        except Exception as exc:
+            last = exc
+            if attempt < attempts:
+                time.sleep(0.8 * attempt)
+    raise RuntimeError(
+        f"V8136_HTTP_REQUEST_FAILED:"
+        f"{type(last).__name__}:{last}"
+    )
+
+def request_json(url: str):
+    blob = request_bytes(url)
+    try:
+        return json.loads(
+            blob.decode("utf-8", errors="replace")
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            f"V8136_JSON_DECODE_FAILED:"
+            f"{type(exc).__name__}:{exc}"
+        )
+
+def fetch_corp_code_map(api_key: str):
+    url = CORP_CODE_URL + "?" + urllib.parse.urlencode({
+        "crtfc_key": api_key,
+    })
+    blob = request_bytes(url)
+
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(blob))
+    except zipfile.BadZipFile as exc:
+        raise RuntimeError(
+            "V8136_DART_CORPCODE_NOT_ZIP"
+        ) from exc
+
+    xml_names = [
+        n for n in zf.namelist()
+        if n.lower().endswith(".xml")
+    ]
+    if not xml_names:
+        raise RuntimeError(
+            "V8136_DART_CORPCODE_XML_MISSING"
+        )
+
+    root = ET.fromstring(zf.read(xml_names[0]))
+    duplicates = defaultdict(list)
+
+    for item in root.findall(".//list"):
+        stock = ticker(item.findtext("stock_code") or "")
+        corp_code = str(
+            item.findtext("corp_code") or ""
+        ).strip()
+        corp_name = str(
+            item.findtext("corp_name") or ""
+        ).strip()
+        if not stock or not corp_code:
+            continue
+        duplicates[stock].append(
+            (corp_code, corp_name)
+        )
+
+    by_stock = {}
+    for stock, values in duplicates.items():
+        unique = sorted(set(values))
+        if len(unique) == 1:
+            by_stock[stock] = {
+                "corp_code": unique[0][0],
+                "corp_name": unique[0][1],
+                "exact_stock_match_count": 1,
+            }
+        else:
+            by_stock[stock] = {
+                "corp_code": "",
+                "corp_name": "",
+                "exact_stock_match_count": len(unique),
+            }
+    return by_stock
+
+def classify_report(
+    report_name: str,
+    keyword_rules,
+    relief_keywords,
+):
+    title = str(report_name or "")
+    matched = []
+    severity = 0
+
+    for keyword, label, level in keyword_rules:
+        if keyword in title:
+            matched.append(label)
+            severity = max(severity, int(level))
+
+    relief = any(
+        keyword in title
+        for keyword in relief_keywords
+    )
+    return (
+        bool(matched),
+        sorted(set(matched)),
+        severity,
+        relief,
+    )
+
+def severity_to_level(severity: int, count: int):
+    if severity >= 3:
+        return "위험"
+    if severity == 2:
+        return "위험" if count >= 3 else "경계"
+    if severity == 1:
+        return "경계" if count >= 3 else "주의"
+    return "없음"
+
+def date_chunks(start: date, end: date):
+    chunks = []
+    cur = start
+    while cur <= end:
+        chunk_end = min(
+            cur + timedelta(days=CHUNK_DAYS - 1),
+            end,
+        )
+        chunks.append((cur, chunk_end))
+        cur = chunk_end + timedelta(days=1)
+    return chunks
+
+def fetch_corp_reports(
+    api_key: str,
+    corp_code: str,
+    start: date,
+    end: date,
+):
+    all_reports = []
+    calls = 0
+    chunk_summaries = []
+    api_errors = []
+
+    for chunk_start, chunk_end in date_chunks(start, end):
+        page = 1
+        chunk_reports = 0
+        chunk_pages = 0
+        chunk_complete = True
+        total_page_seen = None
+
+        while True:
+            params = {
+                "crtfc_key": api_key,
+                "corp_code": corp_code,
+                "bgn_de": chunk_start.strftime("%Y%m%d"),
+                "end_de": chunk_end.strftime("%Y%m%d"),
+                "page_no": page,
+                "page_count": PAGE_COUNT,
+            }
+            url = LIST_URL + "?" + urllib.parse.urlencode(
+                params
+            )
+
+            try:
+                payload = request_json(url)
+                calls += 1
+            except Exception as exc:
+                chunk_complete = False
+                api_errors.append(
+                    f"{chunk_start}:{chunk_end}:"
+                    f"page={page}:"
+                    f"{type(exc).__name__}:{exc}"
+                )
+                break
+
+            status = str(payload.get("status") or "")
+            if status == "013":
+                total_page_seen = 0
+                break
+
+            if status != "000":
+                chunk_complete = False
+                api_errors.append(
+                    f"{chunk_start}:{chunk_end}:"
+                    f"page={page}:DART_STATUS={status}:"
+                    f"{payload.get('message') or ''}"
+                )
+                break
+
+            rows = payload.get("list") or []
+            if not isinstance(rows, list):
+                chunk_complete = False
+                api_errors.append(
+                    f"{chunk_start}:{chunk_end}:"
+                    f"page={page}:LIST_NOT_ARRAY"
+                )
+                break
+
+            chunk_pages += 1
+            chunk_reports += len(rows)
+            all_reports.extend(rows)
+
+            total_page = int(
+                payload.get("total_page") or 1
+            )
+            total_page_seen = total_page
+
+            if page >= total_page:
+                break
+
+            page += 1
+            if page > 100:
+                chunk_complete = False
+                api_errors.append(
+                    f"{chunk_start}:{chunk_end}:"
+                    "PAGE_SAFETY_LIMIT"
+                )
+                break
+            time.sleep(0.05)
+
+        chunk_summaries.append({
+            "start": chunk_start.isoformat(),
+            "end": chunk_end.isoformat(),
+            "complete": chunk_complete,
+            "pages_fetched": chunk_pages,
+            "total_page_seen": total_page_seen,
+            "report_count": chunk_reports,
+        })
+
+    complete = (
+        len(chunk_summaries) == len(
+            date_chunks(start, end)
+        )
+        and all(
+            x["complete"]
+            for x in chunk_summaries
+        )
+        and not api_errors
+    )
+
+    return {
+        "complete": complete,
+        "reports": all_reports,
+        "api_calls": calls,
+        "chunks": chunk_summaries,
+        "api_errors": api_errors,
+    }
+
+def main():
+    api_key = os.environ.get(
+        "DART_API_KEY", ""
+    ).strip()
+    if not api_key:
+        raise RuntimeError(
+            "V8136_DART_API_KEY_MISSING"
+        )
+
+    for path in (
+        BLOCK_CSV,
+        BLOCK_JSON,
+        V8135_JSON,
+        FIN,
+        SUPPLY_ENRICHER,
+    ):
+        if not path.is_file():
+            raise RuntimeError(
+                "V8136_MISSING_INPUT:" + str(path)
+            )
+
+    s8134 = read_json(BLOCK_JSON)
+    s8135 = read_json(V8135_JSON)
+
+    if s8134.get("version") != V8134_VERSION:
+        raise RuntimeError(
+            "V8136_V8134_VERSION_MISMATCH"
+        )
+    if s8134.get("status") != "AUDIT_ONLY_POST_OCF_PROMOTION":
+        raise RuntimeError(
+            "V8136_V8134_STATUS_MISMATCH"
+        )
+    if s8134.get("policy_version") != POLICY_VERSION:
+        raise RuntimeError(
+            "V8136_POLICY_VERSION_MISMATCH"
+        )
+
+    secondary = (
+        s8134.get("secondary_actionable_groups") or {}
+    )
+    if set(
+        secondary.get(
+            "PRODUCTION_ANALYSIS_SUPPLY"
+        ) or []
+    ) != set(EXPECTED):
+        raise RuntimeError(
+            "V8136_V8134_SUPPLY_SET_MISMATCH"
+        )
+
+    if s8135.get("version") != V8135_VERSION:
+        raise RuntimeError(
+            "V8136_V8135_VERSION_MISMATCH"
+        )
+    if s8135.get("status") != "AUDIT_ONLY_CURRENT_ACTIONABLE_EXACT_DA":
+        raise RuntimeError(
+            "V8136_V8135_STATUS_MISMATCH"
+        )
+    if int(
+        s8135.get(
+            "both_approved_exact_recoverable_count"
+        ) or 0
+    ) != 0:
+        raise RuntimeError(
+            "V8136_V8135_RECOVERABLE_NOT_ZERO"
+        )
+    if int(
+        s8135.get("partial_only_count") or 0
+    ) != 0:
+        raise RuntimeError(
+            "V8136_V8135_PARTIAL_NOT_ZERO"
+        )
+    if int(
+        s8135.get("conflict_or_nonunique_count") or 0
+    ) != 0:
+        raise RuntimeError(
+            "V8136_V8135_CONFLICT_NOT_ZERO"
+        )
+    if int(
+        s8135.get(
+            "newly_exhausted_no_approved_exact_count"
+        ) or 0
+    ) != 28:
+        raise RuntimeError(
+            "V8136_V8135_NEW_EXHAUSTED_NOT_28"
+        )
+    if s8135.get("next_step") != (
+        "AUDIT_CURRENT_ACTIONABLE_SUPPLY_SINGLE_BLOCKERS_V8136"
+    ):
+        raise RuntimeError(
+            "V8136_PREDECESSOR_NEXT_STEP_MISMATCH"
+        )
+
+    block_rows = read_csv(BLOCK_CSV)
+    action_rows = {
+        ticker(r.get("ticker")): r
+        for r in block_rows
+        if r.get("source_group") == "PRODUCTION_ANALYSIS_SUPPLY"
+        and truthy(r.get("single_blocker_ticker"))
+        and r.get("recovery_status")
+        == "ACTIONABLE_SINGLE_BLOCKER_REAUDIT"
+    }
+    if set(action_rows) != set(EXPECTED):
+        raise RuntimeError(
+            "V8136_BLOCK_CSV_TARGET_SET_MISMATCH:"
+            + ",".join(sorted(action_rows))
+        )
+
+    for code, expected_name in EXPECTED.items():
+        row = action_rows[code]
+        if row.get("name") != expected_name:
+            raise RuntimeError(
+                "V8136_TARGET_NAME_MISMATCH:"
+                + code
+            )
+        if row.get("blocker_reason") != TARGET_REASON:
+            raise RuntimeError(
+                "V8136_TARGET_REASON_MISMATCH:"
+                + code
+            )
+
+    fin_rows = {
+        ticker(r.get("ticker")): r
+        for r in read_csv(FIN)
+        if ticker(r.get("ticker"))
+    }
+
+    for code in EXPECTED:
+        row = fin_rows.get(code)
+        if not row:
+            raise RuntimeError(
+                "V8136_FINANCIAL_IDENTITY_MISSING:"
+                + code
+            )
+        if row.get("corp_identity_status") not in {
+            "MATCH",
+            "MATCH_NORMALIZED",
+        }:
+            raise RuntimeError(
+                "V8136_FINANCIAL_IDENTITY_NOT_MATCH:"
+                + code
+            )
+        if not str(
+            row.get("corp_code") or ""
+        ).strip():
+            raise RuntimeError(
+                "V8136_FINANCIAL_CORP_CODE_EMPTY:"
+                + code
+            )
+
+    keyword_rules, relief_keywords = (
+        load_supply_contract()
+    )
+    corp_map = fetch_corp_code_map(api_key)
+
+    for code in EXPECTED:
+        corp = corp_map.get(code) or {}
+        if int(
+            corp.get(
+                "exact_stock_match_count"
+            ) or 0
+        ) != 1:
+            raise RuntimeError(
+                "V8136_DART_EXACT_STOCK_NOT_UNIQUE:"
+                + code
+            )
+        dart_code = str(
+            corp.get("corp_code") or ""
+        ).strip()
+        fin_code = str(
+            fin_rows[code].get(
+                "corp_code"
+            ) or ""
+        ).strip()
+        if dart_code != fin_code:
+            raise RuntimeError(
+                "V8136_CORP_CODE_CROSSCHECK_MISMATCH:"
+                + code + ":" + fin_code + ":" + dart_code
+            )
+
+    audit_end = datetime.now(KST).date()
+    audit_start = audit_end - timedelta(
+        days=REQUESTED_LOOKBACK_DAYS - 1
+    )
+
+    results = []
+
+    for code in sorted(EXPECTED):
+        corp = corp_map[code]
+        fetched = fetch_corp_reports(
+            api_key,
+            corp["corp_code"],
+            audit_start,
+            audit_end,
+        )
+
+        evidence = []
+        max_severity = 0
+        keyword_set = set()
+        relief_count = 0
+
+        if fetched["complete"]:
+            for item in fetched["reports"]:
+                report_name = str(
+                    item.get("report_nm") or ""
+                )
+                (
+                    is_risk,
+                    labels,
+                    severity,
+                    relief,
+                ) = classify_report(
+                    report_name,
+                    keyword_rules,
+                    relief_keywords,
+                )
+                if relief:
+                    relief_count += 1
+                if not is_risk:
+                    continue
+
+                max_severity = max(
+                    max_severity,
+                    severity,
+                )
+                keyword_set.update(labels)
+                evidence.append({
+                    "rcept_dt": str(
+                        item.get("rcept_dt") or ""
+                    ),
+                    "rcept_no": str(
+                        item.get("rcept_no") or ""
+                    ),
+                    "report_nm": report_name,
+                    "corp_name": str(
+                        item.get("corp_name") or ""
+                    ),
+                    "keywords": labels,
+                    "severity": severity,
+                    "relief_flag": relief,
+                })
+
+        evidence.sort(
+            key=lambda x: (
+                x["rcept_dt"],
+                x["rcept_no"],
+            ),
+            reverse=True,
+        )
+
+        if not fetched["complete"]:
+            classification = (
+                "TARGETED_DART_180D_INCOMPLETE"
+            )
+            proposed_status = ""
+            proposed_level = ""
+            candidate = "FALSE"
+        elif evidence:
+            classification = (
+                "COMPLETE_180D_POSITIVE_BURDEN"
+            )
+            proposed_status = "OK"
+            proposed_level = severity_to_level(
+                max_severity,
+                len(evidence),
+            )
+            candidate = "TRUE"
+        else:
+            classification = (
+                "COMPLETE_180D_NO_POSITIVE_BURDEN"
+            )
+            proposed_status = "OK"
+            proposed_level = "없음"
+            candidate = "TRUE"
+
+        latest = evidence[0] if evidence else {}
+
+        results.append({
+            "ticker": code,
+            "name": EXPECTED[code],
+            "market": action_rows[code].get(
+                "market"
+            ) or "",
+            "baseline_blocker_reason": TARGET_REASON,
+            "baseline_supply_status": "LIMITED",
+            "baseline_supply_level": "없음",
+            "corp_code": corp["corp_code"],
+            "corp_name_dart": corp["corp_name"],
+            "corp_code_exact_stock_match_count": corp[
+                "exact_stock_match_count"
+            ],
+            "audit_start_date": audit_start.isoformat(),
+            "audit_end_date": audit_end.isoformat(),
+            "requested_lookback_days": REQUESTED_LOOKBACK_DAYS,
+            "chunk_days": CHUNK_DAYS,
+            "chunk_count": len(
+                fetched["chunks"]
+            ),
+            "dart_list_api_calls": fetched[
+                "api_calls"
+            ],
+            "dart_report_count": len(
+                fetched["reports"]
+            ),
+            "risk_report_count": len(evidence),
+            "risk_level": proposed_level,
+            "risk_keywords": ",".join(
+                sorted(keyword_set)
+            ),
+            "latest_risk_report_date": latest.get(
+                "rcept_dt", ""
+            ),
+            "latest_risk_report_name": latest.get(
+                "report_nm", ""
+            ),
+            "latest_risk_rcept_no": latest.get(
+                "rcept_no", ""
+            ),
+            "relief_report_match_count": relief_count,
+            "query_complete_180d": (
+                "TRUE"
+                if fetched["complete"]
+                else "FALSE"
+            ),
+            "audit_classification": classification,
+            "source_overlay_candidate": candidate,
+            "proposed_supply_status": proposed_status,
+            "proposed_supply_level": proposed_level,
+            "evidence_reports_json": json.dumps(
+                evidence[:50],
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+            "chunk_summaries_json": json.dumps(
+                fetched["chunks"],
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+            "api_errors_json": json.dumps(
+                fetched["api_errors"],
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+        })
+
+        print(
+            "V8136_PROGRESS="
+            + code
+            + ":"
+            + classification
+        )
+        time.sleep(0.05)
+
+    if len(results) != 4:
+        raise RuntimeError(
+            "V8136_RESULT_COUNT_NOT_4"
+        )
+
+    fields = list(results[0].keys())
+    OUT_CSV.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+    with OUT_CSV.open(
+        "w",
+        encoding="utf-8-sig",
+        newline="",
+    ) as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=fields,
+            lineterminator="\n",
+        )
+        writer.writeheader()
+        writer.writerows(results)
+
+    classes = Counter(
+        r["audit_classification"]
+        for r in results
+    )
+    complete = [
+        r["ticker"]
+        for r in results
+        if r["query_complete_180d"] == "TRUE"
+    ]
+    positive = [
+        r["ticker"]
+        for r in results
+        if r["audit_classification"]
+        == "COMPLETE_180D_POSITIVE_BURDEN"
+    ]
+    no_positive = [
+        r["ticker"]
+        for r in results
+        if r["audit_classification"]
+        == "COMPLETE_180D_NO_POSITIVE_BURDEN"
+    ]
+    incomplete = [
+        r["ticker"]
+        for r in results
+        if r["audit_classification"]
+        == "TARGETED_DART_180D_INCOMPLETE"
+    ]
+    overlay = [
+        r["ticker"]
+        for r in results
+        if r["source_overlay_candidate"]
+        == "TRUE"
+    ]
+
+    if incomplete:
+        next_step = (
+            "REVIEW_INCOMPLETE_SUPPLY_TARGETS_BEFORE_PROMOTION"
+        )
+    elif len(overlay) == 4:
+        next_step = (
+            "FREEZE_CURRENT_ACTIONABLE_SUPPLY_AND_SHADOW_SCORE_V8137"
+        )
+    else:
+        next_step = (
+            "REVIEW_SUPPLY_AUDIT_BEFORE_CONTINUING"
+        )
+
+    summary = {
+        "version": VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(
+            timespec="seconds"
+        ),
+        "status": "AUDIT_ONLY_CURRENT_ACTIONABLE_SUPPLY",
+        "policy_version": POLICY_VERSION,
+        "supply_policy_version": SUPPLY_POLICY_VERSION,
+        "v8134_version": V8134_VERSION,
+        "v8135_version": V8135_VERSION,
+        "v8135_result_commit": os.environ.get(
+            "V8136_V8135_COMMIT", ""
+        ),
+        "audit_contract": {
+            "requested_lookback_days": REQUESTED_LOOKBACK_DAYS,
+            "chunk_days": CHUNK_DAYS,
+            "corp_code_resolution": (
+                "DART_CORPCODE_EXACT_STOCK_ONLY"
+            ),
+            "financial_corp_code_crosscheck_required": True,
+            "report_source": (
+                "DART_LIST_JSON_PER_CORP_CODE"
+            ),
+            "keyword_contract_source": (
+                "supply_burden_enricher.py"
+            ),
+            "absence_requires_all_chunks_complete": True,
+        },
+        "target_count": 4,
+        "target_tickers": sorted(EXPECTED),
+        "target_names": [
+            EXPECTED[x]
+            for x in sorted(EXPECTED)
+        ],
+        "corp_code_exact_resolved_count": 4,
+        "corp_code_unresolved_count": 0,
+        "complete_180d_count": len(complete),
+        "complete_180d_tickers": complete,
+        "complete_180d_positive_burden_count": len(
+            positive
+        ),
+        "complete_180d_positive_burden_tickers": positive,
+        "complete_180d_no_positive_burden_count": len(
+            no_positive
+        ),
+        "complete_180d_no_positive_burden_tickers": no_positive,
+        "incomplete_180d_count": len(incomplete),
+        "incomplete_180d_tickers": incomplete,
+        "source_overlay_candidate_count": len(
+            overlay
+        ),
+        "source_overlay_candidate_tickers": overlay,
+        "classification_counts": dict(classes),
+        "dart_activity": {
+            "corp_code_download_count": 1,
+            "list_api_call_count": sum(
+                int(
+                    r["dart_list_api_calls"]
+                    or 0
+                )
+                for r in results
+            ),
+            "report_count": sum(
+                int(
+                    r["dart_report_count"]
+                    or 0
+                )
+                for r in results
+            ),
+            "recognized_risk_report_count": sum(
+                int(
+                    r["risk_report_count"]
+                    or 0
+                )
+                for r in results
+            ),
+        },
+        "hard_guards": {
+            "production_api_changed": False,
+            "production_investment_score_written": False,
+            "production_source_cache_modified": False,
+            "production_financial_cache_modified": False,
+            "production_ocf_cache_modified": False,
+            "scoring_policy_changed": False,
+            "supply_policy_changed": False,
+            "limited_absence_treated_as_complete": False,
+            "incomplete_query_treated_as_absence": False,
+            "issuer_mapping_guessed": False,
+            "production_supply_status_overridden": False,
+        },
+        "next_step": next_step,
+    }
+
+    OUT_JSON.write_text(
+        json.dumps(
+            summary,
+            ensure_ascii=False,
+            indent=2,
+        ) + "\n",
+        encoding="utf-8",
+    )
+
+    OUT_LOG.write_text(
+        "\n".join([
+            f"VERSION={VERSION}",
+            "STATUS=AUDIT_ONLY_CURRENT_ACTIONABLE_SUPPLY",
+            "TARGET_COUNT=4",
+            "CORP_CODE_EXACT_RESOLVED_COUNT=4",
+            f"COMPLETE_180D_COUNT={len(complete)}",
+            f"COMPLETE_180D_POSITIVE_BURDEN_COUNT={len(positive)}",
+            f"COMPLETE_180D_NO_POSITIVE_BURDEN_COUNT={len(no_positive)}",
+            f"INCOMPLETE_180D_COUNT={len(incomplete)}",
+            f"SOURCE_OVERLAY_CANDIDATE_COUNT={len(overlay)}",
+            "PRODUCTION_API_CHANGED=false",
+            "PRODUCTION_INVESTMENT_SCORE_WRITTEN=false",
+            "SCORING_POLICY_CHANGED=false",
+            "SUPPLY_POLICY_CHANGED=false",
+            "ISSUER_MAPPING_GUESSED=false",
+            "PRODUCTION_SUPPLY_STATUS_OVERRIDDEN=false",
+            "STATUS_OK=true",
+            f"NEXT_STEP={next_step}",
+        ]) + "\n",
+        encoding="utf-8",
+    )
+
+    OUT_DOC.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+    OUT_DOC.write_text(
+        "\n".join([
+            "# V8.13.6 current actionable supply single-blocker audit",
+            "",
+            "- Targets: 샘표, 삼성카드, 대상홀딩스, GKL.",
+            "- Existing supply contract is reused without changes.",
+            "- Per-issuer OpenDART list.json is queried for 180 days in 90-day chunks.",
+            "- Every page and chunk must be complete before absence can become OK/없음.",
+            "- DART exact stock-code corp identity is cross-checked against the current financial cache.",
+            "- This step is audit-only; no production API or score is modified.",
+            "",
+            f"- Complete 180d: {len(complete)}/4",
+            f"- Positive burden: {len(positive)}",
+            f"- No positive burden: {len(no_positive)}",
+            f"- Incomplete: {len(incomplete)}",
+            "",
+            f"Next: `{next_step}`",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+
+    print(
+        "V8136_CURRENT_ACTIONABLE_SUPPLY_AUDIT=PASS"
+    )
+
+if __name__ == "__main__":
+    main()

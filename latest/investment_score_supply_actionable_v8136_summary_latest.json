@@ -1,0 +1,84 @@
+{
+  "version": "2026-09-21-v8.13.6-current-actionable-supply-single-blocker-audit",
+  "generated_at_kst": "2026-09-21T21:36:43+09:00",
+  "status": "AUDIT_ONLY_CURRENT_ACTIONABLE_SUPPLY",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "supply_policy_version": "2026-07-01-v6.0-supply-status-separated",
+  "v8134_version": "2026-09-21-v8.13.4-post-ocf-current-blocker-reaudit",
+  "v8135_version": "2026-09-21-v8.13.5-current-actionable-exact-da-single-blocker-audit",
+  "v8135_result_commit": "658722f583e6f95031c06ac56115d1311cb00d74",
+  "audit_contract": {
+    "requested_lookback_days": 180,
+    "chunk_days": 90,
+    "corp_code_resolution": "DART_CORPCODE_EXACT_STOCK_ONLY",
+    "financial_corp_code_crosscheck_required": true,
+    "report_source": "DART_LIST_JSON_PER_CORP_CODE",
+    "keyword_contract_source": "supply_burden_enricher.py",
+    "absence_requires_all_chunks_complete": true
+  },
+  "target_count": 4,
+  "target_tickers": [
+    "007540",
+    "029780",
+    "084690",
+    "114090"
+  ],
+  "target_names": [
+    "샘표",
+    "삼성카드",
+    "대상홀딩스",
+    "GKL"
+  ],
+  "corp_code_exact_resolved_count": 4,
+  "corp_code_unresolved_count": 0,
+  "complete_180d_count": 4,
+  "complete_180d_tickers": [
+    "007540",
+    "029780",
+    "084690",
+    "114090"
+  ],
+  "complete_180d_positive_burden_count": 2,
+  "complete_180d_positive_burden_tickers": [
+    "029780",
+    "084690"
+  ],
+  "complete_180d_no_positive_burden_count": 2,
+  "complete_180d_no_positive_burden_tickers": [
+    "007540",
+    "114090"
+  ],
+  "incomplete_180d_count": 0,
+  "incomplete_180d_tickers": [],
+  "source_overlay_candidate_count": 4,
+  "source_overlay_candidate_tickers": [
+    "007540",
+    "029780",
+    "084690",
+    "114090"
+  ],
+  "classification_counts": {
+    "COMPLETE_180D_NO_POSITIVE_BURDEN": 2,
+    "COMPLETE_180D_POSITIVE_BURDEN": 2
+  },
+  "dart_activity": {
+    "corp_code_download_count": 1,
+    "list_api_call_count": 8,
+    "report_count": 136,
+    "recognized_risk_report_count": 4
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_ocf_cache_modified": false,
+    "scoring_policy_changed": false,
+    "supply_policy_changed": false,
+    "limited_absence_treated_as_complete": false,
+    "incomplete_query_treated_as_absence": false,
+    "issuer_mapping_guessed": false,
+    "production_supply_status_overridden": false
+  },
+  "next_step": "FREEZE_CURRENT_ACTIONABLE_SUPPLY_AND_SHADOW_SCORE_V8137"
+}

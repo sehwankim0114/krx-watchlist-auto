@@ -1,0 +1,47 @@
+{
+  "version": "2026-09-21-v8.13.3a-controlled-production-ocf-refresh",
+  "generated_at_kst": "2026-09-21T21:21:52+09:00",
+  "status": "PRODUCTION_OCF_REFRESH_APPLIED_POST_REGRESSION_PASS",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "ocf_contract_version": "2026-09-12-v8.7.4-audited-operating-cash-flow-source",
+  "candidate_version": "2026-09-21-v8.13.2-stage-current-universe-ocf-refresh",
+  "candidate_result_commit": "4d575a4bdcd8884c7f866fcfa23f4b330a4e6564",
+  "production_before": {
+    "row_count": 112,
+    "scorer_ready_count": 19,
+    "scorer_limited_count": 130,
+    "blocker_occurrences": 796
+  },
+  "production_after": {
+    "row_count": 149,
+    "source_ready_count": 147,
+    "source_limited_count": 2,
+    "scorer_ready_count": 23,
+    "scorer_limited_count": 126,
+    "blocker_occurrences": 732
+  },
+  "ready_delta": 4,
+  "blocker_occurrences_reduced_by": 64,
+  "strict_identity_unresolved_count": 2,
+  "strict_identity_unresolved_tickers": [
+    "000480",
+    "002200"
+  ],
+  "post_score_equals_staged_candidate": true,
+  "hard_guards": {
+    "production_ocf_cache_modified": true,
+    "production_ocf_metadata_modified": true,
+    "production_ocf_run_log_modified": true,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_price_elasticity_cache_modified": false,
+    "production_api_modified": false,
+    "scoring_policy_modified": false,
+    "production_score_written": false,
+    "source_value_imputed": false,
+    "alternate_ocf_account_id_used": false,
+    "unresolved_identity_force_mapped": false,
+    "ready_regression_count": 0
+  },
+  "next_step": "POST_APPLY_CURRENT_BLOCKER_REAUDIT_V8134"
+}

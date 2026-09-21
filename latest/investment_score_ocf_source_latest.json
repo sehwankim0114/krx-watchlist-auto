@@ -1,25 +1,42 @@
 {
   "version": "2026-09-12-v8.7.4-audited-operating-cash-flow-source",
-  "generated_at_kst": "2026-09-12T18:29:13+09:00",
+  "refresh_version": "2026-09-21-v8.13.3a-controlled-production-ocf-refresh",
+  "generated_at_kst": "2026-09-21T21:21:52+09:00",
   "status": "READY_SOURCE_ONLY",
-  "production_unique_tickers": 112,
-  "direct_exact_ifrs_ready": 99,
-  "preferred_candidates": 10,
-  "preferred_inherited_ready": 10,
-  "operating_cash_flow_ready": 109,
-  "operating_cash_flow_limited": 3,
+  "production_unique_tickers": 149,
+  "operating_cash_flow_ready": 147,
+  "operating_cash_flow_limited": 2,
   "account_id_policy": "EXACT_ONLY:ifrs-full_CashFlowsFromUsedInOperatingActivities",
-  "preferred_inheritance_policy": "REUSE_V8.7.0_OFFICIAL_KRX_EXACT_COMMON_STEM_MAPPING_ONLY",
-  "price_elasticity_20d": {
-    "policy_basis": "최근 20거래일 하루평균 절대등락률",
-    "current_collect_universe_implementation": "3개월 g 전체 pct_change().abs().mean()",
-    "status": "BLOCKED_POLICY_IMPLEMENTATION_MISMATCH",
-    "value_generated": false
+  "preferred_inheritance_policy": "APPROVED_CURRENT_FINANCIAL_IDENTITY_OR_EXACT_DART_STOCK_CODE_NAME_OR_VERIFIED_PREFERRED_COMMON_ONLY",
+  "promoted_from_candidate_version": "2026-09-21-v8.13.2-stage-current-universe-ocf-refresh",
+  "promoted_from_candidate_commit": "4d575a4bdcd8884c7f866fcfa23f4b330a4e6564",
+  "strict_identity_unresolved_count": 2,
+  "strict_identity_unresolved_tickers": [
+    "000480",
+    "002200"
+  ],
+  "source_mode_counts": {
+    "CURRENT_DART_STOCK_CODE_EXACT_NAME": 23,
+    "DIRECT_EXACT_IFRS_V8130": 4,
+    "PREFERRED_INHERIT_EXACT_COMMON": 8,
+    "CURRENT_FINANCIAL_CORP_IDENTITY": 79,
+    "UNRESOLVED_CURRENT_IDENTITY": 2,
+    "DIRECT_EXACT_IFRS": 33
+  },
+  "scorer_validation": {
+    "baseline_ready_count": 19,
+    "post_ready_count": 23,
+    "ready_delta": 4,
+    "baseline_blocker_occurrences": 796,
+    "post_blocker_occurrences": 732,
+    "blocker_occurrences_reduced_by": 64
   },
   "hard_guards": {
     "investment_score_100_calculated": false,
-    "score_thresholds_defined": false,
-    "nonpreferred_name_mismatch_overridden": false,
-    "production_api_changed": false
+    "score_thresholds_changed": false,
+    "production_api_changed": false,
+    "source_value_imputed": false,
+    "alternate_ocf_account_id_used": false,
+    "unresolved_identity_force_mapped": false
   }
 }

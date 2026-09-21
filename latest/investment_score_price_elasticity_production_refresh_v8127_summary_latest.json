@@ -1,0 +1,58 @@
+{
+  "version": "2026-09-21-v8.12.7-controlled-production-price-elasticity-refresh",
+  "generated_at_kst": "2026-09-21T20:27:29+09:00",
+  "status": "PRODUCTION_PRICE_ELASTICITY_REFRESH_APPLIED_POST_REGRESSION_PASS",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "source_contract_version": "2026-09-12-v8.7.5-price-elasticity-20-session-source",
+  "v8126_version": "2026-09-21-v8.12.6-stage-current-universe-price-elasticity-refresh",
+  "v8126_result_commit": "f959c3a5cf2645fc97304e6fffe355dadd1162ba",
+  "production_before": {
+    "row_count": 112,
+    "basis_date": "2026-09-11",
+    "scorer_ready_count": 7,
+    "blocker_occurrences": 911
+  },
+  "production_after": {
+    "row_count": 149,
+    "basis_date": "2026-09-18",
+    "source_ready_count": 149,
+    "source_limited_count": 0,
+    "scorer_ready_count": 19,
+    "blocker_occurrences": 796
+  },
+  "ready_delta": 12,
+  "newly_ready_count": 12,
+  "newly_ready_tickers": [
+    "000320",
+    "001800",
+    "003470",
+    "003540",
+    "005440",
+    "006840",
+    "026890",
+    "034830",
+    "039490",
+    "107590",
+    "244920",
+    "323410"
+  ],
+  "blocker_occurrences_reduced_by": 115,
+  "lost_ready_count": 0,
+  "previously_ready_score_or_band_changed_count": 0,
+  "post_score_equals_staged_candidate": true,
+  "hard_guards": {
+    "production_price_elasticity_cache_modified": true,
+    "production_price_elasticity_metadata_modified": true,
+    "production_price_elasticity_run_log_modified": true,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_ocf_cache_modified": false,
+    "production_api_modified": false,
+    "scoring_policy_modified": false,
+    "production_score_written": false,
+    "atr_substituted": false,
+    "nonofficial_price_source_used": false,
+    "ready_regression_count": 0
+  },
+  "next_step": "POST_APPLY_CURRENT_BLOCKER_REAUDIT_V8128"
+}

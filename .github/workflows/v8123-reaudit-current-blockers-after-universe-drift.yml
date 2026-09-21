@@ -1,0 +1,737 @@
+name: Reaudit current blockers after universe drift v8.12.3
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8123-reaudit-current-blockers-after-universe-drift.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8123-current-blocker-reaudit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify V8.12.2 lineage and capture protected hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git merge-base --is-ancestor \
+            83f3f06827615889d2cf228a02fba90fd6586ac1 HEAD
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_source_cache_latest.csv \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_exact_da_actionable_v8120_summary_latest.json \
+            latest/investment_score_price_elasticity_shadow_v8122_summary_latest.json \
+            > /tmp/v8123_protected.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -name '*.json' -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8123_api.before
+
+          echo "V8123_LINEAGE=PASS"
+
+      - name: Create and run V8.12.3 current blocker auditor
+        shell: bash
+        run: |
+          cat > investment_score_current_blocker_reaudit_v8123.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import csv
+          import json
+          from collections import Counter, defaultdict
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_dry_run_v882 as scorer
+
+          VERSION = "2026-09-21-v8.12.3-current-blocker-reaudit-after-universe-drift"
+          POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          V8122_VERSION = "2026-09-21-v8.12.2-freeze-price-elasticity-source-and-shadow-score"
+          V8122_RESULT_COMMIT = "83f3f06827615889d2cf228a02fba90fd6586ac1"
+          V8120_VERSION = "2026-09-17-v8.12.0-current-actionable-exact-da-official-recovery-audit"
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+
+          V8103 = ROOT / "latest/investment_score_da_current_single_recoverability_v8103_summary_latest.json"
+          V8104 = ROOT / "latest/investment_score_next_single_source_v8104_summary_latest.json"
+          V8120 = ROOT / "latest/investment_score_exact_da_actionable_v8120_summary_latest.json"
+          V8122 = ROOT / "latest/investment_score_price_elasticity_shadow_v8122_summary_latest.json"
+
+          TMP_CSV = Path("/tmp/v8123_score.csv")
+          TMP_JSON = Path("/tmp/v8123_score_summary.json")
+          TMP_LOG = Path("/tmp/v8123_score.log")
+          TMP_DOC = Path("/tmp/v8123_score.md")
+
+          OUT_CSV = ROOT / "latest/investment_score_current_blockers_v8123.csv"
+          OUT_JSON = ROOT / "latest/investment_score_current_blockers_v8123_summary_latest.json"
+          OUT_LOG = ROOT / "latest/investment_score_current_blockers_v8123_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_current_blockers_v8123.md"
+
+          V8104_EXHAUSTED = {"001020", "357250"}
+
+
+          def ticker(value):
+              s = "".join(ch for ch in str(value or "") if ch.isdigit())
+              return s.zfill(6) if s else ""
+
+
+          def read_json(path):
+              return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+
+          def read_rows(path):
+              with Path(path).open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
+
+
+          def split_reasons(text):
+              return [x for x in str(text or "").split(";") if x]
+
+
+          def classify(reason):
+              if reason == "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE":
+                  return (
+                      "SOURCE_EVIDENCE_GAP",
+                      "PRODUCTION_ANALYSIS_SUPPLY",
+                      "공시·수급 없음 판정을 확정할 만큼 source completeness가 부족함",
+                  )
+              if reason == "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE":
+                  return (
+                      "POLICY_SEMANTIC_BLOCKER",
+                      "V880_SCORING_CONTRACT",
+                      "전년도 연간 영업이익 분모가 비양수이며 승인 계약상 의미 blocker",
+                  )
+              if reason.startswith(("PER:", "PBR:")):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "FINANCIAL_VALUATION_CACHE",
+                      "밸류에이션 또는 관련 이익·ROE 입력 보강 필요",
+                  )
+              if reason.startswith("EV/EBITDA:"):
+                  tail = reason.split("EV/EBITDA:", 1)[1]
+                  parts = tail.split(":")
+                  debt_status = parts[-2] if len(parts) >= 2 else ""
+                  da_status = parts[-1] if parts else ""
+                  if da_status == "NO_EXACT_CANDIDATE":
+                      return (
+                          "SOURCE_DATA_GAP",
+                          "EXACT_DA_SOURCE",
+                          f"승인 exact D&A 원천 부족; debt_status={debt_status}, da_status={da_status}",
+                      )
+                  if debt_status == "NO_EXACT_CANDIDATE":
+                      return (
+                          "SOURCE_DATA_GAP",
+                          "EXACT_CORE_DEBT_SOURCE",
+                          f"승인 exact core-debt 원천 부족; debt_status={debt_status}, da_status={da_status}",
+                      )
+                  if debt_status in {"OK", "EMPTY_AS_ZERO"} and da_status in {"OK", "EMPTY_AS_ZERO"}:
+                      return (
+                          "SOURCE_DATA_GAP",
+                          "EV_EBITDA_OTHER_INPUT",
+                          "D&A/debt exact 상태 통과 후 다른 EV/EBITDA 입력 점검 필요",
+                      )
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "EV_EBITDA_INPUT",
+                      f"EV/EBITDA 입력 상태 재감사 필요: {tail}",
+                  )
+              if reason.startswith("PSR 또는 대체 가치지표:"):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "FINANCIAL_AND_RAW_SOURCE",
+                      "시가총액 또는 연간 매출 입력 보강 필요",
+                  )
+              if reason.startswith((
+                  "매출 성장과 안정성:",
+                  "최근 3년 매출 성장률:",
+                  "최근 3년 영업이익 성장률:",
+                  "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+              )):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "INVESTMENT_SCORE_SOURCE_CACHE",
+                      "연간/분기 재무 raw source 보강 필요",
+                  )
+              if reason.startswith((
+                  "영업이익 성장과 흑자 여부:",
+                  "순이익 흐름:",
+                  "영업이익률:",
+                  "ROE:",
+                  "부채비율:",
+                  "흑자 지속성과 이익 안정성:",
+              )):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "FINANCIAL_VALUATION_CACHE",
+                      "재무·수익성 cache 입력 보강 필요",
+                  )
+              if reason.startswith("영업현금흐름:"):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "OCF_AND_REVENUE_SOURCE",
+                      "영업현금흐름 또는 연간 매출 입력 보강 필요",
+                  )
+              if reason.startswith((
+                  "1개월 가격흐름:",
+                  "3개월 가격흐름:",
+                  "기간 저가·고가 대비 현재위치:",
+                  "과열·급락 위험:",
+                  "20일 평균 거래대금과 거래량:",
+              )):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "PRODUCTION_PRICE_METRICS",
+                      "가격·스윙·ATR·거래활동 metric 보강 필요",
+                  )
+              if reason.startswith("하루평균 절대등락률:"):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "PRICE_ELASTICITY_20D",
+                      "20거래일 가격탄력 source 보강 필요",
+                  )
+              if reason.startswith("순현금·기업가치 상태:"):
+                  return (
+                      "SOURCE_DATA_GAP",
+                      "NETCASH_INPUT",
+                      "시가총액·현금·승인 core debt 원천 보강 필요",
+                  )
+              return (
+                  "UNCLASSIFIED_REVIEW",
+                  "UNKNOWN",
+                  "자동 분류되지 않은 blocker이므로 사람 검토 필요",
+              )
+
+
+          def run_scorer():
+              old = {
+                  "VERSION": scorer.VERSION,
+                  "OUT_CSV": scorer.OUT_CSV,
+                  "OUT_JSON": scorer.OUT_JSON,
+                  "OUT_LOG": scorer.OUT_LOG,
+                  "OUT_DOC": scorer.OUT_DOC,
+              }
+              try:
+                  scorer.VERSION = VERSION
+                  scorer.OUT_CSV = TMP_CSV
+                  scorer.OUT_JSON = TMP_JSON
+                  scorer.OUT_LOG = TMP_LOG
+                  scorer.OUT_DOC = TMP_DOC
+                  rc = scorer.main()
+              finally:
+                  for k, v in old.items():
+                      setattr(scorer, k, v)
+              if rc not in (None, 0):
+                  raise RuntimeError(f"V8123_SCORER_FAILED:{rc}")
+
+
+          def recovery_status(code, source_group, single, da_exhausted, frozen_elasticity):
+              if source_group == "V880_SCORING_CONTRACT":
+                  return "POLICY_SEMANTIC_DEFER"
+
+              if source_group == "EXACT_DA_SOURCE" and code in da_exhausted:
+                  return "EXHAUSTED_APPROVED_OFFICIAL_DA_PATHS"
+
+              if code == "001020" and source_group in {
+                  "PRODUCTION_PRICE_METRICS",
+                  "PRICE_ELASTICITY_20D",
+              }:
+                  return "EXHAUSTED_V8104_OFFICIAL_KRX_OHLC_INCOMPLETE"
+
+              if code == "357250" and source_group == "INVESTMENT_SCORE_SOURCE_CACHE":
+                  return "EXHAUSTED_V8104_OFFICIAL_FULL_ACCOUNT_INCOMPLETE"
+
+              if source_group == "PRICE_ELASTICITY_20D" and code in frozen_elasticity:
+                  return "SOURCE_FROZEN_V8122_READY_FOR_STAGE"
+
+              if single:
+                  return "ACTIONABLE_SINGLE_BLOCKER_REAUDIT"
+
+              return "MULTI_BLOCKER_SOURCE_LANE"
+
+
+          def main():
+              for p in (V8103, V8104, V8120, V8122):
+                  if not p.is_file():
+                      raise RuntimeError("V8123_MISSING_INPUT:" + str(p))
+
+              s8103 = read_json(V8103)
+              s8104 = read_json(V8104)
+              s8120 = read_json(V8120)
+              s8122 = read_json(V8122)
+
+              if s8103.get("version") != "2026-09-15-v8.10.3-current-single-da-recoverability-audit":
+                  raise RuntimeError("V8123_V8103_VERSION_MISMATCH")
+              if set(s8104.get("targets") or []) != V8104_EXHAUSTED:
+                  raise RuntimeError("V8123_V8104_TARGET_MISMATCH")
+              if s8120.get("version") != V8120_VERSION:
+                  raise RuntimeError("V8123_V8120_VERSION_MISMATCH")
+              if s8120.get("status") != "AUDIT_ONLY":
+                  raise RuntimeError("V8123_V8120_STATUS_MISMATCH")
+              if int(s8120.get("both_approved_exact_recoverable_count") or 0) != 0:
+                  raise RuntimeError("V8123_V8120_RECOVERABLE_NOT_ZERO")
+              if int(s8120.get("no_approved_exact_count") or 0) != 17:
+                  raise RuntimeError("V8123_V8120_NO_EXACT_COUNT_CHANGED")
+              if s8122.get("version") != V8122_VERSION:
+                  raise RuntimeError("V8123_V8122_VERSION_MISMATCH")
+              if s8122.get("status") != "SOURCE_ONLY_FROZEN_SHADOW_PASS":
+                  raise RuntimeError("V8123_V8122_STATUS_MISMATCH")
+              if int(s8122.get("source_frozen_count") or 0) != 8:
+                  raise RuntimeError("V8123_V8122_FROZEN_COUNT_CHANGED")
+              if int(s8122.get("non_target_score_row_changed_count") or 0) != 0:
+                  raise RuntimeError("V8123_V8122_DRIFT_NOT_ZERO")
+
+              da_exhausted = set(s8103.get("currently_exhausted_tickers") or [])
+              da_exhausted |= set(s8120.get("no_approved_exact_tickers") or [])
+              if len(da_exhausted) != 27:
+                  raise RuntimeError(f"V8123_DA_EXHAUSTED_UNION_NOT_27:{len(da_exhausted)}")
+
+              frozen_elasticity = set(s8122.get("source_frozen_tickers") or [])
+              if len(frozen_elasticity) != 8:
+                  raise RuntimeError("V8123_FROZEN_ELASTICITY_SET_NOT_8")
+
+              run_scorer()
+              rows = read_rows(TMP_CSV)
+              ready = [r for r in rows if r.get("score_status") == "READY"]
+              limited = [r for r in rows if r.get("score_status") == "LIMITED"]
+              if len(ready) + len(limited) != len(rows):
+                  raise RuntimeError("V8123_UNKNOWN_STATUS")
+
+              out_rows = []
+              reason_counter = Counter()
+              category_counter = Counter()
+              source_counter = Counter()
+              single_counter = Counter()
+              actionable_counter = Counter()
+              frozen_active_counter = Counter()
+              recovery_counter = Counter()
+              source_tickers = defaultdict(set)
+
+              for row in limited:
+                  reasons = split_reasons(row.get("missing_components"))
+                  if not reasons:
+                      raise RuntimeError("V8123_LIMITED_WITHOUT_REASON:" + ticker(row.get("ticker")))
+                  code = ticker(row.get("ticker"))
+                  single = len(reasons) == 1
+
+                  for reason in reasons:
+                      category, group, note = classify(reason)
+                      status = recovery_status(
+                          code, group, single, da_exhausted, frozen_elasticity
+                      )
+
+                      reason_counter[reason] += 1
+                      category_counter[category] += 1
+                      source_counter[group] += 1
+                      source_tickers[group].add(code)
+                      recovery_counter[status] += 1
+
+                      if single:
+                          single_counter[group] += 1
+                          if status == "ACTIONABLE_SINGLE_BLOCKER_REAUDIT":
+                              actionable_counter[group] += 1
+                          if status == "SOURCE_FROZEN_V8122_READY_FOR_STAGE":
+                              frozen_active_counter[group] += 1
+
+                      out_rows.append({
+                          "ticker": code,
+                          "name": row.get("name") or "",
+                          "market": row.get("market") or "",
+                          "missing_component_count": len(reasons),
+                          "blocker_reason": reason,
+                          "blocker_category": category,
+                          "source_group": group,
+                          "single_blocker_ticker": "TRUE" if single else "FALSE",
+                          "recovery_status": status,
+                          "audit_note": note,
+                      })
+
+              if not out_rows:
+                  raise RuntimeError("V8123_NO_BLOCKERS")
+
+              out_rows.sort(
+                  key=lambda r: (
+                      int(r["missing_component_count"]),
+                      r["ticker"],
+                      r["blocker_reason"],
+                  )
+              )
+
+              OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+              fields = list(out_rows[0].keys())
+              with OUT_CSV.open("w", encoding="utf-8-sig", newline="") as f:
+                  w = csv.DictWriter(f, fieldnames=fields, lineterminator="\n")
+                  w.writeheader()
+                  w.writerows(out_rows)
+
+              priority = []
+              for group, count in source_counter.most_common():
+                  priority.append({
+                      "source_group": group,
+                      "blocker_occurrences": count,
+                      "ticker_count": len(source_tickers[group]),
+                      "single_blocker_tickers": single_counter.get(group, 0),
+                      "actionable_single_blocker_tickers": actionable_counter.get(group, 0),
+                      "frozen_source_ready_single_tickers": frozen_active_counter.get(group, 0),
+                  })
+
+              frozen_groups = [
+                  x for x in priority
+                  if x["frozen_source_ready_single_tickers"] > 0
+              ]
+              frozen_groups.sort(
+                  key=lambda x: (
+                      -x["frozen_source_ready_single_tickers"],
+                      -x["blocker_occurrences"],
+                      x["source_group"],
+                  )
+              )
+
+              actionable_groups = [
+                  x for x in priority
+                  if x["source_group"] != "V880_SCORING_CONTRACT"
+                  and x["actionable_single_blocker_tickers"] > 0
+              ]
+              actionable_groups.sort(
+                  key=lambda x: (
+                      -x["actionable_single_blocker_tickers"],
+                      -x["blocker_occurrences"],
+                      x["source_group"],
+                  )
+              )
+
+              if frozen_groups:
+                  next_group = frozen_groups[0]["source_group"]
+                  next_reason = "FROZEN_SOURCE_ALREADY_VALIDATED_FOR_ACTIVE_SINGLE_BLOCKER"
+                  next_step = "STAGE_FROZEN_SOURCE_FOR_CURRENT_ACTIVE_TARGETS"
+              elif actionable_groups:
+                  next_group = actionable_groups[0]["source_group"]
+                  next_reason = "HIGHEST_ACTIONABLE_SINGLE_BLOCKER_COUNT"
+                  next_step = "AUDIT_NEXT_ACTIONABLE_SOURCE_GROUP_FROM_V8123"
+              else:
+                  multi = [
+                      x for x in priority
+                      if x["source_group"] != "V880_SCORING_CONTRACT"
+                  ]
+                  multi.sort(
+                      key=lambda x: (-x["blocker_occurrences"], x["source_group"])
+                  )
+                  next_group = multi[0]["source_group"] if multi else "NONE"
+                  next_reason = "NO_ACTIONABLE_SINGLE_USE_LARGEST_NONPOLICY_GROUP"
+                  next_step = "AUDIT_LARGEST_CURRENT_MULTI_BLOCKER_SOURCE_GROUP"
+
+              summary = {
+                  "version": VERSION,
+                  "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+                  "status": "AUDIT_ONLY",
+                  "policy_version": POLICY_VERSION,
+                  "v8122_result_commit": V8122_RESULT_COMMIT,
+                  "scorer_universe_count": len(rows),
+                  "ready_count": len(ready),
+                  "limited_count": len(limited),
+                  "ready_pct": round(len(ready) * 100.0 / len(rows), 4) if rows else 0,
+                  "limited_blocker_occurrences": len(out_rows),
+                  "blocker_category_counts": dict(category_counter),
+                  "source_group_counts": dict(source_counter),
+                  "recovery_status_counts": dict(recovery_counter),
+                  "source_priority": priority,
+                  "known_exhausted_evidence": {
+                      "exact_da_exhausted_union_count": len(da_exhausted),
+                      "exact_da_exhausted_union_tickers": sorted(da_exhausted),
+                      "v8104_exhausted_tickers": sorted(V8104_EXHAUSTED),
+                  },
+                  "frozen_price_elasticity_evidence": {
+                      "source_frozen_count": len(frozen_elasticity),
+                      "source_frozen_tickers": sorted(frozen_elasticity),
+                      "currently_active_frozen_single_blocker_count": sum(
+                          frozen_active_counter.values()
+                      ),
+                  },
+                  "next_actionable_source_group": next_group,
+                  "next_actionable_selection_reason": next_reason,
+                  "hard_guards": {
+                      "production_price_elasticity_cache_modified": False,
+                      "production_source_cache_modified": False,
+                      "production_financial_cache_modified": False,
+                      "production_api_modified": False,
+                      "production_investment_score_written": False,
+                      "scoring_policy_modified": False,
+                      "exhausted_lane_auto_requeried": False,
+                      "frozen_source_force_inserted_for_inactive_ticker": False,
+                      "source_value_imputed": False,
+                  },
+                  "next_step": next_step,
+              }
+
+              OUT_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+
+              OUT_LOG.write_text(
+                  "\n".join([
+                      f"VERSION={VERSION}",
+                      "STATUS=AUDIT_ONLY",
+                      f"SCORER_UNIVERSE={len(rows)}",
+                      f"READY={len(ready)}",
+                      f"LIMITED={len(limited)}",
+                      f"BLOCKER_OCCURRENCES={len(out_rows)}",
+                      f"EXACT_DA_EXHAUSTED_UNION={len(da_exhausted)}",
+                      f"FROZEN_PRICE_ELASTICITY_COUNT={len(frozen_elasticity)}",
+                      f"ACTIVE_FROZEN_SINGLE_BLOCKERS={sum(frozen_active_counter.values())}",
+                      f"NEXT_ACTIONABLE_SOURCE_GROUP={next_group}",
+                      f"NEXT_ACTIONABLE_SELECTION_REASON={next_reason}",
+                      "PRODUCTION_DATA_MODIFIED=false",
+                      "SCORING_POLICY_MODIFIED=false",
+                      "EXHAUSTED_LANE_AUTO_REQUERIED=false",
+                      "STATUS_OK=true",
+                      f"NEXT_STEP={next_step}",
+                  ]) + "\n",
+                  encoding="utf-8",
+              )
+
+              OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+              OUT_DOC.write_text(
+                  "\n".join([
+                      "# V8.12.3 current blocker reaudit after universe drift",
+                      "",
+                      f"- Current scorer universe: {len(rows)}",
+                      f"- READY / LIMITED: {len(ready)} / {len(limited)}",
+                      f"- Blocker occurrences: {len(out_rows)}",
+                      f"- Exact D&A exhausted union: {len(da_exhausted)}",
+                      f"- Frozen price-elasticity sources preserved: {len(frozen_elasticity)}",
+                      f"- Next actionable source group: `{next_group}`",
+                      f"- Next step: `{next_step}`",
+                      "",
+                      "No production cache, API, or scoring policy is modified.",
+                      "",
+                  ]),
+                  encoding="utf-8",
+              )
+
+              print("V8123_CURRENT_BLOCKER_REAUDIT=PASS")
+
+
+          if __name__ == "__main__":
+              main()
+
+          PY
+
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("investment_score_current_blocker_reaudit_v8123.py")
+          t = p.read_text(encoding="utf-8")
+          p.write_text(t.rstrip() + "\n", encoding="utf-8", newline="\n")
+          assert not p.read_bytes().endswith(b"\n\n")
+          print("V8123_AUDITOR_EOF_NORMALIZED=PASS")
+          PY
+
+          python -m py_compile investment_score_current_blocker_reaudit_v8123.py
+
+          python investment_score_current_blocker_reaudit_v8123.py \
+            | tee /tmp/v8123_stdout.txt
+
+          grep -q '^V8123_CURRENT_BLOCKER_REAUDIT=PASS$' /tmp/v8123_stdout.txt
+          grep -q '^STATUS_OK=true$' \
+            latest/investment_score_current_blockers_v8123_run_log_latest.txt
+          grep -q '^EXHAUSTED_LANE_AUTO_REQUERIED=false$' \
+            latest/investment_score_current_blockers_v8123_run_log_latest.txt
+          grep -q '^PRODUCTION_DATA_MODIFIED=false$' \
+            latest/investment_score_current_blockers_v8123_run_log_latest.txt
+
+      - name: Validate V8.12.3 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          s = json.loads(
+              Path(
+                  "latest/investment_score_current_blockers_v8123_summary_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          assert s["version"] == "2026-09-21-v8.12.3-current-blocker-reaudit-after-universe-drift"
+          assert s["status"] == "AUDIT_ONLY"
+          assert s["v8122_result_commit"] == "83f3f06827615889d2cf228a02fba90fd6586ac1"
+          assert s["known_exhausted_evidence"]["exact_da_exhausted_union_count"] == 27
+          assert s["frozen_price_elasticity_evidence"]["source_frozen_count"] == 8
+          assert s["ready_count"] + s["limited_count"] == s["scorer_universe_count"]
+          assert s["limited_blocker_occurrences"] > 0
+          assert s["next_actionable_source_group"]
+          assert s["next_step"] in {
+              "STAGE_FROZEN_SOURCE_FOR_CURRENT_ACTIVE_TARGETS",
+              "AUDIT_NEXT_ACTIONABLE_SOURCE_GROUP_FROM_V8123",
+              "AUDIT_LARGEST_CURRENT_MULTI_BLOCKER_SOURCE_GROUP",
+          }
+
+          h = s["hard_guards"]
+          assert all(v is False for v in h.values())
+
+          with Path(
+              "latest/investment_score_current_blockers_v8123.csv"
+          ).open(encoding="utf-8-sig", newline="") as f:
+              rows = list(csv.DictReader(f))
+          assert len(rows) == s["limited_blocker_occurrences"]
+
+          print("V8123_OUTPUT_VALIDATION=PASS")
+          PY
+
+      - name: Verify production state unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_source_cache_latest.csv \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_exact_da_actionable_v8120_summary_latest.json \
+            latest/investment_score_price_elasticity_shadow_v8122_summary_latest.json \
+            > /tmp/v8123_protected.after
+
+          diff -u /tmp/v8123_protected.before /tmp/v8123_protected.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -name '*.json' -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8123_api.after
+          diff -u /tmp/v8123_api.before /tmp/v8123_api.after
+
+          echo "V8123_PRODUCTION_STATE_UNCHANGED=PASS"
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "investment_score_current_blocker_reaudit_v8123.py",
+              "latest/investment_score_current_blockers_v8123.csv",
+              "latest/investment_score_current_blockers_v8123_summary_latest.json",
+              "latest/investment_score_current_blockers_v8123_run_log_latest.txt",
+              "docs/investment_score_current_blockers_v8123.md",
+          }
+
+          changed = {
+              line[3:]
+              for line in subprocess.check_output(
+                  ["git","status","--porcelain","--untracked-files=all"],
+                  text=True,
+              ).splitlines()
+              if line
+          }
+
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit(
+                  "V8123_UNEXPECTED_CHANGED_FILES:" + ",".join(unexpected)
+              )
+
+          print("V8123_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+      - name: Refuse concurrent protected drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "investment_score_dry_run_v882.py",
+              "latest/investment_score_price_elasticity_20d_latest.csv",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/investment_score_ocf_source_latest.csv",
+              "latest/investment_score_exact_da_actionable_v8120_summary_latest.json",
+              "latest/investment_score_price_elasticity_shadow_v8122_summary_latest.json",
+          }
+
+          upstream = set(
+              subprocess.check_output(
+                  ["git","diff","--name-only","HEAD..origin/main"],
+                  text=True,
+              ).splitlines()
+          )
+          dangerous = sorted(
+              p for p in upstream
+              if p in protected or p.startswith("api/two_table_v1/")
+          )
+          if dangerous:
+              raise SystemExit(
+                  "V8123_CONCURRENT_PROTECTED_DRIFT:" + ",".join(dangerous)
+              )
+
+          print("V8123_NO_CONCURRENT_PROTECTED_DRIFT=PASS")
+          PY
+
+      - name: Commit and push audit-only outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_current_blocker_reaudit_v8123.py \
+            latest/investment_score_current_blockers_v8123.csv \
+            latest/investment_score_current_blockers_v8123_summary_latest.json \
+            latest/investment_score_current_blockers_v8123_run_log_latest.txt \
+            docs/investment_score_current_blockers_v8123.md
+
+          git diff --cached --check
+          echo "V8123_GIT_DIFF_CHECK=PASS"
+
+          git commit -m "Reaudit current investment score blockers v8.12.3"
+          git pull --rebase origin main
+          git push origin HEAD:main

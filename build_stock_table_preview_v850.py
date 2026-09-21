@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from stock_table_metrics_v850 import CONTRACT, VERSION, indicators, number
+from investment_score_supply_overlay_v8139b import load_supply_source
 
 
 HEADERS = ["추천/종목", "요청시점 현재가", "평균등락일수", "연속등락",
@@ -26,6 +27,7 @@ HEADERS = ["추천/종목", "요청시점 현재가", "평균등락일수", "연
 COMPACT_COLUMNS = ["name", "ticker", "official_close", "run", "streak", "range_3m",
     "swing", "ma", "returns", "rs_kospi_pp", "atr14", "activity", "analysis", "sector_theme"]
 GLOSSARY_PATH = "latest/stock_table_metric_glossary_latest.json"
+SUPPLY_SOURCE_PATH = "latest/investment_score_supply_source_latest.csv"
 
 
 def read_csv(path):
@@ -80,11 +82,12 @@ def build(repo, output):
         raise ValueError("OUTPUT_MUST_BE_NEW_DIRECTORY")
     inputs = ["api/status.json", "api/kospi_watchlist.json", "latest/universe_raw_history_latest.csv",
         "latest/kospi_universe_summary_latest.csv", "latest/official_index_history_latest.csv",
-        GLOSSARY_PATH]
+        GLOSSARY_PATH, SUPPLY_SOURCE_PATH]
     hashes = {p: digest(repo/p) for p in inputs}
     status = json.loads((repo/inputs[0]).read_text(encoding="utf-8"))
     kospi = json.loads((repo/inputs[1]).read_text(encoding="utf-8"))
     glossary = json.loads((repo/GLOSSARY_PATH).read_text(encoding="utf-8"))
+    supply_source = load_supply_source(repo/SUPPLY_SOURCE_PATH)
     glossary_version = glossary.get("version")
     glossary_footer = glossary.get("compact_footer_text")
     glossary_terms = glossary.get("terms")
@@ -139,6 +142,7 @@ def build(repo, output):
         if m["status"] != "OK":
             skipped[m["status"]] += 1
         legacy = selected.get(code, {})
+        verified_supply = supply_source.get(code, {})
         def source_range(low, high):
             lo, hi = number(source.get(low)), number(source.get(high))
             return f"{lo:g}~{hi:g}" if lo is not None and hi is not None else None
@@ -150,9 +154,9 @@ def build(repo, output):
                 "first_sell_target_range": legacy.get("first_sell_target_range") or source_range("target1_ref", "target2_ref"),
                 "operating_profit": legacy.get("operating_profit_text") or source.get("operating_profit"),
                 "earnings_trend": legacy.get("earnings_trend"), "per": legacy.get("per_annualized"), "pbr": legacy.get("pbr"),
-                "supply_status": legacy.get("supply_check_status") or source.get("supply_check_status"),
-                "supply_level": legacy.get("supply_burden_level") or source.get("supply_burden_level"),
-                "supply_keywords": legacy.get("supply_burden_keywords") or source.get("supply_burden_keywords"),
+                "supply_status": verified_supply.get("supply_status") or legacy.get("supply_check_status") or source.get("supply_check_status"),
+                "supply_level": verified_supply.get("supply_level") or legacy.get("supply_burden_level") or source.get("supply_burden_level"),
+                "supply_keywords": verified_supply.get("risk_keywords") or legacy.get("supply_burden_keywords") or source.get("supply_burden_keywords"),
                 "legacy_score_not_100_scale": legacy.get("score")}}
         if source.get("last_date") != basis:
             rows[code]["analysis"] = {"basis_date": source.get("last_date"), "status": "STALE_SUMMARY_NOT_USED"}

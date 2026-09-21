@@ -1,0 +1,52 @@
+{
+  "version": "2026-09-21-v8.13.9B-controlled-production-supply-source-integration",
+  "status": "PRODUCTION_SOURCE_READY_NOT_YET_API_REBUILT",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "supply_policy_version": "2026-07-01-v6.0-supply-status-separated",
+  "promoted_from_candidate_version": "2026-09-21-v8.13.8b-stage-current-universe-supply-source-integration",
+  "promoted_from_candidate_commit": "e0e0ca3ffd195ca8989f7024f088858bc5ad226f",
+  "source_count": 8,
+  "source_tickers": [
+    "001440",
+    "007540",
+    "029780",
+    "066570",
+    "071840",
+    "084690",
+    "086280",
+    "114090"
+  ],
+  "supply_levels": {
+    "001440": "위험",
+    "007540": "없음",
+    "029780": "주의",
+    "066570": "주의",
+    "071840": "없음",
+    "084690": "주의",
+    "086280": "주의",
+    "114090": "없음"
+  },
+  "candidate_regression": {
+    "ready_count": 27,
+    "limited_count": 122,
+    "blocker_occurrences": 724,
+    "supply_reason_removed_count": 8,
+    "non_target_score_row_changed_count": 0,
+    "existing_ready_score_row_changed_count": 0
+  },
+  "integration": {
+    "builder": "build_stock_table_preview_v850.py",
+    "overlay_module": "investment_score_supply_overlay_v8139b.py",
+    "precedence": "VERIFIED_SUPPLY_SOURCE_OVER_LEGACY_WHOLE_MARKET_SCAN",
+    "production_api_rebuilt": false
+  },
+  "next_step": "REBUILD_TWO_TABLE_WITH_PRODUCTION_SUPPLY_SOURCE_V8140",
+  "preview_validation": {
+    "two_table_union_count": 149,
+    "ready_count": 27,
+    "limited_count": 122,
+    "blocker_occurrences": 724,
+    "verified_source_rows_applied": 8,
+    "production_api_modified": false
+  }
+}

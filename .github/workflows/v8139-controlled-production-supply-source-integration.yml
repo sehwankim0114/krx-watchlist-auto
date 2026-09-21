@@ -1,0 +1,613 @@
+name: Controlled production supply source integration v8.13.9
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8139-controlled-production-supply-source-integration.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8139-production-supply-source-integration
+  cancel-in-progress: false
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify V8.13.8B lineage and capture protected hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git merge-base --is-ancestor             e0e0ca3ffd195ca8989f7024f088858bc5ad226f HEAD
+
+          sha256sum             config/investment_score_policy_v880.json             investment_score_dry_run_v882.py             supply_burden_enricher.py             stock_table_metrics_v850.py             two_table_release_v870.py             latest/investment_score_source_cache_latest.csv             latest/financial_valuation_cache_latest.csv             latest/investment_score_price_elasticity_20d_latest.csv             latest/investment_score_ocf_source_latest.csv             latest/investment_score_supply_candidate_v8138b.csv             latest/investment_score_supply_candidate_v8138b_summary_latest.json             latest/investment_score_supply_candidate_v8138b_regression.csv             > /tmp/v8139_protected.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -name '*.json' -print0             | sort -z | xargs -0 sha256sum             > /tmp/v8139_api.before
+
+          echo "V8139_LINEAGE=PASS"
+
+      - name: Promote verified supply source
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > investment_score_supply_overlay_v8139.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import csv
+          import re
+          from pathlib import Path
+
+          VERSION = "2026-09-21-v8.13.9-controlled-production-supply-source-integration"
+          VALID_LEVELS = {"없음", "주의", "경계", "위험"}
+
+          def ticker(value):
+              s = re.sub(r"[^0-9]", "", str(value or "").strip())
+              return s.zfill(6) if s else ""
+
+          def load_supply_source(path):
+              path = Path(path)
+              if not path.is_file():
+                  return {}
+
+              with path.open(encoding="utf-8-sig", newline="") as f:
+                  rows = list(csv.DictReader(f))
+
+              out = {}
+              for row in rows:
+                  code = ticker(row.get("ticker"))
+                  if not code:
+                      raise RuntimeError("V8139_INVALID_TICKER")
+                  if code in out:
+                      raise RuntimeError("V8139_DUPLICATE_TICKER:" + code)
+                  if row.get("source_status") != "SOURCE_ONLY_READY":
+                      raise RuntimeError("V8139_SOURCE_NOT_READY:" + code)
+                  if row.get("supply_status") != "OK":
+                      raise RuntimeError("V8139_SUPPLY_NOT_OK:" + code)
+                  if row.get("supply_level") not in VALID_LEVELS:
+                      raise RuntimeError("V8139_LEVEL_INVALID:" + code)
+                  out[code] = dict(row)
+
+              return out
+          PY
+
+          python - <<'PY'
+          import csv
+          import json
+          import shutil
+          from pathlib import Path
+
+          candidate_csv = Path(
+              "latest/investment_score_supply_candidate_v8138b.csv"
+          )
+          candidate_json = Path(
+              "latest/investment_score_supply_candidate_v8138b_summary_latest.json"
+          )
+          prod_csv = Path(
+              "latest/investment_score_supply_source_latest.csv"
+          )
+          prod_json = Path(
+              "latest/investment_score_supply_source_latest.json"
+          )
+          prod_log = Path(
+              "latest/investment_score_supply_source_run_log_latest.txt"
+          )
+
+          expected = {
+              "001440": ("대한전선", "위험"),
+              "007540": ("샘표", "없음"),
+              "029780": ("삼성카드", "주의"),
+              "066570": ("LG전자", "주의"),
+              "071840": ("롯데하이마트", "없음"),
+              "084690": ("대상홀딩스", "주의"),
+              "086280": ("현대글로비스", "주의"),
+              "114090": ("GKL", "없음"),
+          }
+
+          summary = json.loads(
+              candidate_json.read_text(encoding="utf-8")
+          )
+          assert summary["version"] == (
+              "2026-09-21-v8.13.8b-stage-current-universe-supply-source-integration"
+          )
+          assert summary["status"] == "STAGED_CANDIDATE_REGRESSION_PASS"
+          assert summary["source_candidate_count"] == 8
+          assert set(summary["source_candidate_tickers"]) == set(expected)
+          assert summary["candidate_ready_count"] == 27
+          assert summary["candidate_limited_count"] == 122
+          assert summary["candidate_blocker_occurrences"] == 724
+          assert summary["blocker_occurrences_reduced_by"] == 8
+          assert summary["supply_reason_removed_count"] == 8
+          assert summary["non_target_score_row_changed_count"] == 0
+          assert summary["existing_ready_score_row_changed_count"] == 0
+          assert summary["next_step"] == (
+              "CONTROLLED_PRODUCTION_SUPPLY_INTEGRATION_V8139"
+          )
+          assert all(
+              value is False
+              for value in summary["hard_guards"].values()
+          )
+
+          with candidate_csv.open(
+              encoding="utf-8-sig",
+              newline="",
+          ) as f:
+              rows = list(csv.DictReader(f))
+
+          assert len(rows) == 8
+          by = {r["ticker"]: r for r in rows}
+          assert set(by) == set(expected)
+
+          for code, (name, level) in expected.items():
+              row = by[code]
+              assert row["name"] == name
+              assert row["source_status"] == "SOURCE_ONLY_READY"
+              assert row["supply_status"] == "OK"
+              assert row["supply_level"] == level
+              assert row["audit_start_date"] == "2026-03-26"
+              assert row["audit_end_date"] == "2026-09-21"
+              assert row["requested_lookback_days"] == "180"
+
+          shutil.copyfile(candidate_csv, prod_csv)
+
+          meta = {
+              "version": (
+                  "2026-09-21-v8.13.9-controlled-production-supply-source-integration"
+              ),
+              "status": "PRODUCTION_SOURCE_READY_NOT_YET_API_REBUILT",
+              "policy_version": (
+                  "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+              ),
+              "supply_policy_version": (
+                  "2026-07-01-v6.0-supply-status-separated"
+              ),
+              "promoted_from_candidate_version": summary["version"],
+              "promoted_from_candidate_commit": (
+                  "e0e0ca3ffd195ca8989f7024f088858bc5ad226f"
+              ),
+              "source_count": 8,
+              "source_tickers": sorted(expected),
+              "supply_levels": {
+                  code: level
+                  for code, (_, level) in sorted(expected.items())
+              },
+              "candidate_regression": {
+                  "ready_count": 27,
+                  "limited_count": 122,
+                  "blocker_occurrences": 724,
+                  "supply_reason_removed_count": 8,
+                  "non_target_score_row_changed_count": 0,
+                  "existing_ready_score_row_changed_count": 0,
+              },
+              "integration": {
+                  "builder": "build_stock_table_preview_v850.py",
+                  "overlay_module": (
+                      "investment_score_supply_overlay_v8139.py"
+                  ),
+                  "precedence": (
+                      "VERIFIED_SUPPLY_SOURCE_OVER_LEGACY_WHOLE_MARKET_SCAN"
+                  ),
+                  "production_api_rebuilt": False,
+              },
+              "next_step": (
+                  "REBUILD_TWO_TABLE_WITH_PRODUCTION_SUPPLY_SOURCE_V8140"
+              ),
+          }
+          prod_json.write_text(
+              json.dumps(meta, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+
+          prod_log.write_text(
+              "\n".join([
+                  "VERSION=2026-09-21-v8.13.9-controlled-production-supply-source-integration",
+                  "STATUS=PRODUCTION_SOURCE_READY_NOT_YET_API_REBUILT",
+                  "SOURCE_COUNT=8",
+                  "CANDIDATE_READY=27",
+                  "CANDIDATE_LIMITED=122",
+                  "CANDIDATE_BLOCKERS=724",
+                  "SUPPLY_REASON_REMOVED=8",
+                  "PRODUCTION_API_REBUILT=false",
+                  "SCORING_POLICY_MODIFIED=false",
+                  "SUPPLY_POLICY_MODIFIED=false",
+                  "STATUS_OK=true",
+                  "NEXT_STEP=REBUILD_TWO_TABLE_WITH_PRODUCTION_SUPPLY_SOURCE_V8140",
+              ]) + "\n",
+              encoding="utf-8",
+          )
+
+          print("V8139_SOURCE_PROMOTION=PASS")
+          PY
+
+      - name: Install persistent two-table builder hook
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path("build_stock_table_preview_v850.py")
+          text = p.read_text(encoding="utf-8")
+
+          if "investment_score_supply_overlay_v8139" in text:
+              raise SystemExit(
+                  "V8139_BUILDER_ALREADY_PATCHED_UNEXPECTEDLY"
+              )
+
+          old = (
+              "from stock_table_metrics_v850 import "
+              "CONTRACT, VERSION, indicators, number\n"
+          )
+          new = (
+              old
+              + "from investment_score_supply_overlay_v8139 "
+                "import load_supply_source\n"
+          )
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = (
+              'GLOSSARY_PATH = '
+              '"latest/stock_table_metric_glossary_latest.json"\n'
+          )
+          new = (
+              old
+              + 'SUPPLY_SOURCE_PATH = '
+                '"latest/investment_score_supply_source_latest.csv"\n'
+          )
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = "\n".join([
+              '    inputs = ["api/status.json", "api/kospi_watchlist.json", "latest/universe_raw_history_latest.csv",',
+              '        "latest/kospi_universe_summary_latest.csv", "latest/official_index_history_latest.csv",',
+              '        GLOSSARY_PATH]',
+              '',
+          ])
+          new = "\n".join([
+              '    inputs = ["api/status.json", "api/kospi_watchlist.json", "latest/universe_raw_history_latest.csv",',
+              '        "latest/kospi_universe_summary_latest.csv", "latest/official_index_history_latest.csv",',
+              '        GLOSSARY_PATH, SUPPLY_SOURCE_PATH]',
+              '',
+          ])
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = "\n".join([
+              '    glossary = json.loads((repo/GLOSSARY_PATH).read_text(encoding="utf-8"))',
+              '    glossary_version = glossary.get("version")',
+              '',
+          ])
+          new = "\n".join([
+              '    glossary = json.loads((repo/GLOSSARY_PATH).read_text(encoding="utf-8"))',
+              '    supply_source = load_supply_source(repo/SUPPLY_SOURCE_PATH)',
+              '    glossary_version = glossary.get("version")',
+              '',
+          ])
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = "\n".join([
+              '        legacy = selected.get(code, {})',
+              '        def source_range(low, high):',
+          ])
+          new = "\n".join([
+              '        legacy = selected.get(code, {})',
+              '        verified_supply = supply_source.get(code, {})',
+              '        def source_range(low, high):',
+          ])
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = "\n".join([
+              '                "supply_status": legacy.get("supply_check_status") or source.get("supply_check_status"),',
+              '                "supply_level": legacy.get("supply_burden_level") or source.get("supply_burden_level"),',
+              '                "supply_keywords": legacy.get("supply_burden_keywords") or source.get("supply_burden_keywords"),',
+          ])
+          new = "\n".join([
+              '                "supply_status": verified_supply.get("supply_status") or legacy.get("supply_check_status") or source.get("supply_check_status"),',
+              '                "supply_level": verified_supply.get("supply_level") or legacy.get("supply_burden_level") or source.get("supply_burden_level"),',
+              '                "supply_keywords": verified_supply.get("risk_keywords") or legacy.get("supply_burden_keywords") or source.get("supply_burden_keywords"),',
+          ])
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          p.write_text(
+              text.rstrip() + "\n",
+              encoding="utf-8",
+              newline="\n",
+          )
+          print("V8139_BUILDER_PATCH=PASS")
+          PY
+
+          python -m py_compile             investment_score_supply_overlay_v8139.py             build_stock_table_preview_v850.py
+
+      - name: Validate source integration in read-only preview
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf /tmp/v8139_preview
+
+          python build_stock_table_preview_v850.py             --repo .             --output-dir /tmp/v8139_preview             | tee /tmp/v8139_preview_stdout.txt
+
+          grep -q '^V850_DATA_PREVIEW=PASS$'             /tmp/v8139_preview_stdout.txt
+          grep -q '^SOURCE_FILES_UNCHANGED=PASS$'             /tmp/v8139_preview_stdout.txt
+
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          import investment_score_dry_run_v882 as scorer
+
+          expected = {
+              "001440": "위험",
+              "007540": "없음",
+              "029780": "주의",
+              "066570": "주의",
+              "071840": "없음",
+              "084690": "주의",
+              "086280": "주의",
+              "114090": "없음",
+          }
+
+          def preview_rows():
+              out = {}
+              for name in ("kospi", "decliners", "decliners24"):
+                  payload = json.loads(
+                      Path(
+                          f"/tmp/v8139_preview/{name}.json"
+                      ).read_text(encoding="utf-8")
+                  )
+                  for row in payload.get("rows") or []:
+                      out[row["ticker"]] = row
+              return out
+
+          prod = preview_rows()
+          assert len(prod) == 149
+          assert set(expected) <= set(prod)
+
+          for code, level in expected.items():
+              analysis = prod[code].get("analysis") or {}
+              assert analysis.get("supply_status") == "OK"
+              assert analysis.get("supply_level") == level
+
+          out_csv = Path("/tmp/v8139_score.csv")
+          out_json = Path("/tmp/v8139_score.json")
+          out_log = Path("/tmp/v8139_score.log")
+          out_doc = Path("/tmp/v8139_score.md")
+
+          original = scorer.production_rows
+          old = {
+              "VERSION": scorer.VERSION,
+              "OUT_CSV": scorer.OUT_CSV,
+              "OUT_JSON": scorer.OUT_JSON,
+              "OUT_LOG": scorer.OUT_LOG,
+              "OUT_DOC": scorer.OUT_DOC,
+          }
+          try:
+              scorer.VERSION = (
+                  "2026-09-21-v8.13.9-controlled-production-supply-source-integration"
+              )
+              scorer.production_rows = preview_rows
+              scorer.OUT_CSV = out_csv
+              scorer.OUT_JSON = out_json
+              scorer.OUT_LOG = out_log
+              scorer.OUT_DOC = out_doc
+              rc = scorer.main()
+          finally:
+              scorer.production_rows = original
+              for key, value in old.items():
+                  setattr(scorer, key, value)
+
+          assert rc in (None, 0)
+
+          summary = json.loads(
+              out_json.read_text(encoding="utf-8")
+          )
+          assert summary["ready_count"] == 27
+          assert summary["limited_count"] == 122
+
+          with out_csv.open(
+              encoding="utf-8-sig",
+              newline="",
+          ) as f:
+              rows = list(csv.DictReader(f))
+
+          blockers = sum(
+              int(r.get("missing_component_count") or 0)
+              for r in rows
+          )
+          assert blockers == 724
+
+          print("V8139_PREVIEW_SOURCE_OVERLAY=PASS")
+          print("V8139_PREVIEW_READY=27")
+          print("V8139_PREVIEW_LIMITED=122")
+          print("V8139_PREVIEW_BLOCKERS=724")
+          PY
+
+      - name: Write integration documentation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > docs/investment_score_supply_integration_v8139.md <<'EOF'
+          # V8.13.9 controlled production supply source integration
+
+          The verified eight-ticker V8.13.8B supply source is promoted to
+          `latest/investment_score_supply_source_latest.csv`.
+
+          The two-table builder now gives this verified source precedence
+          over legacy whole-market supply scan values for matching tickers.
+
+          This step does not rebuild or modify the current production API.
+          A read-only preview must reproduce READY 27 / LIMITED 122 and
+          724 blocker occurrences before the integration is committed.
+
+          Next: `REBUILD_TWO_TABLE_WITH_PRODUCTION_SUPPLY_SOURCE_V8140`
+          EOF
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path(
+              "latest/investment_score_supply_source_latest.json"
+          )
+          data = json.loads(
+              path.read_text(encoding="utf-8")
+          )
+          data["preview_validation"] = {
+              "two_table_union_count": 149,
+              "ready_count": 27,
+              "limited_count": 122,
+              "blocker_occurrences": 724,
+              "verified_source_rows_applied": 8,
+              "production_api_modified": False,
+          }
+          path.write_text(
+              json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Verify API and protected inputs unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          find api/two_table_v1 -maxdepth 1 -type f -name '*.json' -print0             | sort -z | xargs -0 sha256sum             > /tmp/v8139_api.after
+          diff -u /tmp/v8139_api.before /tmp/v8139_api.after
+
+          sha256sum             config/investment_score_policy_v880.json             investment_score_dry_run_v882.py             supply_burden_enricher.py             stock_table_metrics_v850.py             two_table_release_v870.py             latest/investment_score_source_cache_latest.csv             latest/financial_valuation_cache_latest.csv             latest/investment_score_price_elasticity_20d_latest.csv             latest/investment_score_ocf_source_latest.csv             latest/investment_score_supply_candidate_v8138b.csv             latest/investment_score_supply_candidate_v8138b_summary_latest.json             latest/investment_score_supply_candidate_v8138b_regression.csv             > /tmp/v8139_protected.after
+          diff -u             /tmp/v8139_protected.before             /tmp/v8139_protected.after
+
+          echo "V8139_PROTECTED_STATE=PASS"
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "investment_score_supply_overlay_v8139.py",
+              "build_stock_table_preview_v850.py",
+              "latest/investment_score_supply_source_latest.csv",
+              "latest/investment_score_supply_source_latest.json",
+              "latest/investment_score_supply_source_run_log_latest.txt",
+              "docs/investment_score_supply_integration_v8139.md",
+          }
+
+          changed = {
+              line[3:]
+              for line in subprocess.check_output(
+                  [
+                      "git",
+                      "status",
+                      "--porcelain",
+                      "--untracked-files=all",
+                  ],
+                  text=True,
+              ).splitlines()
+              if line
+          }
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit(
+                  "V8139_UNEXPECTED_CHANGED_FILES:"
+                  + ",".join(unexpected)
+              )
+          print("V8139_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+      - name: Refuse concurrent protected drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "investment_score_dry_run_v882.py",
+              "supply_burden_enricher.py",
+              "stock_table_metrics_v850.py",
+              "two_table_release_v870.py",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/investment_score_price_elasticity_20d_latest.csv",
+              "latest/investment_score_ocf_source_latest.csv",
+              "latest/investment_score_supply_candidate_v8138b.csv",
+              "latest/investment_score_supply_candidate_v8138b_summary_latest.json",
+              "latest/investment_score_supply_candidate_v8138b_regression.csv",
+          }
+
+          upstream = set(
+              subprocess.check_output(
+                  ["git","diff","--name-only","HEAD..origin/main"],
+                  text=True,
+              ).splitlines()
+          )
+          dangerous = sorted(
+              p for p in upstream
+              if p in protected
+              or p.startswith("api/two_table_v1/")
+          )
+          if dangerous:
+              raise SystemExit(
+                  "V8139_CONCURRENT_PROTECTED_DRIFT:"
+                  + ",".join(dangerous)
+              )
+          print("V8139_NO_CONCURRENT_PROTECTED_DRIFT=PASS")
+          PY
+
+      - name: Commit and push production source integration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add             investment_score_supply_overlay_v8139.py             build_stock_table_preview_v850.py             latest/investment_score_supply_source_latest.csv             latest/investment_score_supply_source_latest.json             latest/investment_score_supply_source_run_log_latest.txt             docs/investment_score_supply_integration_v8139.md
+
+          git diff --cached --check
+          echo "V8139_GIT_DIFF_CHECK=PASS"
+
+          git commit -m "Integrate production supply source v8.13.9"
+          git pull --rebase origin main
+          git push origin HEAD:main

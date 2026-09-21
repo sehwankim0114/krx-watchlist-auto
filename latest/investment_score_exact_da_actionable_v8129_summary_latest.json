@@ -1,0 +1,112 @@
+{
+  "version": "2026-09-21-v8.12.9-current-actionable-exact-da-single-blocker-audit",
+  "generated_at_kst": "2026-09-21T20:37:58+09:00",
+  "status": "AUDIT_ONLY_CURRENT_ACTIONABLE_EXACT_DA",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v8128_version": "2026-09-21-v8.12.8-post-apply-current-blocker-reaudit",
+  "v8128_result_commit": "282b37236be05eb7ecbc04356f8c305cc0bcccbe",
+  "v8120_version": "2026-09-17-v8.12.0-current-actionable-exact-da-official-recovery-audit",
+  "approved_exact_account_ids": [
+    "ifrs-full_AdjustmentsForAmortisationExpense",
+    "ifrs-full_AdjustmentsForDepreciationExpense"
+  ],
+  "target_count": 5,
+  "target_tickers": [
+    "004370",
+    "021240",
+    "047810",
+    "097950",
+    "214320"
+  ],
+  "target_names": [
+    "농심",
+    "코웨이",
+    "한국항공우주",
+    "CJ제일제당",
+    "이노션"
+  ],
+  "prior_exhausted_not_requeried_count": 27,
+  "prior_exhausted_not_requeried_tickers": [
+    "001560",
+    "002450",
+    "003230",
+    "004170",
+    "004910",
+    "005930",
+    "009420",
+    "010130",
+    "011200",
+    "012450",
+    "012690",
+    "017670",
+    "018260",
+    "020560",
+    "022100",
+    "023960",
+    "028050",
+    "034020",
+    "047050",
+    "058860",
+    "069620",
+    "078520",
+    "267270",
+    "373220",
+    "456040",
+    "475560",
+    "483650"
+  ],
+  "dominant_financial_period": "2026_11012",
+  "annual_source_year": 2025,
+  "current_target_available_count": 5,
+  "current_target_missing_count": 0,
+  "current_target_missing_tickers": [],
+  "classification_counts": {
+    "NO_APPROVED_EXACT": 5
+  },
+  "recovery_lane_counts": {
+    "NO_APPROVED_EXACT_CURRENT_OFFICIAL_PATH": 5
+  },
+  "both_approved_exact_recoverable_count": 0,
+  "both_approved_exact_recoverable_tickers": [],
+  "partial_only_count": 0,
+  "partial_only_tickers": [],
+  "no_approved_exact_count": 5,
+  "no_approved_exact_tickers": [
+    "004370",
+    "021240",
+    "047810",
+    "097950",
+    "214320"
+  ],
+  "newly_exhausted_no_approved_exact_count": 5,
+  "newly_exhausted_no_approved_exact_tickers": [
+    "004370",
+    "021240",
+    "047810",
+    "097950",
+    "214320"
+  ],
+  "official_query_incomplete_count": 0,
+  "official_query_incomplete_tickers": [],
+  "conflict_or_nonunique_count": 0,
+  "conflict_or_nonunique_tickers": [],
+  "opendart_attempted_requests": 5,
+  "opendart_successful_requests": 5,
+  "opendart_transport_failure_count": 0,
+  "opendart_dart_status_failure_count": 0,
+  "hard_guards": {
+    "production_source_cache_modified": false,
+    "production_source_run_log_modified": false,
+    "production_financial_cache_modified": false,
+    "production_price_elasticity_cache_modified": false,
+    "production_ocf_cache_modified": false,
+    "production_api_modified": false,
+    "production_investment_score_written": false,
+    "scoring_policy_modified": false,
+    "source_value_imputed": false,
+    "new_da_account_id_approved": false,
+    "prior_exhausted_lane_requeried": false,
+    "source_promoted": false
+  },
+  "next_step": "AUDIT_CURRENT_ACTIONABLE_OCF_SINGLE_BLOCKERS_V8130"
+}

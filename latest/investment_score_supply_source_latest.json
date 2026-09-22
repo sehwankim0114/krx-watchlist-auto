@@ -1,17 +1,18 @@
 {
-  "version": "2026-09-21-v8.13.9B-controlled-production-supply-source-integration",
-  "status": "PRODUCTION_SOURCE_APPLIED_BY_SCHEDULED_API_REBUILD",
+  "version": "2026-09-22-v8.15.1-narrow-production-uangel-supply-source-patch",
+  "status": "PRODUCTION_SOURCE_READY_NOT_YET_API_REBUILT",
   "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
   "supply_policy_version": "2026-07-01-v6.0-supply-status-separated",
   "promoted_from_candidate_version": "2026-09-21-v8.13.8b-stage-current-universe-supply-source-integration",
   "promoted_from_candidate_commit": "e0e0ca3ffd195ca8989f7024f088858bc5ad226f",
-  "source_count": 8,
+  "source_count": 9,
   "source_tickers": [
     "001440",
     "007540",
     "029780",
     "066570",
     "071840",
+    "072130",
     "084690",
     "086280",
     "114090"
@@ -22,29 +23,35 @@
     "029780": "주의",
     "066570": "주의",
     "071840": "없음",
+    "072130": "경계",
     "084690": "주의",
     "086280": "주의",
     "114090": "없음"
   },
   "candidate_regression": {
-    "ready_count": 27,
-    "limited_count": 122,
-    "blocker_occurrences": 724,
-    "supply_reason_removed_count": 8,
-    "non_target_score_row_changed_count": 0,
-    "existing_ready_score_row_changed_count": 0
+    "current_scorer_universe_count": 120,
+    "baseline_ready_count": 20,
+    "baseline_limited_count": 100,
+    "baseline_blocker_occurrences": 689,
+    "candidate_ready_count": 21,
+    "candidate_limited_count": 99,
+    "candidate_blocker_occurrences": 688,
+    "ready_delta": 1,
+    "limited_delta": -1,
+    "blocker_occurrences_reduced_by": 1,
+    "non_target_score_row_changed_count": 0
   },
   "integration": {
     "builder": "build_stock_table_preview_v850.py",
     "overlay_module": "investment_score_supply_overlay_v8139b.py",
     "precedence": "VERIFIED_SUPPLY_SOURCE_OVER_LEGACY_WHOLE_MARKET_SCAN",
-    "production_api_rebuilt": true,
-    "production_api_rebuild_mode": "SCHEDULED_BUILD_API_JSON",
+    "production_api_rebuilt": false,
+    "production_api_rebuild_mode": "PENDING_CONTROLLED_REBUILD",
     "production_api_rebuild_commit": "24db33414e7beabf6b7ded4e2b4ec3d17f3aa7f5",
     "production_api_source_commit": "581565928f02bf12ee447e6bb0bd7ee959c08823",
     "production_api_basis_date": "2026-09-18"
   },
-  "next_step": "POST_SUPPLY_APPLY_CURRENT_BLOCKER_REAUDIT_V8141",
+  "next_step": "REBUILD_TWO_TABLE_WITH_UANGEL_SUPPLY_SOURCE_V8152",
   "preview_validation": {
     "two_table_union_count": 149,
     "ready_count": 27,
@@ -61,5 +68,22 @@
     "runtime_official_fresh_now": false,
     "runtime_safe_to_analyze_as_latest": false,
     "runtime_data_lag_trading_days": 1
+  },
+  "generated_at_kst": "2026-09-22T14:01:21+09:00",
+  "narrow_patch": {
+    "version": "2026-09-22-v8.15.1-narrow-production-uangel-supply-source-patch",
+    "promoted_from_version": "2026-09-22-v8.15.0-freeze-uangel-supply-and-shadow-score",
+    "promoted_from_commit": "eef89c4fec323bd25d546672d8b220ec0095b923",
+    "ticker_count": 1,
+    "tickers": [
+      "072130"
+    ],
+    "supply_status": "OK",
+    "supply_level": "경계",
+    "risk_keywords": [
+      "대량보유",
+      "주요주주변동"
+    ],
+    "risk_report_count": 3
   }
 }

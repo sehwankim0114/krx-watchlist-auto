@@ -1,0 +1,131 @@
+{
+  "version": "2026-09-22-v8.16.2-source-cache-multiblocker-root-cause",
+  "generated_at_kst": "2026-09-22T22:16:07+09:00",
+  "status": "AUDIT_ONLY_SOURCE_CACHE_MULTIBLOCKER_ROOT_CAUSE",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v8161_version": "2026-09-22-v8.16.1A-post-financial-apply-current-blocker-reaudit",
+  "v8161_result_commit": "62fce7cabb644358dd3d717c7c46ba82c111a32e",
+  "source_group": "INVESTMENT_SCORE_SOURCE_CACHE",
+  "source_group_total_blocker_occurrences": 149,
+  "selected_multi_ticker_count": 39,
+  "selected_multi_blocker_occurrences": 148,
+  "excluded_known_exhausted_single": {
+    "ticker": "357430",
+    "blocker_occurrences": 1,
+    "recovery_status": "EXHAUSTED_OFFICIAL_Q2_ACCEL_PATH"
+  },
+  "selected_reason_counts": {
+    "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT": 38,
+    "최근 3년 매출 성장률:MISSING_3Y_REVENUE": 38,
+    "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT": 38,
+    "최근 3년 영업이익 성장률:MISSING_3Y_OP": 34
+  },
+  "current_cache_state": {
+    "financial_cache_rows": 299,
+    "source_cache_rows": 254,
+    "current_financial_eligible_targets": 281,
+    "eligible_missing_source_rows": 27,
+    "source_rows_outside_current_eligible": 0,
+    "source_cache_run_at_kst": "2026-09-22T13:46:01+09:00"
+  },
+  "lanes": {
+    "ELIGIBLE_SOURCE_ROW_MISSING": {
+      "ticker_count": 27,
+      "blocker_occurrences": 108,
+      "tickers": [
+        "000050",
+        "001020",
+        "001460",
+        "002450",
+        "002990",
+        "003060",
+        "003480",
+        "003850",
+        "004990",
+        "006060",
+        "006220",
+        "008250",
+        "011330",
+        "013890",
+        "016590",
+        "023530",
+        "024090",
+        "058650",
+        "070960",
+        "071950",
+        "097520",
+        "145990",
+        "241590",
+        "298000",
+        "298050",
+        "363280",
+        "446070"
+      ]
+    },
+    "UPSTREAM_FINANCIAL_BLOCKED_SOURCE_ROW_MISSING": {
+      "ticker_count": 6,
+      "blocker_occurrences": 24,
+      "tickers": [
+        "000105",
+        "002995",
+        "006125",
+        "010120",
+        "014825",
+        "108675"
+      ]
+    },
+    "EXISTING_ANNUAL_AND_QUARTER_LIMITED": {
+      "ticker_count": 4,
+      "blocker_occurrences": 12,
+      "tickers": [
+        "024110",
+        "086790",
+        "139130",
+        "279570"
+      ]
+    },
+    "EXISTING_QUARTER_ONLY_LIMITED": {
+      "ticker_count": 1,
+      "blocker_occurrences": 1,
+      "tickers": [
+        "092440"
+      ]
+    },
+    "EXISTING_THREE_YEAR_ONLY_LIMITED": {
+      "ticker_count": 1,
+      "blocker_occurrences": 3,
+      "tickers": [
+        "499790"
+      ]
+    }
+  },
+  "highest_actionable_recovery_lane": {
+    "lane": "ELIGIBLE_SOURCE_ROW_MISSING",
+    "ticker_count": 27,
+    "blocker_occurrences": 108,
+    "recommended_action": "RUN_CURRENT_PRODUCTION_SOURCE_REFRESH_IN_SHADOW"
+  },
+  "v854_scheduled_gate": {
+    "compatible": false,
+    "reason": "FINANCIAL_RUN_AT_KST_MISSING_AFTER_V8160",
+    "financial_run_at_kst_present": false,
+    "source_run_at_kst_present": true,
+    "manual_dispatch_force_refresh_available": true
+  },
+  "automatic_promotion": {
+    "allowed": false,
+    "promoted_ticker_count": 0
+  },
+  "hard_guards": {
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_financial_run_log_modified": false,
+    "production_api_modified": false,
+    "production_score_written": false,
+    "scoring_policy_modified": false,
+    "source_value_imputed": false,
+    "upstream_blocked_rows_forced_into_source_cache": false,
+    "existing_partial_rows_reinterpreted": false
+  },
+  "next_step": "REPAIR_V854_GATE_AND_SHADOW_REFRESH_CURRENT_SOURCE_CACHE_V8163"
+}

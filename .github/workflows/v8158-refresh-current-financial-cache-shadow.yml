@@ -1,0 +1,940 @@
+name: Refresh current financial cache shadow v8.15.8
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8158-refresh-current-financial-cache-shadow.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8158-refresh-current-financial-cache-shadow
+  cancel-in-progress: false
+
+jobs:
+  shadow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify V8.15.7 lineage and capture production state
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -n "${DART_API_KEY:-}" || {
+            echo "::error::DART_API_KEY secret is missing"
+            exit 1
+          }
+
+          git merge-base --is-ancestor \
+            fcabb13586bcdd1a374a035e839d472a8f93a971 HEAD
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            financial_valuation_enricher.py \
+            investment_score_source_enricher_v854.py \
+            investment_score_dry_run_v882.py \
+            latest/financial_valuation_cache_latest.csv \
+            latest/financial_valuation_run_log_latest.txt \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            latest/investment_score_supply_source_latest.json \
+            latest/investment_score_financial_multiblocker_v8157_summary_latest.json \
+            > /tmp/v8158_protected.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8158_api.before
+
+          echo "V8158_LINEAGE=PASS"
+
+      - name: Prepare isolated shadow latest directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v8158_shadow
+          cp -a latest /tmp/v8158_shadow
+
+          test -f /tmp/v8158_shadow/financial_valuation_cache_latest.csv
+          test -f /tmp/v8158_shadow/kospi_universe_summary_latest.csv
+          test -f /tmp/v8158_shadow/kosdaq_universe_summary_latest.csv
+
+          echo "V8158_SHADOW_DIR=PASS"
+
+      - name: Run current-production financial refresh in shadow
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python financial_valuation_enricher.py \
+            --output-dir /tmp/v8158_shadow \
+            --workers 4 \
+            --timeout 30 \
+            --sleep-seconds 0.0 \
+            --max-api-calls 100 \
+            --retry-hours 20 \
+            --no-enrich \
+            | tee /tmp/v8158_financial_stdout.txt
+
+          grep -q '^FINANCIAL_VALUATION_STATUS=OK$' \
+            /tmp/v8158_financial_stdout.txt
+
+          grep -q '^STATUS=OK$' \
+            /tmp/v8158_shadow/financial_valuation_run_log_latest.txt
+
+          echo "V8158_SHADOW_FINANCIAL_REFRESH=PASS"
+
+      - name: Create and run V8.15.8 shadow impact validator
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > investment_score_financial_refresh_shadow_v8158.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import csv
+          import json
+          from collections import Counter
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_dry_run_v882 as scorer
+          from investment_score_current_blocker_reaudit_v8148 import classify
+
+          VERSION = "2026-09-22-v8.15.8-current-production-financial-refresh-shadow"
+          POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          V8157_VERSION = "2026-09-22-v8.15.7-financial-valuation-multiblocker-root-cause"
+          V8157_RESULT_COMMIT = "fcabb13586bcdd1a374a035e839d472a8f93a971"
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+
+          V8157_JSON = ROOT / "latest/investment_score_financial_multiblocker_v8157_summary_latest.json"
+          PROD_FIN = ROOT / "latest/financial_valuation_cache_latest.csv"
+          SHADOW_FIN = Path("/tmp/v8158_shadow/financial_valuation_cache_latest.csv")
+          SHADOW_FIN_LOG = Path("/tmp/v8158_shadow/financial_valuation_run_log_latest.txt")
+
+          CANDIDATE_OUT = ROOT / "latest/investment_score_financial_refresh_candidate_v8158.csv"
+          SUMMARY_OUT = ROOT / "latest/investment_score_financial_refresh_shadow_v8158_summary_latest.json"
+          LOG_OUT = ROOT / "latest/investment_score_financial_refresh_shadow_v8158_run_log_latest.txt"
+          DOC_OUT = ROOT / "docs/investment_score_financial_refresh_shadow_v8158.md"
+
+          BASE_CSV = Path("/tmp/v8158_base_score.csv")
+          BASE_JSON = Path("/tmp/v8158_base_score.json")
+          BASE_LOG = Path("/tmp/v8158_base_score.log")
+          BASE_DOC = Path("/tmp/v8158_base_score.md")
+          SHADOW_CSV = Path("/tmp/v8158_shadow_score.csv")
+          SHADOW_JSON = Path("/tmp/v8158_shadow_score.json")
+          SHADOW_LOG = Path("/tmp/v8158_shadow_score.log")
+          SHADOW_DOC = Path("/tmp/v8158_shadow_score.md")
+
+          TARGET_GROUP = "FINANCIAL_VALUATION_CACHE"
+
+          def ticker(value):
+              s = "".join(
+                  ch for ch in str(value or "")
+                  if ch.isdigit()
+              )
+              return s.zfill(6) if s else ""
+
+          def read_json(path):
+              return json.loads(
+                  Path(path).read_text(encoding="utf-8-sig")
+              )
+
+          def read_rows(path):
+              with Path(path).open(
+                  encoding="utf-8-sig",
+                  newline="",
+              ) as f:
+                  return list(csv.DictReader(f))
+
+          def row_map(path):
+              return {
+                  ticker(r.get("ticker")): r
+                  for r in read_rows(path)
+                  if ticker(r.get("ticker"))
+              }
+
+          def split_missing(value):
+              return [
+                  x for x in str(value or "").split(";")
+                  if x
+              ]
+
+          def stable(row):
+              return json.dumps(
+                  row,
+                  ensure_ascii=False,
+                  sort_keys=True,
+                  separators=(",", ":"),
+              )
+
+          def group_count(row, group):
+              count = 0
+              for reason in split_missing(
+                  row.get("missing_components")
+              ):
+                  _, source_group = classify(reason)
+                  if source_group == group:
+                      count += 1
+              return count
+
+          def total_blockers(rows):
+              return sum(
+                  int(r.get("missing_component_count") or 0)
+                  for r in rows.values()
+              )
+
+          def run_scorer(
+              fin_path,
+              out_csv,
+              out_json,
+              out_log,
+              out_doc,
+          ):
+              old = {
+                  "VERSION": scorer.VERSION,
+                  "FIN": scorer.FIN,
+                  "OUT_CSV": scorer.OUT_CSV,
+                  "OUT_JSON": scorer.OUT_JSON,
+                  "OUT_LOG": scorer.OUT_LOG,
+                  "OUT_DOC": scorer.OUT_DOC,
+              }
+              try:
+                  scorer.VERSION = VERSION
+                  scorer.FIN = Path(fin_path)
+                  scorer.OUT_CSV = Path(out_csv)
+                  scorer.OUT_JSON = Path(out_json)
+                  scorer.OUT_LOG = Path(out_log)
+                  scorer.OUT_DOC = Path(out_doc)
+                  rc = scorer.main()
+              finally:
+                  for key, value in old.items():
+                      setattr(scorer, key, value)
+
+              if rc not in (None, 0):
+                  raise RuntimeError(
+                      "V8158_SCORER_FAILED:" + str(rc)
+                  )
+
+          def production_codes():
+              out = set()
+              for table in (
+                  "kospi",
+                  "decliners",
+                  "decliners24",
+              ):
+                  payload = read_json(
+                      ROOT / f"api/two_table_v1/{table}.json"
+                  )
+                  for row in payload.get("rows") or []:
+                      code = ticker(row.get("ticker"))
+                      if code:
+                          out.add(code)
+              return out
+
+          def parse_log(path):
+              out = {}
+              for line in Path(path).read_text(
+                  encoding="utf-8-sig"
+              ).splitlines():
+                  if "=" not in line:
+                      continue
+                  k, v = line.split("=", 1)
+                  out[k.strip()] = v.strip()
+              return out
+
+          def main():
+              for p in (
+                  V8157_JSON,
+                  PROD_FIN,
+                  SHADOW_FIN,
+                  SHADOW_FIN_LOG,
+              ):
+                  if not Path(p).is_file():
+                      raise RuntimeError(
+                          "V8158_MISSING_INPUT:" + str(p)
+                      )
+
+              prior = read_json(V8157_JSON)
+              if prior.get("version") != V8157_VERSION:
+                  raise RuntimeError(
+                      "V8158_V8157_VERSION_MISMATCH"
+                  )
+              if prior.get("status") != (
+                  "AUDIT_ONLY_FINANCIAL_MULTIBLOCKER_ROOT_CAUSE"
+              ):
+                  raise RuntimeError(
+                      "V8158_V8157_STATUS_MISMATCH"
+                  )
+              if prior.get("policy_version") != POLICY_VERSION:
+                  raise RuntimeError(
+                      "V8158_POLICY_VERSION_MISMATCH"
+                  )
+              if prior.get("next_step") != (
+                  "REFRESH_CURRENT_PRODUCTION_FINANCIAL_CACHE_AND_SHADOW_V8158"
+              ):
+                  raise RuntimeError(
+                      "V8158_PREDECESSOR_NEXT_STEP_MISMATCH"
+                  )
+
+              stale_lane = (
+                  prior.get("lane_counts", {}).get(
+                      "STALE_DEPENDENT_CACHE_ROW_MISSING"
+                  ) or {}
+              )
+              targets = set(
+                  stale_lane.get("tickers") or []
+              )
+              if len(targets) != 28:
+                  raise RuntimeError(
+                      "V8158_TARGET_COUNT_NOT_28"
+                  )
+              if int(
+                  stale_lane.get("blocker_occurrences") or 0
+              ) != 221:
+                  raise RuntimeError(
+                      "V8158_TARGET_BLOCKERS_NOT_221"
+                  )
+
+              active = production_codes()
+              if not targets.issubset(active):
+                  raise RuntimeError(
+                      "V8158_STALE_TARGET_NO_LONGER_ACTIVE:"
+                      + ",".join(sorted(targets - active))
+                  )
+
+              prod_fin = row_map(PROD_FIN)
+              shadow_fin = row_map(SHADOW_FIN)
+
+              prod_present = targets & set(prod_fin)
+              if prod_present:
+                  raise RuntimeError(
+                      "V8158_TARGET_ALREADY_IN_PROD_FIN:"
+                      + ",".join(sorted(prod_present))
+                  )
+
+              if not targets.issubset(shadow_fin):
+                  raise RuntimeError(
+                      "V8158_SHADOW_FIN_MISSING_TARGETS:"
+                      + ",".join(
+                          sorted(targets - set(shadow_fin))
+                      )
+                  )
+
+              non_target_common = (
+                  set(prod_fin) & set(shadow_fin)
+              ) - targets
+              changed_existing = [
+                  code
+                  for code in sorted(non_target_common)
+                  if stable(prod_fin[code])
+                  != stable(shadow_fin[code])
+              ]
+              if changed_existing:
+                  raise RuntimeError(
+                      "V8158_EXISTING_FIN_ROW_CHANGED:"
+                      + ",".join(changed_existing[:20])
+                  )
+
+              source_counts = Counter()
+              identity_counts = Counter()
+              valuation_counts = Counter()
+
+              candidate_rows = []
+              for code in sorted(targets):
+                  row = shadow_fin[code]
+                  source_counts[
+                      row.get("financial_source_status") or ""
+                  ] += 1
+                  identity_counts[
+                      row.get("corp_identity_status") or ""
+                  ] += 1
+                  valuation_counts[
+                      row.get("valuation_data_status") or ""
+                  ] += 1
+                  candidate_rows.append(row)
+
+              CANDIDATE_OUT.parent.mkdir(
+                  parents=True,
+                  exist_ok=True,
+              )
+              with CANDIDATE_OUT.open(
+                  "w",
+                  encoding="utf-8-sig",
+                  newline="",
+              ) as f:
+                  fields = list(candidate_rows[0].keys())
+                  w = csv.DictWriter(
+                      f,
+                      fieldnames=fields,
+                      lineterminator="\n",
+                  )
+                  w.writeheader()
+                  w.writerows(candidate_rows)
+
+              shadow_run = parse_log(SHADOW_FIN_LOG)
+              if shadow_run.get("STATUS") != "OK":
+                  raise RuntimeError(
+                      "V8158_SHADOW_FIN_RUN_NOT_OK"
+                  )
+
+              prod_row_count = len(prod_fin)
+              shadow_row_count = len(shadow_fin)
+              if shadow_row_count - prod_row_count != 28:
+                  raise RuntimeError(
+                      "V8158_FIN_ROW_DELTA_NOT_28:"
+                      f"{prod_row_count}:{shadow_row_count}"
+                  )
+
+              run_scorer(
+                  PROD_FIN,
+                  BASE_CSV,
+                  BASE_JSON,
+                  BASE_LOG,
+                  BASE_DOC,
+              )
+              run_scorer(
+                  SHADOW_FIN,
+                  SHADOW_CSV,
+                  SHADOW_JSON,
+                  SHADOW_LOG,
+                  SHADOW_DOC,
+              )
+
+              base_rows = row_map(BASE_CSV)
+              shadow_rows = row_map(SHADOW_CSV)
+              base_summary = read_json(BASE_JSON)
+              shadow_summary = read_json(SHADOW_JSON)
+
+              if set(base_rows) != set(shadow_rows):
+                  raise RuntimeError(
+                      "V8158_SCORER_UNIVERSE_CHANGED"
+                  )
+              if set(base_rows) != active:
+                  raise RuntimeError(
+                      "V8158_SCORER_API_UNIVERSE_MISMATCH"
+                  )
+
+              non_target_changed = [
+                  code
+                  for code in sorted(
+                      set(base_rows) - targets
+                  )
+                  if stable(base_rows[code])
+                  != stable(shadow_rows[code])
+              ]
+              if non_target_changed:
+                  raise RuntimeError(
+                      "V8158_NON_TARGET_SCORE_DRIFT:"
+                      + ",".join(non_target_changed[:20])
+                  )
+
+              baseline_fin_blockers = sum(
+                  group_count(
+                      base_rows[code],
+                      TARGET_GROUP,
+                  )
+                  for code in targets
+              )
+              shadow_fin_blockers = sum(
+                  group_count(
+                      shadow_rows[code],
+                      TARGET_GROUP,
+                  )
+                  for code in targets
+              )
+
+              if baseline_fin_blockers != 221:
+                  raise RuntimeError(
+                      "V8158_BASE_FIN_BLOCKERS_NOT_221:"
+                      + str(baseline_fin_blockers)
+                  )
+              if shadow_fin_blockers >= baseline_fin_blockers:
+                  raise RuntimeError(
+                      "V8158_NO_FINANCIAL_BLOCKER_REDUCTION"
+                  )
+
+              base_total = total_blockers(base_rows)
+              shadow_total = total_blockers(shadow_rows)
+
+              if shadow_total > base_total:
+                  raise RuntimeError(
+                      "V8158_TOTAL_BLOCKERS_INCREASED"
+                  )
+
+              base_ready = int(
+                  base_summary.get("ready_count") or 0
+              )
+              shadow_ready = int(
+                  shadow_summary.get("ready_count") or 0
+              )
+              base_limited = int(
+                  base_summary.get("limited_count") or 0
+              )
+              shadow_limited = int(
+                  shadow_summary.get("limited_count") or 0
+              )
+
+              changed_target_rows = [
+                  code
+                  for code in sorted(targets)
+                  if stable(base_rows[code])
+                  != stable(shadow_rows[code])
+              ]
+              if not changed_target_rows:
+                  raise RuntimeError(
+                      "V8158_NO_TARGET_SCORE_CHANGE"
+                  )
+
+              newly_ready = [
+                  code
+                  for code in sorted(targets)
+                  if (
+                      base_rows[code].get("score_status")
+                      != "READY"
+                      and shadow_rows[code].get(
+                          "score_status"
+                      ) == "READY"
+                  )
+              ]
+
+              fully_financial_resolved = [
+                  code
+                  for code in sorted(targets)
+                  if group_count(
+                      shadow_rows[code],
+                      TARGET_GROUP,
+                  ) == 0
+              ]
+
+              partial_financial_remaining = [
+                  code
+                  for code in sorted(targets)
+                  if group_count(
+                      shadow_rows[code],
+                      TARGET_GROUP,
+                  ) > 0
+              ]
+
+              summary = {
+                  "version": VERSION,
+                  "generated_at_kst": datetime.now(
+                      KST
+                  ).isoformat(timespec="seconds"),
+                  "status": (
+                      "SHADOW_ONLY_CURRENT_PRODUCTION_FINANCIAL_REFRESH_PASS"
+                  ),
+                  "policy_version": POLICY_VERSION,
+                  "v8157_version": V8157_VERSION,
+                  "v8157_result_commit": V8157_RESULT_COMMIT,
+                  "target_count": 28,
+                  "target_tickers": sorted(targets),
+                  "production_financial_cache_rows": prod_row_count,
+                  "shadow_financial_cache_rows": shadow_row_count,
+                  "financial_cache_row_delta": 28,
+                  "existing_non_target_financial_row_changed_count": 0,
+                  "shadow_financial_source_status_counts": dict(source_counts),
+                  "shadow_corp_identity_status_counts": dict(identity_counts),
+                  "shadow_valuation_status_counts": dict(valuation_counts),
+                  "scorer_universe_count": len(base_rows),
+                  "baseline_ready_count": base_ready,
+                  "baseline_limited_count": base_limited,
+                  "shadow_ready_count": shadow_ready,
+                  "shadow_limited_count": shadow_limited,
+                  "ready_delta": shadow_ready - base_ready,
+                  "limited_delta": shadow_limited - base_limited,
+                  "baseline_total_blocker_occurrences": base_total,
+                  "shadow_total_blocker_occurrences": shadow_total,
+                  "total_blocker_occurrences_reduced_by": base_total - shadow_total,
+                  "baseline_target_financial_blocker_occurrences": baseline_fin_blockers,
+                  "shadow_target_financial_blocker_occurrences": shadow_fin_blockers,
+                  "target_financial_blocker_occurrences_reduced_by": (
+                      baseline_fin_blockers - shadow_fin_blockers
+                  ),
+                  "changed_target_score_row_count": len(changed_target_rows),
+                  "changed_target_score_tickers": changed_target_rows,
+                  "non_target_score_row_changed_count": 0,
+                  "newly_ready_count": len(newly_ready),
+                  "newly_ready_tickers": newly_ready,
+                  "fully_financial_resolved_count": len(fully_financial_resolved),
+                  "fully_financial_resolved_tickers": fully_financial_resolved,
+                  "partial_financial_remaining_count": len(partial_financial_remaining),
+                  "partial_financial_remaining_tickers": partial_financial_remaining,
+                  "automatic_promotion": {
+                      "allowed": False,
+                      "promoted_ticker_count": 0,
+                  },
+                  "hard_guards": {
+                      "production_financial_cache_modified": False,
+                      "production_raw_score_cache_modified": False,
+                      "production_api_modified": False,
+                      "production_score_written": False,
+                      "scoring_policy_modified": False,
+                      "corp_identity_policy_modified": False,
+                      "source_value_imputed": False,
+                      "non_target_score_row_changed": False,
+                  },
+                  "next_step": (
+                      "STAGE_CURRENT_PRODUCTION_FINANCIAL_CACHE_REFRESH_V8159"
+                  ),
+              }
+
+              SUMMARY_OUT.write_text(
+                  json.dumps(
+                      summary,
+                      ensure_ascii=False,
+                      indent=2,
+                  ) + "\n",
+                  encoding="utf-8",
+              )
+
+              LOG_OUT.write_text(
+                  "\n".join([
+                      f"VERSION={VERSION}",
+                      "STATUS=SHADOW_ONLY_CURRENT_PRODUCTION_FINANCIAL_REFRESH_PASS",
+                      "TARGET_COUNT=28",
+                      f"PROD_FIN_ROWS={prod_row_count}",
+                      f"SHADOW_FIN_ROWS={shadow_row_count}",
+                      "FIN_ROW_DELTA=28",
+                      f"BASE_READY={base_ready}",
+                      f"SHADOW_READY={shadow_ready}",
+                      f"BASE_LIMITED={base_limited}",
+                      f"SHADOW_LIMITED={shadow_limited}",
+                      f"BASE_TOTAL_BLOCKERS={base_total}",
+                      f"SHADOW_TOTAL_BLOCKERS={shadow_total}",
+                      "TOTAL_BLOCKER_REDUCTION="
+                      + str(base_total - shadow_total),
+                      "BASE_TARGET_FIN_BLOCKERS=221",
+                      "SHADOW_TARGET_FIN_BLOCKERS="
+                      + str(shadow_fin_blockers),
+                      "TARGET_FIN_BLOCKER_REDUCTION="
+                      + str(
+                          baseline_fin_blockers
+                          - shadow_fin_blockers
+                      ),
+                      "CHANGED_TARGET_SCORE_ROWS="
+                      + str(len(changed_target_rows)),
+                      "NON_TARGET_SCORE_ROW_CHANGED=0",
+                      "NEWLY_READY=" + str(len(newly_ready)),
+                      "FULLY_FINANCIAL_RESOLVED="
+                      + str(len(fully_financial_resolved)),
+                      "AUTOMATIC_PROMOTION=false",
+                      "PRODUCTION_DATA_MODIFIED=false",
+                      "STATUS_OK=true",
+                      "NEXT_STEP=STAGE_CURRENT_PRODUCTION_FINANCIAL_CACHE_REFRESH_V8159",
+                  ]) + "\n",
+                  encoding="utf-8",
+              )
+
+              DOC_OUT.parent.mkdir(
+                  parents=True,
+                  exist_ok=True,
+              )
+              DOC_OUT.write_text(
+                  "\n".join([
+                      "# V8.15.8 current-production financial cache shadow refresh",
+                      "",
+                      "- The 28 stale current-production tickers are added only to an isolated shadow copy of the financial cache.",
+                      "- Existing production financial-cache rows must remain field-for-field unchanged in the shadow copy.",
+                      "- OpenDART identity/source outcomes are preserved exactly; no alias or value is inferred.",
+                      f"- Financial-cache rows: {prod_row_count} -> {shadow_row_count}.",
+                      f"- Target financial blockers: 221 -> {shadow_fin_blockers}.",
+                      f"- Total scorer blockers: {base_total} -> {shadow_total}.",
+                      f"- READY / LIMITED: {base_ready}/{base_limited} -> {shadow_ready}/{shadow_limited}.",
+                      f"- Fully financial-resolved target tickers: {len(fully_financial_resolved)}.",
+                      f"- Newly READY target tickers: {len(newly_ready)}.",
+                      "- Non-target score-row drift: 0.",
+                      "- Production cache/API/policy files are not modified.",
+                      "",
+                      "Next: `STAGE_CURRENT_PRODUCTION_FINANCIAL_CACHE_REFRESH_V8159`",
+                      "",
+                  ]),
+                  encoding="utf-8",
+              )
+
+              print(
+                  "V8158_CURRENT_FINANCIAL_REFRESH_SHADOW=PASS"
+              )
+
+          if __name__ == "__main__":
+              main()
+          PY
+
+          python -m py_compile \
+            investment_score_financial_refresh_shadow_v8158.py
+
+          python investment_score_financial_refresh_shadow_v8158.py \
+            | tee /tmp/v8158_validator_stdout.txt
+
+          grep -q '^V8158_CURRENT_FINANCIAL_REFRESH_SHADOW=PASS$' \
+            /tmp/v8158_validator_stdout.txt
+          grep -q '^TARGET_COUNT=28$' \
+            latest/investment_score_financial_refresh_shadow_v8158_run_log_latest.txt
+          grep -q '^FIN_ROW_DELTA=28$' \
+            latest/investment_score_financial_refresh_shadow_v8158_run_log_latest.txt
+          grep -q '^BASE_TARGET_FIN_BLOCKERS=221$' \
+            latest/investment_score_financial_refresh_shadow_v8158_run_log_latest.txt
+          grep -q '^NON_TARGET_SCORE_ROW_CHANGED=0$' \
+            latest/investment_score_financial_refresh_shadow_v8158_run_log_latest.txt
+          grep -q '^AUTOMATIC_PROMOTION=false$' \
+            latest/investment_score_financial_refresh_shadow_v8158_run_log_latest.txt
+          grep -q '^PRODUCTION_DATA_MODIFIED=false$' \
+            latest/investment_score_financial_refresh_shadow_v8158_run_log_latest.txt
+          grep -q '^STATUS_OK=true$' \
+            latest/investment_score_financial_refresh_shadow_v8158_run_log_latest.txt
+
+      - name: Validate V8.15.8 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          s = json.loads(
+              Path(
+                  "latest/investment_score_financial_refresh_shadow_v8158_summary_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          assert s["version"] == (
+              "2026-09-22-v8.15.8-current-production-financial-refresh-shadow"
+          )
+          assert s["status"] == (
+              "SHADOW_ONLY_CURRENT_PRODUCTION_FINANCIAL_REFRESH_PASS"
+          )
+          assert s["v8157_result_commit"] == (
+              "fcabb13586bcdd1a374a035e839d472a8f93a971"
+          )
+          assert s["target_count"] == 28
+          assert s["financial_cache_row_delta"] == 28
+          assert s[
+              "existing_non_target_financial_row_changed_count"
+          ] == 0
+          assert s[
+              "baseline_target_financial_blocker_occurrences"
+          ] == 221
+          assert s[
+              "shadow_target_financial_blocker_occurrences"
+          ] < 221
+          assert s[
+              "target_financial_blocker_occurrences_reduced_by"
+          ] > 0
+          assert s[
+              "total_blocker_occurrences_reduced_by"
+          ] >= s[
+              "target_financial_blocker_occurrences_reduced_by"
+          ]
+          assert s[
+              "non_target_score_row_changed_count"
+          ] == 0
+          assert s["automatic_promotion"]["allowed"] is False
+          assert all(
+              value is False
+              for value in s["hard_guards"].values()
+          )
+          assert s["next_step"] == (
+              "STAGE_CURRENT_PRODUCTION_FINANCIAL_CACHE_REFRESH_V8159"
+          )
+
+          with Path(
+              "latest/investment_score_financial_refresh_candidate_v8158.csv"
+          ).open(
+              encoding="utf-8-sig",
+              newline="",
+          ) as f:
+              rows = list(csv.DictReader(f))
+
+          assert len(rows) == 28
+          assert {
+              r["ticker"]
+              for r in rows
+          } == set(s["target_tickers"])
+
+          print("V8158_OUTPUT_VALIDATION=PASS")
+          PY
+
+      - name: Verify production state unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            financial_valuation_enricher.py \
+            investment_score_source_enricher_v854.py \
+            investment_score_dry_run_v882.py \
+            latest/financial_valuation_cache_latest.csv \
+            latest/financial_valuation_run_log_latest.txt \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            latest/investment_score_supply_source_latest.json \
+            latest/investment_score_financial_multiblocker_v8157_summary_latest.json \
+            > /tmp/v8158_protected.after
+
+          diff -u \
+            /tmp/v8158_protected.before \
+            /tmp/v8158_protected.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8158_api.after
+
+          diff -u \
+            /tmp/v8158_api.before \
+            /tmp/v8158_api.after
+
+          echo "V8158_PRODUCTION_STATE_UNCHANGED=PASS"
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "investment_score_financial_refresh_shadow_v8158.py",
+              "latest/investment_score_financial_refresh_candidate_v8158.csv",
+              "latest/investment_score_financial_refresh_shadow_v8158_summary_latest.json",
+              "latest/investment_score_financial_refresh_shadow_v8158_run_log_latest.txt",
+              "docs/investment_score_financial_refresh_shadow_v8158.md",
+          }
+
+          changed = {
+              line[3:]
+              for line in subprocess.check_output(
+                  [
+                      "git",
+                      "status",
+                      "--porcelain",
+                      "--untracked-files=all",
+                  ],
+                  text=True,
+              ).splitlines()
+              if line
+          }
+
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit(
+                  "V8158_UNEXPECTED_CHANGED_FILES:"
+                  + ",".join(unexpected)
+              )
+
+          print("V8158_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+      - name: Refuse concurrent protected drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "financial_valuation_enricher.py",
+              "investment_score_source_enricher_v854.py",
+              "investment_score_dry_run_v882.py",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/financial_valuation_run_log_latest.txt",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/investment_score_source_run_log_latest.txt",
+              "latest/investment_score_price_elasticity_20d_latest.csv",
+              "latest/investment_score_ocf_source_latest.csv",
+              "latest/investment_score_supply_source_latest.csv",
+              "latest/investment_score_supply_source_latest.json",
+              "latest/investment_score_financial_multiblocker_v8157_summary_latest.json",
+          }
+
+          upstream = set(
+              subprocess.check_output(
+                  [
+                      "git",
+                      "diff",
+                      "--name-only",
+                      "HEAD..origin/main",
+                  ],
+                  text=True,
+              ).splitlines()
+          )
+
+          dangerous = sorted(
+              p for p in upstream
+              if p in protected
+              or p.startswith("api/two_table_v1/")
+          )
+
+          if dangerous:
+              raise SystemExit(
+                  "V8158_CONCURRENT_PROTECTED_DRIFT:"
+                  + ",".join(dangerous)
+              )
+
+          print("V8158_NO_CONCURRENT_PROTECTED_DRIFT=PASS")
+          PY
+
+      - name: Commit and push shadow-only outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_financial_refresh_shadow_v8158.py \
+            latest/investment_score_financial_refresh_candidate_v8158.csv \
+            latest/investment_score_financial_refresh_shadow_v8158_summary_latest.json \
+            latest/investment_score_financial_refresh_shadow_v8158_run_log_latest.txt \
+            docs/investment_score_financial_refresh_shadow_v8158.md
+
+          git diff --cached --check
+          echo "V8158_GIT_DIFF_CHECK=PASS"
+
+          git commit -m "Shadow refresh current financial cache v8.15.8"
+          git pull --rebase origin main
+          git push origin HEAD:main

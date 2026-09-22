@@ -1,0 +1,83 @@
+{
+  "version": "2026-09-22-v8.15.9-stage-current-production-financial-cache-refresh",
+  "generated_at_kst": "2026-09-22T21:46:43+09:00",
+  "status": "STAGED_FINANCIAL_CACHE_CANDIDATE_REGRESSION_PASS",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v8158_version": "2026-09-22-v8.15.8-current-production-financial-refresh-shadow",
+  "v8158_fix_revision": "2026-09-22-v8.15.8b-target-only-merge-fix",
+  "v8158_result_commit": "81d3f459fd6f317bd080ef4a48a619f7aa021bf9",
+  "staged_cache": {
+    "production_row_count": 271,
+    "source_candidate_row_count": 28,
+    "staged_row_count": 299,
+    "target_count": 28,
+    "fully_financial_resolved_count": 27,
+    "partial_financial_remaining_count": 1,
+    "partial_financial_remaining_tickers": [
+      "014825"
+    ],
+    "merge_mode": "PRESERVE_PRODUCTION_ROWS_AND_ADD_V8158_TARGETS"
+  },
+  "scorer_regression": {
+    "universe_count": 120,
+    "baseline_ready_count": 21,
+    "candidate_ready_count": 21,
+    "baseline_limited_count": 99,
+    "candidate_limited_count": 99,
+    "baseline_total_blocker_occurrences": 688,
+    "candidate_total_blocker_occurrences": 475,
+    "blocker_occurrences_reduced_by": 213,
+    "baseline_target_financial_blocker_occurrences": 221,
+    "candidate_target_financial_blocker_occurrences": 8,
+    "target_financial_blocker_occurrences_reduced_by": 213,
+    "changed_target_score_row_count": 27,
+    "changed_target_score_tickers": [
+      "000050",
+      "001020",
+      "001460",
+      "002450",
+      "002990",
+      "003060",
+      "003480",
+      "003850",
+      "004990",
+      "006060",
+      "006220",
+      "008250",
+      "011330",
+      "013890",
+      "016590",
+      "023530",
+      "024090",
+      "058650",
+      "070960",
+      "071950",
+      "097520",
+      "145990",
+      "241590",
+      "298000",
+      "298050",
+      "363280",
+      "446070"
+    ],
+    "non_target_score_row_changed_count": 0,
+    "newly_ready_count": 0,
+    "lost_ready_count": 0
+  },
+  "automatic_promotion": {
+    "allowed": false,
+    "promoted_ticker_count": 0
+  },
+  "hard_guards": {
+    "production_financial_cache_modified": false,
+    "production_financial_run_log_modified": false,
+    "production_raw_score_cache_modified": false,
+    "production_api_modified": false,
+    "production_score_written": false,
+    "scoring_policy_modified": false,
+    "corp_identity_policy_modified": false,
+    "source_value_imputed": false,
+    "non_target_score_row_changed": false
+  },
+  "next_step": "CONTROLLED_PRODUCTION_FINANCIAL_CACHE_REFRESH_V8160"
+}

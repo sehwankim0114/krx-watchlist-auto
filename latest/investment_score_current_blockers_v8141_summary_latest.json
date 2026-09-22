@@ -1,0 +1,230 @@
+{
+  "version": "2026-09-22-v8.14.1-post-supply-current-blocker-reaudit",
+  "generated_at_kst": "2026-09-22T10:57:20+09:00",
+  "status": "AUDIT_ONLY_POST_SUPPLY_PRODUCTION_APPLY",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v8140b_version": "2026-09-22-v8.14.0B-adopt-scheduled-production-supply-apply",
+  "v8140b_result_commit": "099044e4d0b197ca936a1a994f4bf30b1b1c072d",
+  "scorer_universe_count": 149,
+  "ready_count": 27,
+  "limited_count": 122,
+  "ready_pct": 18.1208,
+  "limited_blocker_occurrences": 724,
+  "change_from_pre_supply_reference": {
+    "ready_delta": 4,
+    "limited_delta": -4,
+    "blocker_occurrence_delta": -8,
+    "supply_blockers_removed": 8
+  },
+  "blocker_category_counts": {
+    "SOURCE_DATA_GAP": 680,
+    "SOURCE_EVIDENCE_GAP": 36,
+    "POLICY_SEMANTIC_BLOCKER": 8
+  },
+  "source_group_counts": {
+    "INVESTMENT_SCORE_SOURCE_CACHE": 164,
+    "FINANCIAL_VALUATION_CACHE": 293,
+    "OCF_AND_REVENUE_SOURCE": 31,
+    "EXACT_DA_SOURCE": 107,
+    "FINANCIAL_AND_RAW_SOURCE": 34,
+    "NETCASH_INPUT": 33,
+    "PRODUCTION_ANALYSIS_SUPPLY": 36,
+    "V880_SCORING_CONTRACT": 8,
+    "PRODUCTION_PRICE_METRICS": 18
+  },
+  "recovery_status_counts": {
+    "MULTI_BLOCKER_SOURCE_LANE": 667,
+    "EXHAUSTED_APPROVED_OFFICIAL_DA_PATHS": 44,
+    "POLICY_SEMANTIC_DEFER": 8,
+    "ACTIONABLE_SINGLE_BLOCKER_REAUDIT": 5
+  },
+  "source_priority": [
+    {
+      "source_group": "FINANCIAL_VALUATION_CACHE",
+      "blocker_occurrences": 293,
+      "ticker_count": 38,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0,
+      "actionable_single_blocker_ticker_list": []
+    },
+    {
+      "source_group": "INVESTMENT_SCORE_SOURCE_CACHE",
+      "blocker_occurrences": 164,
+      "ticker_count": 48,
+      "single_blocker_tickers": 1,
+      "actionable_single_blocker_tickers": 1,
+      "actionable_single_blocker_ticker_list": [
+        "365550"
+      ]
+    },
+    {
+      "source_group": "EXACT_DA_SOURCE",
+      "blocker_occurrences": 107,
+      "ticker_count": 107,
+      "single_blocker_tickers": 48,
+      "actionable_single_blocker_tickers": 4,
+      "actionable_single_blocker_ticker_list": [
+        "001440",
+        "066570",
+        "071840",
+        "086280"
+      ]
+    },
+    {
+      "source_group": "PRODUCTION_ANALYSIS_SUPPLY",
+      "blocker_occurrences": 36,
+      "ticker_count": 36,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0,
+      "actionable_single_blocker_ticker_list": []
+    },
+    {
+      "source_group": "FINANCIAL_AND_RAW_SOURCE",
+      "blocker_occurrences": 34,
+      "ticker_count": 34,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0,
+      "actionable_single_blocker_ticker_list": []
+    },
+    {
+      "source_group": "NETCASH_INPUT",
+      "blocker_occurrences": 33,
+      "ticker_count": 33,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0,
+      "actionable_single_blocker_ticker_list": []
+    },
+    {
+      "source_group": "OCF_AND_REVENUE_SOURCE",
+      "blocker_occurrences": 31,
+      "ticker_count": 31,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0,
+      "actionable_single_blocker_ticker_list": []
+    },
+    {
+      "source_group": "PRODUCTION_PRICE_METRICS",
+      "blocker_occurrences": 18,
+      "ticker_count": 12,
+      "single_blocker_tickers": 0,
+      "actionable_single_blocker_tickers": 0,
+      "actionable_single_blocker_ticker_list": []
+    },
+    {
+      "source_group": "V880_SCORING_CONTRACT",
+      "blocker_occurrences": 8,
+      "ticker_count": 8,
+      "single_blocker_tickers": 1,
+      "actionable_single_blocker_tickers": 0,
+      "actionable_single_blocker_ticker_list": []
+    }
+  ],
+  "known_exhausted_evidence": {
+    "exact_da_exhausted_union_count": 60,
+    "exact_da_exhausted_union_tickers": [
+      "000150",
+      "000490",
+      "000660",
+      "000760",
+      "001560",
+      "001630",
+      "001680",
+      "002350",
+      "002450",
+      "003230",
+      "003620",
+      "004170",
+      "004370",
+      "004490",
+      "004910",
+      "005300",
+      "005930",
+      "006400",
+      "007070",
+      "009420",
+      "010130",
+      "011200",
+      "011210",
+      "012450",
+      "012690",
+      "014830",
+      "017670",
+      "018260",
+      "020560",
+      "021240",
+      "022100",
+      "023960",
+      "028050",
+      "034020",
+      "034230",
+      "039130",
+      "047050",
+      "047810",
+      "058860",
+      "069620",
+      "073240",
+      "078520",
+      "079160",
+      "079550",
+      "082740",
+      "089590",
+      "090370",
+      "095570",
+      "097950",
+      "105630",
+      "112610",
+      "128820",
+      "185750",
+      "214320",
+      "227840",
+      "267270",
+      "373220",
+      "456040",
+      "475560",
+      "483650"
+    ],
+    "v8104_exhausted_tickers": [
+      "001020",
+      "357250"
+    ]
+  },
+  "next_actionable_source_group": "EXACT_DA_SOURCE",
+  "next_actionable_single_blocker_count": 4,
+  "next_actionable_tickers": [
+    "001440",
+    "066570",
+    "071840",
+    "086280"
+  ],
+  "next_actionable_names": [
+    "대한전선",
+    "LG전자",
+    "롯데하이마트",
+    "현대글로비스"
+  ],
+  "secondary_actionable_groups": {
+    "INVESTMENT_SCORE_SOURCE_CACHE": [
+      "365550"
+    ],
+    "PRODUCTION_ANALYSIS_SUPPLY": []
+  },
+  "next_actionable_selection_reason": "HIGHEST_CURRENT_ACTIONABLE_SINGLE_BLOCKER_COUNT_AFTER_SUPPLY_APPLY",
+  "runtime_freshness_note": {
+    "official_basis_date": "2026-09-18",
+    "expected_official_trading_date": "2026-09-21",
+    "safe_to_analyze_as_latest": false
+  },
+  "hard_guards": {
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_price_elasticity_cache_modified": false,
+    "production_ocf_cache_modified": false,
+    "production_supply_source_modified": false,
+    "production_api_modified": false,
+    "production_investment_score_written": false,
+    "scoring_policy_modified": false,
+    "exhausted_lane_auto_requeried": false,
+    "source_value_imputed": false
+  },
+  "next_step": "AUDIT_CURRENT_ACTIONABLE_EXACT_DA_SINGLE_BLOCKERS_V8142"
+}

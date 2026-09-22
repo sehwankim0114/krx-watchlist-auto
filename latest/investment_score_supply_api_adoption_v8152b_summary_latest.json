@@ -1,0 +1,73 @@
+{
+  "version": "2026-09-22-v8.15.2B-adopt-scheduled-uangel-supply-apply",
+  "generated_at_kst": "2026-09-22T16:56:29+09:00",
+  "status": "SCHEDULED_PRODUCTION_UANGEL_SUPPLY_APPLY_ADOPTED",
+  "v8151_version": "2026-09-22-v8.15.1-narrow-production-uangel-supply-source-patch",
+  "v8151_result_commit": "c2e1e2e5c19f17f5d75f644d8cdd4a42a262abf7",
+  "first_scheduled_api_commit": "bc2dc0cf66f78a5359ab221c6dfd9af155347b8b",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "supply_policy_version": "2026-07-01-v6.0-supply-status-separated",
+  "production_api": {
+    "basis_date": "2026-09-21",
+    "source_build_id": "20260922T142305+0900-c0e3f46a55",
+    "source_commit": "c0e3f46a5502ee048577968932573046df335d92",
+    "safe_to_analyze_as_latest": true,
+    "table_row_counts": {
+      "kospi": 30,
+      "decliners": 91,
+      "decliners24": 1
+    },
+    "target_tables": [
+      "decliners"
+    ]
+  },
+  "supply_source": {
+    "row_count": 9,
+    "sha256": "8ae75f667475d29131ba773dc1084469dcdb14ef60895c17053fa1e0b32240d3",
+    "manifest_sha256": "8ae75f667475d29131ba773dc1084469dcdb14ef60895c17053fa1e0b32240d3",
+    "hash_applied": true,
+    "target_ticker": "072130",
+    "target_name": "유엔젤",
+    "target_status": "OK",
+    "target_level": "경계"
+  },
+  "counterfactual_scorer": {
+    "universe_count": 120,
+    "ready_count": 20,
+    "limited_count": 100,
+    "blocker_occurrences": 689,
+    "target_status": "LIMITED",
+    "target_missing_components": [
+      "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+    ]
+  },
+  "actual_scorer": {
+    "universe_count": 120,
+    "ready_count": 21,
+    "limited_count": 99,
+    "blocker_occurrences": 688,
+    "target_status": "READY",
+    "target_supply_points": 4
+  },
+  "ready_delta": 1,
+  "limited_delta": -1,
+  "blocker_occurrences_reduced_by": 1,
+  "changed_score_row_count": 1,
+  "changed_score_tickers": [
+    "072130"
+  ],
+  "hard_guards": {
+    "production_api_modified": false,
+    "production_supply_source_csv_modified": false,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_ocf_cache_modified": false,
+    "production_price_elasticity_cache_modified": false,
+    "scoring_policy_modified": false,
+    "supply_policy_modified": false,
+    "source_value_imputed": false,
+    "issuer_mapping_guessed": false,
+    "duplicate_api_rebuild_performed": false
+  },
+  "next_step": "POST_SUPPLY_APPLY_DYNAMIC_BLOCKER_REAUDIT_V8153"
+}

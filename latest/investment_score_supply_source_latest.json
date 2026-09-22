@@ -1,6 +1,6 @@
 {
   "version": "2026-09-22-v8.15.1-narrow-production-uangel-supply-source-patch",
-  "status": "PRODUCTION_SOURCE_READY_NOT_YET_API_REBUILT",
+  "status": "PRODUCTION_SOURCE_APPLIED_API_REBUILT",
   "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
   "supply_policy_version": "2026-07-01-v6.0-supply-status-separated",
   "promoted_from_candidate_version": "2026-09-21-v8.13.8b-stage-current-universe-supply-source-integration",
@@ -45,13 +45,15 @@
     "builder": "build_stock_table_preview_v850.py",
     "overlay_module": "investment_score_supply_overlay_v8139b.py",
     "precedence": "VERIFIED_SUPPLY_SOURCE_OVER_LEGACY_WHOLE_MARKET_SCAN",
-    "production_api_rebuilt": false,
-    "production_api_rebuild_mode": "PENDING_CONTROLLED_REBUILD",
-    "production_api_rebuild_commit": "24db33414e7beabf6b7ded4e2b4ec3d17f3aa7f5",
-    "production_api_source_commit": "581565928f02bf12ee447e6bb0bd7ee959c08823",
-    "production_api_basis_date": "2026-09-18"
+    "production_api_rebuilt": true,
+    "production_api_rebuild_mode": "SCHEDULED_API_REBUILD_ADOPTED_V8152B",
+    "production_api_rebuild_commit": "bc2dc0cf66f78a5359ab221c6dfd9af155347b8b",
+    "production_api_source_commit": "c0e3f46a5502ee048577968932573046df335d92",
+    "production_api_basis_date": "2026-09-21",
+    "production_api_source_build_id": "20260922T142305+0900-c0e3f46a55",
+    "production_api_supply_sha256": "8ae75f667475d29131ba773dc1084469dcdb14ef60895c17053fa1e0b32240d3"
   },
-  "next_step": "REBUILD_TWO_TABLE_WITH_UANGEL_SUPPLY_SOURCE_V8152",
+  "next_step": "POST_SUPPLY_APPLY_DYNAMIC_BLOCKER_REAUDIT_V8153",
   "preview_validation": {
     "two_table_union_count": 149,
     "ready_count": 27,
@@ -61,13 +63,21 @@
     "production_api_modified": false
   },
   "post_apply_validation": {
-    "ready_count": 27,
-    "limited_count": 122,
-    "blocker_occurrences": 724,
-    "verified_supply_source_rows": 8,
-    "runtime_official_fresh_now": false,
-    "runtime_safe_to_analyze_as_latest": false,
-    "runtime_data_lag_trading_days": 1
+    "universe_count": 120,
+    "counterfactual_ready_count": 20,
+    "actual_ready_count": 21,
+    "counterfactual_limited_count": 100,
+    "actual_limited_count": 99,
+    "counterfactual_blocker_occurrences": 689,
+    "actual_blocker_occurrences": 688,
+    "ready_delta": 1,
+    "limited_delta": -1,
+    "blocker_occurrences_reduced_by": 1,
+    "changed_score_row_count": 1,
+    "changed_score_tickers": [
+      "072130"
+    ],
+    "actual_supply_points": 4
   },
   "generated_at_kst": "2026-09-22T14:01:21+09:00",
   "narrow_patch": {

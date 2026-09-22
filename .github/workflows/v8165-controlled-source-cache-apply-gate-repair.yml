@@ -1,0 +1,836 @@
+name: Controlled production source-cache apply and gate repair v8.16.5
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8165-controlled-source-cache-apply-gate-repair.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-krx-watchlist-latest
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify V8.16.4 lineage and capture production state
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git merge-base --is-ancestor \
+            437fa91eb8b844b686ef870474b1db62d377fb3e HEAD
+
+          test -f latest/investment_score_source_cache_candidate_v8164.csv
+          test -f latest/investment_score_source_stage_v8164_summary_latest.json
+          test -f latest/investment_score_source_stage_v8164_run_log_latest.txt
+          test -f latest/investment_score_source_shadow_v8163_summary_latest.json
+          test -f latest/investment_score_financial_cache_production_refresh_v8160_summary_latest.json
+          test -f latest/investment_score_source_cache_latest.csv
+          test -f latest/investment_score_source_run_log_latest.txt
+          test -f latest/financial_valuation_run_log_latest.txt
+          test -f .github/workflows/v854-refresh-investment-score-source-cache.yml
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            investment_score_source_enricher_v854.py \
+            .github/workflows/v854-refresh-investment-score-source-cache.yml \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            latest/investment_score_supply_source_latest.json \
+            latest/investment_score_source_cache_candidate_v8164.csv \
+            latest/investment_score_source_stage_v8164_summary_latest.json \
+            latest/investment_score_source_stage_v8164_run_log_latest.txt \
+            latest/investment_score_source_shadow_v8163_summary_latest.json \
+            latest/investment_score_financial_cache_production_refresh_v8160_summary_latest.json \
+            > /tmp/v8165_protected.before
+
+          sha256sum \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_run_log_latest.txt \
+            > /tmp/v8165_intended.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8165_api.before
+
+          echo "V8165_LINEAGE=PASS"
+
+      - name: Apply staged source cache with rollback and repair timestamp gate
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import csv
+          import json
+          import shutil
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_dry_run_v882 as scorer
+
+          VERSION = "2026-09-22-v8.16.5-controlled-production-source-cache-apply-gate-repair"
+          POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          V8164_VERSION = "2026-09-22-v8.16.4-stage-source-cache-refresh-gate-repair"
+          V8164_RESULT_COMMIT = "437fa91eb8b844b686ef870474b1db62d377fb3e"
+          V8163_VERSION = "2026-09-22-v8.16.3-shadow-current-source-cache-refresh-gate-repair"
+          V8160_VERSION = "2026-09-22-v8.16.0-controlled-production-financial-cache-refresh"
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+
+          PROD_SOURCE = ROOT / "latest/investment_score_source_cache_latest.csv"
+          PROD_SOURCE_LOG = ROOT / "latest/investment_score_source_run_log_latest.txt"
+          PROD_FIN_LOG = ROOT / "latest/financial_valuation_run_log_latest.txt"
+
+          CAND_SOURCE = ROOT / "latest/investment_score_source_cache_candidate_v8164.csv"
+          STAGE_JSON = ROOT / "latest/investment_score_source_stage_v8164_summary_latest.json"
+          SHADOW_JSON = ROOT / "latest/investment_score_source_shadow_v8163_summary_latest.json"
+          FIN_APPLY_JSON = ROOT / "latest/investment_score_financial_cache_production_refresh_v8160_summary_latest.json"
+
+          OUT_JSON = ROOT / "latest/investment_score_source_production_v8165_summary_latest.json"
+          OUT_LOG = ROOT / "latest/investment_score_source_production_v8165_run_log_latest.txt"
+          OUT_DOC = ROOT / "docs/investment_score_source_production_v8165.md"
+
+          BASE_CSV = Path("/tmp/v8165_base_score.csv")
+          BASE_JSON = Path("/tmp/v8165_base_score.json")
+          BASE_LOG = Path("/tmp/v8165_base_score.log")
+          BASE_DOC = Path("/tmp/v8165_base_score.md")
+          STAGE_CSV = Path("/tmp/v8165_stage_score.csv")
+          STAGE_SCORE_JSON = Path("/tmp/v8165_stage_score.json")
+          STAGE_SCORE_LOG = Path("/tmp/v8165_stage_score.log")
+          STAGE_SCORE_DOC = Path("/tmp/v8165_stage_score.md")
+          POST_CSV = Path("/tmp/v8165_post_score.csv")
+          POST_JSON = Path("/tmp/v8165_post_score.json")
+          POST_LOG = Path("/tmp/v8165_post_score.log")
+          POST_DOC = Path("/tmp/v8165_post_score.md")
+
+          BACKUP_SOURCE = Path("/tmp/v8165_source_cache.backup")
+          BACKUP_SOURCE_LOG = Path("/tmp/v8165_source_log.backup")
+          BACKUP_FIN_LOG = Path("/tmp/v8165_fin_log.backup")
+
+          EXPECTED_ADDED = {
+              "000050","001020","001460","002450","002990","003060","003480",
+              "003850","004990","006060","006220","008250","011330","013890",
+              "016590","023530","024090","058650","070960","071950","097520",
+              "145990","241590","298000","298050","363280","446070",
+          }
+          EXPECTED_CHANGED = EXPECTED_ADDED | {"002995"}
+
+          def ticker(value):
+              s = "".join(ch for ch in str(value or "") if ch.isdigit())
+              return s.zfill(6) if s else ""
+
+          def read_json(path):
+              return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+          def read_rows(path):
+              with Path(path).open(encoding="utf-8-sig", newline="") as f:
+                  reader = csv.DictReader(f)
+                  return list(reader), list(reader.fieldnames or [])
+
+          def row_map(path):
+              rows, _ = read_rows(path)
+              return {
+                  ticker(r.get("ticker")): r
+                  for r in rows
+                  if ticker(r.get("ticker"))
+              }
+
+          def stable(row):
+              return json.dumps(
+                  row,
+                  ensure_ascii=False,
+                  sort_keys=True,
+                  separators=(",", ":"),
+              )
+
+          def total_blockers(rows):
+              return sum(
+                  int(r.get("missing_component_count") or 0)
+                  for r in rows.values()
+              )
+
+          def run_scorer(raw_path, out_csv, out_json, out_log, out_doc):
+              old = {
+                  "VERSION": scorer.VERSION,
+                  "RAW": scorer.RAW,
+                  "OUT_CSV": scorer.OUT_CSV,
+                  "OUT_JSON": scorer.OUT_JSON,
+                  "OUT_LOG": scorer.OUT_LOG,
+                  "OUT_DOC": scorer.OUT_DOC,
+              }
+              try:
+                  scorer.VERSION = VERSION
+                  scorer.RAW = Path(raw_path)
+                  scorer.OUT_CSV = Path(out_csv)
+                  scorer.OUT_JSON = Path(out_json)
+                  scorer.OUT_LOG = Path(out_log)
+                  scorer.OUT_DOC = Path(out_doc)
+                  rc = scorer.main()
+              finally:
+                  for key, value in old.items():
+                      setattr(scorer, key, value)
+              if rc not in (None, 0):
+                  raise RuntimeError("V8165_SCORER_FAILED:" + str(rc))
+
+          def kv(path):
+              out = {}
+              for line in Path(path).read_text(encoding="utf-8-sig").splitlines():
+                  if "=" in line:
+                      k, v = line.split("=", 1)
+                      out[k.strip()] = v.strip()
+              return out
+
+          def parse_dt(value):
+              return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+
+          def add_run_at(text, value):
+              lines = text.splitlines()
+              if any(line.startswith("RUN_AT_KST=") for line in lines):
+                  raise RuntimeError("V8165_FIN_RUN_AT_ALREADY_PRESENT")
+              out = []
+              inserted = False
+              for line in lines:
+                  out.append(line)
+                  if line.startswith("STATUS=") and not inserted:
+                      out.append("RUN_AT_KST=" + value)
+                      inserted = True
+              if not inserted:
+                  raise RuntimeError("V8165_FIN_STATUS_LINE_MISSING")
+              return "\n".join(out) + "\n"
+
+          stage = read_json(STAGE_JSON)
+          shadow = read_json(SHADOW_JSON)
+          fin_apply = read_json(FIN_APPLY_JSON)
+
+          if stage.get("version") != V8164_VERSION:
+              raise RuntimeError("V8165_STAGE_VERSION_MISMATCH")
+          if stage.get("status") != "STAGED_SOURCE_CACHE_REFRESH_AND_GATE_REPAIR_PASS":
+              raise RuntimeError("V8165_STAGE_STATUS_MISMATCH")
+          if stage.get("policy_version") != POLICY_VERSION:
+              raise RuntimeError("V8165_POLICY_MISMATCH")
+          if stage.get("next_step") != "CONTROLLED_SOURCE_CACHE_APPLY_AND_GATE_REPAIR_V8165":
+              raise RuntimeError("V8165_STAGE_NEXT_STEP_MISMATCH")
+          if any((stage.get("hard_guards") or {}).values()):
+              raise RuntimeError("V8165_STAGE_HARD_GUARD_TRUE")
+
+          if shadow.get("version") != V8163_VERSION:
+              raise RuntimeError("V8165_SHADOW_VERSION_MISMATCH")
+          if fin_apply.get("version") != V8160_VERSION:
+              raise RuntimeError("V8165_FIN_APPLY_VERSION_MISMATCH")
+
+          stage_sc = stage.get("staged_source_cache") or {}
+          stage_rg = stage.get("scorer_regression") or {}
+          if (
+              int(stage_sc.get("production_row_count") or 0),
+              int(stage_sc.get("staged_row_count") or 0),
+              int(stage_sc.get("row_delta") or 0),
+              int(stage_sc.get("added_ticker_count") or 0),
+          ) != (254, 281, 27, 27):
+              raise RuntimeError("V8165_STAGE_SOURCE_EXACT_MISMATCH")
+          if set(stage_sc.get("added_tickers") or []) != EXPECTED_ADDED:
+              raise RuntimeError("V8165_STAGE_ADDED_SET_MISMATCH")
+
+          exact_reg = (
+              int(stage_rg.get("universe_count") or 0),
+              int(stage_rg.get("baseline_ready_count") or 0),
+              int(stage_rg.get("staged_ready_count") or 0),
+              int(stage_rg.get("baseline_limited_count") or 0),
+              int(stage_rg.get("staged_limited_count") or 0),
+              int(stage_rg.get("baseline_blocker_occurrences") or 0),
+              int(stage_rg.get("staged_blocker_occurrences") or 0),
+              int(stage_rg.get("blocker_occurrences_reduced_by") or 0),
+              int(stage_rg.get("changed_score_row_count") or 0),
+              int(stage_rg.get("non_selected_score_row_changed_count") or 0),
+              int(stage_rg.get("newly_ready_count") or 0),
+              int(stage_rg.get("lost_ready_count") or 0),
+          )
+          if exact_reg != (120, 21, 21, 99, 99, 475, 322, 153, 28, 0, 0, 0):
+              raise RuntimeError("V8165_STAGE_REGRESSION_MISMATCH:" + repr(exact_reg))
+          if set(stage_rg.get("changed_score_tickers") or []) != EXPECTED_CHANGED:
+              raise RuntimeError("V8165_STAGE_CHANGED_SET_MISMATCH")
+
+          prod_rows, prod_fields = read_rows(PROD_SOURCE)
+          cand_rows, cand_fields = read_rows(CAND_SOURCE)
+          if prod_fields != cand_fields:
+              raise RuntimeError("V8165_SOURCE_SCHEMA_MISMATCH")
+          if len(prod_rows) != 254 or len(cand_rows) != 281:
+              raise RuntimeError("V8165_SOURCE_ROW_COUNT_MISMATCH")
+
+          prod_map = {ticker(r.get("ticker")): r for r in prod_rows if ticker(r.get("ticker"))}
+          cand_map = {ticker(r.get("ticker")): r for r in cand_rows if ticker(r.get("ticker"))}
+          if len(prod_map) != 254 or len(cand_map) != 281:
+              raise RuntimeError("V8165_SOURCE_DUPLICATE_TICKER")
+          if not set(prod_map) < set(cand_map):
+              raise RuntimeError("V8165_PROD_NOT_SUBSET")
+          if set(cand_map) - set(prod_map) != EXPECTED_ADDED:
+              raise RuntimeError("V8165_ADDED_SET_MISMATCH")
+
+          run_scorer(PROD_SOURCE, BASE_CSV, BASE_JSON, BASE_LOG, BASE_DOC)
+          run_scorer(CAND_SOURCE, STAGE_CSV, STAGE_SCORE_JSON, STAGE_SCORE_LOG, STAGE_SCORE_DOC)
+
+          base = row_map(BASE_CSV)
+          staged_score = row_map(STAGE_CSV)
+          base_s = read_json(BASE_JSON)
+          staged_s = read_json(STAGE_SCORE_JSON)
+
+          if set(base) != set(staged_score) or len(base) != 120:
+              raise RuntimeError("V8165_PRE_SCORER_UNIVERSE_DRIFT")
+          if (
+              int(base_s.get("ready_count") or 0),
+              int(staged_s.get("ready_count") or 0),
+              int(base_s.get("limited_count") or 0),
+              int(staged_s.get("limited_count") or 0),
+              total_blockers(base),
+              total_blockers(staged_score),
+          ) != (21, 21, 99, 99, 475, 322):
+              raise RuntimeError("V8165_PRE_APPLY_REPRO_MISMATCH")
+
+          changed = {
+              code for code in base
+              if stable(base[code]) != stable(staged_score[code])
+          }
+          if changed != EXPECTED_CHANGED:
+              raise RuntimeError("V8165_PRE_APPLY_CHANGED_SET_MISMATCH")
+
+          source_run_at = shadow.get("generated_at_kst")
+          fin_run_at = fin_apply.get("generated_at_kst")
+          if not source_run_at or not fin_run_at:
+              raise RuntimeError("V8165_MISSING_AUDITED_TIMESTAMPS")
+          if parse_dt(source_run_at) <= parse_dt(fin_run_at):
+              raise RuntimeError("V8165_TIMESTAMP_ORDER_INVALID")
+
+          source_contracts = {
+              str(r.get("source_contract_version") or "").strip()
+              for r in cand_rows
+              if str(r.get("source_contract_version") or "").strip()
+          }
+          score_policies = {
+              str(r.get("score_policy_version") or "").strip()
+              for r in cand_rows
+              if str(r.get("score_policy_version") or "").strip()
+          }
+          if len(source_contracts) != 1 or len(score_policies) != 1:
+              raise RuntimeError("V8165_CANDIDATE_CONTRACT_NOT_UNIQUE")
+
+          three_ready = sum(
+              r.get("three_year_source_status") == "READY"
+              for r in cand_rows
+          )
+          quarter_ready = sum(
+              r.get("quarter_source_status") == "READY_Q2_SOURCE"
+              for r in cand_rows
+          )
+          deep_ready = sum(
+              r.get("deep_source_status") == "OK"
+              for r in cand_rows
+          )
+          raw_ready = sum(
+              r.get("source_cache_status") == "READY_RAW_SOURCE"
+              for r in cand_rows
+          )
+
+          shutil.copyfile(PROD_SOURCE, BACKUP_SOURCE)
+          shutil.copyfile(PROD_SOURCE_LOG, BACKUP_SOURCE_LOG)
+          shutil.copyfile(PROD_FIN_LOG, BACKUP_FIN_LOG)
+
+          try:
+              shutil.copyfile(CAND_SOURCE, PROD_SOURCE)
+
+              source_log_text = "\n".join([
+                  "SCRIPT_VERSION=investment_score_source_enricher_v854.py v8.11.7-five-financial-cis-interest-revenue",
+                  "SOURCE_CONTRACT_VERSION=" + next(iter(source_contracts)),
+                  "SCORE_POLICY_VERSION=" + next(iter(score_policies)),
+                  "RUN_AT_KST=" + source_run_at,
+                  "CONTROLLED_PROMOTION_VERSION=" + VERSION,
+                  "PROMOTED_FROM_STAGE_VERSION=" + V8164_VERSION,
+                  "PROMOTED_FROM_STAGE_COMMIT=" + V8164_RESULT_COMMIT,
+                  "FINANCIAL_CACHE_ROWS=299",
+                  "TARGETS=281",
+                  "OUTPUT_ROWS=281",
+                  "SOURCE_ROW_DELTA=27",
+                  "THREE_YEAR_READY=" + str(three_ready),
+                  "QUARTER_SOURCE_READY=" + str(quarter_ready),
+                  "DEEP_SOURCE_READY=" + str(deep_ready),
+                  "RAW_SOURCE_READY=" + str(raw_ready),
+                  "SOURCE_RETENTION_GUARD=PASS",
+                  "SCORE_VALUES_GENERATED=false",
+                  "NET_CASH_CALCULATED=false",
+                  "EV_EBITDA_CALCULATED=false",
+                  "INVESTMENT_SCORE_100_CALCULATED=false",
+                  "SCORE_THRESHOLD_POLICY_STATUS=NOT_DEFINED",
+                  "STATUS_OK=true",
+                  "NEXT_STEP=POST_APPLY_CURRENT_BLOCKER_REAUDIT_V8166",
+              ]) + "\n"
+              PROD_SOURCE_LOG.write_text(source_log_text, encoding="utf-8")
+
+              fin_text = PROD_FIN_LOG.read_text(encoding="utf-8-sig")
+              if "RUN_AT_KST=" in fin_text:
+                  raise RuntimeError("V8165_FIN_RUN_AT_UNEXPECTEDLY_PRESENT")
+              PROD_FIN_LOG.write_text(
+                  add_run_at(fin_text, fin_run_at),
+                  encoding="utf-8",
+              )
+
+              if PROD_SOURCE.read_bytes() != CAND_SOURCE.read_bytes():
+                  raise RuntimeError("V8165_POST_APPLY_SOURCE_BYTES_MISMATCH")
+
+              run_scorer(
+                  PROD_SOURCE, POST_CSV, POST_JSON, POST_LOG, POST_DOC
+              )
+              post = row_map(POST_CSV)
+              post_s = read_json(POST_JSON)
+
+              if set(post) != set(staged_score) or len(post) != 120:
+                  raise RuntimeError("V8165_POST_SCORER_UNIVERSE_DRIFT")
+              unequal = [
+                  code for code in sorted(post)
+                  if stable(post[code]) != stable(staged_score[code])
+              ]
+              if unequal:
+                  raise RuntimeError(
+                      "V8165_POST_SCORE_NOT_STAGE_EXACT:"
+                      + ",".join(unequal[:20])
+                  )
+
+              if (
+                  int(post_s.get("ready_count") or 0),
+                  int(post_s.get("limited_count") or 0),
+                  total_blockers(post),
+              ) != (21, 99, 322):
+                  raise RuntimeError("V8165_POST_METRICS_MISMATCH")
+
+              current_fin = kv(PROD_FIN_LOG)
+              current_source = kv(PROD_SOURCE_LOG)
+              fin_dt = parse_dt(current_fin.get("RUN_AT_KST"))
+              source_dt = parse_dt(current_source.get("RUN_AT_KST"))
+              if not fin_dt or not source_dt:
+                  raise RuntimeError("V8165_GATE_TIMESTAMP_MISSING")
+              if not source_dt >= fin_dt:
+                  raise RuntimeError("V8165_GATE_TIMESTAMP_ORDER_BAD")
+
+              # Reproduce the current V8.5.4 scheduled gate.
+              need_refresh = fin_dt > source_dt
+              reason = (
+                  "financial_source_newer_than_investment_source"
+                  if need_refresh
+                  else "investment_source_already_current"
+              )
+              if need_refresh:
+                  raise RuntimeError("V8165_GATE_REPAIR_STILL_REQUESTS_REFRESH")
+              if reason != "investment_source_already_current":
+                  raise RuntimeError("V8165_GATE_REASON_BAD")
+
+              summary = {
+                  "version": VERSION,
+                  "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+                  "status": "PRODUCTION_SOURCE_CACHE_APPLIED_GATE_COMPATIBILITY_REPAIRED",
+                  "policy_version": POLICY_VERSION,
+                  "v8164_version": V8164_VERSION,
+                  "v8164_result_commit": V8164_RESULT_COMMIT,
+                  "production_source_cache": {
+                      "row_count_before": 254,
+                      "row_count_after": 281,
+                      "row_delta": 27,
+                      "added_ticker_count": 27,
+                      "added_tickers": sorted(EXPECTED_ADDED),
+                      "post_apply_exact_stage_bytes": True,
+                  },
+                  "scorer_regression": {
+                      "universe_count": 120,
+                      "ready_before": 21,
+                      "ready_after": 21,
+                      "limited_before": 99,
+                      "limited_after": 99,
+                      "blockers_before": 475,
+                      "blockers_after": 322,
+                      "blockers_reduced_by": 153,
+                      "changed_score_row_count": 28,
+                      "changed_score_tickers": sorted(EXPECTED_CHANGED),
+                      "non_selected_score_row_changed_count": 0,
+                      "newly_ready_count": 0,
+                      "lost_ready_count": 0,
+                      "post_score_equals_staged_score": True,
+                  },
+                  "gate_repair": {
+                      "mode": "RESTORE_RUN_AT_KST_CONTRACT",
+                      "production_workflow_modified": False,
+                      "financial_run_at_kst": fin_run_at,
+                      "source_run_at_kst": source_run_at,
+                      "scheduled_gate_need_refresh_after_apply": False,
+                      "scheduled_gate_reason_after_apply": (
+                          "investment_source_already_current"
+                      ),
+                      "manual_dispatch_force_refresh_preserved": True,
+                      "commit_ancestry_candidate_validated_but_not_activated": True,
+                  },
+                  "rollback_guard": {
+                      "enabled": True,
+                      "restores_source_cache": True,
+                      "restores_source_run_log": True,
+                      "restores_financial_run_log": True,
+                  },
+                  "hard_guards": {
+                      "production_source_cache_modified": True,
+                      "production_source_run_log_modified": True,
+                      "production_financial_run_log_modified": True,
+                      "production_financial_cache_modified": False,
+                      "production_gate_workflow_modified": False,
+                      "production_api_modified": False,
+                      "production_score_written": False,
+                      "scoring_policy_modified": False,
+                      "source_value_imputed": False,
+                      "non_selected_score_row_changed": False,
+                  },
+                  "next_step": "POST_APPLY_CURRENT_BLOCKER_REAUDIT_V8166",
+              }
+
+              OUT_JSON.write_text(
+                  json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+
+              OUT_LOG.write_text(
+                  "\n".join([
+                      f"VERSION={VERSION}",
+                      "STATUS=PRODUCTION_SOURCE_CACHE_APPLIED_GATE_COMPATIBILITY_REPAIRED",
+                      "SOURCE_ROWS_BEFORE=254",
+                      "SOURCE_ROWS_AFTER=281",
+                      "SOURCE_ROW_DELTA=27",
+                      "SCORER_UNIVERSE=120",
+                      "READY_BEFORE=21",
+                      "READY_AFTER=21",
+                      "LIMITED_BEFORE=99",
+                      "LIMITED_AFTER=99",
+                      "BLOCKERS_BEFORE=475",
+                      "BLOCKERS_AFTER=322",
+                      "BLOCKER_REDUCED_BY=153",
+                      "CHANGED_SCORE_ROWS=28",
+                      "NON_SELECTED_SCORE_ROW_CHANGED=0",
+                      "NEWLY_READY=0",
+                      "LOST_READY=0",
+                      "POST_SCORE_EQUALS_STAGED=true",
+                      "GATE_REPAIR_MODE=RESTORE_RUN_AT_KST_CONTRACT",
+                      "PRODUCTION_GATE_WORKFLOW_MODIFIED=false",
+                      "SCHEDULED_GATE_NEED_REFRESH=false",
+                      "SCHEDULED_GATE_REASON=investment_source_already_current",
+                      "ROLLBACK_GUARD=true",
+                      "STATUS_OK=true",
+                      "NEXT_STEP=POST_APPLY_CURRENT_BLOCKER_REAUDIT_V8166",
+                  ]) + "\n",
+                  encoding="utf-8",
+              )
+
+              OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+              OUT_DOC.write_text(
+                  "\n".join([
+                      "# V8.16.5 controlled production source-cache apply",
+                      "",
+                      "- Production source cache is promoted from 254 to 281 rows.",
+                      "- Exact V8.16.4 staged candidate bytes are applied.",
+                      "- Scorer blockers are reduced from 475 to 322.",
+                      "- READY / LIMITED remains 21 / 99.",
+                      "- No READY ticker is lost and no non-selected score row changes.",
+                      "- The existing V8.5.4 workflow file remains unchanged.",
+                      "- Gate compatibility is repaired by restoring the audited RUN_AT_KST contract to the V8.16.0 financial log and the promoted source log.",
+                      "- The current scheduled gate now resolves to NEED_REFRESH=false because the promoted source run is newer than the financial run.",
+                      "- Manual workflow_dispatch forced refresh behavior remains unchanged.",
+                      "",
+                      "Next: POST_APPLY_CURRENT_BLOCKER_REAUDIT_V8166",
+                      "",
+                  ]),
+                  encoding="utf-8",
+              )
+
+          except Exception:
+              shutil.copyfile(BACKUP_SOURCE, PROD_SOURCE)
+              shutil.copyfile(BACKUP_SOURCE_LOG, PROD_SOURCE_LOG)
+              shutil.copyfile(BACKUP_FIN_LOG, PROD_FIN_LOG)
+              raise
+
+          print("V8165_CONTROLLED_APPLY=PASS")
+          print("V8165_SOURCE_ROWS=254->281")
+          print("V8165_BLOCKERS=475->322")
+          print("V8165_BLOCKER_REDUCTION=153")
+          print("V8165_GATE_REPAIR=PASS")
+          print("V8165_SCHEDULED_GATE_NEED_REFRESH=false")
+          print("V8165_NEXT_STEP=POST_APPLY_CURRENT_BLOCKER_REAUDIT_V8166")
+          PY
+
+          test -f latest/investment_score_source_production_v8165_summary_latest.json
+          test -f latest/investment_score_source_production_v8165_run_log_latest.txt
+          grep -q '^STATUS_OK=true$'             latest/investment_score_source_production_v8165_run_log_latest.txt
+          grep -q '^BLOCKERS_AFTER=322$'             latest/investment_score_source_production_v8165_run_log_latest.txt
+          grep -q '^SCHEDULED_GATE_NEED_REFRESH=false$'             latest/investment_score_source_production_v8165_run_log_latest.txt
+
+      - name: Validate V8.16.5 production result
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          s = json.loads(
+              Path(
+                  "latest/investment_score_source_production_v8165_summary_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+          assert s["version"] == (
+              "2026-09-22-v8.16.5-controlled-production-source-cache-apply-gate-repair"
+          )
+          assert s["status"] == (
+              "PRODUCTION_SOURCE_CACHE_APPLIED_GATE_COMPATIBILITY_REPAIRED"
+          )
+          assert s["v8164_result_commit"] == (
+              "437fa91eb8b844b686ef870474b1db62d377fb3e"
+          )
+
+          sc = s["production_source_cache"]
+          assert sc["row_count_before"] == 254
+          assert sc["row_count_after"] == 281
+          assert sc["row_delta"] == 27
+          assert sc["added_ticker_count"] == 27
+          assert sc["post_apply_exact_stage_bytes"] is True
+
+          rg = s["scorer_regression"]
+          assert rg["universe_count"] == 120
+          assert rg["ready_before"] == 21
+          assert rg["ready_after"] == 21
+          assert rg["limited_before"] == 99
+          assert rg["limited_after"] == 99
+          assert rg["blockers_before"] == 475
+          assert rg["blockers_after"] == 322
+          assert rg["blockers_reduced_by"] == 153
+          assert rg["changed_score_row_count"] == 28
+          assert rg["non_selected_score_row_changed_count"] == 0
+          assert rg["newly_ready_count"] == 0
+          assert rg["lost_ready_count"] == 0
+          assert rg["post_score_equals_staged_score"] is True
+
+          gate = s["gate_repair"]
+          assert gate["mode"] == "RESTORE_RUN_AT_KST_CONTRACT"
+          assert gate["production_workflow_modified"] is False
+          assert gate["scheduled_gate_need_refresh_after_apply"] is False
+          assert gate["scheduled_gate_reason_after_apply"] == (
+              "investment_source_already_current"
+          )
+          assert gate["manual_dispatch_force_refresh_preserved"] is True
+
+          assert s["rollback_guard"]["enabled"] is True
+          assert s["next_step"] == "POST_APPLY_CURRENT_BLOCKER_REAUDIT_V8166"
+
+          with Path(
+              "latest/investment_score_source_cache_latest.csv"
+          ).open(encoding="utf-8-sig", newline="") as f:
+              rows = list(csv.DictReader(f))
+          assert len(rows) == 281
+          assert len({r["ticker"] for r in rows}) == 281
+
+          source_log = Path(
+              "latest/investment_score_source_run_log_latest.txt"
+          ).read_text(encoding="utf-8")
+          fin_log = Path(
+              "latest/financial_valuation_run_log_latest.txt"
+          ).read_text(encoding="utf-8")
+
+          assert "RUN_AT_KST=2026-09-22T22:35:40+09:00" in source_log
+          assert "OUTPUT_ROWS=281" in source_log
+          assert "RUN_AT_KST=2026-09-22T21:55:30+09:00" in fin_log
+
+          print("V8165_OUTPUT_VALIDATION=PASS")
+          PY
+
+      - name: Verify only intended production files changed
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            investment_score_source_enricher_v854.py \
+            .github/workflows/v854-refresh-investment-score-source-cache.yml \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            latest/investment_score_supply_source_latest.json \
+            latest/investment_score_source_cache_candidate_v8164.csv \
+            latest/investment_score_source_stage_v8164_summary_latest.json \
+            latest/investment_score_source_stage_v8164_run_log_latest.txt \
+            latest/investment_score_source_shadow_v8163_summary_latest.json \
+            latest/investment_score_financial_cache_production_refresh_v8160_summary_latest.json \
+            > /tmp/v8165_protected.after
+
+          diff -u /tmp/v8165_protected.before /tmp/v8165_protected.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8165_api.after
+
+          diff -u /tmp/v8165_api.before /tmp/v8165_api.after
+
+          sha256sum \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_run_log_latest.txt \
+            > /tmp/v8165_intended.after
+
+          if diff -q /tmp/v8165_intended.before /tmp/v8165_intended.after >/dev/null; then
+            echo "::error::Expected production source/log changes were not detected"
+            exit 1
+          fi
+
+          echo "V8165_PROTECTED_STATE=PASS"
+          echo "V8165_INTENDED_PRODUCTION_MUTATION=PASS"
+
+      - name: Restrict changed files and refuse concurrent protected drift
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/investment_score_source_run_log_latest.txt",
+              "latest/financial_valuation_run_log_latest.txt",
+              "latest/investment_score_source_production_v8165_summary_latest.json",
+              "latest/investment_score_source_production_v8165_run_log_latest.txt",
+              "docs/investment_score_source_production_v8165.md",
+          }
+
+          changed = set()
+          for line in subprocess.check_output(
+              ["git", "status", "--porcelain", "--untracked-files=all"],
+              text=True,
+          ).splitlines():
+              if not line:
+                  continue
+              path = line[3:]
+              if " -> " in path:
+                  path = path.split(" -> ", 1)[1]
+              changed.add(path)
+
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit(
+                  "V8165_UNEXPECTED_CHANGED_FILES:" + ",".join(unexpected)
+              )
+
+          missing = sorted(allowed - changed)
+          if missing:
+              raise SystemExit(
+                  "V8165_EXPECTED_CHANGED_FILES_MISSING:" + ",".join(missing)
+              )
+
+          print("V8165_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "investment_score_dry_run_v882.py",
+              "investment_score_source_enricher_v854.py",
+              ".github/workflows/v854-refresh-investment-score-source-cache.yml",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/investment_score_source_run_log_latest.txt",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/financial_valuation_run_log_latest.txt",
+              "latest/investment_score_source_cache_candidate_v8164.csv",
+              "latest/investment_score_source_stage_v8164_summary_latest.json",
+              "latest/investment_score_source_stage_v8164_run_log_latest.txt",
+              "latest/investment_score_source_shadow_v8163_summary_latest.json",
+              "latest/investment_score_financial_cache_production_refresh_v8160_summary_latest.json",
+              "latest/investment_score_ocf_source_latest.csv",
+              "latest/investment_score_price_elasticity_20d_latest.csv",
+              "latest/investment_score_supply_source_latest.csv",
+              "latest/investment_score_supply_source_latest.json",
+          }
+
+          upstream = set(
+              subprocess.check_output(
+                  ["git", "diff", "--name-only", "HEAD..origin/main"],
+                  text=True,
+              ).splitlines()
+          )
+          dangerous = sorted(
+              p for p in upstream
+              if p in protected or p.startswith("api/two_table_v1/")
+          )
+          if dangerous:
+              raise SystemExit(
+                  "V8165_CONCURRENT_PROTECTED_DRIFT:" + ",".join(dangerous)
+              )
+
+          print("V8165_NO_CONCURRENT_PROTECTED_DRIFT=PASS")
+          PY
+
+      - name: Commit and push V8.16.5 controlled production result
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_run_log_latest.txt \
+            latest/investment_score_source_production_v8165_summary_latest.json \
+            latest/investment_score_source_production_v8165_run_log_latest.txt \
+            docs/investment_score_source_production_v8165.md
+
+          git diff --cached --check
+          echo "V8165_GIT_DIFF_CHECK=PASS"
+
+          git commit -m "Apply controlled source cache refresh v8.16.5"
+          git pull --rebase origin main
+          git push origin HEAD:main

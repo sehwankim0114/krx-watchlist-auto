@@ -1,0 +1,1432 @@
+name: Rebuild two-table with UANGEL supply source v8.15.2
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8152-rebuild-two-table-with-uangel-supply.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-api-json-main
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      TZ: Asia/Seoul
+      KRX_ID: ${{ secrets.KRX_ID }}
+      KRX_PW: ${{ secrets.KRX_PW }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m pip install "pykrx==1.2.8"
+
+      - name: Verify V8.15.1 lineage and capture protected state
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git merge-base --is-ancestor \
+            c2e1e2e5c19f17f5d75f644d8cdd4a42a262abf7 HEAD
+
+          test -n "${KRX_ID:-}" || {
+            echo "::error::KRX_ID secret is missing"
+            exit 1
+          }
+          test -n "${KRX_PW:-}" || {
+            echo "::error::KRX_PW secret is missing"
+            exit 1
+          }
+
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          meta = json.loads(
+              Path(
+                  "latest/investment_score_supply_source_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+          patch = json.loads(
+              Path(
+                  "latest/investment_score_supply_production_patch_v8151_summary_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+          manifest = json.loads(
+              Path(
+                  "api/two_table_v1/manifest.json"
+              ).read_text(encoding="utf-8")
+          )
+          status = json.loads(
+              Path("api/status.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          assert meta["version"] == (
+              "2026-09-22-v8.15.1-narrow-production-uangel-supply-source-patch"
+          )
+          assert meta["status"] == (
+              "PRODUCTION_SOURCE_READY_NOT_YET_API_REBUILT"
+          )
+          assert meta["source_count"] == 9
+          assert set(meta["source_tickers"]) == {
+              "001440",
+              "007540",
+              "029780",
+              "066570",
+              "071840",
+              "072130",
+              "084690",
+              "086280",
+              "114090",
+          }
+          assert meta["supply_levels"]["072130"] == "경계"
+          assert meta["integration"][
+              "production_api_rebuilt"
+          ] is False
+          assert meta["next_step"] == (
+              "REBUILD_TWO_TABLE_WITH_UANGEL_SUPPLY_SOURCE_V8152"
+          )
+
+          assert patch["version"] == meta["version"]
+          assert patch["status"] == (
+              "PRODUCTION_SOURCE_PATCHED_API_REBUILD_PENDING"
+          )
+          assert patch["source_count_after"] == 9
+          assert patch["narrow_patch_tickers"] == [
+              "072130"
+          ]
+          assert patch["ready_delta"] == 1
+          assert patch["limited_delta"] == -1
+          assert patch[
+              "blocker_occurrences_reduced_by"
+          ] == 1
+          assert patch[
+              "non_target_score_row_changed_count"
+          ] == 0
+          assert patch["next_step"] == (
+              "REBUILD_TWO_TABLE_WITH_UANGEL_SUPPLY_SOURCE_V8152"
+          )
+
+          assert status["api_sync_ok"] is True
+          assert status["critical_errors"] == []
+          assert status["safe_to_analyze_as_latest"] is True
+
+          assert manifest["release_stage"] == "PRODUCTION"
+          assert manifest[
+              "production_activation_allowed"
+          ] is True
+          assert manifest[
+              "safe_to_analyze_as_latest"
+          ] is True
+          assert manifest["basis_date"] == status[
+              "confirmed_basis_date"
+          ]
+          assert manifest["source_build_id"] == status[
+              "build_id"
+          ]
+
+          supply_bytes = Path(
+              "latest/investment_score_supply_source_latest.csv"
+          ).read_bytes()
+          current_supply_sha = hashlib.sha256(
+              supply_bytes
+          ).hexdigest()
+          prior_manifest_supply_sha = (
+              manifest.get("source_sha256") or {}
+          ).get(
+              "latest/investment_score_supply_source_latest.csv"
+          )
+
+          assert current_supply_sha
+          assert prior_manifest_supply_sha
+          assert current_supply_sha != prior_manifest_supply_sha
+
+          pre = {
+              "basis_date": manifest["basis_date"],
+              "source_build_id": manifest["source_build_id"],
+              "source_commit": manifest["source_commit"],
+              "source_rules_version": manifest[
+                  "source_rules_version"
+              ],
+              "source_rules_sha256": manifest[
+                  "source_rules_sha256"
+              ],
+              "tables": {
+                  k: {
+                      "row_count": v["row_count"],
+                      "pages": list(v["pages"]),
+                  }
+                  for k, v in manifest["tables"].items()
+              },
+              "current_supply_sha256": current_supply_sha,
+              "prior_manifest_supply_sha256": (
+                  prior_manifest_supply_sha
+              ),
+          }
+
+          Path(
+              "/tmp/v8152_pre_manifest_identity.json"
+          ).write_text(
+              json.dumps(
+                  pre,
+                  ensure_ascii=False,
+                  indent=2,
+              ) + "\n",
+              encoding="utf-8",
+          )
+
+          print("V8152_PREDECESSOR_META=PASS")
+          print(
+              "V8152_EXPECTED_SOURCE_API_HASH_MISMATCH=PASS"
+          )
+          PY
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            investment_score_supply_overlay_v8139b.py \
+            build_stock_table_preview_v850.py \
+            build_two_table_shadow_v851.py \
+            sector_rs_source_v870.py \
+            two_table_release_v870.py \
+            supply_burden_enricher.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            latest/investment_score_supply_production_patch_v8151_summary_latest.json \
+            > /tmp/v8152_protected.before
+
+          find api -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8152_api_root.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8152_two_table.before
+
+          echo "V8152_LINEAGE=PASS"
+
+      - name: Capture dynamic production scorer baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          import investment_score_dry_run_v882 as scorer
+
+          TARGET = "072130"
+          REASON = (
+              "수급·공시부담:"
+              "SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+          )
+
+          out_csv = Path(
+              "/tmp/v8152_baseline_score.csv"
+          )
+          out_json = Path(
+              "/tmp/v8152_baseline_score.json"
+          )
+          out_log = Path(
+              "/tmp/v8152_baseline_score.log"
+          )
+          out_doc = Path(
+              "/tmp/v8152_baseline_score.md"
+          )
+
+          old = {
+              "VERSION": scorer.VERSION,
+              "OUT_CSV": scorer.OUT_CSV,
+              "OUT_JSON": scorer.OUT_JSON,
+              "OUT_LOG": scorer.OUT_LOG,
+              "OUT_DOC": scorer.OUT_DOC,
+          }
+          try:
+              scorer.VERSION = (
+                  "2026-09-22-v8.15.2-pre-rebuild-baseline"
+              )
+              scorer.OUT_CSV = out_csv
+              scorer.OUT_JSON = out_json
+              scorer.OUT_LOG = out_log
+              scorer.OUT_DOC = out_doc
+              rc = scorer.main()
+          finally:
+              for key, value in old.items():
+                  setattr(scorer, key, value)
+
+          assert rc in (None, 0)
+
+          summary = json.loads(
+              out_json.read_text(encoding="utf-8")
+          )
+
+          with out_csv.open(
+              encoding="utf-8-sig",
+              newline="",
+          ) as f:
+              rows = {
+                  r["ticker"]: r
+                  for r in csv.DictReader(f)
+              }
+
+          assert rows
+          assert TARGET in rows
+
+          target = rows[TARGET]
+          missing = [
+              x
+              for x in (
+                  target.get("missing_components")
+                  or ""
+              ).split(";")
+              if x
+          ]
+
+          assert target["score_status"] == "LIMITED"
+          assert missing == [REASON]
+
+          ready = int(summary["ready_count"])
+          limited = int(summary["limited_count"])
+          blockers = sum(
+              int(
+                  r.get(
+                      "missing_component_count"
+                  ) or 0
+              )
+              for r in rows.values()
+          )
+
+          assert ready + limited == len(rows)
+
+          baseline = {
+              "universe_count": len(rows),
+              "ready_count": ready,
+              "limited_count": limited,
+              "blocker_occurrences": blockers,
+              "target_status": (
+                  target["score_status"]
+              ),
+              "target_missing_components": missing,
+          }
+
+          Path(
+              "/tmp/v8152_baseline_state.json"
+          ).write_text(
+              json.dumps(
+                  baseline,
+                  ensure_ascii=False,
+                  indent=2,
+              ) + "\n",
+              encoding="utf-8",
+          )
+
+          print("V8152_BASELINE_SCORER=PASS")
+          print(
+              f"V8152_BASELINE_UNIVERSE={len(rows)}"
+          )
+          print(
+              f"V8152_BASELINE_READY={ready}"
+          )
+          print(
+              f"V8152_BASELINE_LIMITED={limited}"
+          )
+          print(
+              f"V8152_BASELINE_BLOCKERS={blockers}"
+          )
+          PY
+
+      - name: Rebuild production two-table through official release path
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m py_compile \
+            stock_table_metrics_v850.py \
+            build_stock_table_preview_v850.py \
+            build_two_table_shadow_v851.py \
+            sector_rs_source_v870.py \
+            two_table_release_v870.py
+
+          python two_table_release_v870.py --repo . \
+            | tee /tmp/v8152_release_stdout.txt
+
+          grep -q '^V870_TWO_TABLE_RELEASE_CONTRACT=PASS$' \
+            /tmp/v8152_release_stdout.txt
+          grep -q '^PRODUCTION_ACTIVATION_ALLOWED=true$' \
+            /tmp/v8152_release_stdout.txt
+
+          python two_table_release_v870.py \
+            --repo . \
+            --check-only \
+            | tee /tmp/v8152_check_stdout.txt
+
+          grep -q '^V870_TWO_TABLE_RELEASE_CONTRACT=PASS$' \
+            /tmp/v8152_check_stdout.txt
+
+          echo "V8152_TWO_TABLE_RELEASE=PASS"
+
+      - name: Validate source identity and UANGEL production API fields
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          pre = json.loads(
+              Path(
+                  "/tmp/v8152_pre_manifest_identity.json"
+              ).read_text(encoding="utf-8")
+          )
+          manifest = json.loads(
+              Path(
+                  "api/two_table_v1/manifest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          assert manifest["version"] == (
+              "2026-09-12-v8.7.0-sector-rs-production-release"
+          )
+          assert manifest["release_stage"] == "PRODUCTION"
+          assert manifest[
+              "production_activation_allowed"
+          ] is True
+          assert manifest[
+              "safe_to_analyze_as_latest"
+          ] is True
+
+          assert manifest["basis_date"] == pre[
+              "basis_date"
+          ]
+          assert manifest["source_build_id"] == pre[
+              "source_build_id"
+          ]
+          assert manifest["source_commit"] == pre[
+              "source_commit"
+          ]
+          assert manifest["source_rules_version"] == pre[
+              "source_rules_version"
+          ]
+          assert manifest["source_rules_sha256"] == pre[
+              "source_rules_sha256"
+          ]
+
+          after_tables = {
+              k: {
+                  "row_count": v["row_count"],
+                  "pages": list(v["pages"]),
+              }
+              for k, v in manifest["tables"].items()
+          }
+          assert after_tables == pre["tables"]
+
+          supply_sha = hashlib.sha256(
+              Path(
+                  "latest/investment_score_supply_source_latest.csv"
+              ).read_bytes()
+          ).hexdigest()
+
+          assert supply_sha == pre[
+              "current_supply_sha256"
+          ]
+          assert (
+              manifest["source_sha256"][
+                  "latest/investment_score_supply_source_latest.csv"
+              ]
+              == supply_sha
+          )
+          assert supply_sha != pre[
+              "prior_manifest_supply_sha256"
+          ]
+
+          rows = {}
+          appearances = {}
+          for table in (
+              "kospi",
+              "decliners",
+              "decliners24",
+          ):
+              payload = json.loads(
+                  Path(
+                      f"api/two_table_v1/{table}.json"
+                  ).read_text(encoding="utf-8")
+              )
+              for row in payload.get("rows") or []:
+                  code = row["ticker"]
+                  rows[code] = row
+                  appearances.setdefault(
+                      code,
+                      [],
+                  ).append(table)
+
+          assert "072130" in rows
+          analysis = rows["072130"].get(
+              "analysis"
+          ) or {}
+          assert analysis.get(
+              "supply_status"
+          ) == "OK"
+          assert analysis.get(
+              "supply_level"
+          ) == "경계"
+
+          keywords = {
+              x
+              for x in str(
+                  analysis.get(
+                      "supply_keywords"
+                  ) or ""
+              ).split(",")
+              if x
+          }
+          assert keywords == {
+              "대량보유",
+              "주요주주변동",
+          }
+
+          print(
+              "V8152_SOURCE_IDENTITY_PRESERVED=PASS"
+          )
+          print(
+              "V8152_UANGEL_PRODUCTION_SUPPLY=PASS"
+          )
+          print(
+              "V8152_UANGEL_TABLES="
+              + ",".join(
+                  appearances["072130"]
+              )
+          )
+          PY
+
+      - name: Run post-rebuild scorer regression
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          import investment_score_dry_run_v882 as scorer
+
+          TARGET = "072130"
+
+          base_csv = Path(
+              "/tmp/v8152_baseline_score.csv"
+          )
+          base_state = json.loads(
+              Path(
+                  "/tmp/v8152_baseline_state.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          post_csv = Path(
+              "/tmp/v8152_post_score.csv"
+          )
+          post_json = Path(
+              "/tmp/v8152_post_score.json"
+          )
+          post_log = Path(
+              "/tmp/v8152_post_score.log"
+          )
+          post_doc = Path(
+              "/tmp/v8152_post_score.md"
+          )
+
+          old = {
+              "VERSION": scorer.VERSION,
+              "OUT_CSV": scorer.OUT_CSV,
+              "OUT_JSON": scorer.OUT_JSON,
+              "OUT_LOG": scorer.OUT_LOG,
+              "OUT_DOC": scorer.OUT_DOC,
+          }
+          try:
+              scorer.VERSION = (
+                  "2026-09-22-v8.15.2-post-rebuild"
+              )
+              scorer.OUT_CSV = post_csv
+              scorer.OUT_JSON = post_json
+              scorer.OUT_LOG = post_log
+              scorer.OUT_DOC = post_doc
+              rc = scorer.main()
+          finally:
+              for key, value in old.items():
+                  setattr(scorer, key, value)
+
+          assert rc in (None, 0)
+
+          def load(path):
+              with Path(path).open(
+                  encoding="utf-8-sig",
+                  newline="",
+              ) as f:
+                  return {
+                      r["ticker"]: r
+                      for r in csv.DictReader(f)
+                  }
+
+          base = load(base_csv)
+          post = load(post_csv)
+          post_summary = json.loads(
+              post_json.read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          assert set(base) == set(post)
+          assert len(post) == base_state[
+              "universe_count"
+          ]
+
+          post_ready = int(
+              post_summary["ready_count"]
+          )
+          post_limited = int(
+              post_summary["limited_count"]
+          )
+          post_blockers = sum(
+              int(
+                  r.get(
+                      "missing_component_count"
+                  ) or 0
+              )
+              for r in post.values()
+          )
+
+          assert (
+              post_ready
+              - base_state["ready_count"]
+          ) == 1
+          assert (
+              post_limited
+              - base_state["limited_count"]
+          ) == -1
+          assert (
+              base_state[
+                  "blocker_occurrences"
+              ]
+              - post_blockers
+          ) == 1
+
+          assert base[TARGET][
+              "score_status"
+          ] == "LIMITED"
+          assert post[TARGET][
+              "score_status"
+          ] == "READY"
+
+          assert (
+              "수급·공시부담:"
+              "SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+              not in (
+                  post[TARGET].get(
+                      "missing_components"
+                  )
+                  or ""
+              )
+          )
+
+          changed = {
+              code
+              for code in base
+              if base[code] != post[code]
+          }
+          assert changed == {TARGET}
+
+          prior_ready_changed = {
+              code
+              for code in base
+              if (
+                  code != TARGET
+                  and base[code].get(
+                      "score_status"
+                  ) == "READY"
+                  and base[code] != post[code]
+              )
+          }
+          assert not prior_ready_changed
+
+          result = {
+              "universe_count": len(post),
+              "baseline_ready_count": (
+                  base_state[
+                      "ready_count"
+                  ]
+              ),
+              "post_ready_count": (
+                  post_ready
+              ),
+              "baseline_limited_count": (
+                  base_state[
+                      "limited_count"
+                  ]
+              ),
+              "post_limited_count": (
+                  post_limited
+              ),
+              "baseline_blocker_occurrences": (
+                  base_state[
+                      "blocker_occurrences"
+                  ]
+              ),
+              "post_blocker_occurrences": (
+                  post_blockers
+              ),
+              "changed_score_tickers": sorted(
+                  changed
+              ),
+              "newly_ready_tickers": [
+                  TARGET
+              ],
+              "prior_ready_changed_count": 0,
+          }
+          Path(
+              "/tmp/v8152_post_state.json"
+          ).write_text(
+              json.dumps(
+                  result,
+                  ensure_ascii=False,
+                  indent=2,
+              ) + "\n",
+              encoding="utf-8",
+          )
+
+          print("V8152_POST_SCORER=PASS")
+          print(
+              f"V8152_POST_READY={post_ready}"
+          )
+          print(
+              f"V8152_POST_LIMITED={post_limited}"
+          )
+          print(
+              f"V8152_POST_BLOCKERS={post_blockers}"
+          )
+          print(
+              "V8152_CHANGED_SCORE_TICKERS=072130"
+          )
+          print(
+              "V8152_PRIOR_READY_CHANGED=0"
+          )
+          PY
+
+      - name: Finalize supply metadata and write V8.15.2 record
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import json
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          KST = ZoneInfo("Asia/Seoul")
+          VERSION = (
+              "2026-09-22-v8.15.2-production-two-table-uangel-supply-rebuild"
+          )
+
+          post = json.loads(
+              Path(
+                  "/tmp/v8152_post_state.json"
+              ).read_text(encoding="utf-8")
+          )
+          manifest = json.loads(
+              Path(
+                  "api/two_table_v1/manifest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          meta_path = Path(
+              "latest/investment_score_supply_source_latest.json"
+          )
+          meta = json.loads(
+              meta_path.read_text(encoding="utf-8")
+          )
+
+          assert meta["version"] == (
+              "2026-09-22-v8.15.1-narrow-production-uangel-supply-source-patch"
+          )
+          assert meta["source_count"] == 9
+
+          meta["status"] = (
+              "PRODUCTION_SOURCE_APPLIED_API_REBUILT"
+          )
+          meta["integration"][
+              "production_api_rebuilt"
+          ] = True
+          meta["integration"][
+              "production_api_rebuild_mode"
+          ] = "CONTROLLED_V8152"
+          meta["integration"][
+              "production_api_rebuild_version"
+          ] = VERSION
+          meta["integration"][
+              "production_api_basis_date"
+          ] = manifest["basis_date"]
+          meta["integration"][
+              "production_api_source_build_id"
+          ] = manifest["source_build_id"]
+          meta["post_apply_validation"] = {
+              "universe_count": post[
+                  "universe_count"
+              ],
+              "ready_count": post[
+                  "post_ready_count"
+              ],
+              "limited_count": post[
+                  "post_limited_count"
+              ],
+              "blocker_occurrences": post[
+                  "post_blocker_occurrences"
+              ],
+              "changed_score_row_count": 1,
+              "changed_score_tickers": [
+                  "072130"
+              ],
+              "newly_ready_count": 1,
+              "newly_ready_tickers": [
+                  "072130"
+              ],
+              "prior_ready_score_row_changed_count": 0,
+          }
+          meta["next_step"] = (
+              "POST_SUPPLY_APPLY_DYNAMIC_BLOCKER_REAUDIT_V8153"
+          )
+
+          meta_path.write_text(
+              json.dumps(
+                  meta,
+                  ensure_ascii=False,
+                  indent=2,
+              ) + "\n",
+              encoding="utf-8",
+          )
+
+          Path(
+              "latest/investment_score_supply_source_run_log_latest.txt"
+          ).write_text(
+              "\n".join([
+                  "VERSION=2026-09-22-v8.15.1-narrow-production-uangel-supply-source-patch",
+                  "STATUS=PRODUCTION_SOURCE_APPLIED_API_REBUILT",
+                  "SOURCE_COUNT=9",
+                  "NARROW_PATCH_TICKER=072130",
+                  "NARROW_PATCH_SUPPLY_STATUS=OK",
+                  "NARROW_PATCH_SUPPLY_LEVEL=경계",
+                  "PRODUCTION_API_REBUILT=true",
+                  f"PRODUCTION_API_REBUILD_VERSION={VERSION}",
+                  (
+                      "PRODUCTION_API_BASIS_DATE="
+                      + manifest["basis_date"]
+                  ),
+                  (
+                      "PRODUCTION_API_SOURCE_BUILD_ID="
+                      + manifest[
+                          "source_build_id"
+                      ]
+                  ),
+                  (
+                      "POST_READY="
+                      + str(
+                          post[
+                              "post_ready_count"
+                          ]
+                      )
+                  ),
+                  (
+                      "POST_LIMITED="
+                      + str(
+                          post[
+                              "post_limited_count"
+                          ]
+                      )
+                  ),
+                  (
+                      "POST_BLOCKERS="
+                      + str(
+                          post[
+                              "post_blocker_occurrences"
+                          ]
+                      )
+                  ),
+                  "CHANGED_SCORE_ROWS=1",
+                  "CHANGED_SCORE_TICKERS=072130",
+                  "NEWLY_READY=1",
+                  "NEWLY_READY_TICKERS=072130",
+                  "PRIOR_READY_CHANGED=0",
+                  "SCORING_POLICY_MODIFIED=false",
+                  "SUPPLY_POLICY_MODIFIED=false",
+                  "STATUS_OK=true",
+                  "NEXT_STEP=POST_SUPPLY_APPLY_DYNAMIC_BLOCKER_REAUDIT_V8153",
+              ]) + "\n",
+              encoding="utf-8",
+          )
+
+          now = datetime.now(
+              KST
+          ).isoformat(
+              timespec="seconds"
+          )
+
+          summary = {
+              "version": VERSION,
+              "generated_at_kst": now,
+              "status": (
+                  "PRODUCTION_TWO_TABLE_UANGEL_SUPPLY_REBUILD_APPLIED"
+              ),
+              "v8151_result_commit": (
+                  "c2e1e2e5c19f17f5d75f644d8cdd4a42a262abf7"
+              ),
+              "policy_version": (
+                  "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+              ),
+              "supply_policy_version": (
+                  "2026-07-01-v6.0-supply-status-separated"
+              ),
+              "production_api": {
+                  "path": "api/two_table_v1",
+                  "release_version": manifest[
+                      "version"
+                  ],
+                  "basis_date": manifest[
+                      "basis_date"
+                  ],
+                  "source_build_id": manifest[
+                      "source_build_id"
+                  ],
+                  "source_commit": manifest[
+                      "source_commit"
+                  ],
+                  "production_activation_allowed": (
+                      manifest[
+                          "production_activation_allowed"
+                      ]
+                  ),
+                  "safe_to_analyze_as_latest": (
+                      manifest[
+                          "safe_to_analyze_as_latest"
+                      ]
+                  ),
+                  "table_row_counts": {
+                      k: v["row_count"]
+                      for k, v in manifest[
+                          "tables"
+                      ].items()
+                  },
+              },
+              "supply_source": {
+                  "row_count": 9,
+                  "applied_ticker": (
+                      "072130"
+                  ),
+                  "applied_name": (
+                      "유엔젤"
+                  ),
+                  "applied_status": "OK",
+                  "applied_level": "경계",
+              },
+              "scorer_before": {
+                  "universe_count": post[
+                      "universe_count"
+                  ],
+                  "ready_count": post[
+                      "baseline_ready_count"
+                  ],
+                  "limited_count": post[
+                      "baseline_limited_count"
+                  ],
+                  "blocker_occurrences": post[
+                      "baseline_blocker_occurrences"
+                  ],
+              },
+              "scorer_after": {
+                  "universe_count": post[
+                      "universe_count"
+                  ],
+                  "ready_count": post[
+                      "post_ready_count"
+                  ],
+                  "limited_count": post[
+                      "post_limited_count"
+                  ],
+                  "blocker_occurrences": post[
+                      "post_blocker_occurrences"
+                  ],
+              },
+              "ready_delta": 1,
+              "limited_delta": -1,
+              "blocker_occurrences_reduced_by": 1,
+              "changed_score_row_count": 1,
+              "changed_score_tickers": [
+                  "072130"
+              ],
+              "newly_ready_count": 1,
+              "newly_ready_tickers": [
+                  "072130"
+              ],
+              "prior_ready_score_row_changed_count": 0,
+              "source_identity_preserved": True,
+              "table_membership_preserved": True,
+              "hard_guards": {
+                  "scoring_policy_modified": False,
+                  "supply_policy_modified": False,
+                  "financial_cache_modified": False,
+                  "raw_score_cache_modified": False,
+                  "ocf_cache_modified": False,
+                  "price_elasticity_cache_modified": False,
+                  "non_two_table_api_modified": False,
+                  "supply_source_csv_modified": False,
+                  "source_value_imputed": False,
+                  "issuer_mapping_guessed": False,
+                  "prior_ready_score_row_changed": False,
+              },
+              "next_step": (
+                  "POST_SUPPLY_APPLY_DYNAMIC_BLOCKER_REAUDIT_V8153"
+              ),
+          }
+
+          Path(
+              "latest/investment_score_supply_api_rebuild_v8152_summary_latest.json"
+          ).write_text(
+              json.dumps(
+                  summary,
+                  ensure_ascii=False,
+                  indent=2,
+              ) + "\n",
+              encoding="utf-8",
+          )
+
+          Path(
+              "latest/investment_score_supply_api_rebuild_v8152_run_log_latest.txt"
+          ).write_text(
+              "\n".join([
+                  f"VERSION={VERSION}",
+                  "STATUS=PRODUCTION_TWO_TABLE_UANGEL_SUPPLY_REBUILD_APPLIED",
+                  (
+                      "API_BASIS_DATE="
+                      + manifest["basis_date"]
+                  ),
+                  (
+                      "API_SOURCE_BUILD_ID="
+                      + manifest[
+                          "source_build_id"
+                      ]
+                  ),
+                  "SUPPLY_SOURCE_ROWS=9",
+                  (
+                      "BASELINE_READY="
+                      + str(
+                          post[
+                              "baseline_ready_count"
+                          ]
+                      )
+                  ),
+                  (
+                      "POST_READY="
+                      + str(
+                          post[
+                              "post_ready_count"
+                          ]
+                      )
+                  ),
+                  (
+                      "BASELINE_LIMITED="
+                      + str(
+                          post[
+                              "baseline_limited_count"
+                          ]
+                      )
+                  ),
+                  (
+                      "POST_LIMITED="
+                      + str(
+                          post[
+                              "post_limited_count"
+                          ]
+                      )
+                  ),
+                  (
+                      "BASELINE_BLOCKERS="
+                      + str(
+                          post[
+                              "baseline_blocker_occurrences"
+                          ]
+                      )
+                  ),
+                  (
+                      "POST_BLOCKERS="
+                      + str(
+                          post[
+                              "post_blocker_occurrences"
+                          ]
+                      )
+                  ),
+                  "READY_DELTA=1",
+                  "LIMITED_DELTA=-1",
+                  "BLOCKER_REDUCED_BY=1",
+                  "CHANGED_SCORE_ROWS=1",
+                  "CHANGED_SCORE_TICKERS=072130",
+                  "NEWLY_READY=1",
+                  "NEWLY_READY_TICKERS=072130",
+                  "PRIOR_READY_CHANGED=0",
+                  "SOURCE_IDENTITY_PRESERVED=true",
+                  "TABLE_MEMBERSHIP_PRESERVED=true",
+                  "NON_TWO_TABLE_API_MODIFIED=false",
+                  "SUPPLY_SOURCE_CSV_MODIFIED=false",
+                  "SCORING_POLICY_MODIFIED=false",
+                  "SUPPLY_POLICY_MODIFIED=false",
+                  "STATUS_OK=true",
+                  "NEXT_STEP=POST_SUPPLY_APPLY_DYNAMIC_BLOCKER_REAUDIT_V8153",
+              ]) + "\n",
+              encoding="utf-8",
+          )
+
+          Path(
+              "docs/investment_score_supply_api_rebuild_v8152.md"
+          ).write_text(
+              "\n".join([
+                  "# V8.15.2 production two-table rebuild with UANGEL supply",
+                  "",
+                  "- Persistent verified supply source remains 9 rows.",
+                  "- Two-table production bundle was rebuilt through `two_table_release_v870.py`.",
+                  "- 유엔젤 (072130) now reads `OK / 경계` in production two-table API.",
+                  "- Source identity, basis date, and table membership were preserved.",
+                  "- Scorer change is exactly one ticker: 072130.",
+                  "- READY +1, LIMITED -1, blocker -1.",
+                  "- Existing READY score rows did not change.",
+                  "- Non-two-table API files and scoring/supply policies were not modified.",
+                  "",
+                  "Next: `POST_SUPPLY_APPLY_DYNAMIC_BLOCKER_REAUDIT_V8153`",
+                  "",
+              ]),
+              encoding="utf-8",
+          )
+
+          print(
+              "V8152_METADATA_FINALIZATION=PASS"
+          )
+          PY
+
+      - name: Validate V8.15.2 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          s = json.loads(
+              Path(
+                  "latest/investment_score_supply_api_rebuild_v8152_summary_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+          manifest = json.loads(
+              Path(
+                  "api/two_table_v1/manifest.json"
+              ).read_text(encoding="utf-8")
+          )
+          meta = json.loads(
+              Path(
+                  "latest/investment_score_supply_source_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          assert s["version"] == (
+              "2026-09-22-v8.15.2-production-two-table-uangel-supply-rebuild"
+          )
+          assert s["status"] == (
+              "PRODUCTION_TWO_TABLE_UANGEL_SUPPLY_REBUILD_APPLIED"
+          )
+          assert s["v8151_result_commit"] == (
+              "c2e1e2e5c19f17f5d75f644d8cdd4a42a262abf7"
+          )
+          assert s["supply_source"][
+              "row_count"
+          ] == 9
+          assert s["supply_source"][
+              "applied_ticker"
+          ] == "072130"
+          assert s["supply_source"][
+              "applied_status"
+          ] == "OK"
+          assert s["supply_source"][
+              "applied_level"
+          ] == "경계"
+
+          assert s["ready_delta"] == 1
+          assert s["limited_delta"] == -1
+          assert s[
+              "blocker_occurrences_reduced_by"
+          ] == 1
+          assert s[
+              "changed_score_tickers"
+          ] == ["072130"]
+          assert s[
+              "newly_ready_tickers"
+          ] == ["072130"]
+          assert s[
+              "prior_ready_score_row_changed_count"
+          ] == 0
+          assert s[
+              "source_identity_preserved"
+          ] is True
+          assert s[
+              "table_membership_preserved"
+          ] is True
+          assert all(
+              v is False
+              for v in s[
+                  "hard_guards"
+              ].values()
+          )
+          assert s["next_step"] == (
+              "POST_SUPPLY_APPLY_DYNAMIC_BLOCKER_REAUDIT_V8153"
+          )
+
+          assert meta["source_count"] == 9
+          assert meta["status"] == (
+              "PRODUCTION_SOURCE_APPLIED_API_REBUILT"
+          )
+          assert meta["integration"][
+              "production_api_rebuilt"
+          ] is True
+          assert meta["next_step"] == (
+              "POST_SUPPLY_APPLY_DYNAMIC_BLOCKER_REAUDIT_V8153"
+          )
+
+          supply_sha = hashlib.sha256(
+              Path(
+                  "latest/investment_score_supply_source_latest.csv"
+              ).read_bytes()
+          ).hexdigest()
+          assert (
+              manifest["source_sha256"][
+                  "latest/investment_score_supply_source_latest.csv"
+              ]
+              == supply_sha
+          )
+
+          print(
+              "V8152_OUTPUT_VALIDATION=PASS"
+          )
+          PY
+
+      - name: Verify protected non-two-table state unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            investment_score_supply_overlay_v8139b.py \
+            build_stock_table_preview_v850.py \
+            build_two_table_shadow_v851.py \
+            sector_rs_source_v870.py \
+            two_table_release_v870.py \
+            supply_burden_enricher.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            latest/investment_score_supply_production_patch_v8151_summary_latest.json \
+            > /tmp/v8152_protected.after
+
+          diff -u \
+            /tmp/v8152_protected.before \
+            /tmp/v8152_protected.after
+
+          find api -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8152_api_root.after
+
+          diff -u \
+            /tmp/v8152_api_root.before \
+            /tmp/v8152_api_root.after
+
+          echo "V8152_PROTECTED_NON_TWO_TABLE_STATE=PASS"
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+
+          allowed_exact = {
+              "latest/investment_score_supply_source_latest.json",
+              "latest/investment_score_supply_source_run_log_latest.txt",
+              "latest/investment_score_supply_api_rebuild_v8152_summary_latest.json",
+              "latest/investment_score_supply_api_rebuild_v8152_run_log_latest.txt",
+              "docs/investment_score_supply_api_rebuild_v8152.md",
+          }
+
+          changed = {
+              line[3:]
+              for line in subprocess.check_output(
+                  [
+                      "git",
+                      "status",
+                      "--porcelain",
+                      "--untracked-files=all",
+                  ],
+                  text=True,
+              ).splitlines()
+              if line
+          }
+
+          unexpected = sorted(
+              p
+              for p in changed
+              if (
+                  p not in allowed_exact
+                  and not p.startswith(
+                      "api/two_table_v1/"
+                  )
+              )
+          )
+
+          if unexpected:
+              raise SystemExit(
+                  "V8152_UNEXPECTED_CHANGED_FILES:"
+                  + ",".join(unexpected)
+              )
+
+          assert any(
+              p.startswith(
+                  "api/two_table_v1/"
+              )
+              for p in changed
+          ), (
+              "V8152_TWO_TABLE_NOT_CHANGED"
+          )
+
+          print(
+              "V8152_CHANGED_FILES_RESTRICTED=PASS"
+          )
+          PY
+
+      - name: Refuse concurrent protected drift
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "investment_score_dry_run_v882.py",
+              "investment_score_supply_overlay_v8139b.py",
+              "build_stock_table_preview_v850.py",
+              "build_two_table_shadow_v851.py",
+              "sector_rs_source_v870.py",
+              "two_table_release_v870.py",
+              "supply_burden_enricher.py",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/investment_score_source_run_log_latest.txt",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/investment_score_price_elasticity_20d_latest.csv",
+              "latest/investment_score_ocf_source_latest.csv",
+              "latest/investment_score_supply_source_latest.csv",
+              "latest/investment_score_supply_source_latest.json",
+              "latest/investment_score_supply_source_run_log_latest.txt",
+              "latest/investment_score_supply_production_patch_v8151_summary_latest.json",
+          }
+
+          upstream = set(
+              subprocess.check_output(
+                  [
+                      "git",
+                      "diff",
+                      "--name-only",
+                      "HEAD..origin/main",
+                  ],
+                  text=True,
+              ).splitlines()
+          )
+
+          dangerous = sorted(
+              p
+              for p in upstream
+              if (
+                  p in protected
+                  or p.startswith("api/")
+              )
+          )
+
+          if dangerous:
+              raise SystemExit(
+                  "V8152_CONCURRENT_PROTECTED_DRIFT:"
+                  + ",".join(dangerous)
+              )
+
+          print(
+              "V8152_NO_CONCURRENT_PROTECTED_DRIFT=PASS"
+          )
+          PY
+
+      - name: Commit and push controlled two-table rebuild
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            api/two_table_v1 \
+            latest/investment_score_supply_source_latest.json \
+            latest/investment_score_supply_source_run_log_latest.txt \
+            latest/investment_score_supply_api_rebuild_v8152_summary_latest.json \
+            latest/investment_score_supply_api_rebuild_v8152_run_log_latest.txt \
+            docs/investment_score_supply_api_rebuild_v8152.md
+
+          git diff --cached --check
+          echo "V8152_GIT_DIFF_CHECK=PASS"
+
+          git commit -m "Rebuild two-table with UANGEL supply source v8.15.2"
+          git pull --rebase origin main
+          git push origin HEAD:main

@@ -1,0 +1,682 @@
+name: Adopt scheduled production supply apply v8.14.0B
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8140b-adopt-scheduled-production-supply-apply.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8140b-adopt-scheduled-production-supply-apply
+  cancel-in-progress: false
+
+jobs:
+  adopt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify lineage and capture protected state
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git merge-base --is-ancestor \
+            90aa0489c3f3c6a5c1ef739eaa40de1c482cda06 HEAD
+          git merge-base --is-ancestor \
+            24db33414e7beabf6b7ded4e2b4ec3d17f3aa7f5 HEAD
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            investment_score_supply_overlay_v8139b.py \
+            build_stock_table_preview_v850.py \
+            build_two_table_shadow_v851.py \
+            two_table_release_v870.py \
+            supply_burden_enricher.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            > /tmp/v8140b_protected.before
+
+          find api -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8140b_api_root.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8140b_two_table.before
+
+          echo "V8140B_LINEAGE=PASS"
+
+      - name: Verify scheduled build applied verified supply source
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv
+          import hashlib
+          import json
+          from pathlib import Path
+
+          EXPECTED = {
+              "001440": ("대한전선", "위험"),
+              "007540": ("샘표", "없음"),
+              "029780": ("삼성카드", "주의"),
+              "066570": ("LG전자", "주의"),
+              "071840": ("롯데하이마트", "없음"),
+              "084690": ("대상홀딩스", "주의"),
+              "086280": ("현대글로비스", "주의"),
+              "114090": ("GKL", "없음"),
+          }
+
+          source_path = Path(
+              "latest/investment_score_supply_source_latest.csv"
+          )
+          with source_path.open(
+              encoding="utf-8-sig",
+              newline="",
+          ) as f:
+              source_rows = list(csv.DictReader(f))
+
+          assert len(source_rows) == 8
+          source = {r["ticker"]: r for r in source_rows}
+          assert set(source) == set(EXPECTED)
+
+          for code, (name, level) in EXPECTED.items():
+              row = source[code]
+              assert row["name"] == name
+              assert row["source_status"] == "SOURCE_ONLY_READY"
+              assert row["supply_status"] == "OK"
+              assert row["supply_level"] == level
+
+          api_rows = {}
+          for table in ("kospi", "decliners", "decliners24"):
+              payload = json.loads(
+                  Path(
+                      f"api/two_table_v1/{table}.json"
+                  ).read_text(encoding="utf-8")
+              )
+              for row in payload.get("rows") or []:
+                  api_rows[row["ticker"]] = row
+
+          assert len(api_rows) == 149
+          assert set(EXPECTED) <= set(api_rows)
+
+          for code, (_, level) in EXPECTED.items():
+              analysis = api_rows[code].get("analysis") or {}
+              assert analysis.get("supply_status") == "OK"
+              assert analysis.get("supply_level") == level
+              assert (
+                  analysis.get("supply_keywords") or ""
+              ) == (source[code].get("risk_keywords") or "")
+
+          manifest = json.loads(
+              Path(
+                  "api/two_table_v1/manifest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          assert manifest["version"] == (
+              "2026-09-12-v8.7.0-sector-rs-production-release"
+          )
+          assert manifest["release_stage"] == "PRODUCTION"
+          assert manifest["basis_date"] == "2026-09-18"
+          assert manifest["source_commit"] == (
+              "581565928f02bf12ee447e6bb0bd7ee959c08823"
+          )
+          assert manifest["tables"]["kospi"]["row_count"] == 30
+          assert manifest["tables"]["decliners"]["row_count"] == 119
+          assert manifest["tables"]["decliners24"]["row_count"] == 0
+
+          expected_hash = hashlib.sha256(
+              source_path.read_bytes()
+          ).hexdigest()
+          assert (
+              manifest["source_sha256"][
+                  "latest/investment_score_supply_source_latest.csv"
+              ]
+              == expected_hash
+          )
+
+          print("V8140B_SCHEDULED_SUPPLY_APPLY=PASS")
+          print("V8140B_PRODUCTION_UNION=149")
+          print("V8140B_SUPPLY_SOURCE_ROWS=8")
+          PY
+
+      - name: Validate current production scorer
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          import investment_score_dry_run_v882 as scorer
+
+          out_csv = Path("/tmp/v8140b_score.csv")
+          out_json = Path("/tmp/v8140b_score.json")
+          out_log = Path("/tmp/v8140b_score.log")
+          out_doc = Path("/tmp/v8140b_score.md")
+
+          old = {
+              "VERSION": scorer.VERSION,
+              "OUT_CSV": scorer.OUT_CSV,
+              "OUT_JSON": scorer.OUT_JSON,
+              "OUT_LOG": scorer.OUT_LOG,
+              "OUT_DOC": scorer.OUT_DOC,
+          }
+
+          try:
+              scorer.VERSION = (
+                  "2026-09-22-v8.14.0B-adopt-scheduled-production-supply-apply"
+              )
+              scorer.OUT_CSV = out_csv
+              scorer.OUT_JSON = out_json
+              scorer.OUT_LOG = out_log
+              scorer.OUT_DOC = out_doc
+              rc = scorer.main()
+          finally:
+              for key, value in old.items():
+                  setattr(scorer, key, value)
+
+          assert rc in (None, 0)
+
+          summary = json.loads(
+              out_json.read_text(encoding="utf-8")
+          )
+          assert summary["ready_count"] == 27
+          assert summary["limited_count"] == 122
+
+          with out_csv.open(
+              encoding="utf-8-sig",
+              newline="",
+          ) as f:
+              rows = list(csv.DictReader(f))
+
+          assert len(rows) == 149
+
+          blockers = sum(
+              int(r.get("missing_component_count") or 0)
+              for r in rows
+          )
+          assert blockers == 724
+
+          by = {r["ticker"]: r for r in rows}
+
+          for code in {
+              "007540",
+              "029780",
+              "084690",
+              "114090",
+          }:
+              assert by[code]["score_status"] == "READY"
+
+          for code in {
+              "001440",
+              "066570",
+              "071840",
+              "086280",
+          }:
+              assert by[code]["score_status"] == "LIMITED"
+              assert (
+                  "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+                  not in (by[code].get("missing_components") or "")
+              )
+
+          print("V8140B_PRODUCTION_SCORER=PASS")
+          print("V8140B_READY=27")
+          print("V8140B_LIMITED=122")
+          print("V8140B_BLOCKERS=724")
+          PY
+
+      - name: Record runtime freshness separately from apply status
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          status = json.loads(
+              Path("api/status.json").read_text(encoding="utf-8")
+          )
+
+          assert status["api_sync_ok"] is True
+          assert status["confirmed_basis_date"] == "2026-09-18"
+          assert status["computed_expected_official_trading_date"] == (
+              "2026-09-21"
+          )
+          assert status["official_fresh_now"] is False
+          assert status["safe_to_analyze_as_latest"] is False
+          assert status["runtime_freshness_gate"]["data_lag_trading_days"] == 1
+
+          print("V8140B_RUNTIME_FRESHNESS=STALE_OFFICIAL")
+          print("V8140B_RUNTIME_LAG_TRADING_DAYS=1")
+          PY
+
+      - name: Finalize production supply metadata and summary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import json
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          KST = ZoneInfo("Asia/Seoul")
+          VERSION = (
+              "2026-09-22-v8.14.0B-adopt-scheduled-production-supply-apply"
+          )
+
+          meta_path = Path(
+              "latest/investment_score_supply_source_latest.json"
+          )
+          meta = json.loads(
+              meta_path.read_text(encoding="utf-8")
+          )
+
+          assert meta["version"] == (
+              "2026-09-21-v8.13.9B-controlled-production-supply-source-integration"
+          )
+          assert meta["source_count"] == 8
+
+          meta["status"] = (
+              "PRODUCTION_SOURCE_APPLIED_BY_SCHEDULED_API_REBUILD"
+          )
+          meta["integration"]["production_api_rebuilt"] = True
+          meta["integration"]["production_api_rebuild_mode"] = (
+              "SCHEDULED_BUILD_API_JSON"
+          )
+          meta["integration"]["production_api_rebuild_commit"] = (
+              "24db33414e7beabf6b7ded4e2b4ec3d17f3aa7f5"
+          )
+          meta["integration"]["production_api_source_commit"] = (
+              "581565928f02bf12ee447e6bb0bd7ee959c08823"
+          )
+          meta["integration"]["production_api_basis_date"] = "2026-09-18"
+          meta["post_apply_validation"] = {
+              "ready_count": 27,
+              "limited_count": 122,
+              "blocker_occurrences": 724,
+              "verified_supply_source_rows": 8,
+              "runtime_official_fresh_now": False,
+              "runtime_safe_to_analyze_as_latest": False,
+              "runtime_data_lag_trading_days": 1,
+          }
+          meta["next_step"] = (
+              "POST_SUPPLY_APPLY_CURRENT_BLOCKER_REAUDIT_V8141"
+          )
+
+          meta_path.write_text(
+              json.dumps(
+                  meta,
+                  ensure_ascii=False,
+                  indent=2,
+              ) + "\n",
+              encoding="utf-8",
+          )
+
+          summary = {
+              "version": VERSION,
+              "generated_at_kst": datetime.now(KST).isoformat(
+                  timespec="seconds"
+              ),
+              "status": (
+                  "PRODUCTION_SUPPLY_APPLY_ADOPTED_FROM_SCHEDULED_REBUILD"
+              ),
+              "v8139b_result_commit": (
+                  "90aa0489c3f3c6a5c1ef739eaa40de1c482cda06"
+              ),
+              "scheduled_api_rebuild_commit": (
+                  "24db33414e7beabf6b7ded4e2b4ec3d17f3aa7f5"
+              ),
+              "scheduled_source_commit": (
+                  "581565928f02bf12ee447e6bb0bd7ee959c08823"
+              ),
+              "production_api": {
+                  "release_version": (
+                      "2026-09-12-v8.7.0-sector-rs-production-release"
+                  ),
+                  "basis_date": "2026-09-18",
+                  "union_ticker_count": 149,
+                  "supply_source_rows_applied": 8,
+              },
+              "current_scorer": {
+                  "ready_count": 27,
+                  "limited_count": 122,
+                  "blocker_occurrences": 724,
+              },
+              "original_pre_supply_reference": {
+                  "ready_count": 23,
+                  "limited_count": 126,
+                  "blocker_occurrences": 732,
+              },
+              "net_supply_effect": {
+                  "ready_delta": 4,
+                  "limited_delta": -4,
+                  "blocker_occurrences_reduced_by": 8,
+              },
+              "runtime_freshness": {
+                  "official_fresh_now": False,
+                  "safe_to_analyze_as_latest": False,
+                  "confirmed_basis_date": "2026-09-18",
+                  "expected_official_trading_date": "2026-09-21",
+                  "data_lag_trading_days": 1,
+                  "classification": (
+                      "STALE_OFFICIAL_WITH_CURRENT_PRICE_OVERLAY"
+                  ),
+              },
+              "hard_guards": {
+                  "two_table_api_modified_by_this_workflow": False,
+                  "non_two_table_api_modified": False,
+                  "scoring_policy_modified": False,
+                  "supply_policy_modified": False,
+                  "financial_cache_modified": False,
+                  "raw_score_cache_modified": False,
+                  "ocf_cache_modified": False,
+                  "price_elasticity_cache_modified": False,
+                  "source_value_imputed": False,
+              },
+              "next_step": (
+                  "POST_SUPPLY_APPLY_CURRENT_BLOCKER_REAUDIT_V8141"
+              ),
+          }
+
+          Path(
+              "latest/investment_score_supply_api_adoption_v8140b_summary_latest.json"
+          ).write_text(
+              json.dumps(
+                  summary,
+                  ensure_ascii=False,
+                  indent=2,
+              ) + "\n",
+              encoding="utf-8",
+          )
+
+          Path(
+              "latest/investment_score_supply_api_adoption_v8140b_run_log_latest.txt"
+          ).write_text(
+              "\n".join([
+                  f"VERSION={VERSION}",
+                  "STATUS=PRODUCTION_SUPPLY_APPLY_ADOPTED_FROM_SCHEDULED_REBUILD",
+                  "SCHEDULED_API_REBUILD_COMMIT=24db33414e7beabf6b7ded4e2b4ec3d17f3aa7f5",
+                  "SCHEDULED_SOURCE_COMMIT=581565928f02bf12ee447e6bb0bd7ee959c08823",
+                  "PRODUCTION_UNION=149",
+                  "SUPPLY_SOURCE_ROWS_APPLIED=8",
+                  "READY=27",
+                  "LIMITED=122",
+                  "BLOCKERS=724",
+                  "NET_READY_DELTA=4",
+                  "NET_BLOCKER_REDUCTION=8",
+                  "RUNTIME_OFFICIAL_FRESH_NOW=false",
+                  "RUNTIME_SAFE_TO_ANALYZE_AS_LATEST=false",
+                  "RUNTIME_DATA_LAG_TRADING_DAYS=1",
+                  "TWO_TABLE_API_MODIFIED_BY_THIS_WORKFLOW=false",
+                  "NON_TWO_TABLE_API_MODIFIED=false",
+                  "SCORING_POLICY_MODIFIED=false",
+                  "SUPPLY_POLICY_MODIFIED=false",
+                  "STATUS_OK=true",
+                  "NEXT_STEP=POST_SUPPLY_APPLY_CURRENT_BLOCKER_REAUDIT_V8141",
+              ]) + "\n",
+              encoding="utf-8",
+          )
+
+          Path(
+              "docs/investment_score_supply_api_adoption_v8140b.md"
+          ).write_text(
+              "\n".join([
+                  "# V8.14.0B scheduled production supply apply adoption",
+                  "",
+                  "- The eight verified supply-source rows were already applied by the scheduled synchronized API rebuild.",
+                  "- Current production scorer is READY 27 / LIMITED 122 with 724 blocker occurrences.",
+                  "- This workflow does not rebuild or mutate `api/two_table_v1`; it validates and records the already-applied production state.",
+                  "- Runtime official freshness is separately stale by one trading day (basis 2026-09-18 vs expected 2026-09-21).",
+                  "- The stale runtime state does not invalidate the supply-source integration proof, but the table must not be described as latest official until freshness recovers.",
+                  "",
+                  "Next: `POST_SUPPLY_APPLY_CURRENT_BLOCKER_REAUDIT_V8141`",
+                  "",
+              ]),
+              encoding="utf-8",
+          )
+
+          print("V8140B_ADOPTION_SUMMARY=PASS")
+          PY
+
+      - name: Verify API and protected sources unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # All production source data must remain unchanged.
+          # Metadata JSON is intentionally changed, so exclude it here.
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            investment_score_supply_overlay_v8139b.py \
+            build_stock_table_preview_v850.py \
+            build_two_table_shadow_v851.py \
+            two_table_release_v870.py \
+            supply_burden_enricher.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            > /tmp/v8140b_protected.after
+
+          diff -u \
+            /tmp/v8140b_protected.before \
+            /tmp/v8140b_protected.after
+
+          find api -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8140b_api_root.after
+          diff -u \
+            /tmp/v8140b_api_root.before \
+            /tmp/v8140b_api_root.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8140b_two_table.after
+          diff -u \
+            /tmp/v8140b_two_table.before \
+            /tmp/v8140b_two_table.after
+
+          echo "V8140B_API_UNCHANGED=PASS"
+          echo "V8140B_PROTECTED_SOURCES_UNCHANGED=PASS"
+
+      - name: Validate outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          s = json.loads(
+              Path(
+                  "latest/investment_score_supply_api_adoption_v8140b_summary_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          assert s["version"] == (
+              "2026-09-22-v8.14.0B-adopt-scheduled-production-supply-apply"
+          )
+          assert s["status"] == (
+              "PRODUCTION_SUPPLY_APPLY_ADOPTED_FROM_SCHEDULED_REBUILD"
+          )
+          assert s["scheduled_api_rebuild_commit"] == (
+              "24db33414e7beabf6b7ded4e2b4ec3d17f3aa7f5"
+          )
+          assert s["production_api"]["union_ticker_count"] == 149
+          assert s["production_api"]["supply_source_rows_applied"] == 8
+          assert s["current_scorer"] == {
+              "ready_count": 27,
+              "limited_count": 122,
+              "blocker_occurrences": 724,
+          }
+          assert s["net_supply_effect"] == {
+              "ready_delta": 4,
+              "limited_delta": -4,
+              "blocker_occurrences_reduced_by": 8,
+          }
+          assert s["runtime_freshness"]["official_fresh_now"] is False
+          assert s["runtime_freshness"][
+              "safe_to_analyze_as_latest"
+          ] is False
+          assert s["runtime_freshness"][
+              "data_lag_trading_days"
+          ] == 1
+          assert all(v is False for v in s["hard_guards"].values())
+          assert s["next_step"] == (
+              "POST_SUPPLY_APPLY_CURRENT_BLOCKER_REAUDIT_V8141"
+          )
+
+          print("V8140B_OUTPUT_VALIDATION=PASS")
+          PY
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "latest/investment_score_supply_source_latest.json",
+              "latest/investment_score_supply_api_adoption_v8140b_summary_latest.json",
+              "latest/investment_score_supply_api_adoption_v8140b_run_log_latest.txt",
+              "docs/investment_score_supply_api_adoption_v8140b.md",
+          }
+
+          changed = {
+              line[3:]
+              for line in subprocess.check_output(
+                  [
+                      "git",
+                      "status",
+                      "--porcelain",
+                      "--untracked-files=all",
+                  ],
+                  text=True,
+              ).splitlines()
+              if line
+          }
+
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit(
+                  "V8140B_UNEXPECTED_CHANGED_FILES:"
+                  + ",".join(unexpected)
+              )
+
+          print("V8140B_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+      - name: Refuse concurrent protected drift
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "investment_score_dry_run_v882.py",
+              "investment_score_supply_overlay_v8139b.py",
+              "build_stock_table_preview_v850.py",
+              "build_two_table_shadow_v851.py",
+              "two_table_release_v870.py",
+              "supply_burden_enricher.py",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/investment_score_price_elasticity_20d_latest.csv",
+              "latest/investment_score_ocf_source_latest.csv",
+              "latest/investment_score_supply_source_latest.csv",
+          }
+
+          upstream = set(
+              subprocess.check_output(
+                  [
+                      "git",
+                      "diff",
+                      "--name-only",
+                      "HEAD..origin/main",
+                  ],
+                  text=True,
+              ).splitlines()
+          )
+
+          dangerous = sorted(
+              p
+              for p in upstream
+              if p in protected
+              or p.startswith("api/")
+          )
+
+          if dangerous:
+              raise SystemExit(
+                  "V8140B_CONCURRENT_PROTECTED_DRIFT:"
+                  + ",".join(dangerous)
+              )
+
+          print("V8140B_NO_CONCURRENT_PROTECTED_DRIFT=PASS")
+          PY
+
+      - name: Commit and push adoption record
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            latest/investment_score_supply_source_latest.json \
+            latest/investment_score_supply_api_adoption_v8140b_summary_latest.json \
+            latest/investment_score_supply_api_adoption_v8140b_run_log_latest.txt \
+            docs/investment_score_supply_api_adoption_v8140b.md
+
+          git diff --cached --check
+          echo "V8140B_GIT_DIFF_CHECK=PASS"
+
+          git commit -m "Adopt scheduled production supply apply v8.14.0B"
+          git pull --rebase origin main
+          git push origin HEAD:main

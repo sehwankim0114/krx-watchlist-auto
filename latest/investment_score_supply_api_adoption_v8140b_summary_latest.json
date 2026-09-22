@@ -1,0 +1,49 @@
+{
+  "version": "2026-09-22-v8.14.0B-adopt-scheduled-production-supply-apply",
+  "generated_at_kst": "2026-09-22T10:52:59+09:00",
+  "status": "PRODUCTION_SUPPLY_APPLY_ADOPTED_FROM_SCHEDULED_REBUILD",
+  "v8139b_result_commit": "90aa0489c3f3c6a5c1ef739eaa40de1c482cda06",
+  "scheduled_api_rebuild_commit": "24db33414e7beabf6b7ded4e2b4ec3d17f3aa7f5",
+  "scheduled_source_commit": "581565928f02bf12ee447e6bb0bd7ee959c08823",
+  "production_api": {
+    "release_version": "2026-09-12-v8.7.0-sector-rs-production-release",
+    "basis_date": "2026-09-18",
+    "union_ticker_count": 149,
+    "supply_source_rows_applied": 8
+  },
+  "current_scorer": {
+    "ready_count": 27,
+    "limited_count": 122,
+    "blocker_occurrences": 724
+  },
+  "original_pre_supply_reference": {
+    "ready_count": 23,
+    "limited_count": 126,
+    "blocker_occurrences": 732
+  },
+  "net_supply_effect": {
+    "ready_delta": 4,
+    "limited_delta": -4,
+    "blocker_occurrences_reduced_by": 8
+  },
+  "runtime_freshness": {
+    "official_fresh_now": false,
+    "safe_to_analyze_as_latest": false,
+    "confirmed_basis_date": "2026-09-18",
+    "expected_official_trading_date": "2026-09-21",
+    "data_lag_trading_days": 1,
+    "classification": "STALE_OFFICIAL_WITH_CURRENT_PRICE_OVERLAY"
+  },
+  "hard_guards": {
+    "two_table_api_modified_by_this_workflow": false,
+    "non_two_table_api_modified": false,
+    "scoring_policy_modified": false,
+    "supply_policy_modified": false,
+    "financial_cache_modified": false,
+    "raw_score_cache_modified": false,
+    "ocf_cache_modified": false,
+    "price_elasticity_cache_modified": false,
+    "source_value_imputed": false
+  },
+  "next_step": "POST_SUPPLY_APPLY_CURRENT_BLOCKER_REAUDIT_V8141"
+}

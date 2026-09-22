@@ -1,6 +1,6 @@
 {
   "version": "2026-09-21-v8.13.9B-controlled-production-supply-source-integration",
-  "status": "PRODUCTION_SOURCE_READY_NOT_YET_API_REBUILT",
+  "status": "PRODUCTION_SOURCE_APPLIED_BY_SCHEDULED_API_REBUILD",
   "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
   "supply_policy_version": "2026-07-01-v6.0-supply-status-separated",
   "promoted_from_candidate_version": "2026-09-21-v8.13.8b-stage-current-universe-supply-source-integration",
@@ -38,9 +38,13 @@
     "builder": "build_stock_table_preview_v850.py",
     "overlay_module": "investment_score_supply_overlay_v8139b.py",
     "precedence": "VERIFIED_SUPPLY_SOURCE_OVER_LEGACY_WHOLE_MARKET_SCAN",
-    "production_api_rebuilt": false
+    "production_api_rebuilt": true,
+    "production_api_rebuild_mode": "SCHEDULED_BUILD_API_JSON",
+    "production_api_rebuild_commit": "24db33414e7beabf6b7ded4e2b4ec3d17f3aa7f5",
+    "production_api_source_commit": "581565928f02bf12ee447e6bb0bd7ee959c08823",
+    "production_api_basis_date": "2026-09-18"
   },
-  "next_step": "REBUILD_TWO_TABLE_WITH_PRODUCTION_SUPPLY_SOURCE_V8140",
+  "next_step": "POST_SUPPLY_APPLY_CURRENT_BLOCKER_REAUDIT_V8141",
   "preview_validation": {
     "two_table_union_count": 149,
     "ready_count": 27,
@@ -48,5 +52,14 @@
     "blocker_occurrences": 724,
     "verified_source_rows_applied": 8,
     "production_api_modified": false
+  },
+  "post_apply_validation": {
+    "ready_count": 27,
+    "limited_count": 122,
+    "blocker_occurrences": 724,
+    "verified_supply_source_rows": 8,
+    "runtime_official_fresh_now": false,
+    "runtime_safe_to_analyze_as_latest": false,
+    "runtime_data_lag_trading_days": 1
   }
 }

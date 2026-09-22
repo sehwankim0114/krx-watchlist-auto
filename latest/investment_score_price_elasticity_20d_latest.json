@@ -1,22 +1,40 @@
 {
   "version": "2026-09-12-v8.7.5-price-elasticity-20-session-source",
-  "refresh_version": "2026-09-21-v8.12.7-controlled-production-price-elasticity-refresh",
-  "generated_at_kst": "2026-09-21T20:27:29+09:00",
+  "refresh_version": "2026-09-22-v8.14.7A-narrow-production-price-elasticity-patch",
+  "generated_at_kst": "2026-09-22T13:25:35+09:00",
   "status": "READY_SOURCE_ONLY",
   "basis_date": "2026-09-18",
-  "production_unique_tickers": 149,
-  "ready_tickers": 149,
+  "production_unique_tickers": 151,
+  "ready_tickers": 151,
   "limited_tickers": 0,
   "formula": "mean(abs(close_t/close_t_minus_1-1)*100) for latest 20 trading-session returns",
   "close_observations_required": 21,
   "daily_return_observations_required": 20,
-  "source": "official KRX STK_BYDD_TRD current-universe full refresh promoted from v8.12.6",
+  "source": "official KRX STK_BYDD_TRD; v8.12.7 full refresh plus validated narrow v8.14.7 additions",
   "promoted_from_version": "2026-09-21-v8.12.6-stage-current-universe-price-elasticity-refresh",
   "promoted_from_commit": "f959c3a5cf2645fc97304e6fffe355dadd1162ba",
   "hard_guards": {
     "investment_score_100_calculated": false,
     "score_thresholds_defined": false,
     "avg_daily_range_20_pct_substituted": false,
-    "production_api_changed": false
+    "production_api_changed": false,
+    "non_target_elasticity_rows_modified": false
+  },
+  "basis_date_semantics": "full_refresh_basis; per-row basis_date is authoritative for narrow-patched rows",
+  "latest_row_basis_date": "2026-09-21",
+  "narrow_patch": {
+    "version": "2026-09-22-v8.14.7A-narrow-production-price-elasticity-patch",
+    "promoted_from_version": "2026-09-22-v8.14.6-freeze-current-actionable-price-elasticity-and-shadow",
+    "promoted_from_commit": "0f090fff696b0e21f5ace88891a706d08a781a61",
+    "ticker_count": 2,
+    "tickers": [
+      "006260",
+      "267250"
+    ],
+    "basis_date": "2026-09-21",
+    "values": {
+      "006260": 2.7,
+      "267250": 2.91
+    }
   }
 }

@@ -1,0 +1,58 @@
+{
+  "version": "2026-09-22-v8.14.7A-narrow-production-price-elasticity-patch",
+  "generated_at_kst": "2026-09-22T13:25:35+09:00",
+  "status": "PRODUCTION_NARROW_ELASTICITY_PATCH_APPLIED_POST_REGRESSION_PASS",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "source_contract_version": "2026-09-12-v8.7.5-price-elasticity-20-session-source",
+  "v8146_version": "2026-09-22-v8.14.6-freeze-current-actionable-price-elasticity-and-shadow",
+  "v8146_result_commit": "0f090fff696b0e21f5ace88891a706d08a781a61",
+  "production_cache_before": {
+    "row_count": 149,
+    "full_refresh_basis_date": "2026-09-18"
+  },
+  "production_cache_after": {
+    "row_count": 151,
+    "full_refresh_basis_date": "2026-09-18",
+    "latest_row_basis_date": "2026-09-21",
+    "narrow_patch_count": 2,
+    "narrow_patch_tickers": [
+      "006260",
+      "267250"
+    ]
+  },
+  "current_scorer_universe_count": 120,
+  "baseline_ready_count": 16,
+  "post_ready_count": 18,
+  "ready_delta": 2,
+  "baseline_limited_count": 104,
+  "post_limited_count": 102,
+  "limited_delta": -2,
+  "baseline_blocker_occurrences": 794,
+  "post_blocker_occurrences": 792,
+  "blocker_occurrences_reduced_by": 2,
+  "newly_ready_count": 2,
+  "newly_ready_tickers": [
+    "006260",
+    "267250"
+  ],
+  "non_target_score_row_changed_count": 0,
+  "existing_elasticity_row_changed_count": 0,
+  "post_score_equals_tested_candidate": true,
+  "hard_guards": {
+    "production_price_elasticity_cache_modified": true,
+    "production_price_elasticity_metadata_modified": true,
+    "production_price_elasticity_run_log_modified": true,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_ocf_cache_modified": false,
+    "production_supply_source_modified": false,
+    "production_api_modified": false,
+    "scoring_policy_modified": false,
+    "production_score_written": false,
+    "atr_substituted": false,
+    "nonofficial_price_source_used": false,
+    "non_target_elasticity_rows_modified": false,
+    "ready_regression_count": 0
+  },
+  "next_step": "POST_ELASTICITY_APPLY_DYNAMIC_BLOCKER_REAUDIT_V8148"
+}

@@ -1,0 +1,810 @@
+name: Rebuild production two-table with supply source v8.14.0A
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8140a-rebuild-production-two-table-with-supply-source.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8140a-production-two-table-supply-rebuild
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+      KRX_ID: ${{ secrets.KRX_ID }}
+      KRX_PW: ${{ secrets.KRX_PW }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m pip install "pykrx==1.2.8"
+
+      - name: Verify V8.13.9B lineage and capture protected state
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git merge-base --is-ancestor \
+            90aa0489c3f3c6a5c1ef739eaa40de1c482cda06 HEAD
+
+          test -n "${KRX_ID:-}" || {
+            echo "::error::KRX_ID secret is missing"
+            exit 1
+          }
+          test -n "${KRX_PW:-}" || {
+            echo "::error::KRX_PW secret is missing"
+            exit 1
+          }
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          meta = json.loads(
+              Path(
+                  "latest/investment_score_supply_source_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          assert meta["version"] == (
+              "2026-09-21-v8.13.9B-controlled-production-supply-source-integration"
+          )
+          assert meta["status"] == (
+              "PRODUCTION_SOURCE_READY_NOT_YET_API_REBUILT"
+          )
+          assert meta["source_count"] == 8
+          assert meta["candidate_regression"] == {
+              "ready_count": 27,
+              "limited_count": 122,
+              "blocker_occurrences": 724,
+              "supply_reason_removed_count": 8,
+              "non_target_score_row_changed_count": 0,
+              "existing_ready_score_row_changed_count": 0,
+          }
+          assert meta["integration"]["production_api_rebuilt"] is False
+          assert meta["next_step"] == (
+              "REBUILD_TWO_TABLE_WITH_PRODUCTION_SUPPLY_SOURCE_V8140"
+          )
+
+          print("V8140A_PREDECESSOR_META=PASS")
+          PY
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            investment_score_supply_overlay_v8139b.py \
+            build_stock_table_preview_v850.py \
+            build_two_table_shadow_v851.py \
+            two_table_release_v870.py \
+            supply_burden_enricher.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            > /tmp/v8140a_protected.before
+
+          find api -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8140a_api_root.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8140a_two_table.before
+
+          echo "V8140A_LINEAGE=PASS"
+
+      - name: Capture production scorer baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          import investment_score_dry_run_v882 as scorer
+
+          out_csv = Path("/tmp/v8140a_baseline_score.csv")
+          out_json = Path("/tmp/v8140a_baseline_score.json")
+          out_log = Path("/tmp/v8140a_baseline_score.log")
+          out_doc = Path("/tmp/v8140a_baseline_score.md")
+
+          old = {
+              "VERSION": scorer.VERSION,
+              "OUT_CSV": scorer.OUT_CSV,
+              "OUT_JSON": scorer.OUT_JSON,
+              "OUT_LOG": scorer.OUT_LOG,
+              "OUT_DOC": scorer.OUT_DOC,
+          }
+          try:
+              scorer.VERSION = (
+                  "2026-09-21-v8.14.0A-production-two-table-supply-rebuild-baseline"
+              )
+              scorer.OUT_CSV = out_csv
+              scorer.OUT_JSON = out_json
+              scorer.OUT_LOG = out_log
+              scorer.OUT_DOC = out_doc
+              rc = scorer.main()
+          finally:
+              for key, value in old.items():
+                  setattr(scorer, key, value)
+
+          assert rc in (None, 0)
+
+          summary = json.loads(
+              out_json.read_text(encoding="utf-8")
+          )
+          assert summary["ready_count"] == 23
+          assert summary["limited_count"] == 126
+
+          with out_csv.open(
+              encoding="utf-8-sig",
+              newline="",
+          ) as f:
+              rows = list(csv.DictReader(f))
+
+          assert len(rows) == 149
+          blockers = sum(
+              int(r.get("missing_component_count") or 0)
+              for r in rows
+          )
+          assert blockers == 732
+
+          print("V8140A_BASELINE_SCORER=PASS")
+          print("V8140A_BASELINE_READY=23")
+          print("V8140A_BASELINE_LIMITED=126")
+          print("V8140A_BASELINE_BLOCKERS=732")
+          PY
+
+      - name: Rebuild production two-table through official release path
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python two_table_release_v870.py --repo . \
+            | tee /tmp/v8140a_release_stdout.txt
+
+          grep -q '^V870_TWO_TABLE_RELEASE_CONTRACT=PASS$' \
+            /tmp/v8140a_release_stdout.txt
+          grep -q '^PRODUCTION_ACTIVATION_ALLOWED=true$' \
+            /tmp/v8140a_release_stdout.txt
+
+          python two_table_release_v870.py --repo . --check-only \
+            | tee /tmp/v8140a_check_stdout.txt
+
+          grep -q '^V870_TWO_TABLE_RELEASE_CONTRACT=PASS$' \
+            /tmp/v8140a_check_stdout.txt
+
+          echo "V8140A_TWO_TABLE_RELEASE=PASS"
+
+      - name: Validate applied supply fields in production API
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          expected = {
+              "001440": "위험",
+              "007540": "없음",
+              "029780": "주의",
+              "066570": "주의",
+              "071840": "없음",
+              "084690": "주의",
+              "086280": "주의",
+              "114090": "없음",
+          }
+
+          rows = {}
+          for table in ("kospi", "decliners", "decliners24"):
+              payload = json.loads(
+                  Path(
+                      f"api/two_table_v1/{table}.json"
+                  ).read_text(encoding="utf-8")
+              )
+              for row in payload.get("rows") or []:
+                  rows[row["ticker"]] = row
+
+          assert len(rows) == 149
+          assert set(expected) <= set(rows)
+
+          for code, level in expected.items():
+              analysis = rows[code].get("analysis") or {}
+              assert analysis.get("supply_status") == "OK"
+              assert analysis.get("supply_level") == level
+
+          manifest = json.loads(
+              Path(
+                  "api/two_table_v1/manifest.json"
+              ).read_text(encoding="utf-8")
+          )
+          assert manifest["version"] == (
+              "2026-09-12-v8.7.0-sector-rs-production-release"
+          )
+          assert manifest["release_stage"] == "PRODUCTION"
+          assert manifest["production_activation_allowed"] is True
+          assert manifest["safe_to_analyze_as_latest"] is True
+          assert manifest["basis_date"] == "2026-09-18"
+          assert manifest["tables"]["kospi"]["row_count"] == 30
+          assert manifest["tables"]["decliners"]["row_count"] == 119
+          assert manifest["tables"]["decliners24"]["row_count"] == 0
+
+          print("V8140A_PRODUCTION_SUPPLY_FIELDS=PASS")
+          PY
+
+      - name: Run post-apply scorer regression
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          import investment_score_dry_run_v882 as scorer
+
+          base_csv = Path("/tmp/v8140a_baseline_score.csv")
+          post_csv = Path("/tmp/v8140a_post_score.csv")
+          post_json = Path("/tmp/v8140a_post_score.json")
+          post_log = Path("/tmp/v8140a_post_score.log")
+          post_doc = Path("/tmp/v8140a_post_score.md")
+
+          old = {
+              "VERSION": scorer.VERSION,
+              "OUT_CSV": scorer.OUT_CSV,
+              "OUT_JSON": scorer.OUT_JSON,
+              "OUT_LOG": scorer.OUT_LOG,
+              "OUT_DOC": scorer.OUT_DOC,
+          }
+          try:
+              scorer.VERSION = (
+                  "2026-09-21-v8.14.0A-production-two-table-supply-rebuild"
+              )
+              scorer.OUT_CSV = post_csv
+              scorer.OUT_JSON = post_json
+              scorer.OUT_LOG = post_log
+              scorer.OUT_DOC = post_doc
+              rc = scorer.main()
+          finally:
+              for key, value in old.items():
+                  setattr(scorer, key, value)
+
+          assert rc in (None, 0)
+
+          summary = json.loads(
+              post_json.read_text(encoding="utf-8")
+          )
+          assert summary["ready_count"] == 27
+          assert summary["limited_count"] == 122
+
+          def rows(path):
+              with path.open(
+                  encoding="utf-8-sig",
+                  newline="",
+              ) as f:
+                  return {
+                      r["ticker"]: r
+                      for r in csv.DictReader(f)
+                  }
+
+          base = rows(base_csv)
+          post = rows(post_csv)
+
+          assert len(base) == 149
+          assert set(base) == set(post)
+
+          base_blockers = sum(
+              int(r.get("missing_component_count") or 0)
+              for r in base.values()
+          )
+          post_blockers = sum(
+              int(r.get("missing_component_count") or 0)
+              for r in post.values()
+          )
+
+          assert base_blockers == 732
+          assert post_blockers == 724
+
+          expected_changed = {
+              "001440",
+              "007540",
+              "029780",
+              "066570",
+              "071840",
+              "084690",
+              "086280",
+              "114090",
+          }
+
+          changed = {
+              code
+              for code in base
+              if base[code] != post[code]
+          }
+          assert changed == expected_changed
+
+          newly_ready = {
+              code
+              for code in expected_changed
+              if base[code]["score_status"] == "LIMITED"
+              and post[code]["score_status"] == "READY"
+          }
+          assert newly_ready == {
+              "007540",
+              "029780",
+              "084690",
+              "114090",
+          }
+
+          for code in {
+              "001440",
+              "066570",
+              "071840",
+              "086280",
+          }:
+              assert post[code]["score_status"] == "LIMITED"
+              assert (
+                  "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+                  not in (post[code].get("missing_components") or "")
+              )
+
+          prior_ready_changed = {
+              code
+              for code in base
+              if base[code]["score_status"] == "READY"
+              and base[code] != post[code]
+          }
+          assert not prior_ready_changed
+
+          print("V8140A_POST_SCORER=PASS")
+          print("V8140A_POST_READY=27")
+          print("V8140A_POST_LIMITED=122")
+          print("V8140A_POST_BLOCKERS=724")
+          print("V8140A_CHANGED_SCORE_ROWS=8")
+          print("V8140A_NEWLY_READY=4")
+          print("V8140A_PRIOR_READY_CHANGED=0")
+          PY
+
+      - name: Write V8.14.0 apply summary and finalize source metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import json
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          KST = ZoneInfo("Asia/Seoul")
+          VERSION = (
+              "2026-09-21-v8.14.0A-production-two-table-supply-rebuild"
+          )
+
+          meta_path = Path(
+              "latest/investment_score_supply_source_latest.json"
+          )
+          meta = json.loads(
+              meta_path.read_text(encoding="utf-8")
+          )
+          meta["status"] = "PRODUCTION_SOURCE_APPLIED_API_REBUILT"
+          meta["integration"]["production_api_rebuilt"] = True
+          meta["integration"]["production_api_rebuild_version"] = VERSION
+          meta["integration"]["production_api_basis_date"] = "2026-09-18"
+          meta["post_apply_validation"] = {
+              "ready_count": 27,
+              "limited_count": 122,
+              "blocker_occurrences": 724,
+              "changed_score_row_count": 8,
+              "newly_ready_count": 4,
+              "prior_ready_score_row_changed_count": 0,
+          }
+          meta["next_step"] = (
+              "POST_SUPPLY_APPLY_CURRENT_BLOCKER_REAUDIT_V8141"
+          )
+          meta_path.write_text(
+              json.dumps(meta, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+
+          Path(
+              "latest/investment_score_supply_source_run_log_latest.txt"
+          ).write_text(
+              "\n".join([
+                  "VERSION=2026-09-21-v8.13.9B-controlled-production-supply-source-integration",
+                  "STATUS=PRODUCTION_SOURCE_APPLIED_API_REBUILT",
+                  "SOURCE_COUNT=8",
+                  "PRODUCTION_API_REBUILT=true",
+                  f"PRODUCTION_API_REBUILD_VERSION={VERSION}",
+                  "PRODUCTION_API_BASIS_DATE=2026-09-18",
+                  "POST_READY=27",
+                  "POST_LIMITED=122",
+                  "POST_BLOCKERS=724",
+                  "CHANGED_SCORE_ROWS=8",
+                  "NEWLY_READY=4",
+                  "PRIOR_READY_CHANGED=0",
+                  "SCORING_POLICY_MODIFIED=false",
+                  "SUPPLY_POLICY_MODIFIED=false",
+                  "STATUS_OK=true",
+                  "NEXT_STEP=POST_SUPPLY_APPLY_CURRENT_BLOCKER_REAUDIT_V8141",
+              ]) + "\n",
+              encoding="utf-8",
+          )
+
+          summary = {
+              "version": VERSION,
+              "generated_at_kst": datetime.now(KST).isoformat(
+                  timespec="seconds"
+              ),
+              "status": "PRODUCTION_TWO_TABLE_SUPPLY_REBUILD_APPLIED",
+              "v8139b_result_commit": (
+                  "90aa0489c3f3c6a5c1ef739eaa40de1c482cda06"
+              ),
+              "policy_version": (
+                  "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+              ),
+              "supply_policy_version": (
+                  "2026-07-01-v6.0-supply-status-separated"
+              ),
+              "production_api": {
+                  "path": "api/two_table_v1",
+                  "release_version": (
+                      "2026-09-12-v8.7.0-sector-rs-production-release"
+                  ),
+                  "basis_date": "2026-09-18",
+                  "production_activation_allowed": True,
+                  "safe_to_analyze_as_latest": True,
+                  "union_ticker_count": 149,
+              },
+              "supply_source": {
+                  "row_count": 8,
+                  "applied_tickers": [
+                      "001440",
+                      "007540",
+                      "029780",
+                      "066570",
+                      "071840",
+                      "084690",
+                      "086280",
+                      "114090",
+                  ],
+              },
+              "scorer_before": {
+                  "ready_count": 23,
+                  "limited_count": 126,
+                  "blocker_occurrences": 732,
+              },
+              "scorer_after": {
+                  "ready_count": 27,
+                  "limited_count": 122,
+                  "blocker_occurrences": 724,
+              },
+              "ready_delta": 4,
+              "blocker_occurrences_reduced_by": 8,
+              "changed_score_row_count": 8,
+              "newly_ready_count": 4,
+              "newly_ready_tickers": [
+                  "007540",
+                  "029780",
+                  "084690",
+                  "114090",
+              ],
+              "prior_ready_score_row_changed_count": 0,
+              "hard_guards": {
+                  "scoring_policy_modified": False,
+                  "supply_policy_modified": False,
+                  "financial_cache_modified": False,
+                  "raw_score_cache_modified": False,
+                  "ocf_cache_modified": False,
+                  "price_elasticity_cache_modified": False,
+                  "non_two_table_api_modified": False,
+                  "source_value_imputed": False,
+                  "issuer_mapping_guessed": False,
+              },
+              "next_step": (
+                  "POST_SUPPLY_APPLY_CURRENT_BLOCKER_REAUDIT_V8141"
+              ),
+          }
+
+          Path(
+              "latest/investment_score_supply_api_rebuild_v8140a_summary_latest.json"
+          ).write_text(
+              json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+
+          Path(
+              "latest/investment_score_supply_api_rebuild_v8140a_run_log_latest.txt"
+          ).write_text(
+              "\n".join([
+                  f"VERSION={VERSION}",
+                  "STATUS=PRODUCTION_TWO_TABLE_SUPPLY_REBUILD_APPLIED",
+                  "API_BASIS_DATE=2026-09-18",
+                  "SUPPLY_SOURCE_ROWS=8",
+                  "BASELINE_READY=23",
+                  "POST_READY=27",
+                  "BASELINE_LIMITED=126",
+                  "POST_LIMITED=122",
+                  "BASELINE_BLOCKERS=732",
+                  "POST_BLOCKERS=724",
+                  "READY_DELTA=4",
+                  "BLOCKER_REDUCED_BY=8",
+                  "CHANGED_SCORE_ROWS=8",
+                  "NEWLY_READY=4",
+                  "PRIOR_READY_CHANGED=0",
+                  "NON_TWO_TABLE_API_MODIFIED=false",
+                  "SCORING_POLICY_MODIFIED=false",
+                  "SUPPLY_POLICY_MODIFIED=false",
+                  "STATUS_OK=true",
+                  "NEXT_STEP=POST_SUPPLY_APPLY_CURRENT_BLOCKER_REAUDIT_V8141",
+              ]) + "\n",
+              encoding="utf-8",
+          )
+
+          Path(
+              "docs/investment_score_supply_api_rebuild_v8140a.md"
+          ).write_text(
+              "\n".join([
+                  "# V8.14.0A production two-table supply rebuild",
+                  "",
+                  "- Rebuilt `api/two_table_v1` through the existing V8.7.0 production publisher.",
+                  "- Applied the eight verified production supply-source rows through the persistent builder overlay.",
+                  "- Production scorer moved from READY 23 / LIMITED 126 / 732 blockers to READY 27 / LIMITED 122 / 724 blockers.",
+                  "- Exactly eight score rows changed; four became newly READY.",
+                  "- No previously READY score row changed.",
+                  "- Scoring policy, supply policy, financial/raw/OCF/elasticity caches, and non-two-table API files remain unchanged.",
+                  "",
+                  "Next: `POST_SUPPLY_APPLY_CURRENT_BLOCKER_REAUDIT_V8141`",
+                  "",
+              ]),
+              encoding="utf-8",
+          )
+
+          print("V8140A_SUMMARY=PASS")
+          PY
+
+      - name: Verify protected sources and non-two-table API unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            investment_score_supply_overlay_v8139b.py \
+            build_stock_table_preview_v850.py \
+            build_two_table_shadow_v851.py \
+            two_table_release_v870.py \
+            supply_burden_enricher.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            > /tmp/v8140a_protected.after
+
+          diff -u \
+            /tmp/v8140a_protected.before \
+            /tmp/v8140a_protected.after
+
+          find api -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8140a_api_root.after
+
+          diff -u \
+            /tmp/v8140a_api_root.before \
+            /tmp/v8140a_api_root.after
+
+          echo "V8140A_PROTECTED_SOURCES_UNCHANGED=PASS"
+          echo "V8140A_NON_TWO_TABLE_API_UNCHANGED=PASS"
+
+      - name: Validate V8.14.0 summary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          s = json.loads(
+              Path(
+                  "latest/investment_score_supply_api_rebuild_v8140a_summary_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          assert s["version"] == (
+              "2026-09-21-v8.14.0A-production-two-table-supply-rebuild"
+          )
+          assert s["status"] == (
+              "PRODUCTION_TWO_TABLE_SUPPLY_REBUILD_APPLIED"
+          )
+          assert s["v8139b_result_commit"] == (
+              "90aa0489c3f3c6a5c1ef739eaa40de1c482cda06"
+          )
+          assert s["production_api"]["union_ticker_count"] == 149
+          assert s["supply_source"]["row_count"] == 8
+          assert s["scorer_before"] == {
+              "ready_count": 23,
+              "limited_count": 126,
+              "blocker_occurrences": 732,
+          }
+          assert s["scorer_after"] == {
+              "ready_count": 27,
+              "limited_count": 122,
+              "blocker_occurrences": 724,
+          }
+          assert s["ready_delta"] == 4
+          assert s["blocker_occurrences_reduced_by"] == 8
+          assert s["changed_score_row_count"] == 8
+          assert s["newly_ready_count"] == 4
+          assert s["prior_ready_score_row_changed_count"] == 0
+          assert all(v is False for v in s["hard_guards"].values())
+          assert s["next_step"] == (
+              "POST_SUPPLY_APPLY_CURRENT_BLOCKER_REAUDIT_V8141"
+          )
+
+          print("V8140A_OUTPUT_VALIDATION=PASS")
+          PY
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+
+          allowed_exact = {
+              "latest/investment_score_supply_source_latest.json",
+              "latest/investment_score_supply_source_run_log_latest.txt",
+              "latest/investment_score_supply_api_rebuild_v8140a_summary_latest.json",
+              "latest/investment_score_supply_api_rebuild_v8140a_run_log_latest.txt",
+              "docs/investment_score_supply_api_rebuild_v8140a.md",
+          }
+
+          changed = {
+              line[3:]
+              for line in subprocess.check_output(
+                  [
+                      "git",
+                      "status",
+                      "--porcelain",
+                      "--untracked-files=all",
+                  ],
+                  text=True,
+              ).splitlines()
+              if line
+          }
+
+          unexpected = sorted(
+              p
+              for p in changed
+              if p not in allowed_exact
+              and not p.startswith("api/two_table_v1/")
+          )
+
+          if unexpected:
+              raise SystemExit(
+                  "V8140A_UNEXPECTED_CHANGED_FILES:"
+                  + ",".join(unexpected)
+              )
+
+          two_table = sorted(
+              p for p in changed
+              if p.startswith("api/two_table_v1/")
+          )
+          if not two_table:
+              raise SystemExit(
+                  "V8140A_TWO_TABLE_API_NOT_CHANGED"
+              )
+
+          print(
+              "V8140A_TWO_TABLE_CHANGED_FILES="
+              + str(len(two_table))
+          )
+          print("V8140A_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+      - name: Refuse concurrent protected drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "investment_score_dry_run_v882.py",
+              "investment_score_supply_overlay_v8139b.py",
+              "build_stock_table_preview_v850.py",
+              "build_two_table_shadow_v851.py",
+              "two_table_release_v870.py",
+              "supply_burden_enricher.py",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/investment_score_price_elasticity_20d_latest.csv",
+              "latest/investment_score_ocf_source_latest.csv",
+              "latest/investment_score_supply_source_latest.csv",
+          }
+
+          upstream = set(
+              subprocess.check_output(
+                  ["git","diff","--name-only","HEAD..origin/main"],
+                  text=True,
+              ).splitlines()
+          )
+
+          dangerous = sorted(
+              p
+              for p in upstream
+              if p in protected
+              or p.startswith("api/two_table_v1/")
+              or (p.startswith("api/") and "/" not in p[4:])
+          )
+
+          if dangerous:
+              raise SystemExit(
+                  "V8140A_CONCURRENT_PROTECTED_DRIFT:"
+                  + ",".join(dangerous)
+              )
+
+          print("V8140A_NO_CONCURRENT_PROTECTED_DRIFT=PASS")
+          PY
+
+      - name: Commit and push V8.14.0 production rebuild
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            api/two_table_v1 \
+            latest/investment_score_supply_source_latest.json \
+            latest/investment_score_supply_source_run_log_latest.txt \
+            latest/investment_score_supply_api_rebuild_v8140a_summary_latest.json \
+            latest/investment_score_supply_api_rebuild_v8140a_run_log_latest.txt \
+            docs/investment_score_supply_api_rebuild_v8140a.md
+
+          git diff --cached --check
+          echo "V8140A_GIT_DIFF_CHECK=PASS"
+
+          git commit -m "Rebuild production two-table with supply source v8.14.0A"
+          git pull --rebase origin main
+          git push origin HEAD:main

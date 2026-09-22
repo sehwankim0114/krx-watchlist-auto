@@ -1,0 +1,58 @@
+{
+  "version": "2026-09-22-v8.14.9-uangel-current-actionable-supply-audit",
+  "generated_at_kst": "2026-09-22T13:51:38+09:00",
+  "status": "AUDIT_ONLY_CURRENT_ACTIONABLE_SUPPLY",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "supply_policy_version": "2026-07-01-v6.0-supply-status-separated",
+  "v8148_version": "2026-09-22-v8.14.8-post-elasticity-dynamic-blocker-reaudit",
+  "v8148_result_commit": "6cfff69c2645ae2e344c58c672b8919c9dfcebf0",
+  "target_count": 1,
+  "target_tickers": [
+    "072130"
+  ],
+  "target_names": [
+    "유엔젤"
+  ],
+  "corp_code_exact_resolved_count": 1,
+  "corp_code_unresolved_count": 0,
+  "audit_start_date": "2026-03-27",
+  "audit_end_date": "2026-09-22",
+  "requested_lookback_days": 180,
+  "chunk_days": 90,
+  "chunk_count": 2,
+  "complete_180d_count": 1,
+  "complete_180d_positive_burden_count": 1,
+  "complete_180d_no_positive_burden_count": 0,
+  "incomplete_180d_count": 0,
+  "source_overlay_candidate_count": 1,
+  "classification_counts": {
+    "COMPLETE_180D_POSITIVE_BURDEN": 1
+  },
+  "proposed_supply_status": "OK",
+  "proposed_supply_level": "경계",
+  "risk_keywords": [
+    "대량보유",
+    "주요주주변동"
+  ],
+  "dart_activity": {
+    "corp_code_download_count": 1,
+    "list_api_call_count": 2,
+    "report_count": 11,
+    "recognized_risk_report_count": 3,
+    "official_013_chunk_count": 0
+  },
+  "hard_guards": {
+    "production_api_changed": false,
+    "production_investment_score_written": false,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_supply_source_modified": false,
+    "scoring_policy_changed": false,
+    "supply_policy_changed": false,
+    "limited_absence_treated_as_complete": false,
+    "incomplete_query_treated_as_absence": false,
+    "issuer_mapping_guessed": false,
+    "production_supply_status_overridden": false
+  },
+  "next_step": "FREEZE_UANGEL_SUPPLY_AND_SHADOW_SCORE_V8150"
+}

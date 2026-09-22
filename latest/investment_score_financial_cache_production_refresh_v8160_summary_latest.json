@@ -1,0 +1,82 @@
+{
+  "version": "2026-09-22-v8.16.0-controlled-production-financial-cache-refresh",
+  "generated_at_kst": "2026-09-22T21:55:30+09:00",
+  "status": "PRODUCTION_FINANCIAL_CACHE_REFRESH_APPLIED_POST_REGRESSION_PASS",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v8159_version": "2026-09-22-v8.15.9-stage-current-production-financial-cache-refresh",
+  "v8159_result_commit": "631f0144dab7ca6eb5c05641ab3716b28ff31c21",
+  "production_before": {
+    "financial_cache_row_count": 271,
+    "scorer_universe_count": 120,
+    "scorer_ready_count": 21,
+    "scorer_limited_count": 99,
+    "blocker_occurrences": 688,
+    "target_financial_blocker_occurrences": 221
+  },
+  "production_after": {
+    "financial_cache_row_count": 299,
+    "scorer_universe_count": 120,
+    "scorer_ready_count": 21,
+    "scorer_limited_count": 99,
+    "blocker_occurrences": 475,
+    "target_financial_blocker_occurrences": 8,
+    "fully_financial_resolved_count": 27,
+    "partial_financial_remaining_count": 1,
+    "partial_financial_remaining_tickers": [
+      "014825"
+    ]
+  },
+  "blocker_occurrences_reduced_by": 213,
+  "target_financial_blocker_occurrences_reduced_by": 213,
+  "changed_target_score_row_count": 27,
+  "changed_target_score_tickers": [
+    "000050",
+    "001020",
+    "001460",
+    "002450",
+    "002990",
+    "003060",
+    "003480",
+    "003850",
+    "004990",
+    "006060",
+    "006220",
+    "008250",
+    "011330",
+    "013890",
+    "016590",
+    "023530",
+    "024090",
+    "058650",
+    "070960",
+    "071950",
+    "097520",
+    "145990",
+    "241590",
+    "298000",
+    "298050",
+    "363280",
+    "446070"
+  ],
+  "newly_ready_count": 0,
+  "lost_ready_count": 0,
+  "non_target_score_row_changed_count": 0,
+  "post_score_equals_staged_candidate": true,
+  "rollback_guard": {
+    "enabled": true,
+    "restores_financial_cache_on_post_apply_failure": true,
+    "restores_financial_run_log_on_post_apply_failure": true
+  },
+  "hard_guards": {
+    "production_financial_cache_modified": true,
+    "production_financial_run_log_modified": true,
+    "production_raw_score_cache_modified": false,
+    "production_api_modified": false,
+    "production_score_written": false,
+    "scoring_policy_modified": false,
+    "corp_identity_policy_modified": false,
+    "source_value_imputed": false,
+    "non_target_score_row_changed": false
+  },
+  "next_step": "POST_APPLY_CURRENT_BLOCKER_REAUDIT_V8161"
+}

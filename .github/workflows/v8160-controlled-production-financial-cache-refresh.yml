@@ -1,0 +1,669 @@
+name: Controlled production financial cache refresh v8.16.0
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8160-controlled-production-financial-cache-refresh.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-krx-watchlist-latest
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify V8.15.9 lineage and capture protected state
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git merge-base --is-ancestor \
+            631f0144dab7ca6eb5c05641ab3716b28ff31c21 HEAD
+
+          test -f investment_score_financial_cache_stage_v8159.py
+          test -f latest/financial_valuation_cache_candidate_v8159.csv
+          test -f latest/investment_score_financial_cache_stage_v8159_summary_latest.json
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            financial_valuation_enricher.py \
+            investment_score_source_enricher_v854.py \
+            investment_score_dry_run_v882.py \
+            investment_score_financial_cache_stage_v8159.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            latest/investment_score_supply_source_latest.json \
+            latest/financial_valuation_cache_candidate_v8159.csv \
+            latest/investment_score_financial_cache_stage_v8159_regression.csv \
+            latest/investment_score_financial_cache_stage_v8159_summary_latest.json \
+            latest/investment_score_financial_cache_stage_v8159_run_log_latest.txt \
+            > /tmp/v8160_nonfinancial.before
+
+          sha256sum latest/financial_valuation_cache_latest.csv \
+            > /tmp/v8160_fin.before
+          sha256sum latest/financial_valuation_run_log_latest.txt \
+            > /tmp/v8160_finlog.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8160_api.before
+
+          echo "V8160_LINEAGE=PASS"
+
+      - name: Apply candidate with rollback and post-apply regression
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY' | tee /tmp/v8160_stdout.txt
+          import json
+          import shutil
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_financial_cache_stage_v8159 as stage
+
+          VERSION = "2026-09-22-v8.16.0-controlled-production-financial-cache-refresh"
+          V8159_VERSION = "2026-09-22-v8.15.9-stage-current-production-financial-cache-refresh"
+          V8159_COMMIT = "631f0144dab7ca6eb5c05641ab3716b28ff31c21"
+          NEXT_STEP = "POST_APPLY_CURRENT_BLOCKER_REAUDIT_V8161"
+          KST = ZoneInfo("Asia/Seoul")
+
+          prod = Path("latest/financial_valuation_cache_latest.csv")
+          prod_log = Path("latest/financial_valuation_run_log_latest.txt")
+          cand = Path("latest/financial_valuation_cache_candidate_v8159.csv")
+          stage_json = Path(
+              "latest/investment_score_financial_cache_stage_v8159_summary_latest.json"
+          )
+          out_json = Path(
+              "latest/investment_score_financial_cache_production_refresh_v8160_summary_latest.json"
+          )
+          out_log = Path(
+              "latest/investment_score_financial_cache_production_refresh_v8160_run_log_latest.txt"
+          )
+          out_doc = Path(
+              "docs/investment_score_financial_cache_production_refresh_v8160.md"
+          )
+
+          before_fin = Path("/tmp/v8160_before_fin.csv")
+          before_log = Path("/tmp/v8160_before_log.txt")
+
+          base_csv = Path("/tmp/v8160_base.csv")
+          base_json = Path("/tmp/v8160_base.json")
+          base_log = Path("/tmp/v8160_base.log")
+          base_doc = Path("/tmp/v8160_base.md")
+          cand_csv = Path("/tmp/v8160_cand.csv")
+          cand_json = Path("/tmp/v8160_cand.json")
+          cand_log = Path("/tmp/v8160_cand.log")
+          cand_doc = Path("/tmp/v8160_cand.md")
+          post_csv = Path("/tmp/v8160_post.csv")
+          post_json = Path("/tmp/v8160_post.json")
+          post_log = Path("/tmp/v8160_post.log")
+          post_doc = Path("/tmp/v8160_post.md")
+
+          s = stage.read_json(stage_json)
+          if s.get("version") != V8159_VERSION:
+              raise RuntimeError("V8160_STAGE_VERSION_MISMATCH")
+          if s.get("status") != "STAGED_FINANCIAL_CACHE_CANDIDATE_REGRESSION_PASS":
+              raise RuntimeError("V8160_STAGE_STATUS_MISMATCH")
+          if s.get("next_step") != "CONTROLLED_PRODUCTION_FINANCIAL_CACHE_REFRESH_V8160":
+              raise RuntimeError("V8160_STAGE_NEXT_STEP_MISMATCH")
+          if any(bool(v) for v in (s.get("hard_guards") or {}).values()):
+              raise RuntimeError("V8160_STAGE_HARD_GUARD_TRUE")
+
+          sc = s.get("staged_cache") or {}
+          rg = s.get("scorer_regression") or {}
+          expected_sc = {
+              "production_row_count": 271,
+              "source_candidate_row_count": 28,
+              "staged_row_count": 299,
+              "target_count": 28,
+              "fully_financial_resolved_count": 27,
+              "partial_financial_remaining_count": 1,
+          }
+          for k, v in expected_sc.items():
+              if sc.get(k) != v:
+                  raise RuntimeError(f"V8160_STAGE_CACHE_MISMATCH:{k}")
+          if sc.get("partial_financial_remaining_tickers") != ["014825"]:
+              raise RuntimeError("V8160_PARTIAL_SET_MISMATCH")
+
+          expected_rg = {
+              "universe_count": 120,
+              "baseline_ready_count": 21,
+              "candidate_ready_count": 21,
+              "baseline_limited_count": 99,
+              "candidate_limited_count": 99,
+              "baseline_total_blocker_occurrences": 688,
+              "candidate_total_blocker_occurrences": 475,
+              "blocker_occurrences_reduced_by": 213,
+              "baseline_target_financial_blocker_occurrences": 221,
+              "candidate_target_financial_blocker_occurrences": 8,
+              "target_financial_blocker_occurrences_reduced_by": 213,
+              "changed_target_score_row_count": 27,
+              "non_target_score_row_changed_count": 0,
+              "newly_ready_count": 0,
+              "lost_ready_count": 0,
+          }
+          for k, v in expected_rg.items():
+              if rg.get(k) != v:
+                  raise RuntimeError(f"V8160_STAGE_REG_MISMATCH:{k}")
+
+          prod_rows, prod_fields = stage.read_rows(prod)
+          cand_rows, cand_fields = stage.read_rows(cand)
+          if prod_fields != cand_fields:
+              raise RuntimeError("V8160_SCHEMA_MISMATCH")
+          if len(prod_rows) != 271 or len(cand_rows) != 299:
+              raise RuntimeError(
+                  f"V8160_CACHE_ROW_COUNT_BAD:{len(prod_rows)}:{len(cand_rows)}"
+              )
+
+          prod_map = {
+              stage.ticker(r.get("ticker")): r
+              for r in prod_rows
+          }
+          cand_map = {
+              stage.ticker(r.get("ticker")): r
+              for r in cand_rows
+          }
+          if len(prod_map) != 271 or len(cand_map) != 299:
+              raise RuntimeError("V8160_DUPLICATE_TICKER")
+          if not set(prod_map) < set(cand_map):
+              raise RuntimeError("V8160_PROD_NOT_STRICT_SUBSET")
+          added = set(cand_map) - set(prod_map)
+          if len(added) != 28:
+              raise RuntimeError("V8160_ADDED_SET_NOT_28")
+          existing_changed = [
+              code for code in sorted(prod_map)
+              if stage.stable(prod_map[code]) != stage.stable(cand_map[code])
+          ]
+          if existing_changed:
+              raise RuntimeError(
+                  "V8160_EXISTING_ROW_CHANGED:" + ",".join(existing_changed[:20])
+              )
+
+          targets = set(rg.get("changed_target_score_tickers") or []) | {"014825"}
+          if targets != added:
+              raise RuntimeError("V8160_TARGET_SET_NOT_ADDED_SET")
+
+          stage.VERSION = VERSION
+          stage.run_scorer(prod, base_csv, base_json, base_log, base_doc)
+          stage.run_scorer(cand, cand_csv, cand_json, cand_log, cand_doc)
+
+          base = stage.row_map(base_csv)
+          staged_score = stage.row_map(cand_csv)
+          base_s = stage.read_json(base_json)
+          cand_s = stage.read_json(cand_json)
+          active = stage.production_codes()
+
+          if set(base) != set(staged_score) or set(base) != active:
+              raise RuntimeError("V8160_PREAPPLY_UNIVERSE_DRIFT")
+          pre_exact = (
+              int(base_s.get("ready_count") or 0),
+              int(base_s.get("limited_count") or 0),
+              int(cand_s.get("ready_count") or 0),
+              int(cand_s.get("limited_count") or 0),
+              stage.total_blockers(base),
+              stage.total_blockers(staged_score),
+              sum(stage.group_count(base[x], stage.TARGET_GROUP) for x in targets),
+              sum(stage.group_count(staged_score[x], stage.TARGET_GROUP) for x in targets),
+          )
+          if pre_exact != (21, 99, 21, 99, 688, 475, 221, 8):
+              raise RuntimeError("V8160_PREAPPLY_EXACT_MISMATCH:" + repr(pre_exact))
+
+          pre_non_target = [
+              code for code in sorted(active - targets)
+              if stage.stable(base[code]) != stage.stable(staged_score[code])
+          ]
+          if pre_non_target:
+              raise RuntimeError(
+                  "V8160_PREAPPLY_NON_TARGET_DRIFT:" + ",".join(pre_non_target[:20])
+              )
+
+          shutil.copyfile(prod, before_fin)
+          shutil.copyfile(prod_log, before_log)
+
+          try:
+              shutil.copyfile(cand, prod)
+              prod_log.write_text(
+                  "\n".join([
+                      f"VERSION={VERSION}",
+                      "STATUS=PRODUCTION_FINANCIAL_CACHE_READY_NOT_YET_API_REBUILT",
+                      f"PROMOTED_FROM_STAGE_VERSION={V8159_VERSION}",
+                      f"PROMOTED_FROM_STAGE_COMMIT={V8159_COMMIT}",
+                      "PRODUCTION_ROWS_BEFORE=271",
+                      "PRODUCTION_ROWS_AFTER=299",
+                      "TARGET_ROWS_ADDED=28",
+                      "FULLY_FINANCIAL_RESOLVED=27",
+                      "PARTIAL_FINANCIAL_REMAINING=1",
+                      "PARTIAL_TICKERS=014825",
+                      "BASELINE_READY=21",
+                      "POST_APPLY_READY=21",
+                      "BASELINE_BLOCKERS=688",
+                      "POST_APPLY_BLOCKERS=475",
+                      "BLOCKER_REDUCED_BY=213",
+                      "BASE_TARGET_FIN_BLOCKERS=221",
+                      "POST_TARGET_FIN_BLOCKERS=8",
+                      "TARGET_FIN_BLOCKER_REDUCTION=213",
+                      "PRODUCTION_API_REBUILT=false",
+                      "PRODUCTION_SCORE_WRITTEN=false",
+                      "SCORING_POLICY_MODIFIED=false",
+                      "STATUS_OK=true",
+                      f"NEXT_STEP={NEXT_STEP}",
+                  ]) + "\n",
+                  encoding="utf-8",
+              )
+
+              stage.run_scorer(prod, post_csv, post_json, post_log, post_doc)
+              post = stage.row_map(post_csv)
+              post_s = stage.read_json(post_json)
+
+              if set(post) != set(staged_score):
+                  raise RuntimeError("V8160_POST_UNIVERSE_DIFFERS")
+              mismatch = [
+                  code for code in sorted(post)
+                  if stage.stable(post[code]) != stage.stable(staged_score[code])
+              ]
+              if mismatch:
+                  raise RuntimeError(
+                      "V8160_POST_NOT_STAGED_EXACT:" + ",".join(mismatch[:20])
+                  )
+
+              post_exact = (
+                  int(post_s.get("ready_count") or 0),
+                  int(post_s.get("limited_count") or 0),
+                  stage.total_blockers(post),
+                  sum(stage.group_count(post[x], stage.TARGET_GROUP) for x in targets),
+              )
+              if post_exact != (21, 99, 475, 8):
+                  raise RuntimeError("V8160_POST_EXACT_MISMATCH:" + repr(post_exact))
+
+              non_target = [
+                  code for code in sorted(active - targets)
+                  if stage.stable(base[code]) != stage.stable(post[code])
+              ]
+              if non_target:
+                  raise RuntimeError(
+                      "V8160_POST_NON_TARGET_DRIFT:" + ",".join(non_target[:20])
+                  )
+
+              lost_ready = [
+                  code for code in sorted(active)
+                  if base[code].get("score_status") == "READY"
+                  and post[code].get("score_status") != "READY"
+              ]
+              if lost_ready:
+                  raise RuntimeError(
+                      "V8160_POST_LOST_READY:" + ",".join(lost_ready)
+                  )
+
+              changed_targets = [
+                  code for code in sorted(targets)
+                  if stage.stable(base[code]) != stage.stable(post[code])
+              ]
+              if len(changed_targets) != 27 or "014825" in changed_targets:
+                  raise RuntimeError("V8160_CHANGED_TARGET_SET_BAD")
+
+          except Exception:
+              shutil.copyfile(before_fin, prod)
+              shutil.copyfile(before_log, prod_log)
+              raise
+
+          summary = {
+              "version": VERSION,
+              "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+              "status": "PRODUCTION_FINANCIAL_CACHE_REFRESH_APPLIED_POST_REGRESSION_PASS",
+              "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+              "v8159_version": V8159_VERSION,
+              "v8159_result_commit": V8159_COMMIT,
+              "production_before": {
+                  "financial_cache_row_count": 271,
+                  "scorer_universe_count": 120,
+                  "scorer_ready_count": 21,
+                  "scorer_limited_count": 99,
+                  "blocker_occurrences": 688,
+                  "target_financial_blocker_occurrences": 221,
+              },
+              "production_after": {
+                  "financial_cache_row_count": 299,
+                  "scorer_universe_count": 120,
+                  "scorer_ready_count": 21,
+                  "scorer_limited_count": 99,
+                  "blocker_occurrences": 475,
+                  "target_financial_blocker_occurrences": 8,
+                  "fully_financial_resolved_count": 27,
+                  "partial_financial_remaining_count": 1,
+                  "partial_financial_remaining_tickers": ["014825"],
+              },
+              "blocker_occurrences_reduced_by": 213,
+              "target_financial_blocker_occurrences_reduced_by": 213,
+              "changed_target_score_row_count": 27,
+              "changed_target_score_tickers": changed_targets,
+              "newly_ready_count": 0,
+              "lost_ready_count": 0,
+              "non_target_score_row_changed_count": 0,
+              "post_score_equals_staged_candidate": True,
+              "rollback_guard": {
+                  "enabled": True,
+                  "restores_financial_cache_on_post_apply_failure": True,
+                  "restores_financial_run_log_on_post_apply_failure": True,
+              },
+              "hard_guards": {
+                  "production_financial_cache_modified": True,
+                  "production_financial_run_log_modified": True,
+                  "production_raw_score_cache_modified": False,
+                  "production_api_modified": False,
+                  "production_score_written": False,
+                  "scoring_policy_modified": False,
+                  "corp_identity_policy_modified": False,
+                  "source_value_imputed": False,
+                  "non_target_score_row_changed": False,
+              },
+              "next_step": NEXT_STEP,
+          }
+          out_json.write_text(
+              json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+
+          out_log.write_text(
+              "\n".join([
+                  f"VERSION={VERSION}",
+                  "STATUS=PRODUCTION_FINANCIAL_CACHE_REFRESH_APPLIED_POST_REGRESSION_PASS",
+                  "PRODUCTION_ROWS_BEFORE=271",
+                  "PRODUCTION_ROWS_AFTER=299",
+                  "SCORER_UNIVERSE=120",
+                  "BASELINE_READY=21",
+                  "POST_APPLY_READY=21",
+                  "BASELINE_LIMITED=99",
+                  "POST_APPLY_LIMITED=99",
+                  "BASELINE_BLOCKERS=688",
+                  "POST_APPLY_BLOCKERS=475",
+                  "BLOCKER_REDUCED_BY=213",
+                  "BASE_TARGET_FIN_BLOCKERS=221",
+                  "POST_TARGET_FIN_BLOCKERS=8",
+                  "TARGET_FIN_BLOCKER_REDUCTION=213",
+                  "CHANGED_TARGET_SCORE_ROWS=27",
+                  "NON_TARGET_SCORE_ROW_CHANGED=0",
+                  "NEWLY_READY=0",
+                  "LOST_READY=0",
+                  "POST_SCORE_EQUALS_STAGED_CANDIDATE=true",
+                  "ROLLBACK_GUARD_ENABLED=true",
+                  "PRODUCTION_API_MODIFIED=false",
+                  "PRODUCTION_SCORE_WRITTEN=false",
+                  "STATUS_OK=true",
+                  f"NEXT_STEP={NEXT_STEP}",
+              ]) + "\n",
+              encoding="utf-8",
+          )
+
+          out_doc.parent.mkdir(parents=True, exist_ok=True)
+          out_doc.write_text(
+              "\n".join([
+                  "# V8.16.0 controlled production financial cache refresh",
+                  "",
+                  "- Promotes the exact V8.15.9 staged financial cache candidate into production.",
+                  "- Production financial cache rows: 271 -> 299.",
+                  "- Existing 271 production rows remain field-for-field unchanged; 28 rows are added.",
+                  "- Target financial blockers: 221 -> 8 (-213).",
+                  "- Total scorer blockers: 688 -> 475 (-213).",
+                  "- READY/LIMITED remains 21/99; lost READY is 0.",
+                  "- 27 target score rows change exactly as staged; 014825 remains NO_CORP_CODE.",
+                  "- Post-apply scorer output exactly matches the staged scorer output.",
+                  "- Rollback restores the prior cache and run log if post-apply validation fails.",
+                  "- API, policy, raw-score cache and other source caches remain unchanged.",
+                  "",
+                  "Next: POST_APPLY_CURRENT_BLOCKER_REAUDIT_V8161",
+                  "",
+              ]),
+              encoding="utf-8",
+          )
+
+          print("V8160_CONTROLLED_PRODUCTION_FINANCIAL_REFRESH=PASS")
+          print("V8160_PRODUCTION_ROWS=271->299")
+          print("V8160_TARGET_FIN_BLOCKERS=221->8")
+          print("V8160_TOTAL_BLOCKERS=688->475")
+          print("V8160_POST_SCORE_EQUALS_STAGED_CANDIDATE=true")
+          print("V8160_NEXT_STEP=" + NEXT_STEP)
+          PY
+
+          grep -q '^V8160_CONTROLLED_PRODUCTION_FINANCIAL_REFRESH=PASS$' \
+            /tmp/v8160_stdout.txt
+          grep -q '^PRODUCTION_ROWS_AFTER=299$' \
+            latest/investment_score_financial_cache_production_refresh_v8160_run_log_latest.txt
+          grep -q '^POST_APPLY_BLOCKERS=475$' \
+            latest/investment_score_financial_cache_production_refresh_v8160_run_log_latest.txt
+          grep -q '^POST_TARGET_FIN_BLOCKERS=8$' \
+            latest/investment_score_financial_cache_production_refresh_v8160_run_log_latest.txt
+          grep -q '^NON_TARGET_SCORE_ROW_CHANGED=0$' \
+            latest/investment_score_financial_cache_production_refresh_v8160_run_log_latest.txt
+          grep -q '^LOST_READY=0$' \
+            latest/investment_score_financial_cache_production_refresh_v8160_run_log_latest.txt
+          grep -q '^POST_SCORE_EQUALS_STAGED_CANDIDATE=true$' \
+            latest/investment_score_financial_cache_production_refresh_v8160_run_log_latest.txt
+          grep -q '^ROLLBACK_GUARD_ENABLED=true$' \
+            latest/investment_score_financial_cache_production_refresh_v8160_run_log_latest.txt
+          grep -q '^STATUS_OK=true$' \
+            latest/investment_score_financial_cache_production_refresh_v8160_run_log_latest.txt
+
+      - name: Validate production files and summary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          prod = Path("latest/financial_valuation_cache_latest.csv")
+          cand = Path("latest/financial_valuation_cache_candidate_v8159.csv")
+          assert prod.read_bytes() == cand.read_bytes()
+
+          with prod.open(encoding="utf-8-sig", newline="") as f:
+              rows = list(csv.DictReader(f))
+          assert len(rows) == 299
+          assert len({r["ticker"] for r in rows}) == 299
+
+          s = json.loads(
+              Path(
+                  "latest/investment_score_financial_cache_production_refresh_v8160_summary_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+          assert s["version"] == "2026-09-22-v8.16.0-controlled-production-financial-cache-refresh"
+          assert s["status"] == "PRODUCTION_FINANCIAL_CACHE_REFRESH_APPLIED_POST_REGRESSION_PASS"
+          assert s["v8159_result_commit"] == "631f0144dab7ca6eb5c05641ab3716b28ff31c21"
+          assert s["production_before"]["financial_cache_row_count"] == 271
+          assert s["production_after"]["financial_cache_row_count"] == 299
+          assert s["production_before"]["blocker_occurrences"] == 688
+          assert s["production_after"]["blocker_occurrences"] == 475
+          assert s["production_before"]["target_financial_blocker_occurrences"] == 221
+          assert s["production_after"]["target_financial_blocker_occurrences"] == 8
+          assert s["blocker_occurrences_reduced_by"] == 213
+          assert s["target_financial_blocker_occurrences_reduced_by"] == 213
+          assert s["changed_target_score_row_count"] == 27
+          assert s["newly_ready_count"] == 0
+          assert s["lost_ready_count"] == 0
+          assert s["non_target_score_row_changed_count"] == 0
+          assert s["post_score_equals_staged_candidate"] is True
+          assert s["rollback_guard"]["enabled"] is True
+          assert s["next_step"] == "POST_APPLY_CURRENT_BLOCKER_REAUDIT_V8161"
+          print("V8160_OUTPUT_VALIDATION=PASS")
+          PY
+
+      - name: Verify non-financial state unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            financial_valuation_enricher.py \
+            investment_score_source_enricher_v854.py \
+            investment_score_dry_run_v882.py \
+            investment_score_financial_cache_stage_v8159.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            latest/investment_score_supply_source_latest.json \
+            latest/financial_valuation_cache_candidate_v8159.csv \
+            latest/investment_score_financial_cache_stage_v8159_regression.csv \
+            latest/investment_score_financial_cache_stage_v8159_summary_latest.json \
+            latest/investment_score_financial_cache_stage_v8159_run_log_latest.txt \
+            > /tmp/v8160_nonfinancial.after
+
+          diff -u /tmp/v8160_nonfinancial.before /tmp/v8160_nonfinancial.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8160_api.after
+          diff -u /tmp/v8160_api.before /tmp/v8160_api.after
+
+          sha256sum latest/financial_valuation_cache_latest.csv > /tmp/v8160_fin.after
+          sha256sum latest/financial_valuation_run_log_latest.txt > /tmp/v8160_finlog.after
+
+          ! diff -q /tmp/v8160_fin.before /tmp/v8160_fin.after >/dev/null
+          ! diff -q /tmp/v8160_finlog.before /tmp/v8160_finlog.after >/dev/null
+
+          echo "V8160_NONFINANCIAL_STATE_UNCHANGED=PASS"
+          echo "V8160_EXPECTED_PRODUCTION_FINANCIAL_CHANGE=PASS"
+
+      - name: Restrict changed files and refuse concurrent protected drift
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/financial_valuation_run_log_latest.txt",
+              "latest/investment_score_financial_cache_production_refresh_v8160_summary_latest.json",
+              "latest/investment_score_financial_cache_production_refresh_v8160_run_log_latest.txt",
+              "docs/investment_score_financial_cache_production_refresh_v8160.md",
+          }
+          changed = set()
+          for line in subprocess.check_output(
+              ["git", "status", "--porcelain", "--untracked-files=all"],
+              text=True,
+          ).splitlines():
+              if not line:
+                  continue
+              path = line[3:]
+              if " -> " in path:
+                  path = path.split(" -> ", 1)[1]
+              changed.add(path)
+
+          unexpected = sorted(changed - allowed)
+          required = {
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/financial_valuation_run_log_latest.txt",
+              "latest/investment_score_financial_cache_production_refresh_v8160_summary_latest.json",
+              "latest/investment_score_financial_cache_production_refresh_v8160_run_log_latest.txt",
+          }
+          missing = sorted(required - changed)
+          if unexpected:
+              raise SystemExit("V8160_UNEXPECTED_CHANGED_FILES:" + ",".join(unexpected))
+          if missing:
+              raise SystemExit("V8160_EXPECTED_CHANGED_FILES_MISSING:" + ",".join(missing))
+          print("V8160_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "financial_valuation_enricher.py",
+              "investment_score_source_enricher_v854.py",
+              "investment_score_dry_run_v882.py",
+              "investment_score_financial_cache_stage_v8159.py",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/financial_valuation_run_log_latest.txt",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/investment_score_source_run_log_latest.txt",
+              "latest/investment_score_price_elasticity_20d_latest.csv",
+              "latest/investment_score_ocf_source_latest.csv",
+              "latest/investment_score_supply_source_latest.csv",
+              "latest/investment_score_supply_source_latest.json",
+              "latest/financial_valuation_cache_candidate_v8159.csv",
+              "latest/investment_score_financial_cache_stage_v8159_regression.csv",
+              "latest/investment_score_financial_cache_stage_v8159_summary_latest.json",
+              "latest/investment_score_financial_cache_stage_v8159_run_log_latest.txt",
+          }
+          upstream = set(
+              subprocess.check_output(
+                  ["git", "diff", "--name-only", "HEAD..origin/main"],
+                  text=True,
+              ).splitlines()
+          )
+          dangerous = sorted(
+              p for p in upstream
+              if p in protected or p.startswith("api/two_table_v1/")
+          )
+          if dangerous:
+              raise SystemExit(
+                  "V8160_CONCURRENT_PROTECTED_DRIFT:" + ",".join(dangerous)
+              )
+          print("V8160_NO_CONCURRENT_PROTECTED_DRIFT=PASS")
+          PY
+
+      - name: Commit and push controlled production refresh
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            latest/financial_valuation_cache_latest.csv \
+            latest/financial_valuation_run_log_latest.txt \
+            latest/investment_score_financial_cache_production_refresh_v8160_summary_latest.json \
+            latest/investment_score_financial_cache_production_refresh_v8160_run_log_latest.txt \
+            docs/investment_score_financial_cache_production_refresh_v8160.md
+
+          git diff --cached --check
+          echo "V8160_GIT_DIFF_CHECK=PASS"
+
+          git commit -m "Apply controlled production financial cache refresh v8.16.0"
+          git pull --rebase origin main
+          git push origin HEAD:main

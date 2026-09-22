@@ -1,0 +1,105 @@
+{
+  "version": "2026-09-22-v8.15.5-mastern-q2-score-cache-audit",
+  "generated_at_kst": "2026-09-22T17:52:41+09:00",
+  "status": "AUDIT_ONLY_CURRENT_ACTIONABLE_SCORE_CACHE_Q2",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "source_contract_version": "2026-09-16-v8.11.7-five-financial-cis-interest-revenue-contract",
+  "v8154_version": "2026-09-22-v8.15.4-current-actionable-exact-da-3-audit",
+  "v8154_result_commit": "529565ddca697516610dcf3e2dd379ec7146a6db",
+  "target_ticker": "357430",
+  "target_name": "마스턴프리미어리츠",
+  "target_corp_code": "01442966",
+  "blocker_reason": "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+  "exact_da_exhausted_union_count": 67,
+  "production_source_state": {
+    "source_cache_status": "LIMITED_RAW_SOURCE",
+    "source_cache_reason": "QUARTER_LIMITED",
+    "quarter_source_status": "LIMITED",
+    "three_year_source_status": "READY"
+  },
+  "multi_account_audit": {
+    "required_accel_inputs_recoverable": false,
+    "full_quarter_contract_recoverable": false,
+    "period_values": {
+      "H1_CURRENT": {
+        "revenue": 2153308148.0,
+        "operating_profit": 1395790638.0,
+        "net_income": 509816134.0
+      },
+      "Q1_CURRENT": {
+        "revenue": null,
+        "operating_profit": null,
+        "net_income": null
+      },
+      "H1_PREVIOUS": {
+        "revenue": 1028774337.0,
+        "operating_profit": -358641921.0,
+        "net_income": -881027677.0
+      },
+      "Q1_PREVIOUS": {
+        "revenue": null,
+        "operating_profit": null,
+        "net_income": null
+      }
+    },
+    "q2_candidate": {},
+    "http_attempted": 4,
+    "http_successful": 4,
+    "official_013_count": 2,
+    "hard_failure_count": 0
+  },
+  "full_account_audit": {
+    "required_accel_inputs_recoverable": false,
+    "full_quarter_contract_recoverable": false,
+    "period_values": {
+      "H1_CURRENT": {
+        "revenue": null,
+        "operating_profit": null,
+        "net_income": null
+      },
+      "Q1_CURRENT": {
+        "revenue": null,
+        "operating_profit": null,
+        "net_income": null
+      },
+      "H1_PREVIOUS": {
+        "revenue": null,
+        "operating_profit": null,
+        "net_income": null
+      },
+      "Q1_PREVIOUS": {
+        "revenue": null,
+        "operating_profit": null,
+        "net_income": null
+      }
+    },
+    "q2_candidate": {},
+    "http_attempted": 6,
+    "http_successful": 6,
+    "official_013_count": 4,
+    "hard_failure_count": 0
+  },
+  "selected_candidate_source": "",
+  "candidate_s_accel": {
+    "points": null,
+    "reason": "",
+    "resolved_missing_accel_input": false
+  },
+  "classification": "NO_COMPLETE_OFFICIAL_Q2_ACCEL_INPUT_PATH",
+  "hard_guards": {
+    "production_source_cache_modified": false,
+    "production_source_run_log_modified": false,
+    "production_financial_cache_modified": false,
+    "production_ocf_cache_modified": false,
+    "production_supply_source_modified": false,
+    "production_price_elasticity_cache_modified": false,
+    "production_api_modified": false,
+    "production_score_written": false,
+    "scoring_policy_modified": false,
+    "source_contract_modified": false,
+    "source_value_imputed": false,
+    "q2_value_promoted": false,
+    "exhausted_da_lane_requeried": false
+  },
+  "next_step": "MARK_MASTERN_Q2_PATH_EXHAUSTED_AND_DYNAMIC_REAUDIT_V8156"
+}

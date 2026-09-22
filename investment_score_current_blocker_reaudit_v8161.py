@@ -1,0 +1,488 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import csv
+import json
+from collections import Counter, defaultdict
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import investment_score_dry_run_v882 as scorer
+from investment_score_current_blocker_reaudit_v8148 import classify
+
+VERSION = "2026-09-22-v8.16.1A-post-financial-apply-current-blocker-reaudit"
+POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+V8160_VERSION = "2026-09-22-v8.16.0-controlled-production-financial-cache-refresh"
+V8160_RESULT_COMMIT = "0b166854e7315a52683eba1ce6819e1775a1c4cb"
+V8156_VERSION = "2026-09-22-v8.15.6-mastern-q2-exhausted-dynamic-reaudit"
+
+ROOT = Path(".")
+KST = ZoneInfo("Asia/Seoul")
+
+V8160 = ROOT / "latest/investment_score_financial_cache_production_refresh_v8160_summary_latest.json"
+V8156 = ROOT / "latest/investment_score_current_blockers_v8156_summary_latest.json"
+MANIFEST = ROOT / "api/two_table_v1/manifest.json"
+
+TMP_CSV = Path("/tmp/v8161_score.csv")
+TMP_JSON = Path("/tmp/v8161_score_summary.json")
+TMP_LOG = Path("/tmp/v8161_score.log")
+TMP_DOC = Path("/tmp/v8161_score.md")
+
+OUT_CSV = ROOT / "latest/investment_score_current_blockers_v8161.csv"
+OUT_JSON = ROOT / "latest/investment_score_current_blockers_v8161_summary_latest.json"
+OUT_LOG = ROOT / "latest/investment_score_current_blockers_v8161_run_log_latest.txt"
+OUT_DOC = ROOT / "docs/investment_score_current_blockers_v8161.md"
+
+def ticker(value):
+    s = "".join(ch for ch in str(value or "") if ch.isdigit())
+    return s.zfill(6) if s else ""
+
+def read_json(path):
+    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+def split_reasons(value):
+    return [x for x in str(value or "").split(";") if x]
+
+def run_scorer():
+    old = {
+        "VERSION": scorer.VERSION,
+        "OUT_CSV": scorer.OUT_CSV,
+        "OUT_JSON": scorer.OUT_JSON,
+        "OUT_LOG": scorer.OUT_LOG,
+        "OUT_DOC": scorer.OUT_DOC,
+    }
+    try:
+        scorer.VERSION = VERSION
+        scorer.OUT_CSV = TMP_CSV
+        scorer.OUT_JSON = TMP_JSON
+        scorer.OUT_LOG = TMP_LOG
+        scorer.OUT_DOC = TMP_DOC
+        rc = scorer.main()
+    finally:
+        for key, value in old.items():
+            setattr(scorer, key, value)
+    if rc not in (None, 0):
+        raise RuntimeError("V8161_SCORER_FAILED:" + str(rc))
+
+def recovery_status(
+    code,
+    group,
+    single,
+    da_exhausted,
+    score_q2_exhausted,
+    v8104_exhausted,
+):
+    if group == "V880_SCORING_CONTRACT":
+        return "POLICY_SEMANTIC_DEFER"
+
+    if group == "EXACT_DA_SOURCE" and code in da_exhausted:
+        return "EXHAUSTED_APPROVED_OFFICIAL_DA_PATHS"
+
+    if (
+        group == "INVESTMENT_SCORE_SOURCE_CACHE"
+        and code in score_q2_exhausted
+    ):
+        return "EXHAUSTED_OFFICIAL_Q2_ACCEL_PATH"
+
+    if (
+        code == "001020"
+        and group == "PRODUCTION_PRICE_METRICS"
+        and code in v8104_exhausted
+    ):
+        return "EXHAUSTED_V8104_OFFICIAL_KRX_OHLC_INCOMPLETE"
+
+    if (
+        code == "357250"
+        and group == "INVESTMENT_SCORE_SOURCE_CACHE"
+        and code in v8104_exhausted
+    ):
+        return "EXHAUSTED_V8104_OFFICIAL_FULL_ACCOUNT_INCOMPLETE"
+
+    if single:
+        return "ACTIONABLE_SINGLE_BLOCKER_REAUDIT"
+
+    return "MULTI_BLOCKER_SOURCE_LANE"
+
+def main():
+    for p in (V8160, V8156, MANIFEST):
+        if not p.is_file():
+            raise RuntimeError("V8161_MISSING_INPUT:" + str(p))
+
+    s8160 = read_json(V8160)
+    s8156 = read_json(V8156)
+    manifest = read_json(MANIFEST)
+
+    if s8160.get("version") != V8160_VERSION:
+        raise RuntimeError("V8161_V8160_VERSION_MISMATCH")
+    if s8160.get("status") != (
+        "PRODUCTION_FINANCIAL_CACHE_REFRESH_APPLIED_POST_REGRESSION_PASS"
+    ):
+        raise RuntimeError("V8161_V8160_STATUS_MISMATCH")
+    if s8160.get("next_step") != "POST_APPLY_CURRENT_BLOCKER_REAUDIT_V8161":
+        raise RuntimeError("V8161_V8160_NEXT_STEP_MISMATCH")
+    if s8160.get("policy_version") != POLICY_VERSION:
+        raise RuntimeError("V8161_POLICY_VERSION_MISMATCH")
+
+    post = s8160.get("production_after") or {}
+    if (
+        int(post.get("financial_cache_row_count") or 0),
+        int(post.get("scorer_universe_count") or 0),
+        int(post.get("scorer_ready_count") or 0),
+        int(post.get("scorer_limited_count") or 0),
+        int(post.get("blocker_occurrences") or 0),
+        int(post.get("target_financial_blocker_occurrences") or 0),
+    ) != (299, 120, 21, 99, 475, 8):
+        raise RuntimeError("V8161_V8160_POST_STATE_MISMATCH")
+
+    if s8156.get("version") != V8156_VERSION:
+        raise RuntimeError("V8161_V8156_VERSION_MISMATCH")
+
+    evidence = s8156.get("known_exhausted_evidence") or {}
+    da_exhausted = set(
+        evidence.get("exact_da_exhausted_union_tickers") or []
+    )
+    score_q2_exhausted = set(
+        evidence.get("score_cache_q2_exhausted_tickers") or []
+    )
+    v8104_exhausted = set(
+        evidence.get("v8104_exhausted_tickers") or []
+    )
+
+    if len(da_exhausted) != 67:
+        raise RuntimeError("V8161_DA_EXHAUSTED_NOT_67")
+    if score_q2_exhausted != {"365550", "357430"}:
+        raise RuntimeError("V8161_SCORE_Q2_EXHAUSTED_SET_CHANGED")
+    if v8104_exhausted != {"001020", "357250"}:
+        raise RuntimeError("V8161_V8104_EXHAUSTED_SET_CHANGED")
+
+    if manifest.get("release_stage") != "PRODUCTION":
+        raise RuntimeError("V8161_MANIFEST_NOT_PRODUCTION")
+    if manifest.get("safe_to_analyze_as_latest") is not True:
+        raise RuntimeError("V8161_MANIFEST_NOT_SAFE_LATEST")
+
+    run_scorer()
+
+    with TMP_CSV.open(encoding="utf-8-sig", newline="") as f:
+        rows = list(csv.DictReader(f))
+    score_summary = read_json(TMP_JSON)
+
+    ready = [r for r in rows if r.get("score_status") == "READY"]
+    limited = [r for r in rows if r.get("score_status") == "LIMITED"]
+
+    if len(rows) != 120:
+        raise RuntimeError("V8161_SCORER_UNIVERSE_NOT_120:" + str(len(rows)))
+    if len(ready) != 21 or len(limited) != 99:
+        raise RuntimeError(
+            f"V8161_READY_LIMITED_MISMATCH:{len(ready)}:{len(limited)}"
+        )
+    if int(score_summary.get("ready_count") or 0) != 21:
+        raise RuntimeError("V8161_SUMMARY_READY_NOT_21")
+    if int(score_summary.get("limited_count") or 0) != 99:
+        raise RuntimeError("V8161_SUMMARY_LIMITED_NOT_99")
+
+    out_rows = []
+    category_counts = Counter()
+    source_counts = Counter()
+    source_tickers = defaultdict(set)
+    recovery_counts = Counter()
+    actionable_counts = Counter()
+    actionable_tickers = defaultdict(set)
+    multi_counts = Counter()
+    multi_tickers = defaultdict(set)
+
+    for row in limited:
+        reasons = split_reasons(row.get("missing_components"))
+        code = ticker(row.get("ticker"))
+
+        if not reasons:
+            raise RuntimeError("V8161_LIMITED_WITHOUT_REASON:" + code)
+
+        single = len(reasons) == 1
+
+        for reason in reasons:
+            category, group = classify(reason)
+            if group == "UNKNOWN":
+                raise RuntimeError(
+                    "V8161_UNCLASSIFIED_REASON:" + code + ":" + reason
+                )
+
+            status = recovery_status(
+                code,
+                group,
+                single,
+                da_exhausted,
+                score_q2_exhausted,
+                v8104_exhausted,
+            )
+
+            category_counts[category] += 1
+            source_counts[group] += 1
+            source_tickers[group].add(code)
+            recovery_counts[status] += 1
+
+            if (
+                single
+                and status == "ACTIONABLE_SINGLE_BLOCKER_REAUDIT"
+            ):
+                actionable_counts[group] += 1
+                actionable_tickers[group].add(code)
+
+            if not single:
+                multi_counts[group] += 1
+                multi_tickers[group].add(code)
+
+            out_rows.append({
+                "ticker": code,
+                "name": row.get("name") or "",
+                "market": row.get("market") or "",
+                "missing_component_count": len(reasons),
+                "blocker_reason": reason,
+                "blocker_category": category,
+                "source_group": group,
+                "single_blocker_ticker": "TRUE" if single else "FALSE",
+                "recovery_status": status,
+            })
+
+    if len(out_rows) != 475:
+        raise RuntimeError(
+            "V8161_BLOCKER_COUNT_NOT_475:" + str(len(out_rows))
+        )
+
+    if source_counts.get("FINANCIAL_VALUATION_CACHE", 0) != 49:
+        raise RuntimeError(
+            "V8161_FINANCIAL_BLOCKER_COUNT_NOT_49:"
+            + str(source_counts.get("FINANCIAL_VALUATION_CACHE", 0))
+        )
+
+    single_priority = sorted(
+        [
+            {
+                "source_group": group,
+                "actionable_single_blocker_count": count,
+                "actionable_single_blocker_tickers": sorted(
+                    actionable_tickers[group]
+                ),
+                "total_group_blocker_occurrences": source_counts[group],
+            }
+            for group, count in actionable_counts.items()
+            if count > 0
+        ],
+        key=lambda x: (
+            -x["actionable_single_blocker_count"],
+            -x["total_group_blocker_occurrences"],
+            x["source_group"],
+        ),
+    )
+
+    multi_priority = sorted(
+        [
+            {
+                "source_group": group,
+                "multi_blocker_occurrences": count,
+                "multi_blocker_ticker_count": len(multi_tickers[group]),
+                "multi_blocker_tickers": sorted(multi_tickers[group]),
+                "total_group_blocker_occurrences": source_counts[group],
+            }
+            for group, count in multi_counts.items()
+            if count > 0 and group != "V880_SCORING_CONTRACT"
+        ],
+        key=lambda x: (
+            -x["multi_blocker_occurrences"],
+            -x["multi_blocker_ticker_count"],
+            x["source_group"],
+        ),
+    )
+
+    if single_priority:
+        selection_mode = "ACTIONABLE_SINGLE_BLOCKER"
+        selected_group = single_priority[0]["source_group"]
+        selected_tickers = single_priority[0][
+            "actionable_single_blocker_tickers"
+        ]
+        next_step = "AUDIT_CURRENT_ACTIONABLE_SINGLE_BLOCKER_GROUP_V8162"
+    elif multi_priority:
+        selection_mode = "MULTI_BLOCKER_GROUP"
+        selected_group = multi_priority[0]["source_group"]
+        selected_tickers = multi_priority[0]["multi_blocker_tickers"]
+        next_step = "AUDIT_TOP_MULTI_BLOCKER_GROUP_V8162"
+    else:
+        selection_mode = "NO_SOURCE_LANE"
+        selected_group = ""
+        selected_tickers = []
+        next_step = "REVIEW_REMAINING_POLICY_ONLY_BLOCKERS"
+
+    out_rows.sort(
+        key=lambda r: (
+            int(r["missing_component_count"]),
+            r["ticker"],
+            r["blocker_reason"],
+        )
+    )
+
+    OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+    fields = [
+        "ticker",
+        "name",
+        "market",
+        "missing_component_count",
+        "blocker_reason",
+        "blocker_category",
+        "source_group",
+        "single_blocker_ticker",
+        "recovery_status",
+    ]
+    with OUT_CSV.open(
+        "w",
+        encoding="utf-8-sig",
+        newline="",
+    ) as f:
+        w = csv.DictWriter(f, fieldnames=fields, lineterminator="\n")
+        w.writeheader()
+        w.writerows(out_rows)
+
+    summary = {
+        "version": VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+        "status": "AUDIT_ONLY_POST_FINANCIAL_DYNAMIC_CURRENT_BLOCKERS",
+        "policy_version": POLICY_VERSION,
+        "v8160_version": V8160_VERSION,
+        "v8160_result_commit": V8160_RESULT_COMMIT,
+        "production_manifest": {
+            "basis_date": manifest.get("basis_date"),
+            "source_build_id": manifest.get("source_build_id"),
+            "source_commit": manifest.get("source_commit"),
+            "kospi_rows": manifest["tables"]["kospi"]["row_count"],
+            "decliners_rows": manifest["tables"]["decliners"]["row_count"],
+            "decliners24_rows": manifest["tables"]["decliners24"]["row_count"],
+        },
+        "scorer_universe_count": len(rows),
+        "ready_count": len(ready),
+        "limited_count": len(limited),
+        "limited_blocker_occurrences": len(out_rows),
+        "blocker_category_counts": dict(category_counts),
+        "source_group_counts": dict(source_counts),
+        "source_group_tickers": {
+            group: sorted(codes)
+            for group, codes in source_tickers.items()
+        },
+        "recovery_status_counts": dict(recovery_counts),
+        "known_exhausted_evidence": {
+            "exact_da_exhausted_union_count": len(da_exhausted),
+            "exact_da_exhausted_union_tickers": sorted(da_exhausted),
+            "score_cache_q2_exhausted_count": len(score_q2_exhausted),
+            "score_cache_q2_exhausted_tickers": sorted(score_q2_exhausted),
+            "v8104_exhausted_tickers": sorted(v8104_exhausted),
+        },
+        "actionable_single_priority": single_priority,
+        "multi_blocker_priority": multi_priority,
+        "selection_mode": selection_mode,
+        "selected_source_group": selected_group,
+        "selected_ticker_count": len(selected_tickers),
+        "selected_tickers": selected_tickers,
+        "financial_refresh_effect": {
+            "pre_apply_blocker_occurrences": 688,
+            "post_apply_blocker_occurrences": 475,
+            "reduced_by": 213,
+            "pre_apply_financial_blockers": 262,
+            "post_apply_financial_blockers": (
+                source_counts.get("FINANCIAL_VALUATION_CACHE", 0)
+            ),
+            "financial_blockers_reduced_by": (
+                262 - source_counts.get("FINANCIAL_VALUATION_CACHE", 0)
+            ),
+        },
+        "hard_guards": {
+            "production_source_cache_modified": False,
+            "production_financial_cache_modified": False,
+            "production_financial_run_log_modified": False,
+            "production_price_elasticity_cache_modified": False,
+            "production_ocf_cache_modified": False,
+            "production_supply_source_modified": False,
+            "production_api_modified": False,
+            "production_score_written": False,
+            "scoring_policy_modified": False,
+            "source_value_imputed": False,
+            "exhausted_lane_auto_requeried": False,
+            "stale_universe_assumption_used": False,
+        },
+        "next_step": next_step,
+    }
+
+    OUT_JSON.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    OUT_LOG.write_text(
+        "\n".join([
+            f"VERSION={VERSION}",
+            "STATUS=AUDIT_ONLY_POST_FINANCIAL_DYNAMIC_CURRENT_BLOCKERS",
+            f"PRODUCTION_BASIS_DATE={manifest.get('basis_date')}",
+            f"SCORER_UNIVERSE={len(rows)}",
+            f"READY={len(ready)}",
+            f"LIMITED={len(limited)}",
+            f"BLOCKER_OCCURRENCES={len(out_rows)}",
+            (
+                "FINANCIAL_VALUATION_BLOCKERS="
+                + str(source_counts.get("FINANCIAL_VALUATION_CACHE", 0))
+            ),
+            "V8160_BLOCKER_REDUCTION=213",
+            "EXACT_DA_EXHAUSTED_UNION=67",
+            "SCORE_CACHE_Q2_EXHAUSTED=2",
+            (
+                "ACTIONABLE_SINGLE_BLOCKERS="
+                + str(sum(actionable_counts.values()))
+            ),
+            f"SELECTION_MODE={selection_mode}",
+            f"SELECTED_SOURCE_GROUP={selected_group}",
+            f"SELECTED_TICKER_COUNT={len(selected_tickers)}",
+            "PRODUCTION_DATA_MODIFIED=false",
+            "SCORING_POLICY_MODIFIED=false",
+            "STALE_UNIVERSE_ASSUMPTION_USED=false",
+            "STATUS_OK=true",
+            f"NEXT_STEP={next_step}",
+        ]) + "\n",
+        encoding="utf-8",
+    )
+
+    OUT_DOC.parent.mkdir(parents=True, exist_ok=True)
+    OUT_DOC.write_text(
+        "\n".join([
+            "# V8.16.1A post-financial dynamic blocker reaudit",
+            "",
+            f"- Current scorer universe: {len(rows)}.",
+            f"- READY / LIMITED: {len(ready)} / {len(limited)}.",
+            f"- Current blocker occurrences: {len(out_rows)}.",
+            (
+                "- Financial valuation blockers after V8.16.0: "
+                + str(source_counts.get("FINANCIAL_VALUATION_CACHE", 0))
+                + "."
+            ),
+            "- V8.16.0 reduced total blockers by 213.",
+            f"- Actionable single blockers: {sum(actionable_counts.values())}.",
+            f"- Selection mode: {selection_mode}.",
+            f"- Selected source group: {selected_group}.",
+            f"- Selected ticker count: {len(selected_tickers)}.",
+            "",
+            "Current production is read dynamically; no production data is modified.",
+            "",
+            f"Next: {next_step}",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+
+    print("V8161_POST_FINANCIAL_DYNAMIC_REAUDIT=PASS")
+    print(f"V8161_BLOCKERS={len(out_rows)}")
+    print(
+        "V8161_FINANCIAL_BLOCKERS="
+        + str(source_counts.get("FINANCIAL_VALUATION_CACHE", 0))
+    )
+    print("V8161_SELECTION_MODE=" + selection_mode)
+    print("V8161_SELECTED_SOURCE_GROUP=" + selected_group)
+    print("V8161_SELECTED_TICKER_COUNT=" + str(len(selected_tickers)))
+    print("V8161_NEXT_STEP=" + next_step)
+
+if __name__ == "__main__":
+    main()

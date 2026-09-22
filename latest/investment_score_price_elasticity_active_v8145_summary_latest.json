@@ -1,0 +1,58 @@
+{
+  "version": "2026-09-22-v8.14.5-current-actionable-price-elasticity-20d-official-audit",
+  "generated_at_kst": "2026-09-22T13:02:52+09:00",
+  "status": "AUDIT_ONLY_CURRENT_ACTIONABLE_PRICE_ELASTICITY",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v8144a_version": "2026-09-22-v8.14.4A-dynamic-exhaustion-aware-current-blocker-reaudit",
+  "v8144a_result_commit": "1e5e878a5c5b897c2ce8f9ab9e551870bfe4f88e",
+  "metric_contract": {
+    "metric": "avg_daily_move_pct",
+    "definition": "mean(abs(close_t / close_t_minus_1 - 1)) over latest 20 official close returns * 100",
+    "return_count": 20,
+    "minimum_valid_closes": 21,
+    "atr_substitution_allowed": false
+  },
+  "target_count": 2,
+  "target_tickers": [
+    "006260",
+    "267250"
+  ],
+  "target_names": [
+    "LS",
+    "HD현대"
+  ],
+  "basis_date": "2026-09-21",
+  "basis_source": "OFFICIAL_KRX_HISTORY_MAX_KOSPI_SESSION",
+  "manifest_basis_date": "2026-09-21",
+  "calendar_buffer_sessions": 40,
+  "krx_refetch_date_count": 40,
+  "krx_refetch_success_date_count": 40,
+  "classification_counts": {
+    "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE": 2
+  },
+  "recoverable_count": 2,
+  "recoverable_tickers": [
+    "006260",
+    "267250"
+  ],
+  "insufficient_count": 0,
+  "insufficient_tickers": [],
+  "secondary_actionable_single_group": {
+    "source_group": "PRODUCTION_ANALYSIS_SUPPLY",
+    "ticker_count": 1,
+    "tickers": [
+      "072130"
+    ]
+  },
+  "hard_guards": {
+    "production_price_elasticity_cache_modified": false,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_api_modified": false,
+    "scoring_policy_modified": false,
+    "atr_used_as_elasticity_substitute": false,
+    "nonofficial_price_source_used": false,
+    "source_promoted": false
+  },
+  "next_step": "FREEZE_CURRENT_ACTIONABLE_PRICE_ELASTICITY_AND_SHADOW_V8146"
+}

@@ -1,0 +1,56 @@
+{
+  "version": "2026-09-22-v8.14.6-freeze-current-actionable-price-elasticity-and-shadow",
+  "generated_at_kst": "2026-09-22T13:14:48+09:00",
+  "status": "SOURCE_ONLY_FROZEN_SHADOW_PASS",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v8145_version": "2026-09-22-v8.14.5-current-actionable-price-elasticity-20d-official-audit",
+  "v8145_result_commit": "c04b44d4",
+  "source_frozen_count": 2,
+  "source_frozen_tickers": [
+    "006260",
+    "267250"
+  ],
+  "basis_date": "2026-09-21",
+  "basis_source": "OFFICIAL_KRX_HISTORY_MAX_KOSPI_SESSION",
+  "current_scorer_universe_count": 120,
+  "baseline_ready_count": 16,
+  "shadow_ready_count": 18,
+  "ready_delta": 2,
+  "baseline_limited_count": 104,
+  "shadow_limited_count": 102,
+  "limited_delta": -2,
+  "newly_ready_count": 2,
+  "newly_ready_tickers": [
+    "006260",
+    "267250"
+  ],
+  "baseline_blocker_occurrences": 794,
+  "shadow_blocker_occurrences": 792,
+  "blocker_occurrences_reduced_by": 2,
+  "elasticity_reason_removed_count": 2,
+  "elasticity_reason_removed_tickers": [
+    "006260",
+    "267250"
+  ],
+  "non_target_score_row_changed_count": 0,
+  "secondary_actionable_single_group": {
+    "source_group": "PRODUCTION_ANALYSIS_SUPPLY",
+    "ticker_count": 1,
+    "tickers": [
+      "072130"
+    ]
+  },
+  "hard_guards": {
+    "production_price_elasticity_cache_modified": false,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_ocf_cache_modified": false,
+    "production_supply_source_modified": false,
+    "production_api_modified": false,
+    "scoring_policy_modified": false,
+    "atr_used_as_elasticity_substitute": false,
+    "nonofficial_price_source_used": false,
+    "production_score_written": false
+  },
+  "next_step": "STAGE_NARROW_PRODUCTION_PRICE_ELASTICITY_PATCH_V8147"
+}

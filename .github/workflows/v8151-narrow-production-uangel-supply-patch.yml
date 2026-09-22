@@ -1,0 +1,1387 @@
+name: Narrow production UANGEL supply source patch v8.15.1
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v8151-narrow-production-uangel-supply-patch.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8151-narrow-production-uangel-supply-patch
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify V8.15.0 lineage and capture protected state
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git merge-base --is-ancestor \
+            eef89c4fec323bd25d546672d8b220ec0095b923 HEAD
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            supply_burden_enricher.py \
+            investment_score_dry_run_v882.py \
+            investment_score_supply_overlay_v8139b.py \
+            build_stock_table_preview_v850.py \
+            build_two_table_shadow_v851.py \
+            two_table_release_v870.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_supply_source_v8150.csv \
+            latest/investment_score_supply_shadow_v8150_summary_latest.json \
+            > /tmp/v8151_protected.before
+
+          cp latest/investment_score_supply_source_latest.csv \
+            /tmp/v8151_supply.before.csv
+          cp latest/investment_score_supply_source_latest.json \
+            /tmp/v8151_supply.before.json
+          cp latest/investment_score_supply_source_run_log_latest.txt \
+            /tmp/v8151_supply.before.log
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8151_api.before
+
+          echo "V8151_LINEAGE=PASS"
+
+      - name: Create and run controlled narrow source patch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > investment_score_supply_production_patch_v8151.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          import copy
+          import csv
+          import json
+          import subprocess
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_dry_run_v882 as scorer
+          from investment_score_supply_overlay_v8139b import load_supply_source
+
+          VERSION = "2026-09-22-v8.15.1-narrow-production-uangel-supply-source-patch"
+          POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          SUPPLY_POLICY_VERSION = "2026-07-01-v6.0-supply-status-separated"
+          V8150_VERSION = "2026-09-22-v8.15.0-freeze-uangel-supply-and-shadow-score"
+          V8150_RESULT_COMMIT = "eef89c4fec323bd25d546672d8b220ec0095b923"
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+
+          PROD_CSV = ROOT / "latest/investment_score_supply_source_latest.csv"
+          PROD_JSON = ROOT / "latest/investment_score_supply_source_latest.json"
+          PROD_LOG = ROOT / "latest/investment_score_supply_source_run_log_latest.txt"
+
+          SOURCE_CSV = ROOT / "latest/investment_score_supply_source_v8150.csv"
+          SHADOW_JSON = ROOT / "latest/investment_score_supply_shadow_v8150_summary_latest.json"
+
+          SUMMARY_OUT = ROOT / "latest/investment_score_supply_production_patch_v8151_summary_latest.json"
+          LOG_OUT = ROOT / "latest/investment_score_supply_production_patch_v8151_run_log_latest.txt"
+          DOC_OUT = ROOT / "docs/investment_score_supply_production_patch_v8151.md"
+
+          BASE_CSV = Path("/tmp/v8151_base_score.csv")
+          BASE_JSON = Path("/tmp/v8151_base_score.json")
+          BASE_LOG = Path("/tmp/v8151_base_score.log")
+          BASE_DOC = Path("/tmp/v8151_base_score.md")
+          CAND_CSV = Path("/tmp/v8151_candidate_score.csv")
+          CAND_JSON = Path("/tmp/v8151_candidate_score.json")
+          CAND_LOG = Path("/tmp/v8151_candidate_score.log")
+          CAND_DOC = Path("/tmp/v8151_candidate_score.md")
+          POST_CSV = Path("/tmp/v8151_post_score.csv")
+          POST_JSON = Path("/tmp/v8151_post_score.json")
+          POST_LOG = Path("/tmp/v8151_post_score.log")
+          POST_DOC = Path("/tmp/v8151_post_score.md")
+
+          TARGET = "072130"
+          TARGET_NAME = "유엔젤"
+          EXPECTED_OLD_CODES = {
+              "001440",
+              "007540",
+              "029780",
+              "066570",
+              "071840",
+              "084690",
+              "086280",
+              "114090",
+          }
+          EXPECTED_ALL_CODES = EXPECTED_OLD_CODES | {TARGET}
+
+          def ticker(value):
+              s = "".join(
+                  ch for ch in str(value or "")
+                  if ch.isdigit()
+              )
+              return s.zfill(6) if s else ""
+
+          def read_json(path):
+              return json.loads(
+                  Path(path).read_text(encoding="utf-8-sig")
+              )
+
+          def read_rows(path):
+              with Path(path).open(
+                  encoding="utf-8-sig",
+                  newline="",
+              ) as f:
+                  return list(csv.DictReader(f))
+
+          def write_rows(path, rows, fields):
+              with Path(path).open(
+                  "w",
+                  encoding="utf-8-sig",
+                  newline="",
+              ) as f:
+                  w = csv.DictWriter(
+                      f,
+                      fieldnames=fields,
+                      lineterminator="\n",
+                  )
+                  w.writeheader()
+                  w.writerows(rows)
+
+          def stable(row):
+              return json.dumps(
+                  row,
+                  ensure_ascii=False,
+                  sort_keys=True,
+                  separators=(",", ":"),
+              )
+
+          def split_missing(value):
+              return [
+                  x
+                  for x in str(value or "").split(";")
+                  if x
+              ]
+
+          def row_map(path):
+              return {
+                  ticker(r.get("ticker")): r
+                  for r in read_rows(path)
+                  if ticker(r.get("ticker"))
+              }
+
+          def blocker_count(rows):
+              return sum(
+                  int(
+                      r.get("missing_component_count")
+                      or 0
+                  )
+                  for r in rows.values()
+              )
+
+          def run_scorer_with_rows(
+              prod_rows,
+              out_csv,
+              out_json,
+              out_log,
+              out_doc,
+          ):
+              original = scorer.production_rows
+              old = {
+                  "VERSION": scorer.VERSION,
+                  "OUT_CSV": scorer.OUT_CSV,
+                  "OUT_JSON": scorer.OUT_JSON,
+                  "OUT_LOG": scorer.OUT_LOG,
+                  "OUT_DOC": scorer.OUT_DOC,
+              }
+              try:
+                  scorer.VERSION = VERSION
+                  scorer.production_rows = (
+                      lambda: copy.deepcopy(prod_rows)
+                  )
+                  scorer.OUT_CSV = Path(out_csv)
+                  scorer.OUT_JSON = Path(out_json)
+                  scorer.OUT_LOG = Path(out_log)
+                  scorer.OUT_DOC = Path(out_doc)
+                  rc = scorer.main()
+              finally:
+                  scorer.production_rows = original
+                  for k, v in old.items():
+                      setattr(scorer, k, v)
+
+              if rc not in (None, 0):
+                  raise RuntimeError(
+                      "V8151_SCORER_FAILED:" + str(rc)
+                  )
+
+          def run_real_scorer(
+              out_csv,
+              out_json,
+              out_log,
+              out_doc,
+          ):
+              old = {
+                  "VERSION": scorer.VERSION,
+                  "OUT_CSV": scorer.OUT_CSV,
+                  "OUT_JSON": scorer.OUT_JSON,
+                  "OUT_LOG": scorer.OUT_LOG,
+                  "OUT_DOC": scorer.OUT_DOC,
+              }
+              try:
+                  scorer.VERSION = VERSION
+                  scorer.OUT_CSV = Path(out_csv)
+                  scorer.OUT_JSON = Path(out_json)
+                  scorer.OUT_LOG = Path(out_log)
+                  scorer.OUT_DOC = Path(out_doc)
+                  rc = scorer.main()
+              finally:
+                  for k, v in old.items():
+                      setattr(scorer, k, v)
+
+              if rc not in (None, 0):
+                  raise RuntimeError(
+                      "V8151_REAL_SCORER_FAILED:"
+                      + str(rc)
+                  )
+
+          def main():
+              for p in (
+                  PROD_CSV,
+                  PROD_JSON,
+                  PROD_LOG,
+                  SOURCE_CSV,
+                  SHADOW_JSON,
+              ):
+                  if not p.is_file():
+                      raise RuntimeError(
+                          "V8151_MISSING_INPUT:" + str(p)
+                      )
+
+              subprocess.run(
+                  [
+                      "git",
+                      "merge-base",
+                      "--is-ancestor",
+                      V8150_RESULT_COMMIT,
+                      "HEAD",
+                  ],
+                  check=True,
+              )
+
+              shadow_meta = read_json(SHADOW_JSON)
+              prod_meta = read_json(PROD_JSON)
+
+              if shadow_meta.get("version") != V8150_VERSION:
+                  raise RuntimeError(
+                      "V8151_V8150_VERSION_MISMATCH"
+                  )
+              if shadow_meta.get("status") != (
+                  "SOURCE_ONLY_FROZEN_SHADOW_PASS"
+              ):
+                  raise RuntimeError(
+                      "V8151_V8150_STATUS_MISMATCH"
+                  )
+              if shadow_meta.get("next_step") != (
+                  "STAGE_NARROW_PRODUCTION_UANGEL_SUPPLY_PATCH_V8151"
+              ):
+                  raise RuntimeError(
+                      "V8151_PREDECESSOR_NEXT_STEP_MISMATCH"
+                  )
+              if shadow_meta.get("policy_version") != POLICY_VERSION:
+                  raise RuntimeError(
+                      "V8151_POLICY_VERSION_MISMATCH"
+                  )
+              if shadow_meta.get("supply_policy_version") != (
+                  SUPPLY_POLICY_VERSION
+              ):
+                  raise RuntimeError(
+                      "V8151_SUPPLY_POLICY_VERSION_MISMATCH"
+                  )
+              if shadow_meta.get("source_frozen_tickers") != [TARGET]:
+                  raise RuntimeError(
+                      "V8151_SOURCE_FROZEN_SET_CHANGED"
+                  )
+              if (
+                  int(shadow_meta.get("ready_delta") or 0),
+                  int(shadow_meta.get("limited_delta") or 0),
+                  int(
+                      shadow_meta.get(
+                          "blocker_occurrences_reduced_by"
+                      ) or 0
+                  ),
+              ) != (1, -1, 1):
+                  raise RuntimeError(
+                      "V8151_V8150_EFFECT_CHANGED"
+                  )
+              if int(
+                  shadow_meta.get(
+                      "non_target_score_row_changed_count"
+                  ) or 0
+              ) != 0:
+                  raise RuntimeError(
+                      "V8151_V8150_NON_TARGET_DRIFT"
+                  )
+
+              if int(prod_meta.get("source_count") or 0) != 8:
+                  raise RuntimeError(
+                      "V8151_PROD_SOURCE_COUNT_NOT_8"
+                  )
+              if set(
+                  prod_meta.get("source_tickers") or []
+              ) != EXPECTED_OLD_CODES:
+                  raise RuntimeError(
+                      "V8151_PROD_SOURCE_SET_CHANGED"
+                  )
+              if prod_meta.get("supply_policy_version") != (
+                  SUPPLY_POLICY_VERSION
+              ):
+                  raise RuntimeError(
+                      "V8151_PROD_SUPPLY_POLICY_CHANGED"
+                  )
+
+              old_rows = read_rows(PROD_CSV)
+              if len(old_rows) != 8:
+                  raise RuntimeError(
+                      "V8151_PROD_CSV_ROWS_NOT_8"
+                  )
+              fields = list(old_rows[0].keys())
+
+              expected_fields = [
+                  "ticker",
+                  "name",
+                  "source_origin",
+                  "source_status",
+                  "source_version",
+                  "source_classification",
+                  "corp_code",
+                  "corp_name_dart",
+                  "audit_start_date",
+                  "audit_end_date",
+                  "requested_lookback_days",
+                  "chunk_count",
+                  "dart_list_api_calls",
+                  "dart_report_count",
+                  "risk_report_count",
+                  "supply_status",
+                  "supply_level",
+                  "risk_keywords",
+                  "latest_risk_report_date",
+                  "latest_risk_report_name",
+                  "latest_risk_rcept_no",
+                  "relief_report_match_count",
+                  "evidence_reports_json",
+                  "chunk_summaries_json",
+                  "evidence_ref",
+              ]
+              if fields != expected_fields:
+                  raise RuntimeError(
+                      "V8151_PROD_SCHEMA_CHANGED"
+                  )
+
+              old_map = {
+                  ticker(r.get("ticker")): r
+                  for r in old_rows
+              }
+              if set(old_map) != EXPECTED_OLD_CODES:
+                  raise RuntimeError(
+                      "V8151_OLD_ROW_SET_CHANGED"
+                  )
+              if TARGET in old_map:
+                  raise RuntimeError(
+                      "V8151_TARGET_ALREADY_IN_PROD_SOURCE"
+                  )
+
+              frozen_rows = read_rows(SOURCE_CSV)
+              if len(frozen_rows) != 1:
+                  raise RuntimeError(
+                      "V8151_FROZEN_SOURCE_ROW_COUNT_NOT_1"
+                  )
+              src = frozen_rows[0]
+              if ticker(src.get("ticker")) != TARGET:
+                  raise RuntimeError(
+                      "V8151_FROZEN_TICKER_MISMATCH"
+                  )
+              if src.get("name") != TARGET_NAME:
+                  raise RuntimeError(
+                      "V8151_FROZEN_NAME_MISMATCH"
+                  )
+              if src.get("source_status") != (
+                  "SOURCE_ONLY_READY"
+              ):
+                  raise RuntimeError(
+                      "V8151_FROZEN_SOURCE_NOT_READY"
+                  )
+              if src.get("supply_status") != "OK":
+                  raise RuntimeError(
+                      "V8151_FROZEN_SUPPLY_NOT_OK"
+                  )
+              if src.get("supply_level") != "경계":
+                  raise RuntimeError(
+                      "V8151_FROZEN_LEVEL_CHANGED"
+                  )
+              if int(
+                  src.get("risk_report_count") or 0
+              ) != 3:
+                  raise RuntimeError(
+                      "V8151_FROZEN_RISK_COUNT_CHANGED"
+                  )
+
+              new_row = {
+                  key: src.get(key, "")
+                  for key in fields
+              }
+              new_row["source_origin"] = (
+                  "V8150_CURRENT_SOURCE"
+              )
+              new_row["source_version"] = VERSION
+
+              candidate_rows = list(old_rows) + [
+                  new_row
+              ]
+              candidate_rows.sort(
+                  key=lambda r: ticker(
+                      r.get("ticker")
+                  )
+              )
+
+              if len(candidate_rows) != 9:
+                  raise RuntimeError(
+                      "V8151_CANDIDATE_ROWS_NOT_9"
+                  )
+              if {
+                  ticker(r.get("ticker"))
+                  for r in candidate_rows
+              } != EXPECTED_ALL_CODES:
+                  raise RuntimeError(
+                      "V8151_CANDIDATE_SET_CHANGED"
+                  )
+
+              # Current production API scorer baseline.
+              baseline_prod = scorer.production_rows()
+              if TARGET not in baseline_prod:
+                  raise RuntimeError(
+                      "V8151_TARGET_NOT_IN_CURRENT_PRODUCTION"
+                  )
+
+              base_analysis = (
+                  baseline_prod[TARGET].get(
+                      "analysis"
+                  )
+                  or {}
+              )
+              if base_analysis.get(
+                  "supply_status"
+              ) != "LIMITED":
+                  raise RuntimeError(
+                      "V8151_BASE_SUPPLY_NOT_LIMITED"
+                  )
+              if base_analysis.get(
+                  "supply_level"
+              ) != "없음":
+                  raise RuntimeError(
+                      "V8151_BASE_SUPPLY_LEVEL_CHANGED"
+                  )
+
+              candidate_prod = copy.deepcopy(
+                  baseline_prod
+              )
+              analysis = copy.deepcopy(
+                  candidate_prod[TARGET].get(
+                      "analysis"
+                  )
+                  or {}
+              )
+              analysis["supply_status"] = "OK"
+              analysis["supply_level"] = "경계"
+              analysis["supply_keywords"] = (
+                  new_row.get(
+                      "risk_keywords"
+                  )
+                  or ""
+              )
+              candidate_prod[TARGET][
+                  "analysis"
+              ] = analysis
+
+              run_scorer_with_rows(
+                  baseline_prod,
+                  BASE_CSV,
+                  BASE_JSON,
+                  BASE_LOG,
+                  BASE_DOC,
+              )
+              run_scorer_with_rows(
+                  candidate_prod,
+                  CAND_CSV,
+                  CAND_JSON,
+                  CAND_LOG,
+                  CAND_DOC,
+              )
+
+              base_rows = row_map(BASE_CSV)
+              cand_rows = row_map(CAND_CSV)
+              bsum = read_json(BASE_JSON)
+              csum = read_json(CAND_JSON)
+
+              if set(base_rows) != set(cand_rows):
+                  raise RuntimeError(
+                      "V8151_SCORER_UNIVERSE_CHANGED"
+                  )
+              if len(base_rows) != int(
+                  shadow_meta.get(
+                      "current_scorer_universe_count"
+                  ) or 0
+              ):
+                  raise RuntimeError(
+                      "V8151_CURRENT_UNIVERSE_DRIFT"
+                  )
+
+              b_ready = int(
+                  bsum.get("ready_count") or 0
+              )
+              b_limited = int(
+                  bsum.get("limited_count") or 0
+              )
+              c_ready = int(
+                  csum.get("ready_count") or 0
+              )
+              c_limited = int(
+                  csum.get("limited_count") or 0
+              )
+              b_blockers = blocker_count(
+                  base_rows
+              )
+              c_blockers = blocker_count(
+                  cand_rows
+              )
+
+              if (
+                  b_ready,
+                  b_limited,
+                  b_blockers,
+              ) != (
+                  int(
+                      shadow_meta.get(
+                          "baseline_ready_count"
+                      ) or 0
+                  ),
+                  int(
+                      shadow_meta.get(
+                          "baseline_limited_count"
+                      ) or 0
+                  ),
+                  int(
+                      shadow_meta.get(
+                          "baseline_blocker_occurrences"
+                      ) or 0
+                  ),
+              ):
+                  raise RuntimeError(
+                      "V8151_BASELINE_CHANGED:"
+                      f"{b_ready}:{b_limited}:{b_blockers}"
+                  )
+
+              if (
+                  c_ready,
+                  c_limited,
+                  c_blockers,
+              ) != (
+                  int(
+                      shadow_meta.get(
+                          "shadow_ready_count"
+                      ) or 0
+                  ),
+                  int(
+                      shadow_meta.get(
+                          "shadow_limited_count"
+                      ) or 0
+                  ),
+                  int(
+                      shadow_meta.get(
+                          "shadow_blocker_occurrences"
+                      ) or 0
+                  ),
+              ):
+                  raise RuntimeError(
+                      "V8151_CANDIDATE_CHANGED:"
+                      f"{c_ready}:{c_limited}:{c_blockers}"
+                  )
+
+              base_target = base_rows[TARGET]
+              cand_target = cand_rows[TARGET]
+              if base_target.get(
+                  "score_status"
+              ) != "LIMITED":
+                  raise RuntimeError(
+                      "V8151_BASE_TARGET_NOT_LIMITED"
+                  )
+              if split_missing(
+                  base_target.get(
+                      "missing_components"
+                  )
+              ) != [
+                  "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+              ]:
+                  raise RuntimeError(
+                      "V8151_BASE_TARGET_NOT_SINGLE_SUPPLY"
+                  )
+              if cand_target.get(
+                  "score_status"
+              ) != "READY":
+                  raise RuntimeError(
+                      "V8151_CAND_TARGET_NOT_READY"
+                  )
+
+              non_target_changed = [
+                  code
+                  for code in sorted(
+                      set(base_rows) - {TARGET}
+                  )
+                  if stable(base_rows[code])
+                  != stable(cand_rows[code])
+              ]
+              if non_target_changed:
+                  raise RuntimeError(
+                      "V8151_NON_TARGET_SCORE_DRIFT:"
+                      + ",".join(
+                          non_target_changed[:20]
+                      )
+                  )
+
+              # Apply only the persistent verified source row.
+              write_rows(
+                  PROD_CSV,
+                  candidate_rows,
+                  fields,
+              )
+
+              loaded = load_supply_source(
+                  PROD_CSV
+              )
+              if set(loaded) != EXPECTED_ALL_CODES:
+                  raise RuntimeError(
+                      "V8151_OVERLAY_LOADER_SET_BAD"
+                  )
+              if loaded[TARGET][
+                  "supply_status"
+              ] != "OK":
+                  raise RuntimeError(
+                      "V8151_OVERLAY_TARGET_STATUS_BAD"
+                  )
+              if loaded[TARGET][
+                  "supply_level"
+              ] != "경계":
+                  raise RuntimeError(
+                      "V8151_OVERLAY_TARGET_LEVEL_BAD"
+                  )
+
+              # Existing eight rows must stay field-for-field identical.
+              after_map = {
+                  ticker(r.get("ticker")): r
+                  for r in read_rows(PROD_CSV)
+              }
+              changed_old = [
+                  code
+                  for code in sorted(
+                      EXPECTED_OLD_CODES
+                  )
+                  if stable(old_map[code])
+                  != stable(after_map[code])
+              ]
+              if changed_old:
+                  raise RuntimeError(
+                      "V8151_EXISTING_SOURCE_ROW_CHANGED:"
+                      + ",".join(changed_old)
+                  )
+
+              now = datetime.now(
+                  KST
+              ).isoformat(
+                  timespec="seconds"
+              )
+
+              levels = {
+                  code: row[
+                      "supply_level"
+                  ]
+                  for code, row in sorted(
+                      after_map.items()
+                  )
+              }
+
+              new_meta = dict(prod_meta)
+              new_meta.update({
+                  "version": VERSION,
+                  "status": (
+                      "PRODUCTION_SOURCE_READY_NOT_YET_API_REBUILT"
+                  ),
+                  "policy_version": POLICY_VERSION,
+                  "supply_policy_version": (
+                      SUPPLY_POLICY_VERSION
+                  ),
+                  "generated_at_kst": now,
+                  "source_count": 9,
+                  "source_tickers": sorted(
+                      EXPECTED_ALL_CODES
+                  ),
+                  "supply_levels": levels,
+                  "narrow_patch": {
+                      "version": VERSION,
+                      "promoted_from_version": (
+                          V8150_VERSION
+                      ),
+                      "promoted_from_commit": (
+                          V8150_RESULT_COMMIT
+                      ),
+                      "ticker_count": 1,
+                      "tickers": [
+                          TARGET
+                      ],
+                      "supply_status": "OK",
+                      "supply_level": "경계",
+                      "risk_keywords": [
+                          "대량보유",
+                          "주요주주변동",
+                      ],
+                      "risk_report_count": 3,
+                  },
+                  "candidate_regression": {
+                      "current_scorer_universe_count": len(
+                          base_rows
+                      ),
+                      "baseline_ready_count": b_ready,
+                      "baseline_limited_count": b_limited,
+                      "baseline_blocker_occurrences": b_blockers,
+                      "candidate_ready_count": c_ready,
+                      "candidate_limited_count": c_limited,
+                      "candidate_blocker_occurrences": c_blockers,
+                      "ready_delta": c_ready - b_ready,
+                      "limited_delta": c_limited - b_limited,
+                      "blocker_occurrences_reduced_by": (
+                          b_blockers - c_blockers
+                      ),
+                      "non_target_score_row_changed_count": 0,
+                  },
+                  "integration": {
+                      **(
+                          prod_meta.get(
+                              "integration"
+                          )
+                          or {}
+                      ),
+                      "builder": (
+                          "build_stock_table_preview_v850.py"
+                      ),
+                      "overlay_module": (
+                          "investment_score_supply_overlay_v8139b.py"
+                      ),
+                      "precedence": (
+                          "VERIFIED_SUPPLY_SOURCE_OVER_LEGACY_WHOLE_MARKET_SCAN"
+                      ),
+                      "production_api_rebuilt": False,
+                      "production_api_rebuild_mode": (
+                          "PENDING_CONTROLLED_REBUILD"
+                      ),
+                  },
+                  "next_step": (
+                      "REBUILD_TWO_TABLE_WITH_UANGEL_SUPPLY_SOURCE_V8152"
+                  ),
+              })
+
+              PROD_JSON.write_text(
+                  json.dumps(
+                      new_meta,
+                      ensure_ascii=False,
+                      indent=2,
+                  ) + "\n",
+                  encoding="utf-8",
+              )
+
+              PROD_LOG.write_text(
+                  "\n".join([
+                      f"VERSION={VERSION}",
+                      "STATUS=PRODUCTION_SOURCE_READY_NOT_YET_API_REBUILT",
+                      "SOURCE_COUNT_BEFORE=8",
+                      "SOURCE_COUNT_AFTER=9",
+                      "NARROW_PATCH_COUNT=1",
+                      "NARROW_PATCH_TICKER=072130",
+                      "NARROW_PATCH_SUPPLY_STATUS=OK",
+                      "NARROW_PATCH_SUPPLY_LEVEL=경계",
+                      f"SCORER_UNIVERSE={len(base_rows)}",
+                      f"BASELINE_READY={b_ready}",
+                      f"BASELINE_LIMITED={b_limited}",
+                      f"BASELINE_BLOCKERS={b_blockers}",
+                      f"CANDIDATE_READY={c_ready}",
+                      f"CANDIDATE_LIMITED={c_limited}",
+                      f"CANDIDATE_BLOCKERS={c_blockers}",
+                      "READY_DELTA=1",
+                      "LIMITED_DELTA=-1",
+                      "BLOCKER_REDUCED_BY=1",
+                      "NON_TARGET_SCORE_ROW_CHANGED=0",
+                      "EXISTING_SUPPLY_SOURCE_ROWS_CHANGED=0",
+                      "PRODUCTION_SUPPLY_SOURCE_MODIFIED=true",
+                      "PRODUCTION_API_REBUILT=false",
+                      "PRODUCTION_SCORE_WRITTEN=false",
+                      "SCORING_POLICY_MODIFIED=false",
+                      "SUPPLY_POLICY_MODIFIED=false",
+                      "STATUS_OK=true",
+                      "NEXT_STEP=REBUILD_TWO_TABLE_WITH_UANGEL_SUPPLY_SOURCE_V8152",
+                  ]) + "\n",
+                  encoding="utf-8",
+              )
+
+              # The current API must remain unchanged until the explicit rebuild.
+              run_real_scorer(
+                  POST_CSV,
+                  POST_JSON,
+                  POST_LOG,
+                  POST_DOC,
+              )
+              post_rows = row_map(POST_CSV)
+              post_sum = read_json(POST_JSON)
+
+              if (
+                  int(
+                      post_sum.get(
+                          "ready_count"
+                      ) or 0
+                  ),
+                  int(
+                      post_sum.get(
+                          "limited_count"
+                      ) or 0
+                  ),
+                  blocker_count(post_rows),
+              ) != (
+                  b_ready,
+                  b_limited,
+                  b_blockers,
+              ):
+                  raise RuntimeError(
+                      "V8151_API_CHANGED_BEFORE_REBUILD"
+                  )
+
+              summary = {
+                  "version": VERSION,
+                  "generated_at_kst": now,
+                  "status": (
+                      "PRODUCTION_SOURCE_PATCHED_API_REBUILD_PENDING"
+                  ),
+                  "policy_version": POLICY_VERSION,
+                  "supply_policy_version": (
+                      SUPPLY_POLICY_VERSION
+                  ),
+                  "v8150_version": V8150_VERSION,
+                  "v8150_result_commit": (
+                      V8150_RESULT_COMMIT
+                  ),
+                  "source_count_before": 8,
+                  "source_count_after": 9,
+                  "narrow_patch_count": 1,
+                  "narrow_patch_tickers": [
+                      TARGET
+                  ],
+                  "existing_source_row_changed_count": 0,
+                  "current_scorer_universe_count": len(
+                      base_rows
+                  ),
+                  "baseline_ready_count": b_ready,
+                  "baseline_limited_count": b_limited,
+                  "baseline_blocker_occurrences": b_blockers,
+                  "candidate_ready_count": c_ready,
+                  "candidate_limited_count": c_limited,
+                  "candidate_blocker_occurrences": c_blockers,
+                  "ready_delta": 1,
+                  "limited_delta": -1,
+                  "blocker_occurrences_reduced_by": 1,
+                  "non_target_score_row_changed_count": 0,
+                  "post_patch_api_ready_count": int(
+                      post_sum.get(
+                          "ready_count"
+                      ) or 0
+                  ),
+                  "post_patch_api_limited_count": int(
+                      post_sum.get(
+                          "limited_count"
+                      ) or 0
+                  ),
+                  "post_patch_api_blocker_occurrences": (
+                      blocker_count(
+                          post_rows
+                      )
+                  ),
+                  "hard_guards": {
+                      "production_supply_source_modified": True,
+                      "production_supply_metadata_modified": True,
+                      "production_supply_run_log_modified": True,
+                      "production_api_modified": False,
+                      "production_score_written": False,
+                      "production_source_cache_modified": False,
+                      "production_financial_cache_modified": False,
+                      "production_ocf_cache_modified": False,
+                      "production_price_elasticity_cache_modified": False,
+                      "scoring_policy_modified": False,
+                      "supply_policy_modified": False,
+                      "existing_supply_source_rows_modified": False,
+                      "issuer_mapping_guessed": False,
+                  },
+                  "next_step": (
+                      "REBUILD_TWO_TABLE_WITH_UANGEL_SUPPLY_SOURCE_V8152"
+                  ),
+              }
+
+              SUMMARY_OUT.write_text(
+                  json.dumps(
+                      summary,
+                      ensure_ascii=False,
+                      indent=2,
+                  ) + "\n",
+                  encoding="utf-8",
+              )
+
+              LOG_OUT.write_text(
+                  "\n".join([
+                      f"VERSION={VERSION}",
+                      "STATUS=PRODUCTION_SOURCE_PATCHED_API_REBUILD_PENDING",
+                      "SOURCE_COUNT_BEFORE=8",
+                      "SOURCE_COUNT_AFTER=9",
+                      "NARROW_PATCH_COUNT=1",
+                      "NARROW_PATCH_TICKER=072130",
+                      "EXISTING_SOURCE_ROW_CHANGED_COUNT=0",
+                      f"SCORER_UNIVERSE={len(base_rows)}",
+                      f"BASELINE_READY={b_ready}",
+                      f"BASELINE_LIMITED={b_limited}",
+                      f"BASELINE_BLOCKERS={b_blockers}",
+                      f"CANDIDATE_READY={c_ready}",
+                      f"CANDIDATE_LIMITED={c_limited}",
+                      f"CANDIDATE_BLOCKERS={c_blockers}",
+                      "READY_DELTA=1",
+                      "LIMITED_DELTA=-1",
+                      "BLOCKER_REDUCED_BY=1",
+                      "NON_TARGET_SCORE_ROW_CHANGED=0",
+                      "PRODUCTION_SUPPLY_SOURCE_MODIFIED=true",
+                      "PRODUCTION_API_MODIFIED=false",
+                      "PRODUCTION_SCORE_WRITTEN=false",
+                      "STATUS_OK=true",
+                      "NEXT_STEP=REBUILD_TWO_TABLE_WITH_UANGEL_SUPPLY_SOURCE_V8152",
+                  ]) + "\n",
+                  encoding="utf-8",
+              )
+
+              DOC_OUT.parent.mkdir(
+                  parents=True,
+                  exist_ok=True,
+              )
+              DOC_OUT.write_text(
+                  "\n".join([
+                      "# V8.15.1 narrow production UANGEL supply source patch",
+                      "",
+                      "- Existing verified supply source rows: 8 -> preserved unchanged.",
+                      "- Added only 유엔젤 (072130) as `OK / 경계`.",
+                      "- Persistent source rows: 8 -> 9.",
+                      "- Current API is intentionally not rebuilt in this step.",
+                      "- Candidate scorer effect reproduces V8.15.0 shadow: READY +1, LIMITED -1, blocker -1.",
+                      "- Non-target score drift: 0.",
+                      "",
+                      "Next: `REBUILD_TWO_TABLE_WITH_UANGEL_SUPPLY_SOURCE_V8152`",
+                      "",
+                  ]),
+                  encoding="utf-8",
+              )
+
+              print(
+                  "V8151_NARROW_PRODUCTION_SUPPLY_SOURCE_PATCH=PASS"
+              )
+
+          if __name__ == "__main__":
+              main()
+          PY
+
+          python -m py_compile \
+            investment_score_supply_production_patch_v8151.py
+
+          python investment_score_supply_production_patch_v8151.py \
+            | tee /tmp/v8151_stdout.txt
+
+          grep -q '^V8151_NARROW_PRODUCTION_SUPPLY_SOURCE_PATCH=PASS$' \
+            /tmp/v8151_stdout.txt
+          grep -q '^SOURCE_COUNT_BEFORE=8$' \
+            latest/investment_score_supply_production_patch_v8151_run_log_latest.txt
+          grep -q '^SOURCE_COUNT_AFTER=9$' \
+            latest/investment_score_supply_production_patch_v8151_run_log_latest.txt
+          grep -q '^READY_DELTA=1$' \
+            latest/investment_score_supply_production_patch_v8151_run_log_latest.txt
+          grep -q '^LIMITED_DELTA=-1$' \
+            latest/investment_score_supply_production_patch_v8151_run_log_latest.txt
+          grep -q '^BLOCKER_REDUCED_BY=1$' \
+            latest/investment_score_supply_production_patch_v8151_run_log_latest.txt
+          grep -q '^PRODUCTION_API_MODIFIED=false$' \
+            latest/investment_score_supply_production_patch_v8151_run_log_latest.txt
+
+      - name: Validate persistent builder overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf /tmp/v8151_preview
+
+          python build_stock_table_preview_v850.py \
+            --repo . \
+            --output-dir /tmp/v8151_preview \
+            | tee /tmp/v8151_preview_stdout.txt
+
+          grep -q '^V850_DATA_PREVIEW=PASS$' \
+            /tmp/v8151_preview_stdout.txt
+          grep -q '^SOURCE_FILES_UNCHANGED=PASS$' \
+            /tmp/v8151_preview_stdout.txt
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          rows = {}
+          for table in (
+              "kospi",
+              "decliners",
+              "decliners24",
+          ):
+              payload = json.loads(
+                  Path(
+                      f"/tmp/v8151_preview/{table}.json"
+                  ).read_text(encoding="utf-8")
+              )
+              for row in payload.get("rows") or []:
+                  rows[row["ticker"]] = row
+
+          assert "072130" in rows
+          analysis = rows["072130"]["analysis"]
+          assert analysis["supply_status"] == "OK"
+          assert analysis["supply_level"] == "경계"
+          assert set(
+              x for x in (
+                  analysis.get("supply_keywords")
+                  or ""
+              ).split(",")
+              if x
+          ) == {
+              "대량보유",
+              "주요주주변동",
+          }
+
+          print(
+              "V8151_BUILDER_UANGEL_OVERLAY=PASS"
+          )
+          PY
+
+      - name: Validate V8.15.1 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          s = json.loads(
+              Path(
+                  "latest/investment_score_supply_production_patch_v8151_summary_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+
+          assert s["version"] == (
+              "2026-09-22-v8.15.1-narrow-production-uangel-supply-source-patch"
+          )
+          assert s["status"] == (
+              "PRODUCTION_SOURCE_PATCHED_API_REBUILD_PENDING"
+          )
+          assert s["v8150_result_commit"] == (
+              "eef89c4fec323bd25d546672d8b220ec0095b923"
+          )
+          assert s["source_count_before"] == 8
+          assert s["source_count_after"] == 9
+          assert s["narrow_patch_tickers"] == [
+              "072130"
+          ]
+          assert s[
+              "existing_source_row_changed_count"
+          ] == 0
+          assert s["ready_delta"] == 1
+          assert s["limited_delta"] == -1
+          assert s[
+              "blocker_occurrences_reduced_by"
+          ] == 1
+          assert s[
+              "non_target_score_row_changed_count"
+          ] == 0
+
+          assert s[
+              "post_patch_api_ready_count"
+          ] == s["baseline_ready_count"]
+          assert s[
+              "post_patch_api_limited_count"
+          ] == s["baseline_limited_count"]
+          assert s[
+              "post_patch_api_blocker_occurrences"
+          ] == s[
+              "baseline_blocker_occurrences"
+          ]
+
+          guards = s["hard_guards"]
+          for key in {
+              "production_supply_source_modified",
+              "production_supply_metadata_modified",
+              "production_supply_run_log_modified",
+          }:
+              assert guards[key] is True
+
+          for key in {
+              "production_api_modified",
+              "production_score_written",
+              "production_source_cache_modified",
+              "production_financial_cache_modified",
+              "production_ocf_cache_modified",
+              "production_price_elasticity_cache_modified",
+              "scoring_policy_modified",
+              "supply_policy_modified",
+              "existing_supply_source_rows_modified",
+              "issuer_mapping_guessed",
+          }:
+              assert guards[key] is False
+
+          assert s["next_step"] == (
+              "REBUILD_TWO_TABLE_WITH_UANGEL_SUPPLY_SOURCE_V8152"
+          )
+
+          with Path(
+              "latest/investment_score_supply_source_latest.csv"
+          ).open(
+              encoding="utf-8-sig",
+              newline="",
+          ) as f:
+              rows = list(csv.DictReader(f))
+
+          assert len(rows) == 9
+          by = {
+              r["ticker"]: r
+              for r in rows
+          }
+          assert by["072130"][
+              "supply_status"
+          ] == "OK"
+          assert by["072130"][
+              "supply_level"
+          ] == "경계"
+
+          meta = json.loads(
+              Path(
+                  "latest/investment_score_supply_source_latest.json"
+              ).read_text(encoding="utf-8")
+          )
+          assert meta["source_count"] == 9
+          assert "072130" in meta["source_tickers"]
+          assert meta["integration"][
+              "production_api_rebuilt"
+          ] is False
+
+          print(
+              "V8151_OUTPUT_VALIDATION=PASS"
+          )
+          PY
+
+      - name: Verify non-supply production state unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            supply_burden_enricher.py \
+            investment_score_dry_run_v882.py \
+            investment_score_supply_overlay_v8139b.py \
+            build_stock_table_preview_v850.py \
+            build_two_table_shadow_v851.py \
+            two_table_release_v870.py \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_supply_source_v8150.csv \
+            latest/investment_score_supply_shadow_v8150_summary_latest.json \
+            > /tmp/v8151_protected.after
+
+          diff -u \
+            /tmp/v8151_protected.before \
+            /tmp/v8151_protected.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum \
+            > /tmp/v8151_api.after
+
+          diff -u \
+            /tmp/v8151_api.before \
+            /tmp/v8151_api.after
+
+          echo "V8151_NON_SUPPLY_STATE_UNCHANGED=PASS"
+
+      - name: Restrict changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              "investment_score_supply_production_patch_v8151.py",
+              "latest/investment_score_supply_source_latest.csv",
+              "latest/investment_score_supply_source_latest.json",
+              "latest/investment_score_supply_source_run_log_latest.txt",
+              "latest/investment_score_supply_production_patch_v8151_summary_latest.json",
+              "latest/investment_score_supply_production_patch_v8151_run_log_latest.txt",
+              "docs/investment_score_supply_production_patch_v8151.md",
+          }
+
+          changed = {
+              line[3:]
+              for line in subprocess.check_output(
+                  [
+                      "git",
+                      "status",
+                      "--porcelain",
+                      "--untracked-files=all",
+                  ],
+                  text=True,
+              ).splitlines()
+              if line
+          }
+
+          unexpected = sorted(
+              changed - allowed
+          )
+          if unexpected:
+              raise SystemExit(
+                  "V8151_UNEXPECTED_CHANGED_FILES:"
+                  + ",".join(unexpected)
+              )
+
+          print(
+              "V8151_CHANGED_FILES_RESTRICTED=PASS"
+          )
+          PY
+
+      - name: Refuse concurrent protected drift
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "supply_burden_enricher.py",
+              "investment_score_dry_run_v882.py",
+              "investment_score_supply_overlay_v8139b.py",
+              "build_stock_table_preview_v850.py",
+              "build_two_table_shadow_v851.py",
+              "two_table_release_v870.py",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/investment_score_source_run_log_latest.txt",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/investment_score_price_elasticity_20d_latest.csv",
+              "latest/investment_score_ocf_source_latest.csv",
+              "latest/investment_score_supply_source_v8150.csv",
+              "latest/investment_score_supply_shadow_v8150_summary_latest.json",
+          }
+
+          upstream = set(
+              subprocess.check_output(
+                  [
+                      "git",
+                      "diff",
+                      "--name-only",
+                      "HEAD..origin/main",
+                  ],
+                  text=True,
+              ).splitlines()
+          )
+
+          dangerous = sorted(
+              p
+              for p in upstream
+              if p in protected
+              or p.startswith("api/two_table_v1/")
+              or p in {
+                  "latest/investment_score_supply_source_latest.csv",
+                  "latest/investment_score_supply_source_latest.json",
+                  "latest/investment_score_supply_source_run_log_latest.txt",
+              }
+          )
+
+          if dangerous:
+              raise SystemExit(
+                  "V8151_CONCURRENT_PROTECTED_DRIFT:"
+                  + ",".join(dangerous)
+              )
+
+          print(
+              "V8151_NO_CONCURRENT_PROTECTED_DRIFT=PASS"
+          )
+          PY
+
+      - name: Commit and push controlled source patch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_supply_production_patch_v8151.py \
+            latest/investment_score_supply_source_latest.csv \
+            latest/investment_score_supply_source_latest.json \
+            latest/investment_score_supply_source_run_log_latest.txt \
+            latest/investment_score_supply_production_patch_v8151_summary_latest.json \
+            latest/investment_score_supply_production_patch_v8151_run_log_latest.txt \
+            docs/investment_score_supply_production_patch_v8151.md
+
+          git diff --cached --check
+          echo "V8151_GIT_DIFF_CHECK=PASS"
+
+          git commit -m "Apply narrow UANGEL supply source patch v8.15.1"
+          git pull --rebase origin main
+          git push origin HEAD:main

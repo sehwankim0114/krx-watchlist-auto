@@ -1,0 +1,66 @@
+{
+  "version": "2026-09-23-v8.18.2-stage-narrow-production-price-elasticity-patch",
+  "generated_at_kst": "2026-09-23T20:49:16+09:00",
+  "status": "STAGED_NARROW_PRICE_ELASTICITY_PATCH_PASS",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v8181_version": "2026-09-23-v8.18.1-freeze-actionable-price-elasticity-and-shadow",
+  "v8181_result_commit": "9a9976855502ed931b1e5e0ddd72c7920b825f47",
+  "staged_cache": {
+    "production_row_count": 152,
+    "staged_row_count": 155,
+    "row_delta": 3,
+    "added_tickers": [
+      "006040",
+      "012630",
+      "078930"
+    ],
+    "existing_row_changed_count": 0,
+    "target_values": {
+      "006040": 0.9959,
+      "012630": 2.572,
+      "078930": 2.2485
+    },
+    "basis_date": "2026-09-22"
+  },
+  "scorer_regression": {
+    "universe_count": 157,
+    "baseline_ready_count": 14,
+    "staged_ready_count": 17,
+    "baseline_limited_count": 143,
+    "staged_limited_count": 140,
+    "baseline_blocker_occurrences": 543,
+    "staged_blocker_occurrences": 540,
+    "blocker_occurrences_reduced_by": 3,
+    "changed_score_row_count": 3,
+    "changed_score_tickers": [
+      "006040",
+      "012630",
+      "078930"
+    ],
+    "non_target_score_row_changed_count": 0,
+    "newly_ready_count": 3,
+    "newly_ready_tickers": [
+      "006040",
+      "012630",
+      "078930"
+    ],
+    "lost_ready_count": 0
+  },
+  "automatic_promotion": false,
+  "hard_guards": {
+    "production_price_elasticity_cache_modified": false,
+    "production_price_elasticity_metadata_modified": false,
+    "production_price_elasticity_run_log_modified": false,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_ocf_cache_modified": false,
+    "production_supply_source_modified": false,
+    "production_api_modified": false,
+    "production_score_written": false,
+    "scoring_policy_modified": false,
+    "atr_substituted": false,
+    "nonofficial_price_source_used": false,
+    "non_target_score_row_changed": false
+  },
+  "next_step": "CONTROLLED_NARROW_PRODUCTION_PRICE_ELASTICITY_PATCH_V8183"
+}

@@ -1,0 +1,264 @@
+#!/usr/bin/env python3
+import csv
+import json
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import investment_score_dry_run_v882 as scorer
+
+VERSION="2026-09-23-v8.18.2-stage-narrow-production-price-elasticity-patch"
+POLICY="2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+V8181_VERSION="2026-09-23-v8.18.1-freeze-actionable-price-elasticity-and-shadow"
+V8181_COMMIT="9a9976855502ed931b1e5e0ddd72c7920b825f47"
+TARGETS={
+    "006040":{"name":"동원산업","pct":0.9959},
+    "012630":{"name":"HDC","pct":2.5720},
+    "078930":{"name":"GS","pct":2.2485},
+}
+TARGET_ORDER=["006040","012630","078930"]
+
+ROOT=Path(".")
+KST=ZoneInfo("Asia/Seoul")
+
+PROD=ROOT/"latest/investment_score_price_elasticity_20d_latest.csv"
+CAND=ROOT/"latest/investment_score_price_elasticity_candidate_v8181.csv"
+SHADOW=ROOT/"latest/investment_score_price_elasticity_shadow_v8181_summary_latest.json"
+
+STAGED=ROOT/"latest/investment_score_price_elasticity_candidate_v8182.csv"
+OUTJ=ROOT/"latest/investment_score_price_elasticity_stage_v8182_summary_latest.json"
+OUTL=ROOT/"latest/investment_score_price_elasticity_stage_v8182_run_log_latest.txt"
+OUTD=ROOT/"docs/investment_score_price_elasticity_stage_v8182.md"
+
+BASE_CSV=Path("/tmp/v8182_base.csv")
+BASE_JSON=Path("/tmp/v8182_base.json")
+BASE_LOG=Path("/tmp/v8182_base.log")
+BASE_DOC=Path("/tmp/v8182_base.md")
+STAGE_CSV=Path("/tmp/v8182_stage.csv")
+STAGE_JSON=Path("/tmp/v8182_stage.json")
+STAGE_LOG=Path("/tmp/v8182_stage.log")
+STAGE_DOC=Path("/tmp/v8182_stage.md")
+
+def tick(v):
+    s="".join(c for c in str(v or "") if c.isdigit())
+    return s.zfill(6) if s else ""
+
+def read_json(p):
+    return json.loads(Path(p).read_text(encoding="utf-8-sig"))
+
+def rows(p):
+    with Path(p).open(encoding="utf-8-sig",newline="") as f:
+        return list(csv.DictReader(f))
+
+def rmap(p):
+    return {tick(r.get("ticker")):r for r in rows(p) if tick(r.get("ticker"))}
+
+def stable(r):
+    return json.dumps(r,ensure_ascii=False,sort_keys=True,separators=(",",":"))
+
+def blockers(m):
+    return sum(int(r.get("missing_component_count") or 0) for r in m.values())
+
+def run_score(elasticity,ocsv,ojson,olog,odoc):
+    old={k:getattr(scorer,k) for k in ("VERSION","ELASTICITY","OUT_CSV","OUT_JSON","OUT_LOG","OUT_DOC")}
+    try:
+        scorer.VERSION=VERSION
+        scorer.ELASTICITY=Path(elasticity)
+        scorer.OUT_CSV=Path(ocsv)
+        scorer.OUT_JSON=Path(ojson)
+        scorer.OUT_LOG=Path(olog)
+        scorer.OUT_DOC=Path(odoc)
+        rc=scorer.main()
+    finally:
+        for k,v in old.items():
+            setattr(scorer,k,v)
+    if rc not in (None,0):
+        raise RuntimeError("V8182_SCORER_FAILED:"+str(rc))
+
+def main():
+    s=read_json(SHADOW)
+
+    assert s["version"]==V8181_VERSION
+    assert s["status"]=="SOURCE_ONLY_FROZEN_SHADOW_PASS"
+    assert s["policy_version"]==POLICY
+    assert s["v8180_result_commit"]=="caa411f86cdcaf326322d9e4703ac27cd3888cf5"
+    assert s["source_frozen_tickers"]==TARGET_ORDER
+    assert s["source_frozen_count"]==3
+    assert s["production_cache_row_count"]==152
+    assert s["shadow_candidate_row_count"]==155
+    assert s["cache_row_delta"]==3
+    assert s["existing_elasticity_row_changed_count"]==0
+    assert s["current_scorer_universe_count"]==157
+    assert (s["baseline_ready_count"],s["shadow_ready_count"])==(14,17)
+    assert (s["baseline_limited_count"],s["shadow_limited_count"])==(143,140)
+    assert (s["baseline_blocker_occurrences"],s["shadow_blocker_occurrences"])==(543,540)
+    assert s["blocker_occurrences_reduced_by"]==3
+    assert s["newly_ready_tickers"]==TARGET_ORDER
+    assert s["non_target_score_row_changed_count"]==0
+    assert s["next_step"]=="STAGE_NARROW_PRODUCTION_PRICE_ELASTICITY_PATCH_V8182"
+
+    pr=rows(PROD)
+    cr=rows(CAND)
+    if len(pr)!=152 or len(cr)!=155:
+        raise RuntimeError(f"V8182_CACHE_ROW_DRIFT:{len(pr)}:{len(cr)}")
+    if list(pr[0])!=list(cr[0]):
+        raise RuntimeError("V8182_SCHEMA_DRIFT")
+
+    pm=rmap(PROD)
+    cm=rmap(CAND)
+    if len(pm)!=152 or len(cm)!=155:
+        raise RuntimeError("V8182_CACHE_DUPLICATE_OR_COUNT_BAD")
+
+    added=set(cm)-set(pm)
+    if added!=set(TARGET_ORDER):
+        raise RuntimeError("V8182_ADDED_SET_CHANGED:"+",".join(sorted(added)))
+
+    changed_existing=[
+        c for c in sorted(pm)
+        if stable(pm[c])!=stable(cm[c])
+    ]
+    if changed_existing:
+        raise RuntimeError(
+            "V8182_EXISTING_CACHE_ROW_CHANGED:"+",".join(changed_existing[:30])
+        )
+
+    for code in TARGET_ORDER:
+        r=cm[code]
+        exp=TARGETS[code]
+        assert r["name"]==exp["name"]
+        assert r["source_status"]=="READY"
+        assert r["basis_date"]=="2026-09-22"
+        assert int(r["close_observation_count"])==21
+        assert int(r["daily_return_observation_count"])==20
+        assert abs(float(r["avg_daily_move_pct"])-exp["pct"])<1e-8
+
+    STAGED.write_bytes(CAND.read_bytes())
+
+    run_score(PROD,BASE_CSV,BASE_JSON,BASE_LOG,BASE_DOC)
+    run_score(STAGED,STAGE_CSV,STAGE_JSON,STAGE_LOG,STAGE_DOC)
+
+    b=rmap(BASE_CSV)
+    t=rmap(STAGE_CSV)
+    bs=read_json(BASE_JSON)
+    ts=read_json(STAGE_JSON)
+
+    if set(b)!=set(t) or len(b)!=157:
+        raise RuntimeError("V8182_SCORER_UNIVERSE_DRIFT")
+
+    if (int(bs["ready_count"]),int(bs["limited_count"]),blockers(b))!=(14,143,543):
+        raise RuntimeError(
+            f"V8182_BASELINE_DRIFT:{bs['ready_count']}:{bs['limited_count']}:{blockers(b)}"
+        )
+    if (int(ts["ready_count"]),int(ts["limited_count"]),blockers(t))!=(17,140,540):
+        raise RuntimeError(
+            f"V8182_STAGE_RESULT_BAD:{ts['ready_count']}:{ts['limited_count']}:{blockers(t)}"
+        )
+
+    changed=[c for c in sorted(b) if stable(b[c])!=stable(t[c])]
+    if changed!=TARGET_ORDER:
+        raise RuntimeError("V8182_CHANGED_SCORE_SET_BAD:"+",".join(changed))
+
+    for code in TARGET_ORDER:
+        assert b[code]["score_status"]=="LIMITED"
+        assert t[code]["score_status"]=="READY"
+
+    summary={
+        "version":VERSION,
+        "generated_at_kst":datetime.now(KST).isoformat(timespec="seconds"),
+        "status":"STAGED_NARROW_PRICE_ELASTICITY_PATCH_PASS",
+        "policy_version":POLICY,
+        "v8181_version":V8181_VERSION,
+        "v8181_result_commit":V8181_COMMIT,
+        "staged_cache":{
+            "production_row_count":152,
+            "staged_row_count":155,
+            "row_delta":3,
+            "added_tickers":TARGET_ORDER,
+            "existing_row_changed_count":0,
+            "target_values":{
+                c:TARGETS[c]["pct"] for c in TARGET_ORDER
+            },
+            "basis_date":"2026-09-22",
+        },
+        "scorer_regression":{
+            "universe_count":157,
+            "baseline_ready_count":14,
+            "staged_ready_count":17,
+            "baseline_limited_count":143,
+            "staged_limited_count":140,
+            "baseline_blocker_occurrences":543,
+            "staged_blocker_occurrences":540,
+            "blocker_occurrences_reduced_by":3,
+            "changed_score_row_count":3,
+            "changed_score_tickers":TARGET_ORDER,
+            "non_target_score_row_changed_count":0,
+            "newly_ready_count":3,
+            "newly_ready_tickers":TARGET_ORDER,
+            "lost_ready_count":0,
+        },
+        "automatic_promotion":False,
+        "hard_guards":{
+            "production_price_elasticity_cache_modified":False,
+            "production_price_elasticity_metadata_modified":False,
+            "production_price_elasticity_run_log_modified":False,
+            "production_source_cache_modified":False,
+            "production_financial_cache_modified":False,
+            "production_ocf_cache_modified":False,
+            "production_supply_source_modified":False,
+            "production_api_modified":False,
+            "production_score_written":False,
+            "scoring_policy_modified":False,
+            "atr_substituted":False,
+            "nonofficial_price_source_used":False,
+            "non_target_score_row_changed":False,
+        },
+        "next_step":"CONTROLLED_NARROW_PRODUCTION_PRICE_ELASTICITY_PATCH_V8183",
+    }
+
+    OUTJ.write_text(
+        json.dumps(summary,ensure_ascii=False,indent=2)+"\n",
+        encoding="utf-8"
+    )
+    OUTL.write_text("\n".join([
+        f"VERSION={VERSION}",
+        "STATUS=STAGED_NARROW_PRICE_ELASTICITY_PATCH_PASS",
+        "PRODUCTION_CACHE_ROWS=152",
+        "STAGED_CACHE_ROWS=155",
+        "CACHE_ROW_DELTA=3",
+        "ADDED_TICKERS=006040,012630,078930",
+        "EXISTING_CACHE_ROW_CHANGED_COUNT=0",
+        "SCORER_UNIVERSE=157",
+        "BASELINE_READY=14",
+        "STAGED_READY=17",
+        "BASELINE_LIMITED=143",
+        "STAGED_LIMITED=140",
+        "BASELINE_BLOCKERS=543",
+        "STAGED_BLOCKERS=540",
+        "BLOCKER_REDUCED_BY=3",
+        "CHANGED_SCORE_ROWS=3",
+        "NON_TARGET_SCORE_ROW_CHANGED=0",
+        "NEWLY_READY=3",
+        "LOST_READY=0",
+        "AUTOMATIC_PROMOTION=false",
+        "PRODUCTION_DATA_MODIFIED=false",
+        "STATUS_OK=true",
+        "NEXT_STEP=CONTROLLED_NARROW_PRODUCTION_PRICE_ELASTICITY_PATCH_V8183",
+    ])+"\n",encoding="utf-8")
+
+    OUTD.parent.mkdir(parents=True,exist_ok=True)
+    OUTD.write_text(
+        "# V8.18.2 narrow price-elasticity patch stage\n\n"
+        "- Staged only 동원산업(006040), HDC(012630), GS(078930).\n"
+        "- Production cache remains 152 rows; staged candidate is 155 rows.\n"
+        "- READY / LIMITED: 14/143 -> 17/140.\n"
+        "- Blockers: 543 -> 540.\n"
+        "- Existing 152 cache rows and all non-target score rows remain unchanged.\n"
+        "- Production data, API, policy and production score are unchanged.\n\n"
+        "Next: CONTROLLED_NARROW_PRODUCTION_PRICE_ELASTICITY_PATCH_V8183\n",
+        encoding="utf-8"
+    )
+
+    print("V8182_STAGE=PASS")
+
+if __name__=="__main__":
+    main()

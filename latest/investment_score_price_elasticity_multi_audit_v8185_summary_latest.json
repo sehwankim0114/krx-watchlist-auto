@@ -1,0 +1,1078 @@
+{
+  "version": "2026-09-23-v8.18.5-top-multi-price-elasticity-official-audit",
+  "generated_at_kst": "2026-09-23T21:47:36+09:00",
+  "status": "AUDIT_ONLY_TOP_MULTI_PRICE_ELASTICITY",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v8184_version": "2026-09-23-v8.18.4-dynamic-post-elasticity-blocker-reaudit",
+  "v8184_result_commit": "f88707312e12c6eb0af2c36da2ca2f63f7d3afa1",
+  "target_count": 100,
+  "target_tickers": [
+    "000040",
+    "000100",
+    "000220",
+    "000225",
+    "000540",
+    "000545",
+    "000680",
+    "000850",
+    "001060",
+    "001390",
+    "002070",
+    "002100",
+    "002140",
+    "002450",
+    "002780",
+    "002787",
+    "003060",
+    "003570",
+    "003670",
+    "003780",
+    "003830",
+    "003960",
+    "004255",
+    "004310",
+    "004560",
+    "004720",
+    "005850",
+    "005950",
+    "006060",
+    "006110",
+    "006200",
+    "006220",
+    "006340",
+    "006490",
+    "007610",
+    "007700",
+    "008250",
+    "009150",
+    "009420",
+    "009835",
+    "010120",
+    "010640",
+    "011150",
+    "011170",
+    "011760",
+    "011930",
+    "012320",
+    "012690",
+    "013520",
+    "013580",
+    "013870",
+    "014530",
+    "014710",
+    "014820",
+    "015260",
+    "017940",
+    "020120",
+    "023810",
+    "036580",
+    "042660",
+    "051600",
+    "064400",
+    "064960",
+    "067830",
+    "071950",
+    "075580",
+    "077970",
+    "078000",
+    "078935",
+    "084010",
+    "086790",
+    "088260",
+    "088350",
+    "090080",
+    "093370",
+    "095720",
+    "097230",
+    "097520",
+    "100250",
+    "102260",
+    "102460",
+    "120110",
+    "145990",
+    "210540",
+    "213500",
+    "241590",
+    "248170",
+    "249420",
+    "271560",
+    "271980",
+    "272210",
+    "298040",
+    "298050",
+    "326030",
+    "363280",
+    "400760",
+    "439260",
+    "446070",
+    "448730",
+    "480370"
+  ],
+  "production_price_elasticity_row_count": 155,
+  "selected_target_present_in_production_cache_count": 0,
+  "metric_contract": {
+    "metric": "avg_daily_move_pct",
+    "definition": "mean(abs(close_t / close_t_minus_1 - 1)) over latest 20 official close returns * 100",
+    "return_count": 20,
+    "minimum_valid_closes": 21,
+    "atr_substitution_allowed": false
+  },
+  "basis_date": "2026-09-22",
+  "basis_source": "PRODUCTION_MANIFEST_BASIS_DATE",
+  "official_request_count": 31,
+  "official_session_count": 30,
+  "official_session_dates": [
+    "2026-08-11",
+    "2026-08-12",
+    "2026-08-13",
+    "2026-08-14",
+    "2026-08-18",
+    "2026-08-19",
+    "2026-08-20",
+    "2026-08-21",
+    "2026-08-24",
+    "2026-08-25",
+    "2026-08-26",
+    "2026-08-27",
+    "2026-08-28",
+    "2026-08-31",
+    "2026-09-01",
+    "2026-09-02",
+    "2026-09-03",
+    "2026-09-04",
+    "2026-09-07",
+    "2026-09-08",
+    "2026-09-09",
+    "2026-09-10",
+    "2026-09-11",
+    "2026-09-14",
+    "2026-09-15",
+    "2026-09-16",
+    "2026-09-17",
+    "2026-09-18",
+    "2026-09-21",
+    "2026-09-22"
+  ],
+  "transport_or_parse_fail_count": 0,
+  "transport_or_parse_fail_dates": [],
+  "recoverable_count": 100,
+  "recoverable_tickers": [
+    "000040",
+    "000100",
+    "000220",
+    "000225",
+    "000540",
+    "000545",
+    "000680",
+    "000850",
+    "001060",
+    "001390",
+    "002070",
+    "002100",
+    "002140",
+    "002450",
+    "002780",
+    "002787",
+    "003060",
+    "003570",
+    "003670",
+    "003780",
+    "003830",
+    "003960",
+    "004255",
+    "004310",
+    "004560",
+    "004720",
+    "005850",
+    "005950",
+    "006060",
+    "006110",
+    "006200",
+    "006220",
+    "006340",
+    "006490",
+    "007610",
+    "007700",
+    "008250",
+    "009150",
+    "009420",
+    "009835",
+    "010120",
+    "010640",
+    "011150",
+    "011170",
+    "011760",
+    "011930",
+    "012320",
+    "012690",
+    "013520",
+    "013580",
+    "013870",
+    "014530",
+    "014710",
+    "014820",
+    "015260",
+    "017940",
+    "020120",
+    "023810",
+    "036580",
+    "042660",
+    "051600",
+    "064400",
+    "064960",
+    "067830",
+    "071950",
+    "075580",
+    "077970",
+    "078000",
+    "078935",
+    "084010",
+    "086790",
+    "088260",
+    "088350",
+    "090080",
+    "093370",
+    "095720",
+    "097230",
+    "097520",
+    "100250",
+    "102260",
+    "102460",
+    "120110",
+    "145990",
+    "210540",
+    "213500",
+    "241590",
+    "248170",
+    "249420",
+    "271560",
+    "271980",
+    "272210",
+    "298040",
+    "298050",
+    "326030",
+    "363280",
+    "400760",
+    "439260",
+    "446070",
+    "448730",
+    "480370"
+  ],
+  "insufficient_count": 0,
+  "insufficient_tickers": [],
+  "classification": "ALL_RECOVERABLE",
+  "target_results": {
+    "000040": {
+      "name": "KR모터스",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 2.5323,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "000100": {
+      "name": "유한양행",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.4151,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "000220": {
+      "name": "유유제약",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.159,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "000225": {
+      "name": "유유제약1우",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.8284,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "000540": {
+      "name": "흥국화재",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 2.1338,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "000545": {
+      "name": "흥국화재우",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 2.0078,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "000680": {
+      "name": "LS네트웍스",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.4103,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "000850": {
+      "name": "화천기공",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.3895,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "001060": {
+      "name": "JW중외제약",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.5021,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "001390": {
+      "name": "KG케미칼",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.931,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "002070": {
+      "name": "비비안",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 3.965,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "002100": {
+      "name": "경농",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.4291,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "002140": {
+      "name": "고려산업",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.2898,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "002450": {
+      "name": "삼익악기",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.7598,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "002780": {
+      "name": "진흥기업",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 44.5217,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "002787": {
+      "name": "진흥기업2우B",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 48.6104,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "003060": {
+      "name": "에이프로젠바이오로직스",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 2.1602,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "003570": {
+      "name": "SNT다이내믹스",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 2.026,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "003670": {
+      "name": "포스코퓨처엠",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 3.4309,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "003780": {
+      "name": "진양산업",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.6866,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "003830": {
+      "name": "대한화섬",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.4864,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "003960": {
+      "name": "사조대림",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.4469,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "004255": {
+      "name": "NPC우",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.58,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "004310": {
+      "name": "현대약품",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 5.7529,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "004560": {
+      "name": "현대비앤지스틸",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.0146,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "004720": {
+      "name": "팜젠사이언스",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.999,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "005850": {
+      "name": "에스엘",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.2257,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "005950": {
+      "name": "이수화학",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 2.3684,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "006060": {
+      "name": "화승인더",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.8779,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "006110": {
+      "name": "삼아알미늄",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 3.0341,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "006200": {
+      "name": "한국전자홀딩스",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.5338,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "006220": {
+      "name": "제주은행",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.1694,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "006340": {
+      "name": "대원전선",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 2.4775,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "006490": {
+      "name": "프리티",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 10.7068,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "007610": {
+      "name": "선도전기",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 3.4292,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "007700": {
+      "name": "F&F홀딩스",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.0059,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "008250": {
+      "name": "이건산업",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 2.2016,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "009150": {
+      "name": "삼성전기",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 3.0766,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "009420": {
+      "name": "한올바이오파마",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 2.352,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "009835": {
+      "name": "한화솔루션우",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.1549,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "010120": {
+      "name": "LS ELECTRIC",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 3.0343,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "010640": {
+      "name": "진양폴리",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 3.8366,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "011150": {
+      "name": "CJ씨푸드",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.8856,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "011170": {
+      "name": "롯데케미칼",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 2.9139,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "011760": {
+      "name": "현대코퍼레이션",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.1169,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "011930": {
+      "name": "신성이엔지",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.4628,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "012320": {
+      "name": "경동인베스트",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.8331,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "012690": {
+      "name": "모나리자",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.9126,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "013520": {
+      "name": "화승코퍼레이션",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.3135,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "013580": {
+      "name": "계룡건설",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.1282,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "013870": {
+      "name": "지엠비코리아",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.6997,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "014530": {
+      "name": "극동유화",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.8134,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "014710": {
+      "name": "사조씨푸드",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.4685,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "014820": {
+      "name": "동원시스템즈",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.6726,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "015260": {
+      "name": "에이엔피",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 4.902,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "017940": {
+      "name": "E1",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.9683,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "020120": {
+      "name": "키다리스튜디오",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 6.8334,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "023810": {
+      "name": "인팩",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.8927,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "036580": {
+      "name": "팜스코",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.6149,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "042660": {
+      "name": "한화오션",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.8118,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "051600": {
+      "name": "한전KPS",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.7688,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "064400": {
+      "name": "LG씨엔에스",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.7484,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "064960": {
+      "name": "SNT모티브",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.5129,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "067830": {
+      "name": "세이브존I&C",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.7774,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "071950": {
+      "name": "코아스",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 3.2801,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "075580": {
+      "name": "세진중공업",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.4515,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "077970": {
+      "name": "STX엔진",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 2.5454,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "078000": {
+      "name": "텔코웨어",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.6961,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "078935": {
+      "name": "GS우",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.2015,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "084010": {
+      "name": "대한제강",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.3713,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "086790": {
+      "name": "하나금융지주",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.7391,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "088260": {
+      "name": "이리츠코크렙",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.7413,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "088350": {
+      "name": "한화생명",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 2.8749,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "090080": {
+      "name": "평화산업",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.8924,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "093370": {
+      "name": "후성",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 2.6979,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "095720": {
+      "name": "웅진씽크빅",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.9086,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "097230": {
+      "name": "HJ중공업",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.308,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "097520": {
+      "name": "엠씨넥스",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.555,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "100250": {
+      "name": "진양홀딩스",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.3825,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "102260": {
+      "name": "동성케미컬",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.0731,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "102460": {
+      "name": "이연제약",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.5491,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "120110": {
+      "name": "코오롱인더",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 2.9685,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "145990": {
+      "name": "삼양사",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.0567,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "210540": {
+      "name": "디와이파워",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.7054,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "213500": {
+      "name": "한솔제지",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.5579,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "241590": {
+      "name": "화승엔터프라이즈",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.9583,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "248170": {
+      "name": "샘표식품",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 3.5118,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "249420": {
+      "name": "일동제약",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 2.8922,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "271560": {
+      "name": "오리온",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.5286,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "271980": {
+      "name": "제일약품",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.4887,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "272210": {
+      "name": "한화시스템",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 3.5098,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "298040": {
+      "name": "효성중공업",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 3.1094,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "298050": {
+      "name": "HS효성첨단소재",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.1539,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "326030": {
+      "name": "SK바이오팜",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.7259,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "363280": {
+      "name": "티와이홀딩스",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.8551,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "400760": {
+      "name": "NH올원리츠",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 0.592,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "439260": {
+      "name": "대한조선",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.5944,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "446070": {
+      "name": "유니드비티플러스",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.3656,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "448730": {
+      "name": "삼성FN리츠",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 1.4929,
+      "official_sessions_without_valid_target_close_count": 0
+    },
+    "480370": {
+      "name": "씨케이솔루션",
+      "valid_close_count": 30,
+      "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE",
+      "recoverable": true,
+      "avg_daily_move_pct": 4.6593,
+      "official_sessions_without_valid_target_close_count": 0
+    }
+  },
+  "hard_guards": {
+    "production_price_elasticity_cache_modified": false,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_api_modified": false,
+    "production_score_written": false,
+    "scoring_policy_modified": false,
+    "atr_used_as_elasticity_substitute": false,
+    "nonofficial_price_source_used": false,
+    "source_promoted": false
+  },
+  "next_step": "FREEZE_RECOVERABLE_MULTI_PRICE_ELASTICITY_AND_SHADOW_V8186"
+}

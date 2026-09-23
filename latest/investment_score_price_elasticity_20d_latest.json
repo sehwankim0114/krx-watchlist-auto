@@ -1,11 +1,11 @@
 {
   "version": "2026-09-12-v8.7.5-price-elasticity-20-session-source",
-  "refresh_version": "2026-09-23-v8.17.0-controlled-narrow-production-price-elasticity-patch",
-  "generated_at_kst": "2026-09-23T10:09:49+09:00",
+  "refresh_version": "2026-09-23-v8.18.3-controlled-narrow-production-price-elasticity-patch",
+  "generated_at_kst": "2026-09-23T21:16:12+09:00",
   "status": "READY_SOURCE_ONLY",
   "basis_date": "2026-09-18",
-  "production_unique_tickers": 152,
-  "ready_tickers": 152,
+  "production_unique_tickers": 155,
+  "ready_tickers": 155,
   "limited_tickers": 0,
   "formula": "mean(abs(close_t/close_t_minus_1-1)*100) for latest 20 trading-session returns",
   "close_observations_required": 21,
@@ -21,25 +21,33 @@
     "non_target_elasticity_rows_modified": false
   },
   "basis_date_semantics": "full_refresh_basis; per-row basis_date is authoritative for narrow-patched rows",
-  "latest_row_basis_date": "2026-09-21",
+  "latest_row_basis_date": "2026-09-22",
   "narrow_patch": {
-    "version": "2026-09-23-v8.17.0-controlled-narrow-production-price-elasticity-patch",
-    "promoted_from_version": "2026-09-23-v8.16.9-stage-narrow-production-price-elasticity-patch",
-    "promoted_from_commit": "8b32b0bb480f4ea93e55d27b5541de45d4db04eb",
-    "ticker_count": 3,
+    "version": "2026-09-23-v8.18.3-controlled-narrow-production-price-elasticity-patch",
+    "promoted_from_version": "2026-09-23-v8.18.2-stage-narrow-production-price-elasticity-patch",
+    "promoted_from_commit": "dc4c6ada8570a11b76b35d1ce86e71fd445440aa",
+    "ticker_count": 6,
     "tickers": [
       "004990",
+      "006040",
       "006260",
+      "012630",
+      "078930",
       "267250"
     ],
-    "basis_date": "2026-09-21",
+    "basis_date": "2026-09-22",
     "values": {
       "004990": 1.3594,
       "006260": 2.7,
-      "267250": 2.91
+      "267250": 2.91,
+      "006040": 0.9959,
+      "012630": 2.572,
+      "078930": 2.2485
     },
     "latest_added_tickers": [
-      "004990"
+      "006040",
+      "012630",
+      "078930"
     ]
   }
 }

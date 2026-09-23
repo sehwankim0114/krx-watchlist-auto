@@ -1,0 +1,464 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import csv
+import json
+import math
+import subprocess
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import investment_score_dry_run_v882 as scorer
+
+VERSION = "2026-09-23-v8.16.8-freeze-current-actionable-price-elasticity-and-shadow"
+POLICY_VERSION = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+V8167_VERSION = "2026-09-23-v8.16.7-current-actionable-price-elasticity-official-audit"
+V8167_RESULT_COMMIT = "b55cf24ae3d78fcb79fb1325f6bd2c3491eaf08f"
+
+ROOT = Path(".")
+KST = ZoneInfo("Asia/Seoul")
+TARGET = "004990"
+TARGET_NAME = "롯데지주"
+MISSING_REASON = "하루평균 절대등락률:MISSING_ELASTICITY"
+
+AUDIT_CSV = ROOT / "latest/investment_score_price_elasticity_active_v8167.csv"
+AUDIT_JSON = ROOT / "latest/investment_score_price_elasticity_active_v8167_summary_latest.json"
+PROD_CACHE = ROOT / "latest/investment_score_price_elasticity_20d_latest.csv"
+
+SOURCE_OUT = ROOT / "latest/investment_score_price_elasticity_source_v8168.csv"
+CAND_OUT = ROOT / "latest/investment_score_price_elasticity_candidate_v8168.csv"
+COMPARE_OUT = ROOT / "latest/investment_score_price_elasticity_shadow_v8168.csv"
+SUMMARY_OUT = ROOT / "latest/investment_score_price_elasticity_shadow_v8168_summary_latest.json"
+LOG_OUT = ROOT / "latest/investment_score_price_elasticity_shadow_v8168_run_log_latest.txt"
+DOC_OUT = ROOT / "docs/investment_score_price_elasticity_shadow_v8168.md"
+
+BASE_CSV = Path("/tmp/v8168_base.csv")
+BASE_JSON = Path("/tmp/v8168_base.json")
+BASE_LOG = Path("/tmp/v8168_base.log")
+BASE_DOC = Path("/tmp/v8168_base.md")
+SHADOW_CSV = Path("/tmp/v8168_shadow.csv")
+SHADOW_JSON = Path("/tmp/v8168_shadow.json")
+SHADOW_LOG = Path("/tmp/v8168_shadow.log")
+SHADOW_DOC = Path("/tmp/v8168_shadow.md")
+
+def ticker(value):
+    s = "".join(ch for ch in str(value or "") if ch.isdigit())
+    return s.zfill(6) if s else ""
+
+def num(value):
+    try:
+        if value is None or isinstance(value, bool):
+            return None
+        s = str(value).strip().replace(",", "")
+        if s in {"", "-", "None", "null", "nan", "NaN"}:
+            return None
+        x = float(s)
+        return x if math.isfinite(x) else None
+    except Exception:
+        return None
+
+def read_json(path):
+    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+def read_rows(path):
+    with Path(path).open(encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+def write_rows(path, rows, fields):
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with Path(path).open("w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields, lineterminator="\n")
+        w.writeheader()
+        w.writerows(rows)
+
+def row_map(path):
+    return {
+        ticker(r.get("ticker")): r
+        for r in read_rows(path)
+        if ticker(r.get("ticker"))
+    }
+
+def stable(row):
+    return json.dumps(
+        row, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
+
+def split_missing(text):
+    return [x for x in str(text or "").split(";") if x]
+
+def blocker_count(rows):
+    return sum(
+        int(r.get("missing_component_count") or 0)
+        for r in rows.values()
+    )
+
+def run_scorer(elasticity_path, out_csv, out_json, out_log, out_doc):
+    old = {
+        "VERSION": scorer.VERSION,
+        "ELASTICITY": scorer.ELASTICITY,
+        "OUT_CSV": scorer.OUT_CSV,
+        "OUT_JSON": scorer.OUT_JSON,
+        "OUT_LOG": scorer.OUT_LOG,
+        "OUT_DOC": scorer.OUT_DOC,
+    }
+    try:
+        scorer.VERSION = VERSION
+        scorer.ELASTICITY = Path(elasticity_path)
+        scorer.OUT_CSV = Path(out_csv)
+        scorer.OUT_JSON = Path(out_json)
+        scorer.OUT_LOG = Path(out_log)
+        scorer.OUT_DOC = Path(out_doc)
+        rc = scorer.main()
+    finally:
+        for k, v in old.items():
+            setattr(scorer, k, v)
+    if rc not in (None, 0):
+        raise RuntimeError("V8168_SCORER_FAILED:" + str(rc))
+
+def main():
+    subprocess.run(
+        [
+            "git", "merge-base", "--is-ancestor",
+            V8167_RESULT_COMMIT, "HEAD",
+        ],
+        check=True,
+    )
+
+    audit_summary = read_json(AUDIT_JSON)
+    if audit_summary.get("version") != V8167_VERSION:
+        raise RuntimeError("V8168_V8167_VERSION_MISMATCH")
+    if audit_summary.get("status") != (
+        "AUDIT_ONLY_CURRENT_ACTIONABLE_PRICE_ELASTICITY"
+    ):
+        raise RuntimeError("V8168_V8167_STATUS_MISMATCH")
+    if audit_summary.get("policy_version") != POLICY_VERSION:
+        raise RuntimeError("V8168_POLICY_VERSION_MISMATCH")
+    if audit_summary.get("target_tickers") != [TARGET]:
+        raise RuntimeError("V8168_TARGET_CHANGED")
+    if int(audit_summary.get("recoverable_count") or 0) != 1:
+        raise RuntimeError("V8168_TARGET_NOT_RECOVERABLE")
+    if audit_summary.get("recoverable_tickers") != [TARGET]:
+        raise RuntimeError("V8168_RECOVERABLE_SET_CHANGED")
+    if audit_summary.get("classification") != (
+        "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE"
+    ):
+        raise RuntimeError("V8168_CLASSIFICATION_CHANGED")
+    if audit_summary.get("next_step") != (
+        "FREEZE_CURRENT_ACTIONABLE_PRICE_ELASTICITY_AND_SHADOW_V8168"
+    ):
+        raise RuntimeError("V8168_PREDECESSOR_NEXT_STEP_MISMATCH")
+    if int(audit_summary.get("target_valid_close_count") or 0) < 21:
+        raise RuntimeError("V8168_TOO_FEW_VALID_CLOSES")
+    if audit_summary.get("metric_contract", {}).get(
+        "atr_substitution_allowed"
+    ) is not False:
+        raise RuntimeError("V8168_ATR_SUBSTITUTION_NOT_FORBIDDEN")
+
+    audit_rows = read_rows(AUDIT_CSV)
+    if len(audit_rows) != 1:
+        raise RuntimeError("V8168_AUDIT_ROW_COUNT_NOT_1")
+    a = audit_rows[0]
+    if ticker(a.get("ticker")) != TARGET or a.get("name") != TARGET_NAME:
+        raise RuntimeError("V8168_AUDIT_TARGET_MISMATCH")
+    if a.get("source") != "KRX_OFFICIAL_STK_BYDD_TRD":
+        raise RuntimeError("V8168_NONOFFICIAL_SOURCE")
+    if a.get("classification") != (
+        "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE"
+    ):
+        raise RuntimeError("V8168_AUDIT_NOT_RECOVERABLE")
+
+    pct = num(a.get("avg_daily_move_pct"))
+    if pct is None or abs(pct - 1.3594) > 1e-8:
+        raise RuntimeError(
+            "V8168_ELASTICITY_VALUE_CHANGED:" + str(pct)
+        )
+
+    close_dates = json.loads(a.get("used_close_dates_json") or "[]")
+    return_dates = json.loads(
+        a.get("last20_return_dates_json") or "[]"
+    )
+    returns = json.loads(a.get("last20_returns_json") or "[]")
+    if len(close_dates) != 21:
+        raise RuntimeError("V8168_CLOSE_EVIDENCE_NOT_21")
+    if len(return_dates) != 20 or len(returns) != 20:
+        raise RuntimeError("V8168_RETURN_EVIDENCE_NOT_20")
+
+    source_fields = [
+        "ticker","name","basis_date","basis_source",
+        "window_start_date","window_end_date",
+        "close_observation_count","daily_return_observation_count",
+        "avg_daily_move_pct","classification","source",
+        "last20_return_dates_json","last20_returns_json",
+    ]
+    source_row = {
+        "ticker": TARGET,
+        "name": TARGET_NAME,
+        "basis_date": a["basis_date"],
+        "basis_source": a["basis_source"],
+        "window_start_date": close_dates[0],
+        "window_end_date": close_dates[-1],
+        "close_observation_count": "21",
+        "daily_return_observation_count": "20",
+        "avg_daily_move_pct": "1.3594",
+        "classification": a["classification"],
+        "source": a["source"],
+        "last20_return_dates_json": json.dumps(
+            return_dates, ensure_ascii=False, separators=(",", ":")
+        ),
+        "last20_returns_json": json.dumps(
+            returns, ensure_ascii=False, separators=(",", ":")
+        ),
+    }
+    write_rows(SOURCE_OUT, [source_row], source_fields)
+
+    prod_rows = read_rows(PROD_CACHE)
+    if len(prod_rows) != 151:
+        raise RuntimeError(
+            "V8168_PRODUCTION_CACHE_NOT_151:" + str(len(prod_rows))
+        )
+    prod_fields = list(prod_rows[0].keys())
+    prod_map = {
+        ticker(r.get("ticker")): r
+        for r in prod_rows
+        if ticker(r.get("ticker"))
+    }
+    if len(prod_map) != 151:
+        raise RuntimeError("V8168_PRODUCTION_DUPLICATE_TICKER")
+    if TARGET in prod_map:
+        raise RuntimeError("V8168_TARGET_ALREADY_IN_PRODUCTION_CACHE")
+
+    candidate_map = dict(prod_map)
+    new_row = {f: "" for f in prod_fields}
+    new_row.update({
+        "ticker": TARGET,
+        "name": TARGET_NAME,
+        "basis_date": a["basis_date"],
+        "window_start_date": close_dates[0],
+        "window_end_date": close_dates[-1],
+        "close_observation_count": "21",
+        "daily_return_observation_count": "20",
+        "avg_daily_move_abs": "",
+        "avg_daily_move_pct": "1.3594",
+        "source_status": "READY",
+    })
+    candidate_map[TARGET] = new_row
+
+    candidate_rows = [
+        candidate_map[k] for k in sorted(candidate_map)
+    ]
+    if len(candidate_rows) != 152:
+        raise RuntimeError("V8168_CANDIDATE_CACHE_NOT_152")
+    write_rows(CAND_OUT, candidate_rows, prod_fields)
+
+    # Existing 151 rows must be field-identical.
+    cand_map = row_map(CAND_OUT)
+    changed_existing = [
+        code for code in sorted(prod_map)
+        if stable(prod_map[code]) != stable(cand_map[code])
+    ]
+    if changed_existing:
+        raise RuntimeError(
+            "V8168_EXISTING_CACHE_ROW_CHANGED:"
+            + ",".join(changed_existing[:20])
+        )
+
+    run_scorer(
+        PROD_CACHE, BASE_CSV, BASE_JSON, BASE_LOG, BASE_DOC
+    )
+    run_scorer(
+        CAND_OUT, SHADOW_CSV, SHADOW_JSON, SHADOW_LOG, SHADOW_DOC
+    )
+
+    base = row_map(BASE_CSV)
+    shadow = row_map(SHADOW_CSV)
+    bsum = read_json(BASE_JSON)
+    ssum = read_json(SHADOW_JSON)
+
+    if set(base) != set(shadow) or len(base) != 120:
+        raise RuntimeError("V8168_SCORER_UNIVERSE_DRIFT")
+    if TARGET not in base:
+        raise RuntimeError("V8168_TARGET_NOT_IN_SCORER_UNIVERSE")
+
+    b_ready = int(bsum.get("ready_count") or 0)
+    s_ready = int(ssum.get("ready_count") or 0)
+    b_limited = int(bsum.get("limited_count") or 0)
+    s_limited = int(ssum.get("limited_count") or 0)
+    b_blockers = blocker_count(base)
+    s_blockers = blocker_count(shadow)
+
+    if (b_ready, b_limited, b_blockers) != (21, 99, 322):
+        raise RuntimeError(
+            f"V8168_BASELINE_DRIFT:{b_ready}:{b_limited}:{b_blockers}"
+        )
+    if (s_ready, s_limited, s_blockers) != (22, 98, 321):
+        raise RuntimeError(
+            f"V8168_SHADOW_RESULT_BAD:{s_ready}:{s_limited}:{s_blockers}"
+        )
+
+    bm = split_missing(base[TARGET].get("missing_components"))
+    sm = split_missing(shadow[TARGET].get("missing_components"))
+    if base[TARGET].get("score_status") != "LIMITED":
+        raise RuntimeError("V8168_BASE_TARGET_NOT_LIMITED")
+    if bm != [MISSING_REASON]:
+        raise RuntimeError(
+            "V8168_BASE_TARGET_NOT_SINGLE_ELASTICITY:" + "|".join(bm)
+        )
+    if shadow[TARGET].get("score_status") != "READY":
+        raise RuntimeError("V8168_SHADOW_TARGET_NOT_READY")
+    if MISSING_REASON in sm:
+        raise RuntimeError("V8168_ELASTICITY_REASON_NOT_REMOVED")
+
+    non_target_changed = [
+        code for code in sorted(set(base) - {TARGET})
+        if stable(base[code]) != stable(shadow[code])
+    ]
+    if non_target_changed:
+        raise RuntimeError(
+            "V8168_NON_TARGET_SCORE_DRIFT:"
+            + ",".join(non_target_changed[:20])
+        )
+
+    compare_fields = [
+        "ticker","name","avg_daily_move_pct",
+        "baseline_status","shadow_status",
+        "baseline_missing_components","shadow_missing_components",
+        "baseline_score_total","shadow_score_total",
+    ]
+    compare_row = {
+        "ticker": TARGET,
+        "name": TARGET_NAME,
+        "avg_daily_move_pct": "1.3594",
+        "baseline_status": base[TARGET].get("score_status",""),
+        "shadow_status": shadow[TARGET].get("score_status",""),
+        "baseline_missing_components": ";".join(bm),
+        "shadow_missing_components": ";".join(sm),
+        "baseline_score_total": base[TARGET].get("score_total",""),
+        "shadow_score_total": shadow[TARGET].get("score_total",""),
+    }
+    write_rows(COMPARE_OUT, [compare_row], compare_fields)
+
+    summary = {
+        "version": VERSION,
+        "generated_at_kst": datetime.now(KST).isoformat(
+            timespec="seconds"
+        ),
+        "status": "SOURCE_ONLY_FROZEN_SHADOW_PASS",
+        "policy_version": POLICY_VERSION,
+        "v8167_version": V8167_VERSION,
+        "v8167_result_commit": V8167_RESULT_COMMIT,
+        "source_frozen_count": 1,
+        "source_frozen_tickers": [TARGET],
+        "frozen_avg_daily_move_pct": 1.3594,
+        "basis_date": a["basis_date"],
+        "basis_source": a["basis_source"],
+        "production_cache_row_count": 151,
+        "shadow_candidate_row_count": 152,
+        "cache_row_delta": 1,
+        "existing_elasticity_row_changed_count": 0,
+        "current_scorer_universe_count": 120,
+        "baseline_ready_count": 21,
+        "shadow_ready_count": 22,
+        "ready_delta": 1,
+        "baseline_limited_count": 99,
+        "shadow_limited_count": 98,
+        "limited_delta": -1,
+        "baseline_blocker_occurrences": 322,
+        "shadow_blocker_occurrences": 321,
+        "blocker_occurrences_reduced_by": 1,
+        "newly_ready_count": 1,
+        "newly_ready_tickers": [TARGET],
+        "elasticity_reason_removed_count": 1,
+        "elasticity_reason_removed_tickers": [TARGET],
+        "non_target_score_row_changed_count": 0,
+        "hard_guards": {
+            "production_price_elasticity_cache_modified": False,
+            "production_price_elasticity_metadata_modified": False,
+            "production_price_elasticity_run_log_modified": False,
+            "production_source_cache_modified": False,
+            "production_financial_cache_modified": False,
+            "production_ocf_cache_modified": False,
+            "production_supply_source_modified": False,
+            "production_api_modified": False,
+            "production_score_written": False,
+            "scoring_policy_modified": False,
+            "atr_used_as_elasticity_substitute": False,
+            "nonofficial_price_source_used": False,
+            "non_target_score_row_changed": False,
+        },
+        "automatic_promotion": False,
+        "next_step": (
+            "STAGE_NARROW_PRODUCTION_PRICE_ELASTICITY_PATCH_V8169"
+        ),
+    }
+
+    SUMMARY_OUT.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    LOG_OUT.write_text(
+        "\n".join([
+            f"VERSION={VERSION}",
+            "STATUS=SOURCE_ONLY_FROZEN_SHADOW_PASS",
+            "SOURCE_FROZEN_COUNT=1",
+            "SOURCE_FROZEN_TICKERS=004990",
+            "FROZEN_AVG_DAILY_MOVE_PCT=1.3594",
+            "PRODUCTION_CACHE_ROWS=151",
+            "SHADOW_CANDIDATE_ROWS=152",
+            "CACHE_ROW_DELTA=1",
+            "EXISTING_ELASTICITY_ROW_CHANGED_COUNT=0",
+            "CURRENT_SCORER_UNIVERSE=120",
+            "BASELINE_READY=21",
+            "SHADOW_READY=22",
+            "READY_DELTA=1",
+            "BASELINE_LIMITED=99",
+            "SHADOW_LIMITED=98",
+            "LIMITED_DELTA=-1",
+            "BASELINE_BLOCKERS=322",
+            "SHADOW_BLOCKERS=321",
+            "BLOCKER_REDUCED_BY=1",
+            "NEWLY_READY=1",
+            "NON_TARGET_SCORE_ROW_CHANGED_COUNT=0",
+            "PRODUCTION_PRICE_ELASTICITY_CACHE_MODIFIED=false",
+            "PRODUCTION_DATA_MODIFIED=false",
+            "PRODUCTION_SCORE_WRITTEN=false",
+            "ATR_SUBSTITUTION_USED=false",
+            "NONOFFICIAL_PRICE_SOURCE_USED=false",
+            "AUTOMATIC_PROMOTION=false",
+            "STATUS_OK=true",
+            "NEXT_STEP=STAGE_NARROW_PRODUCTION_PRICE_ELASTICITY_PATCH_V8169",
+        ]) + "\n",
+        encoding="utf-8",
+    )
+
+    DOC_OUT.parent.mkdir(parents=True, exist_ok=True)
+    DOC_OUT.write_text(
+        "\n".join([
+            "# V8.16.8 price-elasticity source freeze and shadow",
+            "",
+            "- Frozen source: 롯데지주 (004990).",
+            "- Official KRX 20-return elasticity: 1.3594%.",
+            "- Production elasticity cache remains unchanged at 151 rows.",
+            "- Shadow candidate contains 152 rows.",
+            "- READY: 21 -> 22.",
+            "- LIMITED: 99 -> 98.",
+            "- Blockers: 322 -> 321.",
+            "- Non-target score drift: 0.",
+            "- No API, policy, or production score is modified.",
+            "",
+            "Next: STAGE_NARROW_PRODUCTION_PRICE_ELASTICITY_PATCH_V8169",
+            "",
+        ]),
+        encoding="utf-8",
+    )
+
+    print("V8168_PRICE_ELASTICITY_SHADOW=PASS")
+    print("V8168_CACHE_ROWS=151->152")
+    print("V8168_READY=21->22")
+    print("V8168_LIMITED=99->98")
+    print("V8168_BLOCKERS=322->321")
+    print("V8168_NON_TARGET_SCORE_DRIFT=0")
+    print("V8168_NEXT_STEP=STAGE_NARROW_PRODUCTION_PRICE_ELASTICITY_PATCH_V8169")
+
+if __name__ == "__main__":
+    main()

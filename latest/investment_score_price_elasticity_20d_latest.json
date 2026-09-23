@@ -1,16 +1,16 @@
 {
   "version": "2026-09-12-v8.7.5-price-elasticity-20-session-source",
-  "refresh_version": "2026-09-22-v8.14.7A-narrow-production-price-elasticity-patch",
-  "generated_at_kst": "2026-09-22T13:25:35+09:00",
+  "refresh_version": "2026-09-23-v8.17.0-controlled-narrow-production-price-elasticity-patch",
+  "generated_at_kst": "2026-09-23T10:09:49+09:00",
   "status": "READY_SOURCE_ONLY",
   "basis_date": "2026-09-18",
-  "production_unique_tickers": 151,
-  "ready_tickers": 151,
+  "production_unique_tickers": 152,
+  "ready_tickers": 152,
   "limited_tickers": 0,
   "formula": "mean(abs(close_t/close_t_minus_1-1)*100) for latest 20 trading-session returns",
   "close_observations_required": 21,
   "daily_return_observations_required": 20,
-  "source": "official KRX STK_BYDD_TRD; v8.12.7 full refresh plus validated narrow v8.14.7 additions",
+  "source": "official KRX STK_BYDD_TRD; v8.12.7 full refresh plus validated narrow additions",
   "promoted_from_version": "2026-09-21-v8.12.6-stage-current-universe-price-elasticity-refresh",
   "promoted_from_commit": "f959c3a5cf2645fc97304e6fffe355dadd1162ba",
   "hard_guards": {
@@ -23,18 +23,23 @@
   "basis_date_semantics": "full_refresh_basis; per-row basis_date is authoritative for narrow-patched rows",
   "latest_row_basis_date": "2026-09-21",
   "narrow_patch": {
-    "version": "2026-09-22-v8.14.7A-narrow-production-price-elasticity-patch",
-    "promoted_from_version": "2026-09-22-v8.14.6-freeze-current-actionable-price-elasticity-and-shadow",
-    "promoted_from_commit": "0f090fff696b0e21f5ace88891a706d08a781a61",
-    "ticker_count": 2,
+    "version": "2026-09-23-v8.17.0-controlled-narrow-production-price-elasticity-patch",
+    "promoted_from_version": "2026-09-23-v8.16.9-stage-narrow-production-price-elasticity-patch",
+    "promoted_from_commit": "8b32b0bb480f4ea93e55d27b5541de45d4db04eb",
+    "ticker_count": 3,
     "tickers": [
+      "004990",
       "006260",
       "267250"
     ],
     "basis_date": "2026-09-21",
     "values": {
+      "004990": 1.3594,
       "006260": 2.7,
       "267250": 2.91
-    }
+    },
+    "latest_added_tickers": [
+      "004990"
+    ]
   }
 }

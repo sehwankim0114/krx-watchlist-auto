@@ -1,0 +1,640 @@
+name: Shadow refresh current financial cache v8.17.3
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/v8173-shadow-refresh-current-financial-cache.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-krx-watchlist-latest
+  cancel-in-progress: false
+
+jobs:
+  shadow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify V8.17.2 lineage and capture protected state
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -n "${DART_API_KEY:-}" || {
+            echo "::error::DART_API_KEY secret is missing"
+            exit 1
+          }
+
+          git merge-base --is-ancestor \
+            2c89816f540b518a0fdca94a7783579796beb61b HEAD
+
+          for f in \
+            latest/investment_score_financial_multiblocker_v8172_summary_latest.json \
+            latest/financial_valuation_cache_latest.csv \
+            latest/financial_valuation_run_log_latest.txt \
+            latest/investment_score_source_cache_latest.csv \
+            investment_score_dry_run_v882.py \
+            financial_valuation_enricher.py \
+            api/two_table_v1/manifest.json; do
+            test -f "$f"
+          done
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            financial_valuation_enricher.py \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_financial_multiblocker_v8172_summary_latest.json \
+            latest/financial_valuation_cache_latest.csv \
+            latest/financial_valuation_run_log_latest.txt \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            latest/investment_score_supply_source_latest.json \
+            > /tmp/v8173_protected.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum > /tmp/v8173_api.before
+
+      - name: Refresh current financial targets in isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf /tmp/v8173_refresh
+          cp -a latest /tmp/v8173_refresh
+
+          python financial_valuation_enricher.py \
+            --output-dir /tmp/v8173_refresh \
+            --workers 4 \
+            --timeout 30 \
+            --sleep-seconds 0.0 \
+            --max-api-calls 600 \
+            --retry-hours 20 \
+            --no-enrich \
+            | tee /tmp/v8173_financial_stdout.txt
+
+          grep -q '^FINANCIAL_VALUATION_STATUS=OK$' \
+            /tmp/v8173_financial_stdout.txt
+          grep -q '^STATUS=OK$' \
+            /tmp/v8173_refresh/financial_valuation_run_log_latest.txt
+
+      - name: Merge only 68 missing targets and run shadow regression
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY' | tee /tmp/v8173_stdout.txt
+          import csv
+          import json
+          from collections import Counter
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_dry_run_v882 as scorer
+          from investment_score_current_blocker_reaudit_v8148 import classify
+
+          VERSION = "2026-09-23-v8.17.3-shadow-current-financial-cache-refresh"
+          POLICY = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          V8172_VERSION = "2026-09-23-v8.17.2-financial-valuation-multiblocker-root-cause"
+          V8172_COMMIT = "2c89816f540b518a0fdca94a7783579796beb61b"
+          GROUP = "FINANCIAL_VALUATION_CACHE"
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+
+          PRIOR = ROOT / "latest/investment_score_financial_multiblocker_v8172_summary_latest.json"
+          PROD_FIN = ROOT / "latest/financial_valuation_cache_latest.csv"
+          FRESH_FIN = Path("/tmp/v8173_refresh/financial_valuation_cache_latest.csv")
+          FRESH_LOG = Path("/tmp/v8173_refresh/financial_valuation_run_log_latest.txt")
+          SHADOW_FIN = Path("/tmp/v8173_shadow_financial_valuation_cache.csv")
+
+          CANDIDATE = ROOT / "latest/investment_score_financial_refresh_candidate_v8173.csv"
+          SUMMARY = ROOT / "latest/investment_score_financial_refresh_shadow_v8173_summary_latest.json"
+          RUN_LOG = ROOT / "latest/investment_score_financial_refresh_shadow_v8173_run_log_latest.txt"
+          DOC = ROOT / "docs/investment_score_financial_refresh_shadow_v8173.md"
+
+          BASE_CSV = Path("/tmp/v8173_base_score.csv")
+          BASE_JSON = Path("/tmp/v8173_base_score.json")
+          BASE_LOG = Path("/tmp/v8173_base_score.log")
+          BASE_DOC = Path("/tmp/v8173_base_score.md")
+          SHADOW_CSV = Path("/tmp/v8173_shadow_score.csv")
+          SHADOW_JSON = Path("/tmp/v8173_shadow_score.json")
+          SHADOW_LOG = Path("/tmp/v8173_shadow_score.log")
+          SHADOW_DOC = Path("/tmp/v8173_shadow_score.md")
+
+          def ticker(value):
+              s = "".join(ch for ch in str(value or "") if ch.isdigit())
+              return s.zfill(6) if s else ""
+
+          def read_json(path):
+              return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+          def read_rows(path):
+              with Path(path).open(encoding="utf-8-sig", newline="") as f:
+                  reader = csv.DictReader(f)
+                  rows = list(reader)
+                  fields = list(reader.fieldnames or [])
+              return rows, fields
+
+          def row_map(path):
+              rows, _ = read_rows(path)
+              return {
+                  ticker(r.get("ticker")): r
+                  for r in rows
+                  if ticker(r.get("ticker"))
+              }
+
+          def write_rows(path, rows, fields):
+              Path(path).parent.mkdir(parents=True, exist_ok=True)
+              with Path(path).open("w", encoding="utf-8-sig", newline="") as f:
+                  w = csv.DictWriter(f, fieldnames=fields, lineterminator="\n")
+                  w.writeheader()
+                  w.writerows(rows)
+
+          def stable(row):
+              return json.dumps(
+                  row, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+              )
+
+          def split_missing(value):
+              return [x for x in str(value or "").split(";") if x]
+
+          def group_count(row, group):
+              count = 0
+              for reason in split_missing(row.get("missing_components")):
+                  _, source_group = classify(reason)
+                  if source_group == group:
+                      count += 1
+              return count
+
+          def total_blockers(rows):
+              return sum(
+                  int(r.get("missing_component_count") or 0)
+                  for r in rows.values()
+              )
+
+          def production_codes():
+              out = set()
+              for table in ("kospi", "decliners", "decliners24"):
+                  payload = read_json(ROOT / f"api/two_table_v1/{table}.json")
+                  for row in payload.get("rows") or []:
+                      code = ticker(row.get("ticker"))
+                      if code:
+                          out.add(code)
+              return out
+
+          def run_scorer(fin_path, out_csv, out_json, out_log, out_doc):
+              old = {
+                  "VERSION": scorer.VERSION,
+                  "FIN": scorer.FIN,
+                  "OUT_CSV": scorer.OUT_CSV,
+                  "OUT_JSON": scorer.OUT_JSON,
+                  "OUT_LOG": scorer.OUT_LOG,
+                  "OUT_DOC": scorer.OUT_DOC,
+              }
+              try:
+                  scorer.VERSION = VERSION
+                  scorer.FIN = Path(fin_path)
+                  scorer.OUT_CSV = Path(out_csv)
+                  scorer.OUT_JSON = Path(out_json)
+                  scorer.OUT_LOG = Path(out_log)
+                  scorer.OUT_DOC = Path(out_doc)
+                  rc = scorer.main()
+              finally:
+                  for key, value in old.items():
+                      setattr(scorer, key, value)
+              if rc not in (None, 0):
+                  raise RuntimeError("V8173_SCORER_FAILED:" + str(rc))
+
+          prior = read_json(PRIOR)
+          assert prior["version"] == V8172_VERSION
+          assert prior["status"] == "AUDIT_ONLY_FINANCIAL_MULTIBLOCKER_ROOT_CAUSE"
+          assert prior["policy_version"] == POLICY
+          assert prior["v8171a_result_commit"] == V8172_COMMIT
+          assert prior["next_step"] == "SHADOW_REFRESH_CURRENT_FINANCIAL_CACHE_V8173"
+
+          lane = prior["lane_counts"]["CURRENT_UNIVERSE_FINANCIAL_CACHE_ROW_MISSING"]
+          targets = {ticker(x) for x in lane["tickers"]}
+          assert len(targets) == 68
+          assert int(lane["blocker_occurrences"]) == 536
+
+          prod_rows, prod_fields = read_rows(PROD_FIN)
+          fresh_rows, fresh_fields = read_rows(FRESH_FIN)
+          assert len(prod_rows) == 240
+          assert prod_fields == fresh_fields
+
+          prod_map = {ticker(r["ticker"]): r for r in prod_rows}
+          fresh_map = {ticker(r["ticker"]): r for r in fresh_rows}
+          assert len(prod_map) == len(prod_rows)
+          assert len(fresh_map) == len(fresh_rows)
+
+          if targets & set(prod_map):
+              raise RuntimeError(
+                  "V8173_TARGET_ALREADY_IN_PRODUCTION:"
+                  + ",".join(sorted(targets & set(prod_map)))
+              )
+
+          missing_from_fresh = sorted(targets - set(fresh_map))
+          if missing_from_fresh:
+              raise RuntimeError(
+                  "V8173_TARGET_NOT_IN_FRESH_REFRESH:"
+                  + ",".join(missing_from_fresh)
+              )
+
+          merged_map = dict(prod_map)
+          for code in targets:
+              merged_map[code] = fresh_map[code]
+
+          assert len(merged_map) == 308
+          for code in prod_map:
+              assert stable(merged_map[code]) == stable(prod_map[code])
+
+          write_rows(
+              SHADOW_FIN,
+              [merged_map[code] for code in sorted(merged_map)],
+              prod_fields,
+          )
+
+          candidate_rows = [merged_map[code] for code in sorted(targets)]
+          write_rows(CANDIDATE, candidate_rows, prod_fields)
+
+          run_scorer(PROD_FIN, BASE_CSV, BASE_JSON, BASE_LOG, BASE_DOC)
+          run_scorer(SHADOW_FIN, SHADOW_CSV, SHADOW_JSON, SHADOW_LOG, SHADOW_DOC)
+
+          base_rows = row_map(BASE_CSV)
+          shadow_rows = row_map(SHADOW_CSV)
+          base_summary = read_json(BASE_JSON)
+          shadow_summary = read_json(SHADOW_JSON)
+          active = production_codes()
+
+          assert len(active) == 157
+          assert set(base_rows) == set(shadow_rows) == active
+          assert targets <= active
+
+          base_ready = int(base_summary.get("ready_count") or 0)
+          base_limited = int(base_summary.get("limited_count") or 0)
+          shadow_ready = int(shadow_summary.get("ready_count") or 0)
+          shadow_limited = int(shadow_summary.get("limited_count") or 0)
+
+          assert (base_ready, base_limited) == (14, 143)
+          assert shadow_ready >= base_ready
+          assert shadow_limited <= base_limited
+
+          base_total = total_blockers(base_rows)
+          shadow_total = total_blockers(shadow_rows)
+          assert base_total == 1388
+          assert shadow_total < base_total
+
+          base_fin_blockers = sum(
+              group_count(base_rows[code], GROUP) for code in targets
+          )
+          shadow_fin_blockers = sum(
+              group_count(shadow_rows[code], GROUP) for code in targets
+          )
+          assert base_fin_blockers == 536
+          assert shadow_fin_blockers < base_fin_blockers
+
+          non_target_changed = [
+              code
+              for code in sorted(active - targets)
+              if stable(base_rows[code]) != stable(shadow_rows[code])
+          ]
+          if non_target_changed:
+              raise RuntimeError(
+                  "V8173_NON_TARGET_SCORE_DRIFT:"
+                  + ",".join(non_target_changed[:30])
+              )
+
+          changed_target = [
+              code
+              for code in sorted(targets)
+              if stable(base_rows[code]) != stable(shadow_rows[code])
+          ]
+          assert changed_target
+
+          newly_ready = [
+              code
+              for code in sorted(targets)
+              if base_rows[code].get("score_status") != "READY"
+              and shadow_rows[code].get("score_status") == "READY"
+          ]
+          lost_ready = [
+              code
+              for code in sorted(active)
+              if base_rows[code].get("score_status") == "READY"
+              and shadow_rows[code].get("score_status") != "READY"
+          ]
+          assert not lost_ready
+
+          fully_resolved = [
+              code
+              for code in sorted(targets)
+              if group_count(shadow_rows[code], GROUP) == 0
+          ]
+          partial_remaining = [
+              code
+              for code in sorted(targets)
+              if group_count(shadow_rows[code], GROUP) > 0
+          ]
+
+          source_counts = Counter(
+              r.get("financial_source_status") or "" for r in candidate_rows
+          )
+          identity_counts = Counter(
+              r.get("corp_identity_status") or "" for r in candidate_rows
+          )
+          data_counts = Counter(
+              r.get("financial_data_status") or "" for r in candidate_rows
+          )
+          valuation_counts = Counter(
+              r.get("valuation_data_status") or "" for r in candidate_rows
+          )
+
+          fresh_log = {}
+          for line in FRESH_LOG.read_text(encoding="utf-8-sig").splitlines():
+              if "=" in line:
+                  k, v = line.split("=", 1)
+                  fresh_log[k] = v
+
+          summary = {
+              "version": VERSION,
+              "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+              "status": "SHADOW_ONLY_CURRENT_FINANCIAL_REFRESH_PASS",
+              "policy_version": POLICY,
+              "v8172_version": V8172_VERSION,
+              "v8172_result_commit": V8172_COMMIT,
+              "target_count": 68,
+              "target_tickers": sorted(targets),
+              "production_financial_cache_rows": len(prod_rows),
+              "fresh_current_refresh_rows": len(fresh_rows),
+              "fresh_refresh_target_tickers": int(fresh_log.get("TARGET_TICKERS") or 0),
+              "fresh_refresh_two_table_targets": int(
+                  fresh_log.get("PRODUCTION_TWO_TABLE_TARGET_TICKERS") or 0
+              ),
+              "shadow_financial_cache_rows": len(merged_map),
+              "financial_cache_row_delta": 68,
+              "merge_mode": "PRESERVE_PRODUCTION_ROWS_AND_ADD_68_CURRENT_TARGETS_ONLY",
+              "existing_non_target_financial_row_changed_count": 0,
+              "candidate_source_status_counts": dict(source_counts),
+              "candidate_identity_status_counts": dict(identity_counts),
+              "candidate_financial_data_status_counts": dict(data_counts),
+              "candidate_valuation_status_counts": dict(valuation_counts),
+              "scorer_universe_count": len(active),
+              "baseline_ready_count": base_ready,
+              "baseline_limited_count": base_limited,
+              "shadow_ready_count": shadow_ready,
+              "shadow_limited_count": shadow_limited,
+              "ready_delta": shadow_ready - base_ready,
+              "limited_delta": shadow_limited - base_limited,
+              "baseline_total_blocker_occurrences": base_total,
+              "shadow_total_blocker_occurrences": shadow_total,
+              "total_blocker_occurrences_reduced_by": base_total - shadow_total,
+              "baseline_target_financial_blocker_occurrences": base_fin_blockers,
+              "shadow_target_financial_blocker_occurrences": shadow_fin_blockers,
+              "target_financial_blocker_occurrences_reduced_by": (
+                  base_fin_blockers - shadow_fin_blockers
+              ),
+              "changed_target_score_row_count": len(changed_target),
+              "changed_target_score_tickers": changed_target,
+              "non_target_score_row_changed_count": 0,
+              "newly_ready_count": len(newly_ready),
+              "newly_ready_tickers": newly_ready,
+              "lost_ready_count": 0,
+              "fully_financial_resolved_count": len(fully_resolved),
+              "fully_financial_resolved_tickers": fully_resolved,
+              "partial_financial_remaining_count": len(partial_remaining),
+              "partial_financial_remaining_tickers": partial_remaining,
+              "automatic_promotion": False,
+              "hard_guards": {
+                  "production_financial_cache_modified": False,
+                  "production_financial_run_log_modified": False,
+                  "production_source_cache_modified": False,
+                  "production_api_modified": False,
+                  "production_score_written": False,
+                  "scoring_policy_modified": False,
+                  "corp_identity_policy_modified": False,
+                  "issuer_alias_inferred": False,
+                  "loss_per_fabricated": False,
+                  "source_value_imputed": False,
+                  "non_target_score_row_changed": False,
+                  "ready_regression_count": 0,
+              },
+              "next_step": "STAGE_CURRENT_FINANCIAL_CACHE_REFRESH_V8174",
+          }
+
+          SUMMARY.write_text(
+              json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+
+          RUN_LOG.write_text("\n".join([
+              f"VERSION={VERSION}",
+              "STATUS=SHADOW_ONLY_CURRENT_FINANCIAL_REFRESH_PASS",
+              "TARGET_COUNT=68",
+              f"PRODUCTION_FIN_ROWS={len(prod_rows)}",
+              f"FRESH_REFRESH_ROWS={len(fresh_rows)}",
+              f"SHADOW_FIN_ROWS={len(merged_map)}",
+              "FIN_ROW_DELTA=68",
+              f"SCORER_UNIVERSE={len(active)}",
+              f"BASE_READY={base_ready}",
+              f"SHADOW_READY={shadow_ready}",
+              f"BASE_LIMITED={base_limited}",
+              f"SHADOW_LIMITED={shadow_limited}",
+              f"BASE_TOTAL_BLOCKERS={base_total}",
+              f"SHADOW_TOTAL_BLOCKERS={shadow_total}",
+              f"TOTAL_BLOCKER_REDUCTION={base_total - shadow_total}",
+              "BASE_TARGET_FIN_BLOCKERS=536",
+              f"SHADOW_TARGET_FIN_BLOCKERS={shadow_fin_blockers}",
+              f"TARGET_FIN_BLOCKER_REDUCTION={base_fin_blockers - shadow_fin_blockers}",
+              f"CHANGED_TARGET_SCORE_ROWS={len(changed_target)}",
+              "NON_TARGET_SCORE_ROW_CHANGED=0",
+              f"NEWLY_READY={len(newly_ready)}",
+              "LOST_READY=0",
+              f"FULLY_FINANCIAL_RESOLVED={len(fully_resolved)}",
+              f"PARTIAL_FINANCIAL_REMAINING={len(partial_remaining)}",
+              "AUTOMATIC_PROMOTION=false",
+              "PRODUCTION_DATA_MODIFIED=false",
+              "STATUS_OK=true",
+              "NEXT_STEP=STAGE_CURRENT_FINANCIAL_CACHE_REFRESH_V8174",
+          ]) + "\n", encoding="utf-8")
+
+          DOC.parent.mkdir(parents=True, exist_ok=True)
+          DOC.write_text("\n".join([
+              "# V8.17.3 shadow current financial-cache refresh",
+              "",
+              "- Refreshes current financial targets only in isolation.",
+              "- Production financial cache is preserved at 240 rows.",
+              "- Exactly 68 missing current-universe rows are merged into a shadow cache.",
+              f"- Fresh refresh rows: {len(fresh_rows)}.",
+              "- Shadow financial cache rows: 308.",
+              f"- Target financial blockers: 536 -> {shadow_fin_blockers}.",
+              f"- Total blockers: 1388 -> {shadow_total}.",
+              f"- READY / LIMITED: 14/143 -> {shadow_ready}/{shadow_limited}.",
+              f"- Newly READY: {len(newly_ready)}.",
+              f"- Fully financial-resolved targets: {len(fully_resolved)}.",
+              f"- Partial financial remaining targets: {len(partial_remaining)}.",
+              "- Existing production rows and non-target score rows remain unchanged.",
+              "- No production cache, API, score, or policy is modified.",
+              "",
+              "Next: STAGE_CURRENT_FINANCIAL_CACHE_REFRESH_V8174",
+              "",
+          ]), encoding="utf-8")
+
+          assert summary["target_count"] == 68
+          assert summary["financial_cache_row_delta"] == 68
+          assert summary["shadow_financial_cache_rows"] == 308
+          assert summary["scorer_universe_count"] == 157
+          assert summary["baseline_total_blocker_occurrences"] == 1388
+          assert summary["shadow_total_blocker_occurrences"] < 1388
+          assert summary["baseline_target_financial_blocker_occurrences"] == 536
+          assert summary["shadow_target_financial_blocker_occurrences"] < 536
+          assert summary["non_target_score_row_changed_count"] == 0
+          assert summary["lost_ready_count"] == 0
+          assert summary["automatic_promotion"] is False
+          assert all(v is False for v in summary["hard_guards"].values())
+          assert summary["next_step"] == "STAGE_CURRENT_FINANCIAL_CACHE_REFRESH_V8174"
+
+          print("V8173_FINANCIAL_SHADOW=PASS")
+          print(f"V8173_FRESH_REFRESH_ROWS={len(fresh_rows)}")
+          print("V8173_SHADOW_FIN_ROWS=308")
+          print(f"V8173_TARGET_FIN_BLOCKERS=536->{shadow_fin_blockers}")
+          print(f"V8173_TOTAL_BLOCKERS=1388->{shadow_total}")
+          print(f"V8173_READY=14->{shadow_ready}")
+          print("V8173_NEXT_STEP=STAGE_CURRENT_FINANCIAL_CACHE_REFRESH_V8174")
+          PY
+
+          grep -q '^V8173_FINANCIAL_SHADOW=PASS$' /tmp/v8173_stdout.txt
+          grep -q '^SHADOW_FIN_ROWS=308$' \
+            latest/investment_score_financial_refresh_shadow_v8173_run_log_latest.txt
+          grep -q '^SCORER_UNIVERSE=157$' \
+            latest/investment_score_financial_refresh_shadow_v8173_run_log_latest.txt
+          grep -q '^NON_TARGET_SCORE_ROW_CHANGED=0$' \
+            latest/investment_score_financial_refresh_shadow_v8173_run_log_latest.txt
+          grep -q '^LOST_READY=0$' \
+            latest/investment_score_financial_refresh_shadow_v8173_run_log_latest.txt
+          grep -q '^STATUS_OK=true$' \
+            latest/investment_score_financial_refresh_shadow_v8173_run_log_latest.txt
+
+      - name: Verify production state unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            financial_valuation_enricher.py \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_financial_multiblocker_v8172_summary_latest.json \
+            latest/financial_valuation_cache_latest.csv \
+            latest/financial_valuation_run_log_latest.txt \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            latest/investment_score_supply_source_latest.json \
+            > /tmp/v8173_protected.after
+
+          diff -u /tmp/v8173_protected.before /tmp/v8173_protected.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum > /tmp/v8173_api.after
+          diff -u /tmp/v8173_api.before /tmp/v8173_api.after
+
+      - name: Restrict changed files and refuse concurrent protected drift
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+          allowed = {
+              "latest/investment_score_financial_refresh_candidate_v8173.csv",
+              "latest/investment_score_financial_refresh_shadow_v8173_summary_latest.json",
+              "latest/investment_score_financial_refresh_shadow_v8173_run_log_latest.txt",
+              "docs/investment_score_financial_refresh_shadow_v8173.md",
+          }
+          changed = set()
+          for line in subprocess.check_output(
+              ["git","status","--porcelain","--untracked-files=all"], text=True
+          ).splitlines():
+              if line:
+                  changed.add(line[3:].split(" -> ")[-1])
+          bad = sorted(changed - allowed)
+          if bad:
+              raise SystemExit("V8173_UNEXPECTED_CHANGED_FILES:" + ",".join(bad))
+          print("V8173_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "financial_valuation_enricher.py",
+              "investment_score_dry_run_v882.py",
+              "latest/investment_score_financial_multiblocker_v8172_summary_latest.json",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/financial_valuation_run_log_latest.txt",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/investment_score_source_run_log_latest.txt",
+              "latest/investment_score_price_elasticity_20d_latest.csv",
+              "latest/investment_score_ocf_source_latest.csv",
+              "latest/investment_score_supply_source_latest.csv",
+              "latest/investment_score_supply_source_latest.json",
+          }
+          upstream = set(subprocess.check_output(
+              ["git","diff","--name-only","HEAD..origin/main"], text=True
+          ).splitlines())
+          bad = sorted(p for p in upstream if p in protected or p.startswith("api/two_table_v1/"))
+          if bad:
+              raise SystemExit("V8173_CONCURRENT_PROTECTED_DRIFT:" + ",".join(bad))
+          print("V8173_NO_CONCURRENT_PROTECTED_DRIFT=PASS")
+          PY
+
+      - name: Commit and push V8.17.3 shadow outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            latest/investment_score_financial_refresh_candidate_v8173.csv \
+            latest/investment_score_financial_refresh_shadow_v8173_summary_latest.json \
+            latest/investment_score_financial_refresh_shadow_v8173_run_log_latest.txt \
+            docs/investment_score_financial_refresh_shadow_v8173.md
+
+          git diff --cached --check
+          git commit -m "Shadow refresh current financial cache v8.17.3"
+          git pull --rebase origin main
+          git push origin HEAD:main

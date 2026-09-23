@@ -1,0 +1,406 @@
+name: Stage narrow production price elasticity patch v8.16.9
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/v8169-stage-narrow-price-elasticity-patch.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-krx-watchlist-latest
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify V8.16.8 lineage and capture protected state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor \
+            a2db42cd94b2af57b438101d086f9025d3939880 HEAD
+
+          for f in \
+            latest/investment_score_price_elasticity_candidate_v8168.csv \
+            latest/investment_score_price_elasticity_shadow_v8168_summary_latest.json \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.json \
+            latest/investment_score_price_elasticity_20d_run_log_latest.txt \
+            investment_score_dry_run_v882.py; do
+            test -f "$f"
+          done
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_price_elasticity_candidate_v8168.csv \
+            latest/investment_score_price_elasticity_shadow_v8168_summary_latest.json \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.json \
+            latest/investment_score_price_elasticity_20d_run_log_latest.txt \
+            latest/investment_score_source_cache_latest.csv \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            > /tmp/v8169_protected.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum > /tmp/v8169_api.before
+
+      - name: Run V8.16.9 stage validator
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > investment_score_price_elasticity_stage_v8169.py <<'PY'
+          #!/usr/bin/env python3
+          import csv
+          import json
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+          import investment_score_dry_run_v882 as scorer
+
+          VERSION = "2026-09-23-v8.16.9-stage-narrow-production-price-elasticity-patch"
+          POLICY = "2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          V8168_VERSION = "2026-09-23-v8.16.8-freeze-current-actionable-price-elasticity-and-shadow"
+          V8168_COMMIT = "a2db42cd94b2af57b438101d086f9025d3939880"
+          TARGET = "004990"
+
+          ROOT = Path(".")
+          KST = ZoneInfo("Asia/Seoul")
+          PROD = ROOT / "latest/investment_score_price_elasticity_20d_latest.csv"
+          CAND = ROOT / "latest/investment_score_price_elasticity_candidate_v8168.csv"
+          SHADOW = ROOT / "latest/investment_score_price_elasticity_shadow_v8168_summary_latest.json"
+          STAGED = ROOT / "latest/investment_score_price_elasticity_candidate_v8169.csv"
+          OUTJ = ROOT / "latest/investment_score_price_elasticity_stage_v8169_summary_latest.json"
+          OUTL = ROOT / "latest/investment_score_price_elasticity_stage_v8169_run_log_latest.txt"
+          OUTD = ROOT / "docs/investment_score_price_elasticity_stage_v8169.md"
+
+          BASE_CSV = Path("/tmp/v8169_base.csv")
+          BASE_JSON = Path("/tmp/v8169_base.json")
+          BASE_LOG = Path("/tmp/v8169_base.log")
+          BASE_DOC = Path("/tmp/v8169_base.md")
+          STAGE_CSV = Path("/tmp/v8169_stage.csv")
+          STAGE_JSON = Path("/tmp/v8169_stage.json")
+          STAGE_LOG = Path("/tmp/v8169_stage.log")
+          STAGE_DOC = Path("/tmp/v8169_stage.md")
+
+          def tick(v):
+              s = "".join(c for c in str(v or "") if c.isdigit())
+              return s.zfill(6) if s else ""
+
+          def read_json(p):
+              return json.loads(Path(p).read_text(encoding="utf-8-sig"))
+
+          def rows(p):
+              with Path(p).open(encoding="utf-8-sig", newline="") as f:
+                  return list(csv.DictReader(f))
+
+          def rmap(p):
+              return {tick(r.get("ticker")): r for r in rows(p) if tick(r.get("ticker"))}
+
+          def stable(r):
+              return json.dumps(r, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+          def blockers(m):
+              return sum(int(r.get("missing_component_count") or 0) for r in m.values())
+
+          def run_score(elasticity, ocsv, ojson, olog, odoc):
+              old = {k:getattr(scorer,k) for k in ("VERSION","ELASTICITY","OUT_CSV","OUT_JSON","OUT_LOG","OUT_DOC")}
+              try:
+                  scorer.VERSION = VERSION
+                  scorer.ELASTICITY = Path(elasticity)
+                  scorer.OUT_CSV = Path(ocsv)
+                  scorer.OUT_JSON = Path(ojson)
+                  scorer.OUT_LOG = Path(olog)
+                  scorer.OUT_DOC = Path(odoc)
+                  rc = scorer.main()
+              finally:
+                  for k,v in old.items():
+                      setattr(scorer,k,v)
+              if rc not in (None,0):
+                  raise RuntimeError("V8169_SCORER_FAILED")
+
+          def main():
+              s = read_json(SHADOW)
+              assert s["version"] == V8168_VERSION
+              assert s["status"] == "SOURCE_ONLY_FROZEN_SHADOW_PASS"
+              assert s["policy_version"] == POLICY
+              assert s["v8167_result_commit"] == "b55cf24ae3d78fcb79fb1325f6bd2c3491eaf08f"
+              assert s["source_frozen_tickers"] == [TARGET]
+              assert abs(float(s["frozen_avg_daily_move_pct"]) - 1.3594) < 1e-8
+              assert s["production_cache_row_count"] == 151
+              assert s["shadow_candidate_row_count"] == 152
+              assert s["baseline_ready_count"] == 21
+              assert s["shadow_ready_count"] == 22
+              assert s["baseline_limited_count"] == 99
+              assert s["shadow_limited_count"] == 98
+              assert s["baseline_blocker_occurrences"] == 322
+              assert s["shadow_blocker_occurrences"] == 321
+              assert s["non_target_score_row_changed_count"] == 0
+              assert s["next_step"] == "STAGE_NARROW_PRODUCTION_PRICE_ELASTICITY_PATCH_V8169"
+
+              pr = rows(PROD)
+              cr = rows(CAND)
+              assert len(pr) == 151 and len(cr) == 152
+              assert list(pr[0]) == list(cr[0])
+
+              pm = rmap(PROD)
+              cm = rmap(CAND)
+              assert len(pm) == 151 and len(cm) == 152
+              assert set(cm) - set(pm) == {TARGET}
+              assert all(stable(pm[c]) == stable(cm[c]) for c in pm)
+
+              tr = cm[TARGET]
+              assert tr["name"] == "롯데지주"
+              assert tr["source_status"] == "READY"
+              assert tr["basis_date"] == "2026-09-21"
+              assert int(tr["close_observation_count"]) == 21
+              assert int(tr["daily_return_observation_count"]) == 20
+              assert abs(float(tr["avg_daily_move_pct"]) - 1.3594) < 1e-8
+
+              STAGED.write_bytes(CAND.read_bytes())
+
+              run_score(PROD, BASE_CSV, BASE_JSON, BASE_LOG, BASE_DOC)
+              run_score(STAGED, STAGE_CSV, STAGE_JSON, STAGE_LOG, STAGE_DOC)
+
+              b = rmap(BASE_CSV)
+              t = rmap(STAGE_CSV)
+              bs = read_json(BASE_JSON)
+              ts = read_json(STAGE_JSON)
+
+              assert set(b) == set(t) and len(b) == 120
+              assert (int(bs["ready_count"]), int(bs["limited_count"]), blockers(b)) == (21,99,322)
+              assert (int(ts["ready_count"]), int(ts["limited_count"]), blockers(t)) == (22,98,321)
+
+              changed = [c for c in sorted(b) if stable(b[c]) != stable(t[c])]
+              assert changed == [TARGET]
+              assert b[TARGET]["score_status"] == "LIMITED"
+              assert t[TARGET]["score_status"] == "READY"
+
+              summary = {
+                  "version": VERSION,
+                  "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
+                  "status": "STAGED_NARROW_PRICE_ELASTICITY_PATCH_PASS",
+                  "policy_version": POLICY,
+                  "v8168_version": V8168_VERSION,
+                  "v8168_result_commit": V8168_COMMIT,
+                  "staged_cache": {
+                      "production_row_count": 151,
+                      "staged_row_count": 152,
+                      "row_delta": 1,
+                      "added_tickers": [TARGET],
+                      "existing_row_changed_count": 0,
+                      "target_value": 1.3594,
+                      "basis_date": "2026-09-21"
+                  },
+                  "scorer_regression": {
+                      "universe_count": 120,
+                      "baseline_ready_count": 21,
+                      "staged_ready_count": 22,
+                      "baseline_limited_count": 99,
+                      "staged_limited_count": 98,
+                      "baseline_blocker_occurrences": 322,
+                      "staged_blocker_occurrences": 321,
+                      "blocker_occurrences_reduced_by": 1,
+                      "changed_score_row_count": 1,
+                      "changed_score_tickers": [TARGET],
+                      "non_target_score_row_changed_count": 0,
+                      "newly_ready_count": 1,
+                      "newly_ready_tickers": [TARGET],
+                      "lost_ready_count": 0
+                  },
+                  "automatic_promotion": False,
+                  "hard_guards": {
+                      "production_price_elasticity_cache_modified": False,
+                      "production_price_elasticity_metadata_modified": False,
+                      "production_price_elasticity_run_log_modified": False,
+                      "production_source_cache_modified": False,
+                      "production_financial_cache_modified": False,
+                      "production_ocf_cache_modified": False,
+                      "production_supply_source_modified": False,
+                      "production_api_modified": False,
+                      "production_score_written": False,
+                      "scoring_policy_modified": False,
+                      "atr_substituted": False,
+                      "nonofficial_price_source_used": False,
+                      "non_target_score_row_changed": False
+                  },
+                  "next_step": "CONTROLLED_NARROW_PRODUCTION_PRICE_ELASTICITY_PATCH_V8170"
+              }
+              OUTJ.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+              OUTL.write_text("\n".join([
+                  f"VERSION={VERSION}",
+                  "STATUS=STAGED_NARROW_PRICE_ELASTICITY_PATCH_PASS",
+                  "PRODUCTION_CACHE_ROWS=151",
+                  "STAGED_CACHE_ROWS=152",
+                  "CACHE_ROW_DELTA=1",
+                  "ADDED_TICKERS=004990",
+                  "EXISTING_CACHE_ROW_CHANGED_COUNT=0",
+                  "SCORER_UNIVERSE=120",
+                  "BASELINE_READY=21",
+                  "STAGED_READY=22",
+                  "BASELINE_LIMITED=99",
+                  "STAGED_LIMITED=98",
+                  "BASELINE_BLOCKERS=322",
+                  "STAGED_BLOCKERS=321",
+                  "BLOCKER_REDUCED_BY=1",
+                  "CHANGED_SCORE_ROWS=1",
+                  "NON_TARGET_SCORE_ROW_CHANGED=0",
+                  "NEWLY_READY=1",
+                  "LOST_READY=0",
+                  "AUTOMATIC_PROMOTION=false",
+                  "PRODUCTION_DATA_MODIFIED=false",
+                  "STATUS_OK=true",
+                  "NEXT_STEP=CONTROLLED_NARROW_PRODUCTION_PRICE_ELASTICITY_PATCH_V8170",
+              ]) + "\n", encoding="utf-8")
+              OUTD.parent.mkdir(parents=True, exist_ok=True)
+              OUTD.write_text(
+                  "# V8.16.9 narrow price-elasticity patch stage\n\n"
+                  "- Staged only 롯데지주 (004990).\n"
+                  "- Production cache remains 151 rows; candidate is 152 rows.\n"
+                  "- READY / LIMITED: 21/99 -> 22/98.\n"
+                  "- Blockers: 322 -> 321.\n"
+                  "- Existing 151 cache rows and all non-target score rows remain unchanged.\n"
+                  "- Production data, API, policy and production score are unchanged.\n\n"
+                  "Next: CONTROLLED_NARROW_PRODUCTION_PRICE_ELASTICITY_PATCH_V8170\n",
+                  encoding="utf-8"
+              )
+              print("V8169_STAGE=PASS")
+
+          if __name__ == "__main__":
+              main()
+          PY
+
+          python -m py_compile investment_score_price_elasticity_stage_v8169.py
+          python investment_score_price_elasticity_stage_v8169.py
+
+          grep -q '^STATUS_OK=true$' \
+            latest/investment_score_price_elasticity_stage_v8169_run_log_latest.txt
+          grep -q '^STAGED_CACHE_ROWS=152$' \
+            latest/investment_score_price_elasticity_stage_v8169_run_log_latest.txt
+          grep -q '^STAGED_READY=22$' \
+            latest/investment_score_price_elasticity_stage_v8169_run_log_latest.txt
+          grep -q '^STAGED_BLOCKERS=321$' \
+            latest/investment_score_price_elasticity_stage_v8169_run_log_latest.txt
+
+      - name: Validate production immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_price_elasticity_candidate_v8168.csv \
+            latest/investment_score_price_elasticity_shadow_v8168_summary_latest.json \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.json \
+            latest/investment_score_price_elasticity_20d_run_log_latest.txt \
+            latest/investment_score_source_cache_latest.csv \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            > /tmp/v8169_protected.after
+
+          diff -u /tmp/v8169_protected.before /tmp/v8169_protected.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum > /tmp/v8169_api.after
+          diff -u /tmp/v8169_api.before /tmp/v8169_api.after
+
+      - name: Restrict changed files and refuse concurrent protected drift
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+          allowed = {
+              "investment_score_price_elasticity_stage_v8169.py",
+              "latest/investment_score_price_elasticity_candidate_v8169.csv",
+              "latest/investment_score_price_elasticity_stage_v8169_summary_latest.json",
+              "latest/investment_score_price_elasticity_stage_v8169_run_log_latest.txt",
+              "docs/investment_score_price_elasticity_stage_v8169.md",
+          }
+          changed = set()
+          for line in subprocess.check_output(
+              ["git","status","--porcelain","--untracked-files=all"], text=True
+          ).splitlines():
+              if line:
+                  changed.add(line[3:].split(" -> ")[-1])
+          bad = sorted(changed - allowed)
+          if bad:
+              raise SystemExit("V8169_UNEXPECTED_CHANGED_FILES:" + ",".join(bad))
+          print("V8169_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+          protected = {
+              "config/investment_score_policy_v880.json",
+              "investment_score_dry_run_v882.py",
+              "latest/investment_score_price_elasticity_candidate_v8168.csv",
+              "latest/investment_score_price_elasticity_shadow_v8168_summary_latest.json",
+              "latest/investment_score_price_elasticity_20d_latest.csv",
+              "latest/investment_score_price_elasticity_20d_latest.json",
+              "latest/investment_score_price_elasticity_20d_run_log_latest.txt",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/investment_score_ocf_source_latest.csv",
+              "latest/investment_score_supply_source_latest.csv",
+          }
+          upstream = set(subprocess.check_output(
+              ["git","diff","--name-only","HEAD..origin/main"], text=True
+          ).splitlines())
+          bad = sorted(p for p in upstream if p in protected or p.startswith("api/two_table_v1/"))
+          if bad:
+              raise SystemExit("V8169_CONCURRENT_PROTECTED_DRIFT:" + ",".join(bad))
+          print("V8169_NO_CONCURRENT_PROTECTED_DRIFT=PASS")
+          PY
+
+      - name: Commit and push V8.16.9 stage outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add \
+            investment_score_price_elasticity_stage_v8169.py \
+            latest/investment_score_price_elasticity_candidate_v8169.csv \
+            latest/investment_score_price_elasticity_stage_v8169_summary_latest.json \
+            latest/investment_score_price_elasticity_stage_v8169_run_log_latest.txt \
+            docs/investment_score_price_elasticity_stage_v8169.md
+          git diff --cached --check
+          git commit -m "Stage narrow price elasticity patch v8.16.9"
+          git pull --rebase origin main
+          git push origin HEAD:main

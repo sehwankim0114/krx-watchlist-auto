@@ -1,0 +1,631 @@
+name: Controlled post-financial source cache apply v8.17.8
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/v8178-controlled-post-financial-source-cache-apply.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-krx-watchlist-latest
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify V8.17.7 lineage and capture production state
+        run: |
+          set -euo pipefail
+
+          git merge-base --is-ancestor \
+            98769f62737b9a7391db12eb08ead1f5eda7dc1a HEAD
+
+          for f in \
+            latest/investment_score_source_cache_candidate_v8177.csv \
+            latest/investment_score_source_stage_v8177_summary_latest.json \
+            latest/investment_score_source_stage_v8177_run_log_latest.txt \
+            latest/investment_score_source_shadow_v8176a_summary_latest.json \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_cache_latest.csv \
+            latest/financial_valuation_run_log_latest.txt \
+            investment_score_dry_run_v882.py; do
+            test -f "$f"
+          done
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            investment_score_source_enricher_v854.py \
+            .github/workflows/v854-refresh-investment-score-source-cache.yml \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            latest/investment_score_supply_source_latest.json \
+            latest/investment_score_source_cache_candidate_v8177.csv \
+            latest/investment_score_source_stage_v8177_summary_latest.json \
+            latest/investment_score_source_stage_v8177_run_log_latest.txt \
+            latest/investment_score_source_shadow_v8176a_summary_latest.json \
+            > /tmp/v8178_protected.before
+
+          sha256sum \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_run_log_latest.txt \
+            > /tmp/v8178_intended.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum > /tmp/v8178_api.before
+
+      - name: Apply staged source cache with rollback and verify gate
+        run: |
+          set -euo pipefail
+
+          python - <<'PY' | tee /tmp/v8178_stdout.txt
+          import csv
+          import json
+          import shutil
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_dry_run_v882 as scorer
+
+          VERSION="2026-09-23-v8.17.8-controlled-post-financial-source-cache-apply"
+          POLICY="2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          STAGE_VERSION="2026-09-23-v8.17.7-stage-post-financial-source-cache-refresh"
+          STAGE_COMMIT="98769f62737b9a7391db12eb08ead1f5eda7dc1a"
+          SHADOW_VERSION="2026-09-23-v8.17.6A-shadow-post-financial-source-refresh-preferred-inheritance-aware"
+          NEXT="POST_SOURCE_APPLY_DYNAMIC_BLOCKER_REAUDIT_V8179"
+
+          ROOT=Path(".")
+          KST=ZoneInfo("Asia/Seoul")
+
+          PROD_SOURCE=ROOT/"latest/investment_score_source_cache_latest.csv"
+          PROD_SOURCE_LOG=ROOT/"latest/investment_score_source_run_log_latest.txt"
+          PROD_FIN_LOG=ROOT/"latest/financial_valuation_run_log_latest.txt"
+          CAND=ROOT/"latest/investment_score_source_cache_candidate_v8177.csv"
+          STAGE=ROOT/"latest/investment_score_source_stage_v8177_summary_latest.json"
+          SHADOW=ROOT/"latest/investment_score_source_shadow_v8176a_summary_latest.json"
+
+          OUT_JSON=ROOT/"latest/investment_score_source_production_v8178_summary_latest.json"
+          OUT_LOG=ROOT/"latest/investment_score_source_production_v8178_run_log_latest.txt"
+          OUT_DOC=ROOT/"docs/investment_score_source_production_v8178.md"
+
+          BACKUP_SOURCE=Path("/tmp/v8178_source.backup")
+          BACKUP_SOURCE_LOG=Path("/tmp/v8178_source_log.backup")
+          BACKUP_FIN_LOG=Path("/tmp/v8178_fin_log.backup")
+
+          EXPECTED_INHERITED={"000225":"000220","002787":"002780","078935":"078930"}
+
+          def ticker(v):
+              s="".join(c for c in str(v or "") if c.isdigit())
+              return s.zfill(6) if s else ""
+
+          def read_json(p):
+              return json.loads(Path(p).read_text(encoding="utf-8-sig"))
+
+          def rows(p):
+              with Path(p).open(encoding="utf-8-sig",newline="") as f:
+                  r=csv.DictReader(f); return list(r), list(r.fieldnames or [])
+
+          def rmap(p):
+              rs,_=rows(p)
+              return {ticker(r.get("ticker")):r for r in rs if ticker(r.get("ticker"))}
+
+          def stable(r):
+              return json.dumps(r,ensure_ascii=False,sort_keys=True,separators=(",",":"))
+
+          def blockers(m):
+              return sum(int(r.get("missing_component_count") or 0) for r in m.values())
+
+          def run(raw,ocsv,ojson,olog,odoc):
+              old={k:getattr(scorer,k) for k in ("VERSION","RAW","OUT_CSV","OUT_JSON","OUT_LOG","OUT_DOC")}
+              try:
+                  scorer.VERSION=VERSION
+                  scorer.RAW=Path(raw)
+                  scorer.OUT_CSV=Path(ocsv)
+                  scorer.OUT_JSON=Path(ojson)
+                  scorer.OUT_LOG=Path(olog)
+                  scorer.OUT_DOC=Path(odoc)
+                  rc=scorer.main()
+              finally:
+                  for k,v in old.items():
+                      setattr(scorer,k,v)
+              if rc not in (None,0):
+                  raise RuntimeError("V8178_SCORER_FAILED:"+str(rc))
+
+          def kv(p):
+              out={}
+              for line in Path(p).read_text(encoding="utf-8-sig").splitlines():
+                  if "=" in line:
+                      k,v=line.split("=",1)
+                      out[k.strip()]=v.strip()
+              return out
+
+          def parse_dt(v):
+              return datetime.fromisoformat(str(v).replace("Z","+00:00"))
+
+          def active_codes():
+              out=set()
+              for table in ("kospi","decliners","decliners24"):
+                  j=read_json(ROOT/f"api/two_table_v1/{table}.json")
+                  for r in j.get("rows") or []:
+                      c=ticker(r.get("ticker"))
+                      if c: out.add(c)
+              return out
+
+          def synchronized_financial_log(text, synchronized_at):
+              lines=text.splitlines()
+              out=[]
+              saw_status=False
+              saw_required=False
+              for line in lines:
+                  if line.startswith("STATUS="):
+                      out.append("STATUS=PRODUCTION_FINANCIAL_CACHE_READY_SOURCE_SYNCHRONIZED")
+                      saw_status=True
+                  elif line.startswith("SOURCE_REFRESH_REQUIRED="):
+                      out.append("SOURCE_REFRESH_REQUIRED=false")
+                      saw_required=True
+                  elif line.startswith("NEXT_STEP="):
+                      out.append("NEXT_STEP=POST_SOURCE_APPLY_DYNAMIC_BLOCKER_REAUDIT_V8179")
+                  else:
+                      out.append(line)
+              if not saw_status or not saw_required:
+                  raise RuntimeError("V8178_FIN_LOG_SYNC_FIELDS_MISSING")
+              out.append("SOURCE_SYNCHRONIZED_AT_KST="+synchronized_at)
+              out.append("SOURCE_SYNCHRONIZED_BY="+VERSION)
+              return "\n".join(out)+"\n"
+
+          stage=read_json(STAGE)
+          shadow=read_json(SHADOW)
+
+          assert stage["version"]==STAGE_VERSION
+          assert stage["status"]=="STAGED_POST_FINANCIAL_SOURCE_CACHE_REGRESSION_PASS"
+          assert stage["policy_version"]==POLICY
+          assert stage["v8176a_result_commit"]=="95ec13e162cdaaf7a6d1e2971521cca7bfd2d40c"
+          assert stage["next_step"]=="CONTROLLED_POST_FINANCIAL_SOURCE_CACHE_APPLY_V8178"
+
+          assert shadow["version"]==SHADOW_VERSION
+          assert shadow["status"]=="SHADOW_ONLY_POST_FINANCIAL_SOURCE_REFRESH_PASS"
+
+          sc=stage["staged_source_cache"]
+          rg=stage["scorer_regression"]
+          gate=stage["gate_stage"]
+
+          assert (sc["production_row_count"],sc["staged_row_count"],sc["row_delta"],sc["added_ticker_count"])==(227,288,61,61)
+          assert (rg["baseline_ready_count"],rg["staged_ready_count"],rg["baseline_limited_count"],rg["staged_limited_count"])==(14,14,143,143)
+          assert (rg["baseline_blocker_occurrences"],rg["staged_blocker_occurrences"],rg["blocker_occurrences_reduced_by"])==(906,543,363)
+          assert rg["direct_added_score_row_changed_count"]==61
+          assert rg["expected_inherited_preferred_score_row_changed_count"]==3
+          assert rg["expected_inherited_preferred_common_map"]==EXPECTED_INHERITED
+          assert rg["unexpected_score_row_changed_count"]==0
+          assert rg["newly_ready_count"]==0 and rg["lost_ready_count"]==0
+          assert gate["need_refresh_before_apply"] is True
+          assert gate["reason"]=="financial_source_newer_than_investment_source"
+
+          prod,pfields=rows(PROD_SOURCE)
+          cand,cfields=rows(CAND)
+          assert pfields==cfields
+          assert len(prod)==227 and len(cand)==288
+          pm={ticker(r["ticker"]):r for r in prod}
+          cm={ticker(r["ticker"]):r for r in cand}
+          assert len(pm)==227 and len(cm)==288
+          assert set(pm)<set(cm)
+          added=set(cm)-set(pm)
+          assert added==set(sc["added_tickers"]) and len(added)==61
+
+          base_csv=Path("/tmp/v8178_base.csv")
+          base_json=Path("/tmp/v8178_base.json")
+          stage_csv=Path("/tmp/v8178_stage.csv")
+          stage_json=Path("/tmp/v8178_stage.json")
+          post_csv=Path("/tmp/v8178_post.csv")
+          post_json=Path("/tmp/v8178_post.json")
+
+          run(PROD_SOURCE,base_csv,base_json,Path("/tmp/v8178_base.log"),Path("/tmp/v8178_base.md"))
+          run(CAND,stage_csv,stage_json,Path("/tmp/v8178_stage.log"),Path("/tmp/v8178_stage.md"))
+          base=rmap(base_csv); staged=rmap(stage_csv)
+          bs=read_json(base_json); ss=read_json(stage_json)
+          active=active_codes()
+          assert len(active)==157 and set(base)==set(staged)==active
+          assert (int(bs.get("ready_count") or 0),int(ss.get("ready_count") or 0),int(bs.get("limited_count") or 0),int(ss.get("limited_count") or 0),blockers(base),blockers(staged))==(14,14,143,143,906,543)
+
+          direct_changed={c for c in added if stable(base[c])!=stable(staged[c])}
+          inherited_changed={c for c in active-added if stable(base[c])!=stable(staged[c])}
+          assert direct_changed==set(rg["direct_added_score_row_changed_tickers"])
+          assert inherited_changed==set(EXPECTED_INHERITED)
+
+          source_contracts={
+              str(r.get("source_contract_version") or "").strip()
+              for r in cand if str(r.get("source_contract_version") or "").strip()
+          }
+          score_policies={
+              str(r.get("score_policy_version") or "").strip()
+              for r in cand if str(r.get("score_policy_version") or "").strip()
+          }
+          assert len(source_contracts)==1 and len(score_policies)==1
+
+          fresh=shadow["fresh_source_run"]
+          assert fresh["financial_cache_rows"]==308
+          assert fresh["targets"]==288
+          assert fresh["output_rows"]==288
+          assert fresh["source_retention_guard"]=="PASS"
+
+          source_run_at=shadow["generated_at_kst"]
+          fin_before=kv(PROD_FIN_LOG)
+          source_before=kv(PROD_SOURCE_LOG)
+          assert parse_dt(fin_before["RUN_AT_KST"]) > parse_dt(source_before["RUN_AT_KST"])
+          assert parse_dt(source_run_at) > parse_dt(fin_before["RUN_AT_KST"])
+
+          shutil.copyfile(PROD_SOURCE,BACKUP_SOURCE)
+          shutil.copyfile(PROD_SOURCE_LOG,BACKUP_SOURCE_LOG)
+          shutil.copyfile(PROD_FIN_LOG,BACKUP_FIN_LOG)
+
+          try:
+              shutil.copyfile(CAND,PROD_SOURCE)
+              if PROD_SOURCE.read_bytes()!=CAND.read_bytes():
+                  raise RuntimeError("V8178_SOURCE_BYTES_MISMATCH")
+
+              PROD_SOURCE_LOG.write_text("\n".join([
+                  "SCRIPT_VERSION=investment_score_source_enricher_v854.py v8.11.7-five-financial-cis-interest-revenue",
+                  "SOURCE_CONTRACT_VERSION="+next(iter(source_contracts)),
+                  "SCORE_POLICY_VERSION="+next(iter(score_policies)),
+                  "RUN_AT_KST="+source_run_at,
+                  "CONTROLLED_PROMOTION_VERSION="+VERSION,
+                  "PROMOTED_FROM_STAGE_VERSION="+STAGE_VERSION,
+                  "PROMOTED_FROM_STAGE_COMMIT="+STAGE_COMMIT,
+                  "FINANCIAL_CACHE_ROWS=308",
+                  "TARGETS=288",
+                  "OUTPUT_ROWS=288",
+                  "SOURCE_ROW_DELTA=61",
+                  "THREE_YEAR_READY="+str(fresh["three_year_ready"]),
+                  "QUARTER_SOURCE_READY="+str(fresh["quarter_source_ready"]),
+                  "DEEP_SOURCE_READY="+str(fresh["deep_source_ready"]),
+                  "RAW_SOURCE_READY="+str(fresh["raw_source_ready"]),
+                  "SOURCE_RETENTION_GUARD=PASS",
+                  "SCORE_VALUES_GENERATED=false",
+                  "NET_CASH_CALCULATED=false",
+                  "EV_EBITDA_CALCULATED=false",
+                  "INVESTMENT_SCORE_100_CALCULATED=false",
+                  "SCORE_THRESHOLD_POLICY_STATUS=NOT_DEFINED",
+                  "STATUS_OK=true",
+                  "NEXT_STEP="+NEXT,
+              ])+"\n",encoding="utf-8")
+
+              PROD_FIN_LOG.write_text(
+                  synchronized_financial_log(
+                      BACKUP_FIN_LOG.read_text(encoding="utf-8-sig"),
+                      source_run_at,
+                  ),
+                  encoding="utf-8",
+              )
+
+              run(PROD_SOURCE,post_csv,post_json,Path("/tmp/v8178_post.log"),Path("/tmp/v8178_post.md"))
+              post=rmap(post_csv); ps=read_json(post_json)
+              assert set(post)==set(staged)==active
+
+              unequal=[c for c in sorted(active) if stable(post[c])!=stable(staged[c])]
+              if unequal:
+                  raise RuntimeError("V8178_POST_NOT_STAGE_EXACT:"+",".join(unequal[:30]))
+
+              assert (int(ps.get("ready_count") or 0),int(ps.get("limited_count") or 0),blockers(post))==(14,143,543)
+
+              source_after=kv(PROD_SOURCE_LOG)
+              fin_after=kv(PROD_FIN_LOG)
+              fin_dt=parse_dt(fin_after["RUN_AT_KST"])
+              src_dt=parse_dt(source_after["RUN_AT_KST"])
+              need_refresh=fin_dt>src_dt
+              reason="financial_source_newer_than_investment_source" if need_refresh else "investment_source_already_current"
+              assert need_refresh is False
+              assert reason=="investment_source_already_current"
+              assert fin_after["SOURCE_REFRESH_REQUIRED"]=="false"
+              assert fin_after["STATUS"]=="PRODUCTION_FINANCIAL_CACHE_READY_SOURCE_SYNCHRONIZED"
+
+          except Exception:
+              shutil.copyfile(BACKUP_SOURCE,PROD_SOURCE)
+              shutil.copyfile(BACKUP_SOURCE_LOG,PROD_SOURCE_LOG)
+              shutil.copyfile(BACKUP_FIN_LOG,PROD_FIN_LOG)
+              raise
+
+          summary={
+              "version":VERSION,
+              "generated_at_kst":datetime.now(KST).isoformat(timespec="seconds"),
+              "status":"PRODUCTION_SOURCE_CACHE_APPLIED_GATE_SYNCHRONIZED",
+              "policy_version":POLICY,
+              "v8177_version":STAGE_VERSION,
+              "v8177_result_commit":STAGE_COMMIT,
+              "production_source_cache":{
+                  "row_count_before":227,
+                  "row_count_after":288,
+                  "row_delta":61,
+                  "added_ticker_count":61,
+                  "added_tickers":sorted(added),
+                  "post_apply_exact_stage_bytes":True,
+              },
+              "scorer_regression":{
+                  "universe_count":157,
+                  "ready_before":14,"ready_after":14,
+                  "limited_before":143,"limited_after":143,
+                  "blockers_before":906,"blockers_after":543,
+                  "blockers_reduced_by":363,
+                  "direct_added_score_row_changed_count":61,
+                  "expected_inherited_preferred_score_row_changed_count":3,
+                  "expected_inherited_preferred_score_row_changed_tickers":sorted(EXPECTED_INHERITED),
+                  "unexpected_score_row_changed_count":0,
+                  "newly_ready_count":0,"lost_ready_count":0,
+                  "post_score_equals_staged_score":True,
+              },
+              "gate_sync":{
+                  "financial_run_at_kst":fin_after["RUN_AT_KST"],
+                  "source_run_at_kst":source_after["RUN_AT_KST"],
+                  "scheduled_gate_need_refresh_after_apply":False,
+                  "scheduled_gate_reason_after_apply":"investment_source_already_current",
+                  "financial_log_source_refresh_required_after_apply":False,
+                  "financial_log_status_after_apply":"PRODUCTION_FINANCIAL_CACHE_READY_SOURCE_SYNCHRONIZED",
+                  "manual_dispatch_force_refresh_preserved":True,
+                  "production_workflow_modified":False,
+              },
+              "rollback_guard":{
+                  "enabled":True,
+                  "restores_source_cache_on_failure":True,
+                  "restores_source_run_log_on_failure":True,
+                  "restores_financial_run_log_on_failure":True,
+              },
+              "hard_guards":{
+                  "production_source_cache_modified":True,
+                  "production_source_run_log_modified":True,
+                  "production_financial_run_log_metadata_modified":True,
+                  "production_financial_cache_modified":False,
+                  "production_api_modified":False,
+                  "production_score_written":False,
+                  "scoring_policy_modified":False,
+                  "source_value_imputed":False,
+                  "unexpected_score_row_changed":False,
+                  "preferred_inheritance_contract_violated":False,
+                  "ready_regression_count":0,
+              },
+              "next_step":NEXT,
+          }
+          OUT_JSON.write_text(json.dumps(summary,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+          OUT_LOG.write_text("\n".join([
+              f"VERSION={VERSION}",
+              "STATUS=PRODUCTION_SOURCE_CACHE_APPLIED_GATE_SYNCHRONIZED",
+              "SOURCE_ROWS_BEFORE=227","SOURCE_ROWS_AFTER=288","SOURCE_ROW_DELTA=61","ADDED_TICKERS=61",
+              "SCORER_UNIVERSE=157","READY_BEFORE=14","READY_AFTER=14","LIMITED_BEFORE=143","LIMITED_AFTER=143",
+              "BLOCKERS_BEFORE=906","BLOCKERS_AFTER=543","BLOCKER_REDUCED_BY=363",
+              "DIRECT_ADDED_SCORE_ROWS_CHANGED=61","EXPECTED_INHERITED_PREFERRED_SCORE_ROWS=3",
+              "EXPECTED_INHERITED_PREFERRED_TICKERS=000225,002787,078935",
+              "UNEXPECTED_SCORE_ROW_CHANGED=0","NEWLY_READY=0","LOST_READY=0",
+              "POST_SCORE_EQUALS_STAGED_SCORE=true",
+              "GATE_NEED_REFRESH_AFTER_APPLY=false",
+              "GATE_REASON_AFTER_APPLY=investment_source_already_current",
+              "ROLLBACK_GUARD_ENABLED=true",
+              "PRODUCTION_API_MODIFIED=false","PRODUCTION_SCORE_WRITTEN=false",
+              "STATUS_OK=true",f"NEXT_STEP={NEXT}",
+          ])+"\n",encoding="utf-8")
+          OUT_DOC.parent.mkdir(parents=True,exist_ok=True)
+          OUT_DOC.write_text(
+              "# V8.17.8 controlled production source-cache apply\n\n"
+              "- Promotes the exact V8.17.7 288-row staged source candidate.\n"
+              "- Production source cache: 227 -> 288 rows.\n"
+              "- Blockers: 906 -> 543 (-363).\n"
+              "- READY/LIMITED remains 14/143.\n"
+              "- 61 direct rows and exactly 3 preferred-share inheritance rows change.\n"
+              "- Unexpected drift 0; lost READY 0.\n"
+              "- Source timestamp now follows financial timestamp, so scheduled V8.5.4 gate is synchronized.\n"
+              "- Financial run log metadata is marked source-synchronized; financial cache itself is unchanged.\n"
+              "- Rollback restores source cache/source log/financial log on failure.\n"
+              "- API, score and scoring policy are unchanged.\n\n"
+              "Next: POST_SOURCE_APPLY_DYNAMIC_BLOCKER_REAUDIT_V8179\n",
+              encoding="utf-8"
+          )
+
+          print("V8178_CONTROLLED_APPLY=PASS")
+          print("V8178_SOURCE_ROWS=227->288")
+          print("V8178_BLOCKERS=906->543")
+          print("V8178_GATE_NEED_REFRESH_AFTER_APPLY=false")
+          print("V8178_NEXT_STEP="+NEXT)
+          PY
+
+          grep -q '^V8178_CONTROLLED_APPLY=PASS$' /tmp/v8178_stdout.txt
+          grep -q '^SOURCE_ROWS_AFTER=288$' latest/investment_score_source_production_v8178_run_log_latest.txt
+          grep -q '^BLOCKERS_AFTER=543$' latest/investment_score_source_production_v8178_run_log_latest.txt
+          grep -q '^GATE_NEED_REFRESH_AFTER_APPLY=false$' latest/investment_score_source_production_v8178_run_log_latest.txt
+          grep -q '^ROLLBACK_GUARD_ENABLED=true$' latest/investment_score_source_production_v8178_run_log_latest.txt
+
+      - name: Validate production outputs
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv,json
+          from datetime import datetime
+          from pathlib import Path
+
+          prod=Path("latest/investment_score_source_cache_latest.csv")
+          cand=Path("latest/investment_score_source_cache_candidate_v8177.csv")
+          assert prod.read_bytes()==cand.read_bytes()
+
+          with prod.open(encoding="utf-8-sig",newline="") as f:
+              rows=list(csv.DictReader(f))
+          assert len(rows)==288 and len({r["ticker"] for r in rows})==288
+
+          s=json.loads(Path(
+              "latest/investment_score_source_production_v8178_summary_latest.json"
+          ).read_text(encoding="utf-8"))
+
+          assert s["version"]=="2026-09-23-v8.17.8-controlled-post-financial-source-cache-apply"
+          assert s["status"]=="PRODUCTION_SOURCE_CACHE_APPLIED_GATE_SYNCHRONIZED"
+          assert s["v8177_result_commit"]=="98769f62737b9a7391db12eb08ead1f5eda7dc1a"
+          assert s["production_source_cache"]["row_count_before"]==227
+          assert s["production_source_cache"]["row_count_after"]==288
+          assert s["production_source_cache"]["row_delta"]==61
+          assert s["production_source_cache"]["post_apply_exact_stage_bytes"] is True
+
+          r=s["scorer_regression"]
+          assert (r["blockers_before"],r["blockers_after"],r["blockers_reduced_by"])==(906,543,363)
+          assert r["ready_before"]==r["ready_after"]==14
+          assert r["limited_before"]==r["limited_after"]==143
+          assert r["direct_added_score_row_changed_count"]==61
+          assert r["expected_inherited_preferred_score_row_changed_count"]==3
+          assert r["unexpected_score_row_changed_count"]==0
+          assert r["newly_ready_count"]==0 and r["lost_ready_count"]==0
+          assert r["post_score_equals_staged_score"] is True
+
+          g=s["gate_sync"]
+          assert g["scheduled_gate_need_refresh_after_apply"] is False
+          assert g["scheduled_gate_reason_after_apply"]=="investment_source_already_current"
+          assert g["financial_log_source_refresh_required_after_apply"] is False
+          assert g["production_workflow_modified"] is False
+
+          assert s["rollback_guard"]["enabled"] is True
+          assert s["next_step"]=="POST_SOURCE_APPLY_DYNAMIC_BLOCKER_REAUDIT_V8179"
+
+          def kv(path):
+              out={}
+              for line in Path(path).read_text(encoding="utf-8-sig").splitlines():
+                  if "=" in line:
+                      k,v=line.split("=",1); out[k]=v
+              return out
+          fin=kv("latest/financial_valuation_run_log_latest.txt")
+          src=kv("latest/investment_score_source_run_log_latest.txt")
+          assert datetime.fromisoformat(src["RUN_AT_KST"]) >= datetime.fromisoformat(fin["RUN_AT_KST"])
+          assert fin["SOURCE_REFRESH_REQUIRED"]=="false"
+          assert fin["STATUS"]=="PRODUCTION_FINANCIAL_CACHE_READY_SOURCE_SYNCHRONIZED"
+
+          print("V8178_OUTPUT_VALIDATION=PASS")
+          PY
+
+      - name: Verify only intended production files changed
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            investment_score_source_enricher_v854.py \
+            .github/workflows/v854-refresh-investment-score-source-cache.yml \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            latest/investment_score_supply_source_latest.json \
+            latest/investment_score_source_cache_candidate_v8177.csv \
+            latest/investment_score_source_stage_v8177_summary_latest.json \
+            latest/investment_score_source_stage_v8177_run_log_latest.txt \
+            latest/investment_score_source_shadow_v8176a_summary_latest.json \
+            > /tmp/v8178_protected.after
+
+          diff -u /tmp/v8178_protected.before /tmp/v8178_protected.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum > /tmp/v8178_api.after
+          diff -u /tmp/v8178_api.before /tmp/v8178_api.after
+
+          sha256sum \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_run_log_latest.txt \
+            > /tmp/v8178_intended.after
+
+          ! diff -q /tmp/v8178_intended.before /tmp/v8178_intended.after >/dev/null
+
+      - name: Restrict changed files and concurrent protected drift
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+          allowed={
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/investment_score_source_run_log_latest.txt",
+              "latest/financial_valuation_run_log_latest.txt",
+              "latest/investment_score_source_production_v8178_summary_latest.json",
+              "latest/investment_score_source_production_v8178_run_log_latest.txt",
+              "docs/investment_score_source_production_v8178.md",
+          }
+          changed=set()
+          for line in subprocess.check_output(
+              ["git","status","--porcelain","--untracked-files=all"],text=True
+          ).splitlines():
+              if line:
+                  changed.add(line[3:].split(" -> ")[-1])
+          bad=sorted(changed-allowed)
+          missing=sorted(allowed-changed)
+          if bad:
+              raise SystemExit("V8178_UNEXPECTED_CHANGED_FILES:"+",".join(bad))
+          if missing:
+              raise SystemExit("V8178_EXPECTED_CHANGED_FILES_MISSING:"+",".join(missing))
+          print("V8178_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+          protected={
+              "config/investment_score_policy_v880.json",
+              "investment_score_dry_run_v882.py",
+              "investment_score_source_enricher_v854.py",
+              ".github/workflows/v854-refresh-investment-score-source-cache.yml",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/investment_score_source_run_log_latest.txt",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/financial_valuation_run_log_latest.txt",
+              "latest/investment_score_source_cache_candidate_v8177.csv",
+              "latest/investment_score_source_stage_v8177_summary_latest.json",
+          }
+          upstream=set(subprocess.check_output(
+              ["git","diff","--name-only","HEAD..origin/main"],text=True
+          ).splitlines())
+          bad=sorted(p for p in upstream if p in protected or p.startswith("api/two_table_v1/"))
+          if bad:
+              raise SystemExit("V8178_CONCURRENT_PROTECTED_DRIFT:"+",".join(bad))
+          print("V8178_NO_CONCURRENT_PROTECTED_DRIFT=PASS")
+          PY
+
+      - name: Commit and push V8.17.8 controlled production result
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            latest/investment_score_source_cache_latest.csv \
+            latest/investment_score_source_run_log_latest.txt \
+            latest/financial_valuation_run_log_latest.txt \
+            latest/investment_score_source_production_v8178_summary_latest.json \
+            latest/investment_score_source_production_v8178_run_log_latest.txt \
+            docs/investment_score_source_production_v8178.md
+
+          git diff --cached --check
+          git commit -m "Apply controlled production source cache v8.17.8"
+          git pull --rebase origin main
+          git push origin HEAD:main

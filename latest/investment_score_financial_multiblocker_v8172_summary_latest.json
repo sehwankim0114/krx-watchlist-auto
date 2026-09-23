@@ -1,0 +1,166 @@
+{
+  "version": "2026-09-23-v8.17.2-financial-valuation-multiblocker-root-cause",
+  "generated_at_kst": "2026-09-23T14:46:18+09:00",
+  "status": "AUDIT_ONLY_FINANCIAL_MULTIBLOCKER_ROOT_CAUSE",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v8171a_version": "2026-09-23-v8.17.1A-dynamic-current-blocker-reaudit",
+  "v8171a_result_commit": "2c89816f540b518a0fdca94a7783579796beb61b",
+  "source_group": "FINANCIAL_VALUATION_CACHE",
+  "target_ticker_count": 73,
+  "blocker_occurrence_count": 561,
+  "blocker_reason_counts": {
+    "PER:MISSING_PER": 73,
+    "PBR:MISSING_PBR_OR_ROE": 71,
+    "ROE:MISSING_ROE": 71,
+    "순이익 흐름:MISSING_EARNINGS_TREND": 71,
+    "영업이익 성장과 흑자 여부:MISSING_OP_PROFIT": 71,
+    "영업이익률:MISSING_MARGIN": 71,
+    "흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND": 71,
+    "부채비율:MISSING_DEBT_RATIO": 62
+  },
+  "financial_cache_row_count": 240,
+  "source_cache_row_count": 227,
+  "lane_counts": {
+    "CURRENT_UNIVERSE_FINANCIAL_CACHE_ROW_MISSING": {
+      "ticker_count": 68,
+      "blocker_occurrences": 536,
+      "tickers": [
+        "000040",
+        "000100",
+        "000220",
+        "000225",
+        "000545",
+        "000680",
+        "000850",
+        "001060",
+        "001390",
+        "002070",
+        "002100",
+        "002140",
+        "002780",
+        "002787",
+        "003780",
+        "003830",
+        "003960",
+        "004255",
+        "004560",
+        "004720",
+        "005850",
+        "005950",
+        "006040",
+        "006110",
+        "006200",
+        "007610",
+        "007700",
+        "009835",
+        "010640",
+        "011150",
+        "011760",
+        "011930",
+        "012320",
+        "012630",
+        "012690",
+        "013520",
+        "013580",
+        "013870",
+        "014530",
+        "014710",
+        "014820",
+        "015260",
+        "017940",
+        "023810",
+        "064960",
+        "067830",
+        "077970",
+        "078000",
+        "078930",
+        "078935",
+        "088260",
+        "090080",
+        "093370",
+        "095720",
+        "097230",
+        "100250",
+        "102260",
+        "102460",
+        "210540",
+        "213500",
+        "248170",
+        "249420",
+        "271560",
+        "271980",
+        "326030",
+        "400760",
+        "439260",
+        "448730"
+      ]
+    },
+    "OFFICIAL_NO_CORP_CODE": {
+      "ticker_count": 2,
+      "blocker_occurrences": 15,
+      "tickers": [
+        "006125",
+        "108675"
+      ]
+    },
+    "CORP_IDENTITY_MISMATCH_REVIEW": {
+      "ticker_count": 1,
+      "blocker_occurrences": 8,
+      "tickers": [
+        "010120"
+      ]
+    },
+    "INTENTIONAL_LOSS_PER_NA": {
+      "ticker_count": 2,
+      "blocker_occurrences": 2,
+      "tickers": [
+        "036580",
+        "051910"
+      ]
+    }
+  },
+  "refresh_order_evidence": {
+    "financial_run_at_kst": "2026-09-23T10:50:54+09:00",
+    "financial_two_table_target_tickers": 120,
+    "source_run_at_kst": "2026-09-23T11:55:00+09:00",
+    "current_api_build_at_kst": "2026-09-23T14:10:25+09:00",
+    "current_api_build_id": "20260923T141025+0900-ee551d44ab",
+    "current_scorer_target_universe_count": 157,
+    "financial_before_source_before_current_api": true,
+    "universe_expanded_after_financial_refresh": true,
+    "missing_financial_rows": 68,
+    "same_68_absent_from_source_cache": true
+  },
+  "highest_actionable_recovery_lane": "CURRENT_UNIVERSE_FINANCIAL_CACHE_ROW_MISSING",
+  "highest_actionable_recovery_ticker_count": 68,
+  "highest_actionable_recovery_blocker_occurrences": 536,
+  "non_refresh_lanes": {
+    "official_no_corp_code": [
+      "006125",
+      "108675"
+    ],
+    "corp_identity_mismatch_review": [
+      "010120"
+    ],
+    "intentional_loss_per_na": [
+      "036580",
+      "051910"
+    ]
+  },
+  "automatic_promotion": {
+    "allowed": false,
+    "promoted_ticker_count": 0
+  },
+  "hard_guards": {
+    "production_financial_cache_modified": false,
+    "production_source_cache_modified": false,
+    "production_api_modified": false,
+    "production_score_written": false,
+    "scoring_policy_modified": false,
+    "corp_identity_policy_modified": false,
+    "issuer_alias_inferred": false,
+    "loss_per_fabricated": false,
+    "source_value_imputed": false
+  },
+  "next_step": "SHADOW_REFRESH_CURRENT_FINANCIAL_CACHE_V8173"
+}

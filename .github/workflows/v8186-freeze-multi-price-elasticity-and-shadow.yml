@@ -1,0 +1,680 @@
+name: Freeze recoverable multi price elasticity and shadow v8.18.6
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/v8186-freeze-multi-price-elasticity-and-shadow.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-krx-watchlist-latest
+  cancel-in-progress: false
+
+jobs:
+  shadow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify V8.18.5 lineage and capture protected state
+        run: |
+          set -euo pipefail
+
+          git merge-base --is-ancestor \
+            51637a494be1fcd786b357f9fd9035f6ca9edf77 HEAD
+
+          for f in \
+            latest/investment_score_price_elasticity_multi_audit_v8185.csv \
+            latest/investment_score_price_elasticity_multi_audit_v8185_summary_latest.json \
+            latest/investment_score_current_blockers_v8184.csv \
+            latest/investment_score_current_blockers_v8184_summary_latest.json \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.json \
+            latest/investment_score_price_elasticity_20d_run_log_latest.txt \
+            investment_score_dry_run_v882.py; do
+            test -f "$f"
+          done
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_price_elasticity_multi_audit_v8185.csv \
+            latest/investment_score_price_elasticity_multi_audit_v8185_summary_latest.json \
+            latest/investment_score_current_blockers_v8184.csv \
+            latest/investment_score_current_blockers_v8184_summary_latest.json \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.json \
+            latest/investment_score_price_elasticity_20d_run_log_latest.txt \
+            latest/investment_score_source_cache_latest.csv \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            > /tmp/v8186_protected.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum > /tmp/v8186_api.before
+
+      - name: Create and run V8.18.6 bulk freeze shadow validator
+        run: |
+          set -euo pipefail
+
+          cat > investment_score_price_elasticity_multi_shadow_v8186.py <<'PY'
+          #!/usr/bin/env python3
+          import csv
+          import json
+          import math
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_dry_run_v882 as scorer
+
+          VERSION="2026-09-23-v8.18.6-freeze-recoverable-multi-price-elasticity-and-shadow"
+          POLICY="2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          V8185_VERSION="2026-09-23-v8.18.5-top-multi-price-elasticity-official-audit"
+          V8185_COMMIT="51637a494be1fcd786b357f9fd9035f6ca9edf77"
+          V8184_VERSION="2026-09-23-v8.18.4-dynamic-post-elasticity-blocker-reaudit"
+
+          ROOT=Path(".")
+          KST=ZoneInfo("Asia/Seoul")
+          REASON="하루평균 절대등락률:MISSING_ELASTICITY"
+
+          AUDIT_CSV=ROOT/"latest/investment_score_price_elasticity_multi_audit_v8185.csv"
+          AUDIT_JSON=ROOT/"latest/investment_score_price_elasticity_multi_audit_v8185_summary_latest.json"
+          BLOCK_CSV=ROOT/"latest/investment_score_current_blockers_v8184.csv"
+          BLOCK_JSON=ROOT/"latest/investment_score_current_blockers_v8184_summary_latest.json"
+          PROD=ROOT/"latest/investment_score_price_elasticity_20d_latest.csv"
+
+          SOURCE_OUT=ROOT/"latest/investment_score_price_elasticity_multi_source_v8186.csv"
+          CAND_OUT=ROOT/"latest/investment_score_price_elasticity_candidate_v8186.csv"
+          COMPARE_OUT=ROOT/"latest/investment_score_price_elasticity_multi_shadow_v8186.csv"
+          SUMMARY_OUT=ROOT/"latest/investment_score_price_elasticity_multi_shadow_v8186_summary_latest.json"
+          LOG_OUT=ROOT/"latest/investment_score_price_elasticity_multi_shadow_v8186_run_log_latest.txt"
+          DOC_OUT=ROOT/"docs/investment_score_price_elasticity_multi_shadow_v8186.md"
+
+          BASE_CSV=Path("/tmp/v8186_base.csv")
+          BASE_JSON=Path("/tmp/v8186_base.json")
+          BASE_LOG=Path("/tmp/v8186_base.log")
+          BASE_DOC=Path("/tmp/v8186_base.md")
+          SHADOW_CSV=Path("/tmp/v8186_shadow.csv")
+          SHADOW_JSON=Path("/tmp/v8186_shadow.json")
+          SHADOW_LOG=Path("/tmp/v8186_shadow.log")
+          SHADOW_DOC=Path("/tmp/v8186_shadow.md")
+
+          def tick(v):
+              s="".join(c for c in str(v or "") if c.isdigit())
+              return s.zfill(6) if s else ""
+
+          def num(v):
+              try:
+                  if v is None or isinstance(v,bool):
+                      return None
+                  s=str(v).strip().replace(",","")
+                  if s in {"","-","None","null","nan","NaN"}:
+                      return None
+                  x=float(s)
+                  return x if math.isfinite(x) else None
+              except Exception:
+                  return None
+
+          def read_json(p):
+              return json.loads(Path(p).read_text(encoding="utf-8-sig"))
+
+          def rows(p):
+              with Path(p).open(encoding="utf-8-sig",newline="") as f:
+                  return list(csv.DictReader(f))
+
+          def write_rows(p, rs, fields):
+              Path(p).parent.mkdir(parents=True,exist_ok=True)
+              with Path(p).open("w",encoding="utf-8-sig",newline="") as f:
+                  w=csv.DictWriter(f,fieldnames=fields,lineterminator="\n")
+                  w.writeheader()
+                  w.writerows(rs)
+
+          def rmap(p):
+              return {tick(r.get("ticker")):r for r in rows(p) if tick(r.get("ticker"))}
+
+          def stable(r):
+              return json.dumps(r,ensure_ascii=False,sort_keys=True,separators=(",",":"))
+
+          def split_missing(v):
+              return [x for x in str(v or "").split(";") if x]
+
+          def blockers(m):
+              return sum(int(r.get("missing_component_count") or 0) for r in m.values())
+
+          def run_score(elasticity,ocsv,ojson,olog,odoc):
+              old={k:getattr(scorer,k) for k in ("VERSION","ELASTICITY","OUT_CSV","OUT_JSON","OUT_LOG","OUT_DOC")}
+              try:
+                  scorer.VERSION=VERSION
+                  scorer.ELASTICITY=Path(elasticity)
+                  scorer.OUT_CSV=Path(ocsv)
+                  scorer.OUT_JSON=Path(ojson)
+                  scorer.OUT_LOG=Path(olog)
+                  scorer.OUT_DOC=Path(odoc)
+                  rc=scorer.main()
+              finally:
+                  for k,v in old.items():
+                      setattr(scorer,k,v)
+              if rc not in (None,0):
+                  raise RuntimeError("V8186_SCORER_FAILED:"+str(rc))
+
+          def main():
+              audit=read_json(AUDIT_JSON)
+              block=read_json(BLOCK_JSON)
+
+              assert audit["version"]==V8185_VERSION
+              assert audit["status"]=="AUDIT_ONLY_TOP_MULTI_PRICE_ELASTICITY"
+              assert audit["policy_version"]==POLICY
+              assert audit["v8184_result_commit"]=="f88707312e12c6eb0af2c36da2ca2f63f7d3afa1"
+              assert audit["target_count"]==100
+              assert audit["recoverable_count"]==100
+              assert audit["insufficient_count"]==0
+              assert audit["classification"]=="ALL_RECOVERABLE"
+              assert audit["recoverable_tickers"]==sorted(audit["target_tickers"])
+              assert audit["next_step"]=="FREEZE_RECOVERABLE_MULTI_PRICE_ELASTICITY_AND_SHADOW_V8186"
+              assert audit["metric_contract"]["return_count"]==20
+              assert audit["metric_contract"]["minimum_valid_closes"]==21
+              assert audit["metric_contract"]["atr_substitution_allowed"] is False
+
+              assert block["version"]==V8184_VERSION
+              assert block["status"]=="AUDIT_ONLY_DYNAMIC_POST_ELASTICITY_BLOCKERS"
+              assert block["selection_mode"]=="MULTI_BLOCKER_GROUP"
+              assert block["selected_source_group"]=="PRICE_ELASTICITY_20D"
+              assert block["selected_ticker_count"]==100
+
+              targets=sorted(audit["target_tickers"])
+              target_set=set(targets)
+              if target_set!=set(block["selected_tickers"]):
+                  raise RuntimeError("V8186_TARGET_SET_NOT_V8184_SELECTED")
+
+              audit_rows=rows(AUDIT_CSV)
+              if len(audit_rows)!=100:
+                  raise RuntimeError("V8186_AUDIT_ROWS_NOT_100")
+              amap={tick(r.get("ticker")):r for r in audit_rows}
+              if set(amap)!=target_set:
+                  raise RuntimeError("V8186_AUDIT_TARGET_SET_MISMATCH")
+
+              block_rows=rows(BLOCK_CSV)
+              target_block_counts={}
+              for code in targets:
+                  reasons=[
+                      r for r in block_rows
+                      if tick(r.get("ticker"))==code
+                  ]
+                  if not reasons:
+                      raise RuntimeError("V8186_TARGET_NOT_IN_BLOCKER_FILE:"+code)
+                  counts={int(r.get("missing_component_count") or 0) for r in reasons}
+                  if len(counts)!=1:
+                      raise RuntimeError("V8186_TARGET_BLOCK_COUNT_INCONSISTENT:"+code)
+                  cnt=next(iter(counts))
+                  if cnt<2:
+                      raise RuntimeError("V8186_TARGET_NOT_MULTI_BLOCKER:"+code)
+                  erows=[
+                      r for r in reasons
+                      if r.get("source_group")=="PRICE_ELASTICITY_20D"
+                      and r.get("blocker_reason")==REASON
+                  ]
+                  if len(erows)!=1:
+                      raise RuntimeError("V8186_ELASTICITY_REASON_NOT_EXACTLY_ONE:"+code)
+                  target_block_counts[code]=cnt
+
+              prod_rows=rows(PROD)
+              if len(prod_rows)!=155:
+                  raise RuntimeError("V8186_PRODUCTION_CACHE_NOT_155:"+str(len(prod_rows)))
+              prod_fields=list(prod_rows[0].keys())
+              prod_map={tick(r.get("ticker")):r for r in prod_rows if tick(r.get("ticker"))}
+              if len(prod_map)!=155:
+                  raise RuntimeError("V8186_PRODUCTION_CACHE_DUPLICATE")
+              overlap=sorted(set(prod_map)&target_set)
+              if overlap:
+                  raise RuntimeError("V8186_TARGET_ALREADY_IN_PRODUCTION:"+",".join(overlap[:30]))
+
+              source_fields=[
+                  "ticker","name","basis_date","basis_source",
+                  "window_start_date","window_end_date",
+                  "close_observation_count","daily_return_observation_count",
+                  "avg_daily_move_pct","classification","source",
+                  "last20_return_dates_json","last20_returns_json",
+              ]
+              source_rows=[]
+
+              cand_map=dict(prod_map)
+              for code in targets:
+                  a=amap[code]
+                  if a["recoverable"]!="TRUE":
+                      raise RuntimeError("V8186_NONRECOVERABLE_IN_TARGET:"+code)
+                  pct=num(a.get("avg_daily_move_pct"))
+                  if pct is None:
+                      raise RuntimeError("V8186_MISSING_PCT:"+code)
+                  close_dates=json.loads(a.get("used_close_dates_json") or "[]")
+                  return_dates=json.loads(a.get("last20_return_dates_json") or "[]")
+                  returns=json.loads(a.get("last20_returns_json") or "[]")
+                  if len(close_dates)!=21 or len(return_dates)!=20 or len(returns)!=20:
+                      raise RuntimeError("V8186_EVIDENCE_LENGTH_BAD:"+code)
+
+                  source_rows.append({
+                      "ticker":code,
+                      "name":a.get("name",""),
+                      "basis_date":a["basis_date"],
+                      "basis_source":a["basis_source"],
+                      "window_start_date":close_dates[0],
+                      "window_end_date":close_dates[-1],
+                      "close_observation_count":"21",
+                      "daily_return_observation_count":"20",
+                      "avg_daily_move_pct":f"{pct:.4f}",
+                      "classification":a["classification"],
+                      "source":a["source"],
+                      "last20_return_dates_json":json.dumps(return_dates,ensure_ascii=False,separators=(",",":")),
+                      "last20_returns_json":json.dumps(returns,ensure_ascii=False,separators=(",",":")),
+                  })
+
+                  nr={f:"" for f in prod_fields}
+                  nr.update({
+                      "ticker":code,
+                      "name":a.get("name",""),
+                      "basis_date":a["basis_date"],
+                      "window_start_date":close_dates[0],
+                      "window_end_date":close_dates[-1],
+                      "close_observation_count":"21",
+                      "daily_return_observation_count":"20",
+                      "avg_daily_move_abs":"",
+                      "avg_daily_move_pct":f"{pct:.4f}",
+                      "source_status":"READY",
+                  })
+                  cand_map[code]=nr
+
+              write_rows(SOURCE_OUT,source_rows,source_fields)
+
+              candidate_rows=[cand_map[c] for c in sorted(cand_map)]
+              if len(candidate_rows)!=255:
+                  raise RuntimeError("V8186_CANDIDATE_NOT_255:"+str(len(candidate_rows)))
+              write_rows(CAND_OUT,candidate_rows,prod_fields)
+
+              cm=rmap(CAND_OUT)
+              if set(cm)-set(prod_map)!=target_set:
+                  raise RuntimeError("V8186_CANDIDATE_ADDED_SET_BAD")
+              changed_existing=[
+                  c for c in sorted(prod_map)
+                  if stable(prod_map[c])!=stable(cm[c])
+              ]
+              if changed_existing:
+                  raise RuntimeError("V8186_EXISTING_CACHE_DRIFT:"+",".join(changed_existing[:30]))
+
+              run_score(PROD,BASE_CSV,BASE_JSON,BASE_LOG,BASE_DOC)
+              run_score(CAND_OUT,SHADOW_CSV,SHADOW_JSON,SHADOW_LOG,SHADOW_DOC)
+
+              base=rmap(BASE_CSV)
+              shadow=rmap(SHADOW_CSV)
+              bs=read_json(BASE_JSON)
+              ss=read_json(SHADOW_JSON)
+
+              if set(base)!=set(shadow) or len(base)!=157:
+                  raise RuntimeError("V8186_SCORER_UNIVERSE_DRIFT")
+
+              btuple=(int(bs["ready_count"]),int(bs["limited_count"]),blockers(base))
+              stuple=(int(ss["ready_count"]),int(ss["limited_count"]),blockers(shadow))
+              if btuple!=(17,140,540):
+                  raise RuntimeError("V8186_BASELINE_DRIFT:"+str(btuple))
+              if stuple!=(17,140,440):
+                  raise RuntimeError("V8186_SHADOW_RESULT_BAD:"+str(stuple))
+
+              changed=[
+                  c for c in sorted(base)
+                  if stable(base[c])!=stable(shadow[c])
+              ]
+              if changed!=targets:
+                  extra=sorted(set(changed)-target_set)
+                  missing=sorted(target_set-set(changed))
+                  raise RuntimeError(
+                      "V8186_CHANGED_SCORE_SET_BAD:MISSING="+",".join(missing[:20])
+                      +":EXTRA="+",".join(extra[:20])
+                  )
+
+              compare=[]
+              for code in targets:
+                  bm=split_missing(base[code].get("missing_components"))
+                  sm=split_missing(shadow[code].get("missing_components"))
+                  if base[code].get("score_status")!="LIMITED":
+                      raise RuntimeError("V8186_BASE_TARGET_NOT_LIMITED:"+code)
+                  if shadow[code].get("score_status")!="LIMITED":
+                      raise RuntimeError("V8186_SHADOW_TARGET_NOT_LIMITED:"+code)
+                  if REASON not in bm:
+                      raise RuntimeError("V8186_BASE_REASON_MISSING:"+code)
+                  if REASON in sm:
+                      raise RuntimeError("V8186_SHADOW_REASON_NOT_REMOVED:"+code)
+                  if len(sm)!=len(bm)-1:
+                      raise RuntimeError("V8186_BLOCKER_COUNT_NOT_MINUS_ONE:"+code)
+                  if int(base[code].get("missing_component_count") or 0)!=target_block_counts[code]:
+                      raise RuntimeError("V8186_BASE_BLOCK_COUNT_MISMATCH:"+code)
+                  if int(shadow[code].get("missing_component_count") or 0)!=target_block_counts[code]-1:
+                      raise RuntimeError("V8186_SHADOW_BLOCK_COUNT_MISMATCH:"+code)
+
+                  compare.append({
+                      "ticker":code,
+                      "name":base[code].get("name",""),
+                      "avg_daily_move_pct":amap[code].get("avg_daily_move_pct",""),
+                      "baseline_status":base[code].get("score_status",""),
+                      "shadow_status":shadow[code].get("score_status",""),
+                      "baseline_missing_component_count":base[code].get("missing_component_count",""),
+                      "shadow_missing_component_count":shadow[code].get("missing_component_count",""),
+                      "baseline_missing_components":";".join(bm),
+                      "shadow_missing_components":";".join(sm),
+                  })
+
+              non_target_changed=[
+                  c for c in sorted(set(base)-target_set)
+                  if stable(base[c])!=stable(shadow[c])
+              ]
+              if non_target_changed:
+                  raise RuntimeError("V8186_NON_TARGET_SCORE_DRIFT:"+",".join(non_target_changed[:30]))
+
+              write_rows(COMPARE_OUT,compare,list(compare[0].keys()))
+
+              summary={
+                  "version":VERSION,
+                  "generated_at_kst":datetime.now(KST).isoformat(timespec="seconds"),
+                  "status":"BULK_SOURCE_FROZEN_SHADOW_PASS",
+                  "policy_version":POLICY,
+                  "v8185_version":V8185_VERSION,
+                  "v8185_result_commit":V8185_COMMIT,
+                  "source_frozen_count":100,
+                  "source_frozen_tickers":targets,
+                  "basis_date":audit["basis_date"],
+                  "basis_source":audit["basis_source"],
+                  "production_cache_row_count":155,
+                  "shadow_candidate_row_count":255,
+                  "cache_row_delta":100,
+                  "existing_elasticity_row_changed_count":0,
+                  "scorer_universe_count":157,
+                  "baseline_ready_count":17,
+                  "shadow_ready_count":17,
+                  "ready_delta":0,
+                  "baseline_limited_count":140,
+                  "shadow_limited_count":140,
+                  "limited_delta":0,
+                  "baseline_blocker_occurrences":540,
+                  "shadow_blocker_occurrences":440,
+                  "blocker_occurrences_reduced_by":100,
+                  "changed_score_row_count":100,
+                  "changed_score_tickers":targets,
+                  "elasticity_reason_removed_count":100,
+                  "newly_ready_count":0,
+                  "lost_ready_count":0,
+                  "non_target_score_row_changed_count":0,
+                  "all_targets_remain_limited_after_single_blocker_removal":True,
+                  "hard_guards":{
+                      "production_price_elasticity_cache_modified":False,
+                      "production_price_elasticity_metadata_modified":False,
+                      "production_price_elasticity_run_log_modified":False,
+                      "production_source_cache_modified":False,
+                      "production_financial_cache_modified":False,
+                      "production_ocf_cache_modified":False,
+                      "production_supply_source_modified":False,
+                      "production_api_modified":False,
+                      "production_score_written":False,
+                      "scoring_policy_modified":False,
+                      "atr_used_as_elasticity_substitute":False,
+                      "nonofficial_price_source_used":False,
+                      "non_target_score_row_changed":False,
+                  },
+                  "automatic_promotion":False,
+                  "next_step":"STAGE_BULK_PRODUCTION_PRICE_ELASTICITY_PATCH_V8187",
+              }
+
+              SUMMARY_OUT.write_text(
+                  json.dumps(summary,ensure_ascii=False,indent=2)+"\n",
+                  encoding="utf-8"
+              )
+              LOG_OUT.write_text("\n".join([
+                  f"VERSION={VERSION}",
+                  "STATUS=BULK_SOURCE_FROZEN_SHADOW_PASS",
+                  "SOURCE_FROZEN_COUNT=100",
+                  "PRODUCTION_CACHE_ROWS=155",
+                  "SHADOW_CANDIDATE_ROWS=255",
+                  "CACHE_ROW_DELTA=100",
+                  "EXISTING_ELASTICITY_ROW_CHANGED_COUNT=0",
+                  "SCORER_UNIVERSE=157",
+                  "BASELINE_READY=17",
+                  "SHADOW_READY=17",
+                  "READY_DELTA=0",
+                  "BASELINE_LIMITED=140",
+                  "SHADOW_LIMITED=140",
+                  "LIMITED_DELTA=0",
+                  "BASELINE_BLOCKERS=540",
+                  "SHADOW_BLOCKERS=440",
+                  "BLOCKER_REDUCED_BY=100",
+                  "CHANGED_SCORE_ROWS=100",
+                  "ELASTICITY_REASON_REMOVED_COUNT=100",
+                  "NEWLY_READY=0",
+                  "LOST_READY=0",
+                  "NON_TARGET_SCORE_ROW_CHANGED_COUNT=0",
+                  "ALL_TARGETS_REMAIN_LIMITED=true",
+                  "PRODUCTION_DATA_MODIFIED=false",
+                  "PRODUCTION_SCORE_WRITTEN=false",
+                  "AUTOMATIC_PROMOTION=false",
+                  "STATUS_OK=true",
+                  "NEXT_STEP=STAGE_BULK_PRODUCTION_PRICE_ELASTICITY_PATCH_V8187",
+              ])+"\n",encoding="utf-8")
+
+              DOC_OUT.parent.mkdir(parents=True,exist_ok=True)
+              DOC_OUT.write_text(
+                  "# V8.18.6 bulk price-elasticity freeze and shadow\n\n"
+                  "- Frozen official KRX elasticity source for 100 multi-blocker tickers.\n"
+                  "- Production elasticity cache remains 155 rows.\n"
+                  "- Shadow candidate: 255 rows.\n"
+                  "- READY / LIMITED remains 17 / 140.\n"
+                  "- Blockers: 540 -> 440 (-100).\n"
+                  "- Each target loses exactly one PRICE_ELASTICITY_20D blocker and remains LIMITED.\n"
+                  "- Existing 155 elasticity rows unchanged.\n"
+                  "- Non-target score drift: 0.\n"
+                  "- Production API, score, and policy unchanged.\n\n"
+                  "Next: STAGE_BULK_PRODUCTION_PRICE_ELASTICITY_PATCH_V8187\n",
+                  encoding="utf-8"
+              )
+
+              print("V8186_MULTI_PRICE_ELASTICITY_SHADOW=PASS")
+              print("V8186_CACHE_ROWS=155->255")
+              print("V8186_READY=17->17")
+              print("V8186_LIMITED=140->140")
+              print("V8186_BLOCKERS=540->440")
+              print("V8186_CHANGED_SCORE_ROWS=100")
+              print("V8186_NON_TARGET_SCORE_DRIFT=0")
+              print("V8186_NEXT_STEP=STAGE_BULK_PRODUCTION_PRICE_ELASTICITY_PATCH_V8187")
+
+          if __name__=="__main__":
+              main()
+          PY
+
+          python -m py_compile investment_score_price_elasticity_multi_shadow_v8186.py
+          python investment_score_price_elasticity_multi_shadow_v8186.py | tee /tmp/v8186_stdout.txt
+
+          grep -q '^V8186_MULTI_PRICE_ELASTICITY_SHADOW=PASS$' /tmp/v8186_stdout.txt
+          grep -q '^SOURCE_FROZEN_COUNT=100$' latest/investment_score_price_elasticity_multi_shadow_v8186_run_log_latest.txt
+          grep -q '^SHADOW_CANDIDATE_ROWS=255$' latest/investment_score_price_elasticity_multi_shadow_v8186_run_log_latest.txt
+          grep -q '^SHADOW_READY=17$' latest/investment_score_price_elasticity_multi_shadow_v8186_run_log_latest.txt
+          grep -q '^SHADOW_BLOCKERS=440$' latest/investment_score_price_elasticity_multi_shadow_v8186_run_log_latest.txt
+          grep -q '^CHANGED_SCORE_ROWS=100$' latest/investment_score_price_elasticity_multi_shadow_v8186_run_log_latest.txt
+          grep -q '^NON_TARGET_SCORE_ROW_CHANGED_COUNT=0$' latest/investment_score_price_elasticity_multi_shadow_v8186_run_log_latest.txt
+
+      - name: Validate V8.18.6 outputs and production immutability
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv,json
+          from pathlib import Path
+
+          s=json.loads(Path(
+              "latest/investment_score_price_elasticity_multi_shadow_v8186_summary_latest.json"
+          ).read_text(encoding="utf-8"))
+
+          assert s["version"]=="2026-09-23-v8.18.6-freeze-recoverable-multi-price-elasticity-and-shadow"
+          assert s["status"]=="BULK_SOURCE_FROZEN_SHADOW_PASS"
+          assert s["v8185_result_commit"]=="51637a494be1fcd786b357f9fd9035f6ca9edf77"
+          assert s["source_frozen_count"]==100
+          assert len(s["source_frozen_tickers"])==100
+          assert s["production_cache_row_count"]==155
+          assert s["shadow_candidate_row_count"]==255
+          assert s["cache_row_delta"]==100
+          assert s["existing_elasticity_row_changed_count"]==0
+          assert s["scorer_universe_count"]==157
+          assert (s["baseline_ready_count"],s["shadow_ready_count"],s["ready_delta"])==(17,17,0)
+          assert (s["baseline_limited_count"],s["shadow_limited_count"],s["limited_delta"])==(140,140,0)
+          assert (s["baseline_blocker_occurrences"],s["shadow_blocker_occurrences"],s["blocker_occurrences_reduced_by"])==(540,440,100)
+          assert s["changed_score_row_count"]==100
+          assert s["elasticity_reason_removed_count"]==100
+          assert s["newly_ready_count"]==0
+          assert s["lost_ready_count"]==0
+          assert s["non_target_score_row_changed_count"]==0
+          assert s["all_targets_remain_limited_after_single_blocker_removal"] is True
+          assert s["automatic_promotion"] is False
+          assert all(v is False for v in s["hard_guards"].values())
+          assert s["next_step"]=="STAGE_BULK_PRODUCTION_PRICE_ELASTICITY_PATCH_V8187"
+
+          with Path(
+              "latest/investment_score_price_elasticity_candidate_v8186.csv"
+          ).open(encoding="utf-8-sig",newline="") as f:
+              rows=list(csv.DictReader(f))
+          assert len(rows)==255
+          assert len({r["ticker"] for r in rows})==255
+
+          with Path(
+              "latest/investment_score_price_elasticity_multi_shadow_v8186.csv"
+          ).open(encoding="utf-8-sig",newline="") as f:
+              cmp=list(csv.DictReader(f))
+          assert len(cmp)==100
+          assert len({r["ticker"] for r in cmp})==100
+
+          print("V8186_OUTPUT_VALIDATION=PASS")
+          PY
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_price_elasticity_multi_audit_v8185.csv \
+            latest/investment_score_price_elasticity_multi_audit_v8185_summary_latest.json \
+            latest/investment_score_current_blockers_v8184.csv \
+            latest/investment_score_current_blockers_v8184_summary_latest.json \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.json \
+            latest/investment_score_price_elasticity_20d_run_log_latest.txt \
+            latest/investment_score_source_cache_latest.csv \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            > /tmp/v8186_protected.after
+
+          diff -u /tmp/v8186_protected.before /tmp/v8186_protected.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum > /tmp/v8186_api.after
+          diff -u /tmp/v8186_api.before /tmp/v8186_api.after
+
+      - name: Restrict changed files and concurrent protected drift
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+
+          allowed={
+              "investment_score_price_elasticity_multi_shadow_v8186.py",
+              "latest/investment_score_price_elasticity_multi_source_v8186.csv",
+              "latest/investment_score_price_elasticity_candidate_v8186.csv",
+              "latest/investment_score_price_elasticity_multi_shadow_v8186.csv",
+              "latest/investment_score_price_elasticity_multi_shadow_v8186_summary_latest.json",
+              "latest/investment_score_price_elasticity_multi_shadow_v8186_run_log_latest.txt",
+              "docs/investment_score_price_elasticity_multi_shadow_v8186.md",
+          }
+
+          changed=set()
+          for line in subprocess.check_output(
+              ["git","status","--porcelain","--untracked-files=all"],
+              text=True
+          ).splitlines():
+              if line:
+                  changed.add(line[3:].split(" -> ")[-1])
+
+          bad=sorted(changed-allowed)
+          if bad:
+              raise SystemExit("V8186_UNEXPECTED_CHANGED_FILES:"+",".join(bad))
+
+          print("V8186_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+
+          protected={
+              "config/investment_score_policy_v880.json",
+              "investment_score_dry_run_v882.py",
+              "latest/investment_score_price_elasticity_multi_audit_v8185.csv",
+              "latest/investment_score_price_elasticity_multi_audit_v8185_summary_latest.json",
+              "latest/investment_score_price_elasticity_20d_latest.csv",
+              "latest/investment_score_price_elasticity_20d_latest.json",
+              "latest/investment_score_price_elasticity_20d_run_log_latest.txt",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/financial_valuation_cache_latest.csv",
+          }
+
+          upstream=set(subprocess.check_output(
+              ["git","diff","--name-only","HEAD..origin/main"],
+              text=True
+          ).splitlines())
+
+          bad=sorted(
+              p for p in upstream
+              if p in protected or p.startswith("api/two_table_v1/")
+          )
+          if bad:
+              raise SystemExit("V8186_CONCURRENT_PROTECTED_DRIFT:"+",".join(bad))
+
+          print("V8186_NO_CONCURRENT_PROTECTED_DRIFT=PASS")
+          PY
+
+      - name: Commit and push V8.18.6 shadow outputs
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_price_elasticity_multi_shadow_v8186.py \
+            latest/investment_score_price_elasticity_multi_source_v8186.csv \
+            latest/investment_score_price_elasticity_candidate_v8186.csv \
+            latest/investment_score_price_elasticity_multi_shadow_v8186.csv \
+            latest/investment_score_price_elasticity_multi_shadow_v8186_summary_latest.json \
+            latest/investment_score_price_elasticity_multi_shadow_v8186_run_log_latest.txt \
+            docs/investment_score_price_elasticity_multi_shadow_v8186.md
+
+          git diff --cached --check
+          git commit -m "Freeze multi price elasticity and shadow v8.18.6"
+          git pull --rebase origin main
+          git push origin HEAD:main

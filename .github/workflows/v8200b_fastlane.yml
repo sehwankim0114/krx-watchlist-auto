@@ -1,0 +1,1031 @@
+name: F&F Holdings full supply fast lane v8.20.0B
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/v8200b_fastlane.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-krx-watchlist-latest
+  cancel-in-progress: false
+
+jobs:
+  fastlane:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+      KRX_ID: ${{ secrets.KRX_ID }}
+      KRX_PW: ${{ secrets.KRX_PW }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m pip install "pykrx==1.2.8"
+
+      - name: Verify quiet current production
+        run: |
+          set -euo pipefail
+
+          test -n "${DART_API_KEY:-}" || { echo "::error::DART_API_KEY missing"; exit 1; }
+          test -n "${KRX_ID:-}" || { echo "::error::KRX_ID missing"; exit 1; }
+          test -n "${KRX_PW:-}" || { echo "::error::KRX_PW missing"; exit 1; }
+
+          git merge-base --is-ancestor \
+            65a13b574dd8a06657f2e57125c41ef55a6a9b71 HEAD
+
+          for f in \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            investment_score_supply_actionable_v8149.py \
+            investment_score_supply_overlay_v8139b.py \
+            investment_score_current_blocker_reaudit_v8148.py \
+            investment_score_current_blocker_reaudit_v8161.py \
+            supply_burden_enricher.py \
+            two_table_release_v870.py \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            latest/investment_score_supply_source_latest.json \
+            latest/investment_score_supply_source_run_log_latest.txt \
+            latest/investment_score_current_blockers_v8194a_summary_latest.json \
+            api/status.json \
+            api/two_table_v1/manifest.json; do
+            test -f "$f"
+          done
+
+          git rev-parse HEAD > /tmp/v8200b_checkout_head.txt
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_source_cache_latest.csv \
+            > /tmp/v8200b_non_supply.before
+
+          echo "V8200B_PRECHECK=PASS"
+
+      - name: Audit shadow stage and prepare verified supply source
+        run: |
+          set -euo pipefail
+
+          cat > investment_score_supply_full_fastlane_v8200b.py <<'PY'
+          from __future__ import annotations
+
+          import copy
+          import csv
+          import hashlib
+          import json
+          import os
+          from collections import Counter, defaultdict
+          from datetime import datetime, timedelta
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_dry_run_v882 as scorer
+          import investment_score_supply_actionable_v8149 as dart_audit
+          from investment_score_supply_overlay_v8139b import load_supply_source
+
+          VERSION="2026-09-24-v8.20.0B-ff-holdings-full-supply-fast-lane"
+          POLICY="2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          SUPPLY_POLICY="2026-07-01-v6.0-supply-status-separated"
+          TARGET="007700"
+          TARGET_NAME="F&F홀딩스"
+          EXPECTED_CORP_CODE="00126487"
+          TARGET_REASON="수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+
+          ROOT=Path(".")
+          KST=ZoneInfo("Asia/Seoul")
+
+          FIN=ROOT/"latest/financial_valuation_cache_latest.csv"
+          SUPPLY=ROOT/"latest/investment_score_supply_source_latest.csv"
+          SUPPLY_META=ROOT/"latest/investment_score_supply_source_latest.json"
+          SUPPLY_LOG=ROOT/"latest/investment_score_supply_source_run_log_latest.txt"
+          MANIFEST=ROOT/"api/two_table_v1/manifest.json"
+
+          AUDIT_CSV=ROOT/"latest/investment_score_supply_fastlane_v8200b_audit.csv"
+          CANDIDATE_CSV=ROOT/"latest/investment_score_supply_fastlane_v8200b_candidate.csv"
+          SHADOW_CSV=ROOT/"latest/investment_score_supply_fastlane_v8200b_shadow.csv"
+          SUMMARY=ROOT/"latest/investment_score_supply_fastlane_v8200b_summary_latest.json"
+          RUNLOG=ROOT/"latest/investment_score_supply_fastlane_v8200b_run_log_latest.txt"
+          DOC=ROOT/"docs/investment_score_supply_fastlane_v8200b.md"
+
+          BASE_SCORE_CSV=Path("/tmp/v8200b_base_score.csv")
+          BASE_SCORE_JSON=Path("/tmp/v8200b_base_score.json")
+          BASE_SCORE_LOG=Path("/tmp/v8200b_base_score.log")
+          BASE_SCORE_DOC=Path("/tmp/v8200b_base_score.md")
+          SHADOW_SCORE_CSV=Path("/tmp/v8200b_shadow_score.csv")
+          SHADOW_SCORE_JSON=Path("/tmp/v8200b_shadow_score.json")
+          SHADOW_SCORE_LOG=Path("/tmp/v8200b_shadow_score.log")
+          SHADOW_SCORE_DOC=Path("/tmp/v8200b_shadow_score.md")
+
+          def ticker(v):
+              s="".join(ch for ch in str(v or "") if ch.isdigit())
+              return s.zfill(6) if s else ""
+
+          def read_json(p):
+              return json.loads(Path(p).read_text(encoding="utf-8-sig"))
+
+          def read_rows(p):
+              with Path(p).open(encoding="utf-8-sig",newline="") as f:
+                  return list(csv.DictReader(f))
+
+          def write_rows(p, rows, fields):
+              Path(p).parent.mkdir(parents=True,exist_ok=True)
+              with Path(p).open("w",encoding="utf-8-sig",newline="") as f:
+                  w=csv.DictWriter(f,fieldnames=fields,lineterminator="\n")
+                  w.writeheader()
+                  w.writerows(rows)
+
+          def rmap(rows):
+              return {ticker(r.get("ticker")):r for r in rows if ticker(r.get("ticker"))}
+
+          def stable(r):
+              return json.dumps(r,ensure_ascii=False,sort_keys=True,separators=(",",":"))
+
+          def split_missing(v):
+              return [x for x in str(v or "").split(";") if x]
+
+          def blocker_count(rows):
+              return sum(int(r.get("missing_component_count") or 0) for r in rows.values())
+
+          def run_score_real():
+              old={k:getattr(scorer,k) for k in ("VERSION","OUT_CSV","OUT_JSON","OUT_LOG","OUT_DOC")}
+              try:
+                  scorer.VERSION=VERSION
+                  scorer.OUT_CSV=BASE_SCORE_CSV
+                  scorer.OUT_JSON=BASE_SCORE_JSON
+                  scorer.OUT_LOG=BASE_SCORE_LOG
+                  scorer.OUT_DOC=BASE_SCORE_DOC
+                  rc=scorer.main()
+              finally:
+                  for k,v in old.items():
+                      setattr(scorer,k,v)
+              if rc not in (None,0):
+                  raise RuntimeError("V8200B_BASE_SCORER_FAILED")
+              return rmap(read_rows(BASE_SCORE_CSV)),read_json(BASE_SCORE_JSON)
+
+          def run_score_with_rows(prod_rows):
+              original=scorer.production_rows
+              old={k:getattr(scorer,k) for k in ("VERSION","OUT_CSV","OUT_JSON","OUT_LOG","OUT_DOC")}
+              try:
+                  scorer.production_rows=lambda: copy.deepcopy(prod_rows)
+                  scorer.VERSION=VERSION
+                  scorer.OUT_CSV=SHADOW_SCORE_CSV
+                  scorer.OUT_JSON=SHADOW_SCORE_JSON
+                  scorer.OUT_LOG=SHADOW_SCORE_LOG
+                  scorer.OUT_DOC=SHADOW_SCORE_DOC
+                  rc=scorer.main()
+              finally:
+                  scorer.production_rows=original
+                  for k,v in old.items():
+                      setattr(scorer,k,v)
+              if rc not in (None,0):
+                  raise RuntimeError("V8200B_SHADOW_SCORER_FAILED")
+              return rmap(read_rows(SHADOW_SCORE_CSV)),read_json(SHADOW_SCORE_JSON)
+
+          api_key=os.environ.get("DART_API_KEY","").strip()
+          if not api_key:
+              raise RuntimeError("V8200B_DART_API_KEY_MISSING")
+
+          policy=read_json(ROOT/"config/investment_score_policy_v880.json")
+          if policy.get("version")!=POLICY:
+              raise RuntimeError("V8200B_POLICY_DRIFT")
+
+          manifest=read_json(MANIFEST)
+          if manifest.get("release_stage")!="PRODUCTION" or manifest.get("safe_to_analyze_as_latest") is not True:
+              raise RuntimeError("V8200B_MANIFEST_NOT_READY")
+
+          manifest_before={
+              "basis_date":manifest.get("basis_date"),
+              "source_build_id":manifest.get("source_build_id"),
+              "source_commit":manifest.get("source_commit"),
+              "scorer_target_universe_count":int((manifest.get("sector_rs_source") or {}).get("unique_ticker_count") or 0),
+              "table_rows":{k:v["row_count"] for k,v in manifest["tables"].items()},
+              "supply_sha256":(manifest.get("source_sha256") or {}).get(
+                  "latest/investment_score_supply_source_latest.csv"
+              ),
+          }
+          if manifest_before["scorer_target_universe_count"]<=0:
+              raise RuntimeError("V8200B_MANIFEST_UNIVERSE_MISSING")
+
+          fin=rmap(read_rows(FIN)).get(TARGET)
+          if not fin:
+              raise RuntimeError("V8200B_FIN_TARGET_MISSING")
+          if fin.get("name")!=TARGET_NAME:
+              raise RuntimeError("V8200B_FIN_NAME_MISMATCH")
+          if fin.get("corp_identity_status") not in {"MATCH","MATCH_NORMALIZED"}:
+              raise RuntimeError("V8200B_FIN_IDENTITY_NOT_MATCH")
+          if str(fin.get("corp_code") or "")!=EXPECTED_CORP_CODE:
+              raise RuntimeError("V8200B_FIN_CORP_CODE_CHANGED")
+
+          old_rows=read_rows(SUPPLY)
+          fields=list(old_rows[0].keys())
+          old_map=rmap(old_rows)
+          if len(old_rows)!=9 or len(old_map)!=9 or TARGET in old_map:
+              raise RuntimeError("V8200B_SUPPLY_BASE_NOT_9")
+
+          supply_meta=read_json(SUPPLY_META)
+          if int(supply_meta.get("source_count") or 0)!=9:
+              raise RuntimeError("V8200B_SUPPLY_META_COUNT_NOT_9")
+          if supply_meta.get("status")!="PRODUCTION_SOURCE_APPLIED_API_REBUILT":
+              raise RuntimeError("V8200B_SUPPLY_META_STATUS_DRIFT")
+
+          base,bsum=run_score_real()
+          universe=len(base)
+          if universe!=manifest_before["scorer_target_universe_count"]:
+              raise RuntimeError(f"V8200B_SCORER_MANIFEST_MISMATCH:{universe}:{manifest_before['scorer_target_universe_count']}")
+
+          b_ready=int(bsum.get("ready_count") or 0)
+          b_limited=int(bsum.get("limited_count") or 0)
+          b_blockers=blocker_count(base)
+
+          if TARGET not in base:
+              raise RuntimeError("V8200B_TARGET_NOT_IN_SCORER")
+          if base[TARGET].get("score_status")!="LIMITED":
+              raise RuntimeError("V8200B_TARGET_NOT_LIMITED")
+          if split_missing(base[TARGET].get("missing_components"))!=[TARGET_REASON]:
+              raise RuntimeError("V8200B_TARGET_NOT_SINGLE_SUPPLY:"+base[TARGET].get("missing_components",""))
+
+          prod_rows=scorer.production_rows()
+          analysis=prod_rows[TARGET].get("analysis") or {}
+          if analysis.get("supply_status")!="LIMITED" or analysis.get("supply_level")!="없음":
+              raise RuntimeError("V8200B_BASE_SUPPLY_STATE_CHANGED")
+
+          # Reuse the exact audited DART transport/classification contract from V8.14.9.
+          dart_audit.TARGET=TARGET
+          dart_audit.TARGET_NAME=TARGET_NAME
+          dart_audit.EXPECTED_CORP_CODE=EXPECTED_CORP_CODE
+          keyword_rules,relief_keywords=dart_audit.load_supply_contract()
+
+          corp=dart_audit.fetch_corp_code_map(api_key)
+          if int(corp["exact_stock_match_count"])!=1:
+              raise RuntimeError("V8200B_DART_EXACT_STOCK_NOT_UNIQUE")
+          dart_code,dart_name=corp["values"][0]
+          if dart_code!=EXPECTED_CORP_CODE or dart_code!=str(fin.get("corp_code") or ""):
+              raise RuntimeError("V8200B_CORP_CODE_CROSSCHECK_MISMATCH")
+
+          audit_end=datetime.now(KST).date()
+          audit_start=audit_end-timedelta(days=dart_audit.REQUESTED_LOOKBACK_DAYS-1)
+          fetched=dart_audit.fetch_corp_reports(api_key,dart_code,audit_start,audit_end)
+          if not fetched["complete"]:
+              raise RuntimeError("V8200B_DART_180D_INCOMPLETE:"+json.dumps(fetched["api_errors"],ensure_ascii=False))
+
+          evidence=[]
+          max_severity=0
+          keywords=set()
+          relief_count=0
+          for item in fetched["reports"]:
+              report_name=str(item.get("report_nm") or "")
+              is_risk,labels,severity,relief=dart_audit.classify_report(
+                  report_name,keyword_rules,relief_keywords
+              )
+              if relief:
+                  relief_count+=1
+              if not is_risk:
+                  continue
+              max_severity=max(max_severity,severity)
+              keywords.update(labels)
+              evidence.append({
+                  "rcept_dt":str(item.get("rcept_dt") or ""),
+                  "rcept_no":str(item.get("rcept_no") or ""),
+                  "report_nm":report_name,
+                  "corp_name":str(item.get("corp_name") or ""),
+                  "keywords":labels,
+                  "severity":severity,
+                  "relief_flag":relief,
+              })
+          evidence.sort(key=lambda x:(x["rcept_dt"],x["rcept_no"]),reverse=True)
+
+          if evidence:
+              classification="COMPLETE_180D_POSITIVE_BURDEN"
+              proposed_level=dart_audit.severity_to_level(max_severity,len(evidence))
+          else:
+              classification="COMPLETE_180D_NO_POSITIVE_BURDEN"
+              proposed_level="없음"
+          proposed_status="OK"
+          latest=evidence[0] if evidence else {}
+
+          audit_row={
+              "ticker":TARGET,
+              "name":TARGET_NAME,
+              "corp_code":dart_code,
+              "corp_name_dart":dart_name,
+              "audit_start_date":audit_start.isoformat(),
+              "audit_end_date":audit_end.isoformat(),
+              "requested_lookback_days":dart_audit.REQUESTED_LOOKBACK_DAYS,
+              "chunk_count":len(fetched["chunks"]),
+              "dart_list_api_calls":fetched["api_calls"],
+              "dart_report_count":len(fetched["reports"]),
+              "risk_report_count":len(evidence),
+              "relief_report_match_count":relief_count,
+              "classification":classification,
+              "proposed_supply_status":proposed_status,
+              "proposed_supply_level":proposed_level,
+              "risk_keywords":",".join(sorted(keywords)),
+              "latest_risk_report_date":latest.get("rcept_dt",""),
+              "latest_risk_report_name":latest.get("report_nm",""),
+              "latest_risk_rcept_no":latest.get("rcept_no",""),
+              "chunk_summaries_json":json.dumps(fetched["chunks"],ensure_ascii=False,separators=(",",":")),
+              "evidence_reports_json":json.dumps(evidence,ensure_ascii=False,separators=(",",":")),
+          }
+          write_rows(AUDIT_CSV,[audit_row],list(audit_row.keys()))
+
+          candidate_prod=copy.deepcopy(prod_rows)
+          cand_analysis=copy.deepcopy(candidate_prod[TARGET].get("analysis") or {})
+          cand_analysis["supply_status"]=proposed_status
+          cand_analysis["supply_level"]=proposed_level
+          cand_analysis["supply_keywords"]=audit_row["risk_keywords"]
+          candidate_prod[TARGET]["analysis"]=cand_analysis
+
+          shadow,ssum=run_score_with_rows(candidate_prod)
+          s_ready=int(ssum.get("ready_count") or 0)
+          s_limited=int(ssum.get("limited_count") or 0)
+          s_blockers=blocker_count(shadow)
+
+          if set(base)!=set(shadow):
+              raise RuntimeError("V8200B_SHADOW_UNIVERSE_CHANGED")
+          if (s_ready,s_limited,s_blockers)!=(b_ready+1,b_limited-1,b_blockers-1):
+              raise RuntimeError(
+                  f"V8200B_SHADOW_DELTA_BAD:{b_ready}:{b_limited}:{b_blockers}->{s_ready}:{s_limited}:{s_blockers}"
+              )
+          if shadow[TARGET].get("score_status")!="READY":
+              raise RuntimeError("V8200B_TARGET_NOT_READY_IN_SHADOW")
+          changed=[c for c in sorted(base) if stable(base[c])!=stable(shadow[c])]
+          if changed!=[TARGET]:
+              raise RuntimeError("V8200B_NON_TARGET_SCORE_DRIFT:"+",".join(changed))
+
+          shadow_row={
+              "ticker":TARGET,
+              "name":TARGET_NAME,
+              "classification":classification,
+              "proposed_supply_status":proposed_status,
+              "proposed_supply_level":proposed_level,
+              "risk_keywords":audit_row["risk_keywords"],
+              "baseline_status":base[TARGET].get("score_status",""),
+              "shadow_status":shadow[TARGET].get("score_status",""),
+              "baseline_missing_components":base[TARGET].get("missing_components",""),
+              "shadow_missing_components":shadow[TARGET].get("missing_components",""),
+          }
+          write_rows(SHADOW_CSV,[shadow_row],list(shadow_row.keys()))
+
+          new_row={k:"" for k in fields}
+          new_row.update({
+              "ticker":TARGET,
+              "name":TARGET_NAME,
+              "source_origin":"V8200B_FASTLANE_CURRENT_SOURCE",
+              "source_status":"SOURCE_ONLY_READY",
+              "source_version":VERSION,
+              "source_classification":classification,
+              "corp_code":dart_code,
+              "corp_name_dart":dart_name,
+              "audit_start_date":audit_start.isoformat(),
+              "audit_end_date":audit_end.isoformat(),
+              "requested_lookback_days":str(dart_audit.REQUESTED_LOOKBACK_DAYS),
+              "chunk_count":str(len(fetched["chunks"])),
+              "dart_list_api_calls":str(fetched["api_calls"]),
+              "dart_report_count":str(len(fetched["reports"])),
+              "risk_report_count":str(len(evidence)),
+              "supply_status":proposed_status,
+              "supply_level":proposed_level,
+              "risk_keywords":audit_row["risk_keywords"],
+              "latest_risk_report_date":latest.get("rcept_dt",""),
+              "latest_risk_report_name":latest.get("report_nm",""),
+              "latest_risk_rcept_no":latest.get("rcept_no",""),
+              "relief_report_match_count":str(relief_count),
+              "evidence_reports_json":json.dumps(evidence,ensure_ascii=False,separators=(",",":")),
+              "chunk_summaries_json":json.dumps(fetched["chunks"],ensure_ascii=False,separators=(",",":")),
+              "evidence_ref":"V8200B:DART_LIST_180D_EXACT_STOCK:007700",
+          })
+
+          candidate_rows=list(old_rows)+[new_row]
+          candidate_rows.sort(key=lambda r:ticker(r.get("ticker")))
+          cmap=rmap(candidate_rows)
+          if len(candidate_rows)!=10 or len(cmap)!=10:
+              raise RuntimeError("V8200B_CANDIDATE_SOURCE_NOT_10")
+          for code in old_map:
+              if stable(old_map[code])!=stable(cmap[code]):
+                  raise RuntimeError("V8200B_EXISTING_SOURCE_ROW_CHANGED:"+code)
+
+          # Stage candidate and locally apply it. Nothing reaches main until final commit.
+          write_rows(CANDIDATE_CSV,candidate_rows,fields)
+          write_rows(SUPPLY,candidate_rows,fields)
+
+          loaded=load_supply_source(SUPPLY)
+          if set(loaded)!=set(cmap):
+              raise RuntimeError("V8200B_OVERLAY_LOADER_SET_BAD")
+          if loaded[TARGET]["supply_status"]!="OK" or loaded[TARGET]["supply_level"]!=proposed_level:
+              raise RuntimeError("V8200B_OVERLAY_TARGET_BAD")
+
+          now=datetime.now(KST).isoformat(timespec="seconds")
+          new_meta=copy.deepcopy(supply_meta)
+          new_meta.update({
+              "version":VERSION,
+              "status":"PRODUCTION_SOURCE_READY_NOT_YET_API_REBUILT",
+              "policy_version":POLICY,
+              "supply_policy_version":SUPPLY_POLICY,
+              "generated_at_kst":now,
+              "source_count":10,
+              "source_tickers":sorted(cmap),
+              "supply_levels":{c:r.get("supply_level","") for c,r in sorted(cmap.items())},
+              "previous_narrow_patch":supply_meta.get("narrow_patch"),
+              "narrow_patch":{
+                  "version":VERSION,
+                  "ticker_count":1,
+                  "tickers":[TARGET],
+                  "supply_status":"OK",
+                  "supply_level":proposed_level,
+                  "risk_keywords":sorted(keywords),
+                  "risk_report_count":len(evidence),
+                  "classification":classification,
+              },
+              "candidate_regression":{
+                  "current_scorer_universe_count":universe,
+                  "baseline_ready_count":b_ready,
+                  "baseline_limited_count":b_limited,
+                  "baseline_blocker_occurrences":b_blockers,
+                  "candidate_ready_count":s_ready,
+                  "candidate_limited_count":s_limited,
+                  "candidate_blocker_occurrences":s_blockers,
+                  "ready_delta":1,
+                  "limited_delta":-1,
+                  "blocker_occurrences_reduced_by":1,
+                  "non_target_score_row_changed_count":0,
+              },
+              "integration":{
+                  **(supply_meta.get("integration") or {}),
+                  "builder":"build_stock_table_preview_v850.py",
+                  "overlay_module":"investment_score_supply_overlay_v8139b.py",
+                  "precedence":"VERIFIED_SUPPLY_SOURCE_OVER_LEGACY_WHOLE_MARKET_SCAN",
+                  "production_api_rebuilt":False,
+                  "production_api_rebuild_mode":"PENDING_SAME_WORKFLOW_V8200B",
+              },
+              "next_step":"SAME_WORKFLOW_API_REBUILD_AND_POST_AUDIT",
+          })
+          SUPPLY_META.write_text(json.dumps(new_meta,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+          SUPPLY_LOG.write_text("\n".join([
+              f"VERSION={VERSION}",
+              "STATUS=PRODUCTION_SOURCE_READY_NOT_YET_API_REBUILT",
+              "SOURCE_COUNT_BEFORE=9",
+              "SOURCE_COUNT_AFTER=10",
+              "NARROW_PATCH_TICKER=007700",
+              f"NARROW_PATCH_SUPPLY_LEVEL={proposed_level}",
+              f"SCORER_UNIVERSE={universe}",
+              f"BASELINE_READY={b_ready}",
+              f"CANDIDATE_READY={s_ready}",
+              f"BASELINE_LIMITED={b_limited}",
+              f"CANDIDATE_LIMITED={s_limited}",
+              f"BASELINE_BLOCKERS={b_blockers}",
+              f"CANDIDATE_BLOCKERS={s_blockers}",
+              "NON_TARGET_SCORE_ROW_CHANGED=0",
+              "PRODUCTION_API_REBUILT=false",
+              "STATUS_OK=true",
+              "NEXT_STEP=SAME_WORKFLOW_API_REBUILD_AND_POST_AUDIT",
+          ])+"\n",encoding="utf-8")
+
+          summary={
+              "version":VERSION,
+              "generated_at_kst":now,
+              "status":"AUDIT_SHADOW_STAGE_SOURCE_READY_API_REBUILD_PENDING",
+              "policy_version":POLICY,
+              "supply_policy_version":SUPPLY_POLICY,
+              "target_ticker":TARGET,
+              "target_name":TARGET_NAME,
+              "audit":{
+                  "complete":True,
+                  "classification":classification,
+                  "audit_start_date":audit_start.isoformat(),
+                  "audit_end_date":audit_end.isoformat(),
+                  "dart_report_count":len(fetched["reports"]),
+                  "risk_report_count":len(evidence),
+                  "proposed_supply_status":"OK",
+                  "proposed_supply_level":proposed_level,
+                  "risk_keywords":sorted(keywords),
+              },
+              "production_manifest_before":manifest_before,
+              "baseline":{
+                  "universe_count":universe,
+                  "ready_count":b_ready,
+                  "limited_count":b_limited,
+                  "blocker_occurrences":b_blockers,
+              },
+              "candidate":{
+                  "ready_count":s_ready,
+                  "limited_count":s_limited,
+                  "blocker_occurrences":s_blockers,
+                  "changed_score_tickers":[TARGET],
+                  "non_target_score_row_changed_count":0,
+              },
+              "supply_source":{
+                  "rows_before":9,
+                  "rows_after":10,
+                  "existing_rows_changed":0,
+              },
+              "next_step":"SAME_WORKFLOW_API_REBUILD_AND_POST_AUDIT",
+          }
+          SUMMARY.write_text(json.dumps(summary,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+          RUNLOG.write_text("\n".join([
+              f"VERSION={VERSION}",
+              "STATUS=AUDIT_SHADOW_STAGE_SOURCE_READY_API_REBUILD_PENDING",
+              "TARGET_TICKER=007700",
+              f"SCORER_UNIVERSE={universe}",
+              f"BASELINE_READY={b_ready}",
+              f"CANDIDATE_READY={s_ready}",
+              f"BASELINE_LIMITED={b_limited}",
+              f"CANDIDATE_LIMITED={s_limited}",
+              f"BASELINE_BLOCKERS={b_blockers}",
+              f"CANDIDATE_BLOCKERS={s_blockers}",
+              "SOURCE_ROWS=9->10",
+              "NON_TARGET_SCORE_ROW_CHANGED=0",
+              "STATUS_OK=true",
+          ])+"\n",encoding="utf-8")
+
+          print("V8200B_PRE_REBUILD=PASS")
+          print(f"V8200B_UNIVERSE={universe}")
+          print(f"V8200B_READY={b_ready}->{s_ready}")
+          print(f"V8200B_BLOCKERS={b_blockers}->{s_blockers}")
+          print(f"V8200B_SUPPLY_LEVEL={proposed_level}")
+          PY
+
+          python -m py_compile investment_score_supply_full_fastlane_v8200b.py
+          python investment_score_supply_full_fastlane_v8200b.py | tee /tmp/v8200b_pre_stdout.txt
+          grep -q '^V8200B_PRE_REBUILD=PASS$' /tmp/v8200b_pre_stdout.txt
+
+      - name: Rebuild production two-table in same gated workflow
+        run: |
+          set -euo pipefail
+
+          python -m py_compile \
+            stock_table_metrics_v850.py \
+            build_stock_table_preview_v850.py \
+            build_two_table_shadow_v851.py \
+            sector_rs_source_v870.py \
+            two_table_release_v870.py
+
+          python two_table_release_v870.py --repo . | tee /tmp/v8200b_release.txt
+
+          grep -q '^V870_TWO_TABLE_RELEASE_CONTRACT=PASS$' /tmp/v8200b_release.txt
+          grep -q '^PRODUCTION_ACTIVATION_ALLOWED=true$' /tmp/v8200b_release.txt
+
+          python two_table_release_v870.py --repo . --check-only \
+            | tee /tmp/v8200b_release_check.txt
+          grep -q '^V870_TWO_TABLE_RELEASE_CONTRACT=PASS$' /tmp/v8200b_release_check.txt
+
+          echo "V8200B_API_REBUILD=PASS"
+
+      - name: Post regression and dynamic blocker reaudit
+        run: |
+          set -euo pipefail
+
+          cat > /tmp/v8200b_post.py <<'PY'
+          import csv
+          import hashlib
+          import json
+          from collections import Counter, defaultdict
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_dry_run_v882 as scorer
+          from investment_score_current_blocker_reaudit_v8148 import classify
+          from investment_score_current_blocker_reaudit_v8161 import recovery_status, ticker, split_reasons
+
+          ROOT=Path(".")
+          KST=ZoneInfo("Asia/Seoul")
+          TARGET="007700"
+          VERSION="2026-09-24-v8.20.0B-ff-holdings-full-supply-fast-lane"
+
+          SUMMARY=ROOT/"latest/investment_score_supply_fastlane_v8200b_summary_latest.json"
+          SUPPLY=ROOT/"latest/investment_score_supply_source_latest.csv"
+          SUPPLY_META=ROOT/"latest/investment_score_supply_source_latest.json"
+          SUPPLY_LOG=ROOT/"latest/investment_score_supply_source_run_log_latest.txt"
+          MANIFEST=ROOT/"api/two_table_v1/manifest.json"
+          EXHAUSTED=ROOT/"latest/investment_score_current_blockers_v8194a_summary_latest.json"
+
+          POST_CSV=Path("/tmp/v8200b_post_score.csv")
+          POST_JSON=Path("/tmp/v8200b_post_score.json")
+          POST_LOG=Path("/tmp/v8200b_post_score.log")
+          POST_DOC=Path("/tmp/v8200b_post_score.md")
+
+          BLOCK_CSV=ROOT/"latest/investment_score_current_blockers_v8200b.csv"
+          BLOCK_JSON=ROOT/"latest/investment_score_current_blockers_v8200b_summary_latest.json"
+
+          def read_json(p):
+              return json.loads(Path(p).read_text(encoding="utf-8-sig"))
+
+          def read_rows(p):
+              with Path(p).open(encoding="utf-8-sig",newline="") as f:
+                  return list(csv.DictReader(f))
+
+          def stable(r):
+              return json.dumps(r,ensure_ascii=False,sort_keys=True,separators=(",",":"))
+
+          def rmap(p):
+              return {ticker(r.get("ticker")):r for r in read_rows(p) if ticker(r.get("ticker"))}
+
+          def blockers(m):
+              return sum(int(r.get("missing_component_count") or 0) for r in m.values())
+
+          s=read_json(SUMMARY)
+          before=s["production_manifest_before"]
+          baseline=s["baseline"]
+          candidate=s["candidate"]
+          audit=s["audit"]
+
+          manifest=read_json(MANIFEST)
+          if manifest["basis_date"]!=before["basis_date"] or manifest["source_build_id"]!=before["source_build_id"]:
+              raise RuntimeError("V8200B_SOURCE_IDENTITY_DRIFT_DURING_REBUILD")
+          after_table_rows={k:v["row_count"] for k,v in manifest["tables"].items()}
+          if after_table_rows!=before["table_rows"]:
+              raise RuntimeError("V8200B_TABLE_ROW_COUNTS_CHANGED")
+
+          supply_sha=hashlib.sha256(SUPPLY.read_bytes()).hexdigest()
+          if (manifest.get("source_sha256") or {}).get(
+              "latest/investment_score_supply_source_latest.csv"
+          )!=supply_sha:
+              raise RuntimeError("V8200B_MANIFEST_SUPPLY_HASH_NOT_APPLIED")
+
+          # Production API target must now use the verified supply row.
+          prod=scorer.production_rows()
+          if TARGET not in prod:
+              raise RuntimeError("V8200B_TARGET_MISSING_POST_REBUILD")
+          analysis=prod[TARGET].get("analysis") or {}
+          if analysis.get("supply_status")!="OK" or analysis.get("supply_level")!=audit["proposed_supply_level"]:
+              raise RuntimeError("V8200B_TARGET_SUPPLY_NOT_APPLIED")
+
+          old={k:getattr(scorer,k) for k in ("VERSION","OUT_CSV","OUT_JSON","OUT_LOG","OUT_DOC")}
+          try:
+              scorer.VERSION=VERSION
+              scorer.OUT_CSV=POST_CSV
+              scorer.OUT_JSON=POST_JSON
+              scorer.OUT_LOG=POST_LOG
+              scorer.OUT_DOC=POST_DOC
+              rc=scorer.main()
+          finally:
+              for k,v in old.items():
+                  setattr(scorer,k,v)
+          if rc not in (None,0):
+              raise RuntimeError("V8200B_POST_SCORER_FAILED")
+
+          post=rmap(POST_CSV)
+          ps=read_json(POST_JSON)
+          if len(post)!=baseline["universe_count"]:
+              raise RuntimeError("V8200B_POST_UNIVERSE_CHANGED")
+
+          p_ready=int(ps["ready_count"])
+          p_limited=int(ps["limited_count"])
+          p_blockers=blockers(post)
+          if (p_ready,p_limited,p_blockers)!=(
+              candidate["ready_count"],candidate["limited_count"],candidate["blocker_occurrences"]
+          ):
+              raise RuntimeError(
+                  f"V8200B_POST_NOT_CANDIDATE:{p_ready}:{p_limited}:{p_blockers}"
+              )
+
+          base=rmap(Path("/tmp/v8200b_base_score.csv"))
+          changed=[c for c in sorted(base) if stable(base[c])!=stable(post[c])]
+          if changed!=[TARGET]:
+              raise RuntimeError("V8200B_POST_SCORE_DRIFT:"+",".join(changed))
+          if post[TARGET].get("score_status")!="READY":
+              raise RuntimeError("V8200B_TARGET_NOT_READY_POST")
+
+          # Dynamic blocker reaudit and next-lane selection.
+          exhausted=read_json(EXHAUSTED)
+          ev=exhausted["known_exhausted_evidence"]
+          da=set(ev["exact_da_exhausted_union_tickers"])
+          q2=set(ev["score_cache_q2_exhausted_tickers"])
+          v8104=set(ev["v8104_exhausted_tickers"])
+
+          out=[]
+          cats=Counter()
+          groups=Counter()
+          rec=Counter()
+          single_counts=Counter()
+          single_tickers=defaultdict(set)
+          multi_counts=Counter()
+          multi_tickers=defaultdict(set)
+
+          for row in post.values():
+              if row.get("score_status")!="LIMITED":
+                  continue
+              code=ticker(row.get("ticker"))
+              reasons=split_reasons(row.get("missing_components"))
+              single=len(reasons)==1
+              for reason in reasons:
+                  cat,group=classify(reason)
+                  if group=="UNKNOWN":
+                      raise RuntimeError("V8200B_UNCLASSIFIED:"+code+":"+reason)
+                  status=recovery_status(code,group,single,da,q2,v8104)
+                  cats[cat]+=1
+                  groups[group]+=1
+                  rec[status]+=1
+                  if status=="ACTIONABLE_SINGLE_BLOCKER_REAUDIT":
+                      single_counts[group]+=1
+                      single_tickers[group].add(code)
+                  if status=="MULTI_BLOCKER_SOURCE_LANE":
+                      multi_counts[group]+=1
+                      multi_tickers[group].add(code)
+                  out.append({
+                      "ticker":code,
+                      "name":row.get("name",""),
+                      "market":row.get("market",""),
+                      "missing_component_count":len(reasons),
+                      "blocker_reason":reason,
+                      "blocker_category":cat,
+                      "source_group":group,
+                      "single_blocker_ticker":"TRUE" if single else "FALSE",
+                      "recovery_status":status,
+                  })
+
+          if any(r["ticker"]==TARGET for r in out):
+              raise RuntimeError("V8200B_TARGET_STILL_BLOCKED")
+
+          singles=sorted([
+              {
+                  "source_group":g,
+                  "count":c,
+                  "tickers":sorted(single_tickers[g]),
+                  "total_group_blocker_occurrences":groups[g],
+              }
+              for g,c in single_counts.items() if c
+          ],key=lambda x:(-x["count"],-x["total_group_blocker_occurrences"],x["source_group"]))
+
+          multis=sorted([
+              {
+                  "source_group":g,
+                  "occurrences":c,
+                  "ticker_count":len(multi_tickers[g]),
+                  "tickers":sorted(multi_tickers[g]),
+                  "total_group_blocker_occurrences":groups[g],
+              }
+              for g,c in multi_counts.items() if c and g!="V880_SCORING_CONTRACT"
+          ],key=lambda x:(-x["occurrences"],-x["ticker_count"],x["source_group"]))
+
+          if singles:
+              mode="ACTIONABLE_SINGLE_BLOCKER"
+              selected_group=singles[0]["source_group"]
+              selected=singles[0]["tickers"]
+          elif multis:
+              mode="ACTIONABLE_MULTI_BLOCKER_GROUP"
+              selected_group=multis[0]["source_group"]
+              selected=multis[0]["tickers"]
+          else:
+              mode="NO_ACTIONABLE_SOURCE_LANE"
+              selected_group=""
+              selected=[]
+
+          out.sort(key=lambda r:(int(r["missing_component_count"]),r["ticker"],r["blocker_reason"]))
+          fields=list(out[0].keys()) if out else [
+              "ticker","name","market","missing_component_count","blocker_reason",
+              "blocker_category","source_group","single_blocker_ticker","recovery_status"
+          ]
+          with BLOCK_CSV.open("w",encoding="utf-8-sig",newline="") as f:
+              w=csv.DictWriter(f,fieldnames=fields,lineterminator="\n")
+              w.writeheader()
+              w.writerows(out)
+
+          now=datetime.now(KST).isoformat(timespec="seconds")
+
+          meta=read_json(SUPPLY_META)
+          meta["status"]="PRODUCTION_SOURCE_APPLIED_API_REBUILT"
+          meta["generated_at_kst"]=now
+          meta["integration"]={
+              **(meta.get("integration") or {}),
+              "production_api_rebuilt":True,
+              "production_api_rebuild_mode":"SAME_GATED_WORKFLOW_V8200B",
+              "production_api_source_build_id":manifest["source_build_id"],
+              "production_api_basis_date":manifest["basis_date"],
+              "production_api_supply_sha256":supply_sha,
+              "production_api_workflow_head":Path("/tmp/v8200b_checkout_head.txt").read_text().strip(),
+          }
+          meta["post_apply_validation"]={
+              "universe_count":len(post),
+              "ready_count":p_ready,
+              "limited_count":p_limited,
+              "blocker_occurrences":p_blockers,
+              "ready_delta":1,
+              "limited_delta":-1,
+              "blocker_occurrences_reduced_by":1,
+              "changed_score_row_count":1,
+              "changed_score_tickers":[TARGET],
+          }
+          meta["next_step"]="CONTINUE_FROM_DYNAMIC_POST_SUPPLY_REAUDIT"
+          SUPPLY_META.write_text(json.dumps(meta,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+
+          SUPPLY_LOG.write_text("\n".join([
+              f"VERSION={VERSION}",
+              "STATUS=PRODUCTION_SOURCE_APPLIED_API_REBUILT",
+              "SOURCE_COUNT=10",
+              "LATEST_PATCH_TICKER=007700",
+              f"POST_SCORER_UNIVERSE={len(post)}",
+              f"POST_READY={p_ready}",
+              f"POST_LIMITED={p_limited}",
+              f"POST_BLOCKERS={p_blockers}",
+              "READY_DELTA=1",
+              "LIMITED_DELTA=-1",
+              "BLOCKER_REDUCED_BY=1",
+              "CHANGED_SCORE_ROWS=1",
+              "PRODUCTION_API_REBUILT=true",
+              "STATUS_OK=true",
+          ])+"\n",encoding="utf-8")
+
+          s["status"]="FULL_FASTLANE_APPLIED_POST_REGRESSION_PASS"
+          s["generated_at_kst"]=now
+          s["post_apply"]={
+              "universe_count":len(post),
+              "ready_count":p_ready,
+              "limited_count":p_limited,
+              "blocker_occurrences":p_blockers,
+              "changed_score_row_count":1,
+              "changed_score_tickers":[TARGET],
+              "post_score_equals_candidate":True,
+              "manifest_supply_hash_applied":True,
+          }
+          s["dynamic_post_audit"]={
+              "blocker_category_counts":dict(cats),
+              "source_group_counts":dict(groups),
+              "recovery_status_counts":dict(rec),
+              "actionable_single_priority":singles,
+              "actionable_multi_priority":multis,
+              "selection_mode":mode,
+              "selected_source_group":selected_group,
+              "selected_ticker_count":len(selected),
+              "selected_tickers":selected,
+          }
+          s["hard_guards"]={
+              "production_supply_source_modified":True,
+              "production_api_modified":True,
+              "production_score_written":False,
+              "production_source_cache_modified":False,
+              "production_financial_cache_modified":False,
+              "production_ocf_cache_modified":False,
+              "production_price_elasticity_cache_modified":False,
+              "scoring_policy_modified":False,
+              "supply_policy_modified":False,
+              "issuer_mapping_guessed":False,
+              "non_target_score_row_changed":False,
+          }
+          s["next_step"]="CONTINUE_DYNAMIC_SELECTED_LANE_V8201A"
+          SUMMARY.write_text(json.dumps(s,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+
+          BLOCK_JSON.write_text(json.dumps({
+              "version":VERSION,
+              "generated_at_kst":now,
+              "status":"DYNAMIC_POST_SUPPLY_REAUDIT_PASS",
+              "scorer_universe_count":len(post),
+              "ready_count":p_ready,
+              "limited_count":p_limited,
+              "limited_blocker_occurrences":p_blockers,
+              "blocker_category_counts":dict(cats),
+              "source_group_counts":dict(groups),
+              "recovery_status_counts":dict(rec),
+              "actionable_single_priority":singles,
+              "actionable_multi_priority":multis,
+              "selection_mode":mode,
+              "selected_source_group":selected_group,
+              "selected_ticker_count":len(selected),
+              "selected_tickers":selected,
+              "resolved_ticker":TARGET,
+              "resolved_ticker_status":"READY",
+              "next_step":"CONTINUE_DYNAMIC_SELECTED_LANE_V8201A",
+          },ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+
+          print("V8200B_POST_REBUILD=PASS")
+          print(f"V8200B_POST_READY={p_ready}")
+          print(f"V8200B_POST_LIMITED={p_limited}")
+          print(f"V8200B_POST_BLOCKERS={p_blockers}")
+          print(f"V8200B_NEXT_MODE={mode}")
+          print(f"V8200B_NEXT_GROUP={selected_group}")
+          print(f"V8200B_NEXT_TICKER_COUNT={len(selected)}")
+          PY
+
+          python /tmp/v8200b_post.py | tee /tmp/v8200b_post_stdout.txt
+          grep -q '^V8200B_POST_REBUILD=PASS$' /tmp/v8200b_post_stdout.txt
+
+      - name: Validate protected sources and changed-file scope
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_source_cache_latest.csv \
+            > /tmp/v8200b_non_supply.after
+
+          diff -u /tmp/v8200b_non_supply.before /tmp/v8200b_non_supply.after
+
+          python - <<'PY'
+          import subprocess
+
+          exact_allowed={
+              "investment_score_supply_full_fastlane_v8200b.py",
+              "latest/investment_score_supply_fastlane_v8200b_audit.csv",
+              "latest/investment_score_supply_fastlane_v8200b_candidate.csv",
+              "latest/investment_score_supply_fastlane_v8200b_shadow.csv",
+              "latest/investment_score_supply_fastlane_v8200b_summary_latest.json",
+              "latest/investment_score_supply_fastlane_v8200b_run_log_latest.txt",
+              "latest/investment_score_current_blockers_v8200b.csv",
+              "latest/investment_score_current_blockers_v8200b_summary_latest.json",
+              "latest/investment_score_supply_source_latest.csv",
+              "latest/investment_score_supply_source_latest.json",
+              "latest/investment_score_supply_source_run_log_latest.txt",
+              "docs/investment_score_supply_fastlane_v8200b.md",
+          }
+
+          changed=set()
+          for line in subprocess.check_output(
+              ["git","status","--porcelain","--untracked-files=all"],text=True
+          ).splitlines():
+              if line:
+                  changed.add(line[3:].split(" -> ")[-1])
+
+          bad=sorted(
+              p for p in changed
+              if p not in exact_allowed and not p.startswith("api/two_table_v1/")
+          )
+          if bad:
+              raise SystemExit("V8200B_UNEXPECTED_CHANGED_FILES:"+",".join(bad))
+
+          if not any(p.startswith("api/two_table_v1/") for p in changed):
+              raise SystemExit("V8200B_API_REBUILD_DID_NOT_CHANGE_FILES")
+
+          print("V8200B_CHANGED_FILE_SCOPE=PASS")
+          PY
+
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+          upstream=set(subprocess.check_output(
+              ["git","diff","--name-only","HEAD..origin/main"],text=True
+          ).splitlines())
+
+          protected_prefixes=("api/two_table_v1/",)
+          protected_exact={
+              "latest/investment_score_supply_source_latest.csv",
+              "latest/investment_score_supply_source_latest.json",
+              "latest/investment_score_supply_source_run_log_latest.txt",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/financial_valuation_cache_latest.csv",
+              "latest/investment_score_ocf_source_latest.csv",
+              "latest/investment_score_price_elasticity_20d_latest.csv",
+          }
+          bad=sorted(
+              p for p in upstream
+              if p in protected_exact or any(p.startswith(x) for x in protected_prefixes)
+          )
+          if bad:
+              raise SystemExit("V8200B_CONCURRENT_PROTECTED_DRIFT:"+",".join(bad))
+          print("V8200B_NO_CONCURRENT_PROTECTED_DRIFT=PASS")
+          PY
+
+      - name: Commit and push atomic full fast lane
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_supply_full_fastlane_v8200b.py \
+            latest/investment_score_supply_fastlane_v8200b_audit.csv \
+            latest/investment_score_supply_fastlane_v8200b_candidate.csv \
+            latest/investment_score_supply_fastlane_v8200b_shadow.csv \
+            latest/investment_score_supply_fastlane_v8200b_summary_latest.json \
+            latest/investment_score_supply_fastlane_v8200b_run_log_latest.txt \
+            latest/investment_score_current_blockers_v8200b.csv \
+            latest/investment_score_current_blockers_v8200b_summary_latest.json \
+            latest/investment_score_supply_source_latest.csv \
+            latest/investment_score_supply_source_latest.json \
+            latest/investment_score_supply_source_run_log_latest.txt \
+            docs/investment_score_supply_fastlane_v8200b.md \
+            api/two_table_v1
+
+          git diff --cached --check
+          git commit -m "Complete F&F Holdings supply fast lane v8.20.0B"
+          git pull --rebase origin main
+          git push origin HEAD:main

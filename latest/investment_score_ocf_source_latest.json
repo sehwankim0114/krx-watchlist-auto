@@ -1,15 +1,15 @@
 {
   "version": "2026-09-12-v8.7.4-audited-operating-cash-flow-source",
-  "refresh_version": "2026-09-21-v8.13.3a-controlled-production-ocf-refresh",
-  "generated_at_kst": "2026-09-21T21:21:52+09:00",
+  "refresh_version": "2026-09-24-v8.19.3A-controlled-current-ocf-apply",
+  "generated_at_kst": "2026-09-24T20:00:28+09:00",
   "status": "READY_SOURCE_ONLY",
-  "production_unique_tickers": 149,
-  "operating_cash_flow_ready": 147,
+  "production_unique_tickers": 156,
+  "operating_cash_flow_ready": 154,
   "operating_cash_flow_limited": 2,
   "account_id_policy": "EXACT_ONLY:ifrs-full_CashFlowsFromUsedInOperatingActivities",
   "preferred_inheritance_policy": "APPROVED_CURRENT_FINANCIAL_IDENTITY_OR_EXACT_DART_STOCK_CODE_NAME_OR_VERIFIED_PREFERRED_COMMON_ONLY",
-  "promoted_from_candidate_version": "2026-09-21-v8.13.2-stage-current-universe-ocf-refresh",
-  "promoted_from_candidate_commit": "4d575a4bdcd8884c7f866fcfa23f4b330a4e6564",
+  "promoted_from_candidate_version": "2026-09-24-v8.19.2A-stage-current-ocf-patch",
+  "promoted_from_candidate_commit": "b7f31d2ef8fef000d1d06834b9b5e528b144b60b",
   "strict_identity_unresolved_count": 2,
   "strict_identity_unresolved_tickers": [
     "000480",
@@ -18,18 +18,19 @@
   "source_mode_counts": {
     "CURRENT_DART_STOCK_CODE_EXACT_NAME": 23,
     "DIRECT_EXACT_IFRS_V8130": 4,
+    "DIRECT_EXACT_IFRS_V8190A": 7,
     "PREFERRED_INHERIT_EXACT_COMMON": 8,
     "CURRENT_FINANCIAL_CORP_IDENTITY": 79,
     "UNRESOLVED_CURRENT_IDENTITY": 2,
     "DIRECT_EXACT_IFRS": 33
   },
   "scorer_validation": {
-    "baseline_ready_count": 19,
-    "post_ready_count": 23,
-    "ready_delta": 4,
-    "baseline_blocker_occurrences": 796,
-    "post_blocker_occurrences": 732,
-    "blocker_occurrences_reduced_by": 64
+    "baseline_ready_count": 15,
+    "post_ready_count": 22,
+    "ready_delta": 7,
+    "baseline_blocker_occurrences": 1625,
+    "post_blocker_occurrences": 1618,
+    "blocker_occurrences_reduced_by": 7
   },
   "hard_guards": {
     "investment_score_100_calculated": false,
@@ -38,5 +39,19 @@
     "source_value_imputed": false,
     "alternate_ocf_account_id_used": false,
     "unresolved_identity_force_mapped": false
+  },
+  "narrow_patch": {
+    "version": "2026-09-24-v8.19.3A-controlled-current-ocf-apply",
+    "ticker_count": 7,
+    "tickers": [
+      "000100",
+      "005850",
+      "006110",
+      "013870",
+      "014710",
+      "120110",
+      "271560"
+    ],
+    "source": "V8.19.0A exact annual OpenDART OCF audit"
   }
 }

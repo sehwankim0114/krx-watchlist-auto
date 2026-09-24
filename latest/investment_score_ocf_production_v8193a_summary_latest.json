@@ -1,0 +1,70 @@
+{
+  "version": "2026-09-24-v8.19.3A-controlled-current-ocf-apply",
+  "generated_at_kst": "2026-09-24T20:00:28+09:00",
+  "status": "PRODUCTION_CURRENT_OCF_PATCH_APPLIED_POST_REGRESSION_PASS",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "ocf_contract_version": "2026-09-12-v8.7.4-audited-operating-cash-flow-source",
+  "stage_version": "2026-09-24-v8.19.2A-stage-current-ocf-patch",
+  "stage_result_commit": "b7f31d2ef8fef000d1d06834b9b5e528b144b60b",
+  "applied_ticker_count": 7,
+  "applied_tickers": [
+    "000100",
+    "005850",
+    "006110",
+    "013870",
+    "014710",
+    "120110",
+    "271560"
+  ],
+  "production_before": {
+    "row_count": 149,
+    "source_ready_count": 147,
+    "source_limited_count": 2,
+    "scorer_ready_count": 15,
+    "scorer_limited_count": 183,
+    "blocker_occurrences": 1625
+  },
+  "production_after": {
+    "row_count": 156,
+    "source_ready_count": 154,
+    "source_limited_count": 2,
+    "scorer_ready_count": 22,
+    "scorer_limited_count": 176,
+    "blocker_occurrences": 1618
+  },
+  "ready_delta": 7,
+  "blocker_occurrences_reduced_by": 7,
+  "changed_score_row_count": 7,
+  "newly_ready_count": 7,
+  "lost_ready_count": 0,
+  "non_target_score_row_changed_count": 0,
+  "existing_ocf_row_changed_count": 0,
+  "post_score_equals_staged": true,
+  "strict_identity_unresolved_count": 2,
+  "strict_identity_unresolved_tickers": [
+    "000480",
+    "002200"
+  ],
+  "rollback_guard": {
+    "enabled": true,
+    "restores_production_csv": true,
+    "restores_metadata_json": true,
+    "restores_run_log": true
+  },
+  "hard_guards": {
+    "production_ocf_cache_modified": true,
+    "production_ocf_metadata_modified": true,
+    "production_ocf_run_log_modified": true,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_price_elasticity_cache_modified": false,
+    "production_api_modified": false,
+    "production_score_written": false,
+    "scoring_policy_modified": false,
+    "source_value_imputed": false,
+    "alternate_ocf_account_id_used": false,
+    "unresolved_identity_force_mapped": false,
+    "non_target_score_row_changed": false
+  },
+  "next_step": "POST_OCF_APPLY_DYNAMIC_BLOCKER_REAUDIT_V8194A"
+}

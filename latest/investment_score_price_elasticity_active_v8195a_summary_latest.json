@@ -1,0 +1,91 @@
+{
+  "version": "2026-09-24-v8.19.5A-current-actionable-price-elasticity-single-audit",
+  "generated_at_kst": "2026-09-24T20:13:44+09:00",
+  "status": "AUDIT_ONLY_CURRENT_ACTIONABLE_PRICE_ELASTICITY_SINGLE",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v8194a_version": "2026-09-24-v8.19.4A-post-ocf-dynamic-blocker-reaudit",
+  "v8194a_result_commit": "d50d2d13f107de7af32f27bcf57a055c0d46ec1d",
+  "target_count": 1,
+  "target_tickers": [
+    "034730"
+  ],
+  "target_names": [
+    "SK"
+  ],
+  "production_price_elasticity_row_count": 217,
+  "target_present_in_production_cache": false,
+  "metric_contract": {
+    "metric": "avg_daily_move_pct",
+    "definition": "mean(abs(close_t / close_t_minus_1 - 1)) over latest 20 official close returns * 100",
+    "return_count": 20,
+    "minimum_valid_closes": 21,
+    "atr_substitution_allowed": false
+  },
+  "basis_date": "2026-09-23",
+  "basis_source": "CURRENT_PRODUCTION_MANIFEST_BASIS_DATE",
+  "official_request_count": 31,
+  "official_session_count": 30,
+  "official_session_dates": [
+    "2026-08-12",
+    "2026-08-13",
+    "2026-08-14",
+    "2026-08-18",
+    "2026-08-19",
+    "2026-08-20",
+    "2026-08-21",
+    "2026-08-24",
+    "2026-08-25",
+    "2026-08-26",
+    "2026-08-27",
+    "2026-08-28",
+    "2026-08-31",
+    "2026-09-01",
+    "2026-09-02",
+    "2026-09-03",
+    "2026-09-04",
+    "2026-09-07",
+    "2026-09-08",
+    "2026-09-09",
+    "2026-09-10",
+    "2026-09-11",
+    "2026-09-14",
+    "2026-09-15",
+    "2026-09-16",
+    "2026-09-17",
+    "2026-09-18",
+    "2026-09-21",
+    "2026-09-22",
+    "2026-09-23"
+  ],
+  "transport_or_parse_fail_count": 0,
+  "target_result": {
+    "ticker": "034730",
+    "name": "SK",
+    "valid_close_count": 30,
+    "classification": "OFFICIAL_KRX_PRICE_ELASTICITY_RECOVERABLE_CURRENT_BASIS",
+    "recoverable": true,
+    "avg_daily_move_pct": 2.9064,
+    "official_sessions_without_valid_target_close_count": 0
+  },
+  "classification": "RECOVERABLE",
+  "recoverable_count": 1,
+  "recoverable_tickers": [
+    "034730"
+  ],
+  "insufficient_count": 0,
+  "insufficient_tickers": [],
+  "hard_guards": {
+    "production_price_elasticity_cache_modified": false,
+    "production_ocf_cache_modified": false,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_api_modified": false,
+    "production_score_written": false,
+    "scoring_policy_modified": false,
+    "atr_used_as_elasticity_substitute": false,
+    "nonofficial_price_source_used": false,
+    "source_promoted": false
+  },
+  "automatic_promotion": false,
+  "next_step": "FREEZE_CURRENT_ACTIONABLE_PRICE_ELASTICITY_AND_SHADOW_V8196A"
+}

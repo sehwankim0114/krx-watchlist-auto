@@ -356,8 +356,8 @@ jobs:
               "NEXT_STEP=STAGE_CURRENT_OCF_PATCH_V8192A",
           ])+"\n",encoding="utf-8")
 
-          OUT_DOC.parent.mkdir(parents=True,exist_ok=True)
-          OUT_DOC.write_text(
+          DOC_OUT.parent.mkdir(parents=True,exist_ok=True)
+          DOC_OUT.write_text(
               "# V8.19.1A recoverable OCF freeze and shadow\n\n"
               "- Seven exact annual OCF values audited in V8.19.0A are frozen as source-only candidates.\n"
               "- Production OCF cache remains 149 rows; shadow candidate is 156 rows.\n"

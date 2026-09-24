@@ -1,0 +1,354 @@
+import csv
+import json
+from collections import Counter, defaultdict
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import investment_score_dry_run_v882 as scorer
+from investment_score_current_blocker_reaudit_v8148 import classify
+from investment_score_current_blocker_reaudit_v8161 import (
+    recovery_status, ticker, split_reasons
+)
+
+VERSION="2026-09-24-v8.19.4A-post-ocf-dynamic-blocker-reaudit"
+POLICY="2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+V8193A_VERSION="2026-09-24-v8.19.3A-controlled-current-ocf-apply"
+V8193A_COMMIT="8e79c4eb32fac979727696905d45ed391d934dbe"
+
+ROOT=Path(".")
+KST=ZoneInfo("Asia/Seoul")
+
+PRIOR=ROOT/"latest/investment_score_ocf_production_v8193a_summary_latest.json"
+OCF_META=ROOT/"latest/investment_score_ocf_source_latest.json"
+EXHAUSTED=ROOT/"latest/investment_score_current_blockers_v8179_summary_latest.json"
+MANIFEST=ROOT/"api/two_table_v1/manifest.json"
+ELASTIC_META=ROOT/"latest/investment_score_price_elasticity_20d_latest.json"
+
+TMP_CSV=Path("/tmp/v8194a_score.csv")
+TMP_JSON=Path("/tmp/v8194a_score.json")
+TMP_LOG=Path("/tmp/v8194a_score.log")
+TMP_DOC=Path("/tmp/v8194a_score.md")
+
+OUT_CSV=ROOT/"latest/investment_score_current_blockers_v8194a.csv"
+OUT_JSON=ROOT/"latest/investment_score_current_blockers_v8194a_summary_latest.json"
+OUT_LOG=ROOT/"latest/investment_score_current_blockers_v8194a_run_log_latest.txt"
+OUT_DOC=ROOT/"docs/investment_score_current_blockers_v8194a.md"
+
+def read_json(p):
+    return json.loads(Path(p).read_text(encoding="utf-8-sig"))
+
+def run_scorer():
+    old={k:getattr(scorer,k) for k in ("VERSION","OUT_CSV","OUT_JSON","OUT_LOG","OUT_DOC")}
+    try:
+        scorer.VERSION=VERSION
+        scorer.OUT_CSV=TMP_CSV
+        scorer.OUT_JSON=TMP_JSON
+        scorer.OUT_LOG=TMP_LOG
+        scorer.OUT_DOC=TMP_DOC
+        rc=scorer.main()
+    finally:
+        for k,v in old.items():
+            setattr(scorer,k,v)
+    if rc not in (None,0):
+        raise RuntimeError("V8194A_SCORER_FAILED:"+str(rc))
+
+prior=read_json(PRIOR)
+ocf=read_json(OCF_META)
+exhausted=read_json(EXHAUSTED)
+mf=read_json(MANIFEST)
+em=read_json(ELASTIC_META)
+
+assert prior["version"]==V8193A_VERSION
+assert prior["status"]=="PRODUCTION_CURRENT_OCF_PATCH_APPLIED_POST_REGRESSION_PASS"
+assert prior["policy_version"]==POLICY
+assert prior["stage_result_commit"]=="b7f31d2ef8fef000d1d06834b9b5e528b144b60b"
+assert prior["rollback_guard"]["enabled"] is True
+assert prior["next_step"]=="POST_OCF_APPLY_DYNAMIC_BLOCKER_REAUDIT_V8194A"
+assert prior["production_after"]["row_count"]==156
+assert prior["production_after"]["source_ready_count"]==154
+assert prior["production_after"]["source_limited_count"]==2
+assert prior["production_after"]["scorer_ready_count"]==22
+assert prior["production_after"]["scorer_limited_count"]==176
+assert prior["production_after"]["blocker_occurrences"]==1618
+
+assert ocf["refresh_version"]==V8193A_VERSION
+assert ocf["production_unique_tickers"]==156
+assert ocf["operating_cash_flow_ready"]==154
+assert ocf["operating_cash_flow_limited"]==2
+assert ocf["narrow_patch"]["ticker_count"]==7
+
+assert em["production_unique_tickers"]==217
+assert em["ready_tickers"]==217
+
+assert mf["release_stage"]=="PRODUCTION"
+assert mf["safe_to_analyze_as_latest"] is True
+current_universe=int((mf.get("sector_rs_source") or {}).get("unique_ticker_count") or 0)
+if current_universe<=0:
+    raise RuntimeError("V8194A_MANIFEST_UNIVERSE_MISSING")
+
+ev=exhausted["known_exhausted_evidence"]
+da=set(ev["exact_da_exhausted_union_tickers"])
+q2=set(ev["score_cache_q2_exhausted_tickers"])
+v8104=set(ev["v8104_exhausted_tickers"])
+if len(da)!=67:
+    raise RuntimeError("V8194A_DA_EXHAUSTED_EVIDENCE_DRIFT")
+if q2!={"357430","365550"}:
+    raise RuntimeError("V8194A_Q2_EXHAUSTED_EVIDENCE_DRIFT")
+if v8104!={"001020","357250"}:
+    raise RuntimeError("V8194A_V8104_EXHAUSTED_EVIDENCE_DRIFT")
+
+run_scorer()
+
+with TMP_CSV.open(encoding="utf-8-sig",newline="") as f:
+    score_rows=list(csv.DictReader(f))
+score_summary=read_json(TMP_JSON)
+
+if len(score_rows)!=current_universe:
+    raise RuntimeError(
+        f"V8194A_SCORER_MANIFEST_UNIVERSE_MISMATCH:{len(score_rows)}:{current_universe}"
+    )
+
+ready=[r for r in score_rows if r.get("score_status")=="READY"]
+limited=[r for r in score_rows if r.get("score_status")=="LIMITED"]
+if len(ready)+len(limited)!=len(score_rows):
+    raise RuntimeError("V8194A_UNKNOWN_SCORE_STATUS")
+
+assert int(score_summary.get("ready_count") or -1)==len(ready)
+assert int(score_summary.get("limited_count") or -1)==len(limited)
+
+out=[]
+cats=Counter()
+groups=Counter()
+group_tickers=defaultdict(set)
+rec=Counter()
+single_counts=Counter()
+single_tickers=defaultdict(set)
+multi_counts=Counter()
+multi_tickers=defaultdict(set)
+exhausted_counts=Counter()
+policy_counts=Counter()
+
+for row in limited:
+    code=ticker(row.get("ticker"))
+    reasons=split_reasons(row.get("missing_components"))
+    if not reasons:
+        raise RuntimeError("V8194A_LIMITED_WITHOUT_REASON:"+code)
+    single=len(reasons)==1
+
+    for reason in reasons:
+        cat,group=classify(reason)
+        if group=="UNKNOWN":
+            raise RuntimeError("V8194A_UNCLASSIFIED:"+code+":"+reason)
+
+        status=recovery_status(code,group,single,da,q2,v8104)
+        cats[cat]+=1
+        groups[group]+=1
+        group_tickers[group].add(code)
+        rec[status]+=1
+
+        if status=="ACTIONABLE_SINGLE_BLOCKER_REAUDIT":
+            single_counts[group]+=1
+            single_tickers[group].add(code)
+        if status=="MULTI_BLOCKER_SOURCE_LANE":
+            multi_counts[group]+=1
+            multi_tickers[group].add(code)
+        if status.startswith("EXHAUSTED_"):
+            exhausted_counts[status]+=1
+        if status=="POLICY_SEMANTIC_DEFER":
+            policy_counts[group]+=1
+
+        out.append({
+            "ticker":code,
+            "name":row.get("name",""),
+            "market":row.get("market",""),
+            "missing_component_count":len(reasons),
+            "blocker_reason":reason,
+            "blocker_category":cat,
+            "source_group":group,
+            "single_blocker_ticker":"TRUE" if single else "FALSE",
+            "recovery_status":status,
+        })
+
+blocker_count=len(out)
+
+singles=sorted([
+    {
+        "source_group":g,
+        "actionable_single_blocker_count":c,
+        "actionable_single_blocker_tickers":sorted(single_tickers[g]),
+        "total_group_blocker_occurrences":groups[g],
+    }
+    for g,c in single_counts.items() if c
+],key=lambda x:(
+    -x["actionable_single_blocker_count"],
+    -x["total_group_blocker_occurrences"],
+    x["source_group"],
+))
+
+multis=sorted([
+    {
+        "source_group":g,
+        "actionable_multi_blocker_occurrences":c,
+        "actionable_multi_blocker_ticker_count":len(multi_tickers[g]),
+        "actionable_multi_blocker_tickers":sorted(multi_tickers[g]),
+        "total_group_blocker_occurrences":groups[g],
+    }
+    for g,c in multi_counts.items()
+    if c and g!="V880_SCORING_CONTRACT"
+],key=lambda x:(
+    -x["actionable_multi_blocker_occurrences"],
+    -x["actionable_multi_blocker_ticker_count"],
+    x["source_group"],
+))
+
+if singles:
+    mode="ACTIONABLE_SINGLE_BLOCKER"
+    selected_group=singles[0]["source_group"]
+    selected=singles[0]["actionable_single_blocker_tickers"]
+    next_step="AUDIT_CURRENT_ACTIONABLE_SINGLE_BLOCKER_GROUP_V8195A"
+elif multis:
+    mode="ACTIONABLE_MULTI_BLOCKER_GROUP"
+    selected_group=multis[0]["source_group"]
+    selected=multis[0]["actionable_multi_blocker_tickers"]
+    next_step="AUDIT_TOP_ACTIONABLE_MULTI_BLOCKER_GROUP_V8195A"
+else:
+    mode="NO_ACTIONABLE_SOURCE_LANE"
+    selected_group=""
+    selected=[]
+    next_step="REVIEW_REMAINING_POLICY_OR_EXHAUSTED_BLOCKERS_V8195A"
+
+out.sort(key=lambda r:(int(r["missing_component_count"]),r["ticker"],r["blocker_reason"]))
+
+OUT_CSV.parent.mkdir(parents=True,exist_ok=True)
+fields=[
+    "ticker","name","market","missing_component_count",
+    "blocker_reason","blocker_category","source_group",
+    "single_blocker_ticker","recovery_status"
+]
+with OUT_CSV.open("w",encoding="utf-8-sig",newline="") as f:
+    w=csv.DictWriter(f,fieldnames=fields,lineterminator="\n")
+    w.writeheader()
+    w.writerows(out)
+
+summary={
+    "version":VERSION,
+    "generated_at_kst":datetime.now(KST).isoformat(timespec="seconds"),
+    "status":"AUDIT_ONLY_DYNAMIC_POST_OCF_BLOCKERS",
+    "policy_version":POLICY,
+    "v8193a_version":V8193A_VERSION,
+    "v8193a_result_commit":V8193A_COMMIT,
+    "reaudit_mode":"CURRENT_PRODUCTION_DYNAMIC_UNIVERSE",
+    "production_manifest":{
+        "basis_date":mf.get("basis_date"),
+        "source_build_id":mf.get("source_build_id"),
+        "source_commit":mf.get("source_commit"),
+        "manifest_universe_count":mf.get("universe_count"),
+        "scorer_target_universe_count":current_universe,
+        "kospi_rows":mf["tables"]["kospi"]["row_count"],
+        "decliners_rows":mf["tables"]["decliners"]["row_count"],
+        "decliners24_rows":mf["tables"]["decliners24"]["row_count"],
+    },
+    "current_ocf_state":{
+        "refresh_version":ocf.get("refresh_version"),
+        "production_unique_tickers":ocf.get("production_unique_tickers"),
+        "ready_tickers":ocf.get("operating_cash_flow_ready"),
+        "limited_tickers":ocf.get("operating_cash_flow_limited"),
+        "narrow_patch_count":ocf.get("narrow_patch",{}).get("ticker_count"),
+    },
+    "current_elasticity_state":{
+        "refresh_version":em.get("refresh_version"),
+        "production_unique_tickers":em.get("production_unique_tickers"),
+        "ready_tickers":em.get("ready_tickers"),
+    },
+    "scorer_universe_count":len(score_rows),
+    "ready_count":len(ready),
+    "limited_count":len(limited),
+    "limited_blocker_occurrences":blocker_count,
+    "blocker_category_counts":dict(cats),
+    "source_group_counts":dict(groups),
+    "source_group_tickers":{g:sorted(v) for g,v in group_tickers.items()},
+    "recovery_status_counts":dict(rec),
+    "exhausted_status_counts":dict(exhausted_counts),
+    "policy_defer_group_counts":dict(policy_counts),
+    "known_exhausted_evidence":{
+        "exact_da_exhausted_union_count":67,
+        "exact_da_exhausted_union_tickers":sorted(da),
+        "score_cache_q2_exhausted_count":2,
+        "score_cache_q2_exhausted_tickers":sorted(q2),
+        "v8104_exhausted_tickers":sorted(v8104),
+    },
+    "actionable_single_priority":singles,
+    "actionable_multi_priority":multis,
+    "selection_mode":mode,
+    "selected_source_group":selected_group,
+    "selected_ticker_count":len(selected),
+    "selected_tickers":selected,
+    "baseline_reference":{
+        "v8193a_scorer_ready":prior["production_after"]["scorer_ready_count"],
+        "v8193a_scorer_limited":prior["production_after"]["scorer_limited_count"],
+        "v8193a_blockers":prior["production_after"]["blocker_occurrences"],
+        "current_state_may_be_newer_due_to_scheduled_refresh":True,
+    },
+    "hard_guards":{
+        "production_data_modified":False,
+        "production_api_modified":False,
+        "production_score_written":False,
+        "scoring_policy_modified":False,
+        "source_value_imputed":False,
+        "exhausted_lane_auto_requeried":False,
+        "fixed_historical_universe_assumption_used":False,
+    },
+    "next_step":next_step,
+}
+
+OUT_JSON.write_text(json.dumps(summary,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+OUT_LOG.write_text("\n".join([
+    f"VERSION={VERSION}",
+    "STATUS=AUDIT_ONLY_DYNAMIC_POST_OCF_BLOCKERS",
+    f"PRODUCTION_BASIS_DATE={mf.get('basis_date')}",
+    f"SCORER_UNIVERSE={len(score_rows)}",
+    f"READY={len(ready)}",
+    f"LIMITED={len(limited)}",
+    f"BLOCKER_OCCURRENCES={blocker_count}",
+    f"ACTIONABLE_SINGLE_BLOCKERS={sum(single_counts.values())}",
+    f"ACTIONABLE_MULTI_BLOCKERS={sum(multi_counts.values())}",
+    f"SELECTION_MODE={mode}",
+    f"SELECTED_SOURCE_GROUP={selected_group}",
+    f"SELECTED_TICKER_COUNT={len(selected)}",
+    f"OCF_CACHE_ROWS={ocf.get('production_unique_tickers')}",
+    f"OCF_NARROW_PATCH_COUNT={ocf.get('narrow_patch',{}).get('ticker_count')}",
+    "FIXED_HISTORICAL_UNIVERSE_ASSUMPTION_USED=false",
+    "EXHAUSTED_LANE_AUTO_REQUERIED=false",
+    "PRODUCTION_DATA_MODIFIED=false",
+    "STATUS_OK=true",
+    f"NEXT_STEP={next_step}",
+])+"\n",encoding="utf-8")
+
+OUT_DOC.parent.mkdir(parents=True,exist_ok=True)
+OUT_DOC.write_text(
+    "# V8.19.4A dynamic post-OCF blocker reaudit\n\n"
+    f"- Current scorer universe: {len(score_rows)}.\n"
+    f"- READY / LIMITED: {len(ready)} / {len(limited)}.\n"
+    f"- Current blocker occurrences: {blocker_count}.\n"
+    f"- Actionable single blocker occurrences: {sum(single_counts.values())}.\n"
+    f"- Actionable multi blocker occurrences: {sum(multi_counts.values())}.\n"
+    f"- Selection mode: {mode}.\n"
+    f"- Selected source group: {selected_group}.\n"
+    f"- Selected ticker count: {len(selected)}.\n"
+    "- Exhausted evidence retained and excluded from automatic requery.\n"
+    "- Current production manifest is used; no fixed historical universe.\n"
+    "- Audit-only; production cache, API, score and policy unchanged.\n\n"
+    f"Next: {next_step}\n",
+    encoding="utf-8"
+)
+
+print("V8194A_DYNAMIC_REAUDIT=PASS")
+print(f"V8194A_SCORER_UNIVERSE={len(score_rows)}")
+print(f"V8194A_READY={len(ready)}")
+print(f"V8194A_LIMITED={len(limited)}")
+print(f"V8194A_BLOCKERS={blocker_count}")
+print(f"V8194A_SELECTION_MODE={mode}")
+print(f"V8194A_SELECTED_SOURCE_GROUP={selected_group}")
+print(f"V8194A_SELECTED_TICKER_COUNT={len(selected)}")
+print(f"V8194A_NEXT_STEP={next_step}")

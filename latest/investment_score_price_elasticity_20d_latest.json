@@ -1,11 +1,11 @@
 {
   "version": "2026-09-12-v8.7.5-price-elasticity-20-session-source",
-  "refresh_version": "2026-09-24-v8.18.8A-controlled-current-basis-bulk-price-elasticity-apply",
-  "generated_at_kst": "2026-09-24T19:04:35+09:00",
+  "refresh_version": "2026-09-24-v8.19.8A-controlled-current-single-price-elasticity-apply",
+  "generated_at_kst": "2026-09-24T20:58:09+09:00",
   "status": "READY_SOURCE_ONLY",
   "basis_date": "2026-09-18",
-  "production_unique_tickers": 217,
-  "ready_tickers": 217,
+  "production_unique_tickers": 218,
+  "ready_tickers": 218,
   "limited_tickers": 0,
   "formula": "mean(abs(close_t/close_t_minus_1-1)*100) for latest 20 trading-session returns",
   "close_observations_required": 21,
@@ -23,31 +23,31 @@
   "basis_date_semantics": "full_refresh_basis; per-row basis_date is authoritative for narrow-patched rows",
   "latest_row_basis_date": "2026-09-23",
   "narrow_patch": {
-    "version": "2026-09-23-v8.18.3-controlled-narrow-production-price-elasticity-patch",
-    "promoted_from_version": "2026-09-23-v8.18.2-stage-narrow-production-price-elasticity-patch",
-    "promoted_from_commit": "dc4c6ada8570a11b76b35d1ce86e71fd445440aa",
-    "ticker_count": 6,
+    "version": "2026-09-24-v8.19.8A-controlled-current-single-price-elasticity-apply",
+    "promoted_from_version": "2026-09-24-v8.19.7A-stage-current-single-price-elasticity-patch",
+    "promoted_from_commit": "6049da74552d05c60265d713f7f5739b75284210",
+    "ticker_count": 7,
     "tickers": [
       "004990",
       "006040",
       "006260",
       "012630",
+      "034730",
       "078930",
       "267250"
     ],
-    "basis_date": "2026-09-22",
+    "basis_date": "2026-09-23",
     "values": {
       "004990": 1.3594,
       "006260": 2.7,
       "267250": 2.91,
       "006040": 0.9959,
       "012630": 2.572,
-      "078930": 2.2485
+      "078930": 2.2485,
+      "034730": 2.9064
     },
     "latest_added_tickers": [
-      "006040",
-      "012630",
-      "078930"
+      "034730"
     ]
   },
   "bulk_patch": {

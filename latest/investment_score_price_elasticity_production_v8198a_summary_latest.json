@@ -1,0 +1,77 @@
+{
+  "version": "2026-09-24-v8.19.8A-controlled-current-single-price-elasticity-apply",
+  "generated_at_kst": "2026-09-24T20:58:09+09:00",
+  "status": "PRODUCTION_CURRENT_SINGLE_ELASTICITY_APPLIED_POST_REGRESSION_PASS",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "source_contract_version": "2026-09-12-v8.7.5-price-elasticity-20-session-source",
+  "v8197a_version": "2026-09-24-v8.19.7A-stage-current-single-price-elasticity-patch",
+  "v8197a_result_commit": "6049da74552d05c60265d713f7f5739b75284210",
+  "production_cache": {
+    "row_count_before": 217,
+    "row_count_after": 218,
+    "row_delta": 1,
+    "latest_added_tickers": [
+      "034730"
+    ],
+    "latest_added_values": {
+      "034730": 2.9064
+    },
+    "cumulative_narrow_patch_count": 7,
+    "cumulative_narrow_patch_tickers": [
+      "004990",
+      "006040",
+      "006260",
+      "012630",
+      "034730",
+      "078930",
+      "267250"
+    ],
+    "bulk_patch_count": 62,
+    "bulk_patch_preserved_exactly": true,
+    "existing_row_changed_count": 0,
+    "post_apply_exact_stage_bytes": true
+  },
+  "scorer_regression": {
+    "universe_count": 198,
+    "ready_before": 22,
+    "ready_after": 23,
+    "limited_before": 176,
+    "limited_after": 175,
+    "blockers_before": 1618,
+    "blockers_after": 1617,
+    "blockers_reduced_by": 1,
+    "changed_score_row_count": 1,
+    "changed_score_tickers": [
+      "034730"
+    ],
+    "non_target_score_row_changed_count": 0,
+    "newly_ready_count": 1,
+    "newly_ready_tickers": [
+      "034730"
+    ],
+    "lost_ready_count": 0,
+    "post_score_equals_staged_score": true
+  },
+  "rollback_guard": {
+    "enabled": true,
+    "restores_cache": true,
+    "restores_metadata": true,
+    "restores_run_log": true
+  },
+  "hard_guards": {
+    "production_price_elasticity_cache_modified": true,
+    "production_price_elasticity_metadata_modified": true,
+    "production_price_elasticity_run_log_modified": true,
+    "production_ocf_cache_modified": false,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_api_modified": false,
+    "production_score_written": false,
+    "scoring_policy_modified": false,
+    "atr_substituted": false,
+    "nonofficial_price_source_used": false,
+    "non_target_elasticity_rows_modified": false,
+    "ready_regression_count": 0
+  },
+  "next_step": "POST_SINGLE_ELASTICITY_APPLY_DYNAMIC_BLOCKER_REAUDIT_V8199A"
+}

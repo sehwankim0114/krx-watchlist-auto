@@ -1,0 +1,124 @@
+name: Run patched V8.20.0B v2
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/v8200b_runtime_fixed_runner_v2.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-krx-watchlist-latest
+  cancel-in-progress: false
+
+jobs:
+  run-patched-v8200b-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+      KRX_ID: ${{ secrets.KRX_ID }}
+      KRX_PW: ${{ secrets.KRX_PW }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install runner helper
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml
+
+      - name: Execute V8.20.0B with runtime fixes
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          import subprocess
+          import yaml
+
+          workflow = Path(".github/workflows/v8200b_fastlane.yml")
+          if not workflow.exists():
+              raise SystemExit("V8200B_ORIGINAL_WORKFLOW_MISSING")
+
+          text = workflow.read_text(encoding="utf-8")
+
+          # Fix 1: /tmp post script must see repository-root Python modules.
+          old_post = '          python /tmp/v8200b_post.py | tee /tmp/v8200b_post_stdout.txt'
+          new_post = '          PYTHONPATH="$GITHUB_WORKSPACE" python /tmp/v8200b_post.py | tee /tmp/v8200b_post_stdout.txt'
+          if new_post not in text:
+              if old_post not in text:
+                  raise SystemExit("V8200B_POST_PATH_TARGET_NOT_FOUND")
+              text = text.replace(old_post, new_post, 1)
+
+          # Fix 2: sector_rs_source_latest.json is an intentional output of
+          # sector_rs_source_v870.enrich_bundle() during two_table_release_v870.py.
+          allowed_anchor = '              "latest/investment_score_supply_source_run_log_latest.txt",\n              "docs/investment_score_supply_fastlane_v8200b.md",'
+          allowed_repl = '              "latest/investment_score_supply_source_run_log_latest.txt",\n              "latest/sector_rs_source_latest.json",\n              "docs/investment_score_supply_fastlane_v8200b.md",'
+          if '"latest/sector_rs_source_latest.json",' not in text:
+              if allowed_anchor not in text:
+                  raise SystemExit("V8200B_ALLOWED_SCOPE_TARGET_NOT_FOUND")
+              text = text.replace(allowed_anchor, allowed_repl, 1)
+
+          # Protect sector RS audit against concurrent upstream drift too.
+          protected_anchor = '              "latest/investment_score_price_elasticity_20d_latest.csv",\n          }'
+          protected_repl = '              "latest/investment_score_price_elasticity_20d_latest.csv",\n              "latest/sector_rs_source_latest.json",\n          }'
+          # There are two appearances of the sector filename after Fix 2 only in exact_allowed;
+          # add it to protected_exact separately when this exact anchor exists.
+          if protected_anchor in text:
+              text = text.replace(protected_anchor, protected_repl, 1)
+
+          # Fix 3: stage the intentional sector RS audit file in the atomic result commit.
+          add_anchor = '            latest/investment_score_supply_source_run_log_latest.txt \\\n            docs/investment_score_supply_fastlane_v8200b.md \\'
+          add_repl = '            latest/investment_score_supply_source_run_log_latest.txt \\\n            latest/sector_rs_source_latest.json \\\n            docs/investment_score_supply_fastlane_v8200b.md \\'
+          if '            latest/sector_rs_source_latest.json \\\n' not in text:
+              if add_anchor not in text:
+                  raise SystemExit("V8200B_GIT_ADD_TARGET_NOT_FOUND")
+              text = text.replace(add_anchor, add_repl, 1)
+
+          # Sanity guards.
+          required = [
+              new_post,
+              '"latest/sector_rs_source_latest.json",',
+              '            latest/sector_rs_source_latest.json \\\n',
+          ]
+          for marker in required:
+              if marker not in text:
+                  raise SystemExit("V8200B_RUNTIME_FIX_INCOMPLETE:" + marker)
+
+          data = yaml.safe_load(text)
+          steps = data["jobs"]["fastlane"]["steps"]
+          run_steps = [(s.get("name", "unnamed"), s["run"]) for s in steps if "run" in s]
+
+          print(f"V8200B_RUNTIME_V2_RUN_STEP_COUNT={len(run_steps)}")
+          print("V8200B_RUNTIME_V2_PATCH=PASS")
+
+          env = os.environ.copy()
+          env["PYTHONPATH"] = env.get("GITHUB_WORKSPACE", os.getcwd())
+
+          for idx, (name, script) in enumerate(run_steps, start=1):
+              print(f"===== V8200B ORIGINAL RUN STEP {idx}/{len(run_steps)}: {name} =====", flush=True)
+              subprocess.run(
+                  ["bash", "-euo", "pipefail", "-c", script],
+                  cwd=env.get("GITHUB_WORKSPACE", os.getcwd()),
+                  env=env,
+                  check=True,
+              )
+
+          print("V8200B_RUNTIME_V2_FULL_EXECUTION=PASS")
+          PY

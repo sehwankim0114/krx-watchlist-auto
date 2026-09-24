@@ -1,0 +1,77 @@
+name: Fix and rerun V8.20.0B
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/v8200b_fix_path_and_run.yml"
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: v8200b-fix-path-and-run
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Fix post-script Python module path
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path(".github/workflows/v8200b_fastlane.yml")
+          text = path.read_text(encoding="utf-8")
+
+          old = '          python /tmp/v8200b_post.py | tee /tmp/v8200b_post_stdout.txt'
+          new = '          PYTHONPATH="$GITHUB_WORKSPACE" python /tmp/v8200b_post.py | tee /tmp/v8200b_post_stdout.txt'
+
+          if new in text:
+              print("V8200B_PATH_ALREADY_FIXED=true")
+          elif old in text:
+              path.write_text(text.replace(old, new, 1), encoding="utf-8")
+              print("V8200B_PATH_FIXED=true")
+          else:
+              raise SystemExit("V8200B_TARGET_LINE_NOT_FOUND")
+          PY
+
+          grep -F 'PYTHONPATH="$GITHUB_WORKSPACE" python /tmp/v8200b_post.py | tee /tmp/v8200b_post_stdout.txt' \
+            .github/workflows/v8200b_fastlane.yml
+
+      - name: Commit fix if needed
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- .github/workflows/v8200b_fastlane.yml; then
+            echo "V8200B_NO_COMMIT_NEEDED=true"
+            exit 0
+          fi
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add .github/workflows/v8200b_fastlane.yml
+          git diff --cached --check
+          git commit -m "Fix V8.20.0B post-script module path"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Dispatch corrected V8.20.0B
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh workflow run v8200b_fastlane.yml --ref main
+          echo "V8200B_REDISPATCH_REQUESTED=true"

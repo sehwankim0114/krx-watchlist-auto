@@ -1,0 +1,579 @@
+name: Post single elasticity apply dynamic blocker reaudit v8.19.9A
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/v8199a.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-krx-watchlist-latest
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify V8.19.8A lineage and capture protected state
+        run: |
+          set -euo pipefail
+
+          git merge-base --is-ancestor \
+            fb482d31b4e582807967a054880fc19f6184be45 HEAD
+
+          for f in \
+            latest/investment_score_price_elasticity_production_v8198a_summary_latest.json \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.json \
+            latest/investment_score_ocf_source_latest.json \
+            latest/investment_score_current_blockers_v8194a_summary_latest.json \
+            api/two_table_v1/manifest.json \
+            investment_score_dry_run_v882.py \
+            investment_score_current_blocker_reaudit_v8148.py \
+            investment_score_current_blocker_reaudit_v8161.py; do
+            test -f "$f"
+          done
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.json \
+            latest/investment_score_price_elasticity_20d_run_log_latest.txt \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_ocf_source_latest.json \
+            latest/investment_score_source_cache_latest.csv \
+            latest/financial_valuation_cache_latest.csv \
+            > /tmp/v8199a_protected.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum > /tmp/v8199a_api.before
+
+      - name: Create and run V8.19.9A dynamic blocker reaudit
+        run: |
+          set -euo pipefail
+
+          cat > investment_score_current_blocker_reaudit_v8199a.py <<'PY'
+          import csv
+          import json
+          from collections import Counter, defaultdict
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import investment_score_dry_run_v882 as scorer
+          from investment_score_current_blocker_reaudit_v8148 import classify
+          from investment_score_current_blocker_reaudit_v8161 import (
+              recovery_status, ticker, split_reasons
+          )
+
+          VERSION="2026-09-24-v8.19.9A-post-single-elasticity-dynamic-blocker-reaudit"
+          POLICY="2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          V8198A_VERSION="2026-09-24-v8.19.8A-controlled-current-single-price-elasticity-apply"
+          V8198A_COMMIT="fb482d31b4e582807967a054880fc19f6184be45"
+
+          ROOT=Path(".")
+          KST=ZoneInfo("Asia/Seoul")
+
+          PRIOR=ROOT/"latest/investment_score_price_elasticity_production_v8198a_summary_latest.json"
+          ELASTIC=ROOT/"latest/investment_score_price_elasticity_20d_latest.json"
+          OCF=ROOT/"latest/investment_score_ocf_source_latest.json"
+          EXHAUSTED=ROOT/"latest/investment_score_current_blockers_v8194a_summary_latest.json"
+          MANIFEST=ROOT/"api/two_table_v1/manifest.json"
+
+          TMP_CSV=Path("/tmp/v8199a_score.csv")
+          TMP_JSON=Path("/tmp/v8199a_score.json")
+          TMP_LOG=Path("/tmp/v8199a_score.log")
+          TMP_DOC=Path("/tmp/v8199a_score.md")
+
+          OUT_CSV=ROOT/"latest/investment_score_current_blockers_v8199a.csv"
+          OUT_JSON=ROOT/"latest/investment_score_current_blockers_v8199a_summary_latest.json"
+          OUT_LOG=ROOT/"latest/investment_score_current_blockers_v8199a_run_log_latest.txt"
+          OUT_DOC=ROOT/"docs/investment_score_current_blockers_v8199a.md"
+
+          def read_json(p):
+              return json.loads(Path(p).read_text(encoding="utf-8-sig"))
+
+          def run_scorer():
+              old={k:getattr(scorer,k) for k in ("VERSION","OUT_CSV","OUT_JSON","OUT_LOG","OUT_DOC")}
+              try:
+                  scorer.VERSION=VERSION
+                  scorer.OUT_CSV=TMP_CSV
+                  scorer.OUT_JSON=TMP_JSON
+                  scorer.OUT_LOG=TMP_LOG
+                  scorer.OUT_DOC=TMP_DOC
+                  rc=scorer.main()
+              finally:
+                  for k,v in old.items():
+                      setattr(scorer,k,v)
+              if rc not in (None,0):
+                  raise RuntimeError("V8199A_SCORER_FAILED:"+str(rc))
+
+          prior=read_json(PRIOR)
+          em=read_json(ELASTIC)
+          ocf=read_json(OCF)
+          exhausted=read_json(EXHAUSTED)
+          mf=read_json(MANIFEST)
+
+          assert prior["version"]==V8198A_VERSION
+          assert prior["status"]=="PRODUCTION_CURRENT_SINGLE_ELASTICITY_APPLIED_POST_REGRESSION_PASS"
+          assert prior["policy_version"]==POLICY
+          assert prior["v8197a_result_commit"]=="6049da74552d05c60265d713f7f5739b75284210"
+          assert prior["rollback_guard"]["enabled"] is True
+          assert prior["production_cache"]["row_count_after"]==218
+          assert prior["scorer_regression"]["ready_after"]==23
+          assert prior["scorer_regression"]["limited_after"]==175
+          assert prior["scorer_regression"]["blockers_after"]==1617
+          assert prior["next_step"]=="POST_SINGLE_ELASTICITY_APPLY_DYNAMIC_BLOCKER_REAUDIT_V8199A"
+
+          assert em["refresh_version"]==V8198A_VERSION
+          assert em["production_unique_tickers"]==218
+          assert em["ready_tickers"]==218
+          assert em["limited_tickers"]==0
+          assert em["narrow_patch"]["ticker_count"]==7
+          assert em["narrow_patch"]["latest_added_tickers"]==["034730"]
+          assert em["bulk_patch"]["ticker_count"]==62
+
+          assert mf["release_stage"]=="PRODUCTION"
+          assert mf["safe_to_analyze_as_latest"] is True
+          current_universe=int((mf.get("sector_rs_source") or {}).get("unique_ticker_count") or 0)
+          if current_universe<=0:
+              raise RuntimeError("V8199A_MANIFEST_UNIVERSE_MISSING")
+
+          ev=exhausted["known_exhausted_evidence"]
+          da=set(ev["exact_da_exhausted_union_tickers"])
+          q2=set(ev["score_cache_q2_exhausted_tickers"])
+          v8104=set(ev["v8104_exhausted_tickers"])
+          if len(da)!=67:
+              raise RuntimeError("V8199A_DA_EXHAUSTED_EVIDENCE_DRIFT")
+          if q2!={"357430","365550"}:
+              raise RuntimeError("V8199A_Q2_EXHAUSTED_EVIDENCE_DRIFT")
+          if v8104!={"001020","357250"}:
+              raise RuntimeError("V8199A_V8104_EXHAUSTED_EVIDENCE_DRIFT")
+
+          run_scorer()
+
+          with TMP_CSV.open(encoding="utf-8-sig",newline="") as f:
+              score_rows=list(csv.DictReader(f))
+          score_summary=read_json(TMP_JSON)
+
+          if len(score_rows)!=current_universe:
+              raise RuntimeError(
+                  f"V8199A_SCORER_MANIFEST_UNIVERSE_MISMATCH:{len(score_rows)}:{current_universe}"
+              )
+
+          ready=[r for r in score_rows if r.get("score_status")=="READY"]
+          limited=[r for r in score_rows if r.get("score_status")=="LIMITED"]
+
+          if len(ready)+len(limited)!=len(score_rows):
+              raise RuntimeError("V8199A_UNKNOWN_SCORE_STATUS")
+
+          assert int(score_summary.get("ready_count") or -1)==len(ready)
+          assert int(score_summary.get("limited_count") or -1)==len(limited)
+
+          # Current production should exactly reflect V8.19.8A unless a protected
+          # scheduled refresh occurred before this run. Any such drift fails safely.
+          if (len(ready),len(limited))!=(23,175):
+              raise RuntimeError(f"V8199A_BASELINE_STATUS_DRIFT:{len(ready)}:{len(limited)}")
+
+          out=[]
+          cats=Counter()
+          groups=Counter()
+          group_tickers=defaultdict(set)
+          rec=Counter()
+          single_counts=Counter()
+          single_tickers=defaultdict(set)
+          multi_counts=Counter()
+          multi_tickers=defaultdict(set)
+          exhausted_counts=Counter()
+          policy_counts=Counter()
+
+          for row in limited:
+              code=ticker(row.get("ticker"))
+              reasons=split_reasons(row.get("missing_components"))
+              if not reasons:
+                  raise RuntimeError("V8199A_LIMITED_WITHOUT_REASON:"+code)
+
+              single=len(reasons)==1
+
+              for reason in reasons:
+                  cat,group=classify(reason)
+                  if group=="UNKNOWN":
+                      raise RuntimeError("V8199A_UNCLASSIFIED:"+code+":"+reason)
+
+                  status=recovery_status(code,group,single,da,q2,v8104)
+                  cats[cat]+=1
+                  groups[group]+=1
+                  group_tickers[group].add(code)
+                  rec[status]+=1
+
+                  if status=="ACTIONABLE_SINGLE_BLOCKER_REAUDIT":
+                      single_counts[group]+=1
+                      single_tickers[group].add(code)
+                  if status=="MULTI_BLOCKER_SOURCE_LANE":
+                      multi_counts[group]+=1
+                      multi_tickers[group].add(code)
+                  if status.startswith("EXHAUSTED_"):
+                      exhausted_counts[status]+=1
+                  if status=="POLICY_SEMANTIC_DEFER":
+                      policy_counts[group]+=1
+
+                  out.append({
+                      "ticker":code,
+                      "name":row.get("name",""),
+                      "market":row.get("market",""),
+                      "missing_component_count":len(reasons),
+                      "blocker_reason":reason,
+                      "blocker_category":cat,
+                      "source_group":group,
+                      "single_blocker_ticker":"TRUE" if single else "FALSE",
+                      "recovery_status":status,
+                  })
+
+          blocker_count=len(out)
+          if blocker_count!=1617:
+              raise RuntimeError("V8199A_BLOCKER_COUNT_DRIFT:"+str(blocker_count))
+
+          singles=sorted([
+              {
+                  "source_group":g,
+                  "actionable_single_blocker_count":c,
+                  "actionable_single_blocker_tickers":sorted(single_tickers[g]),
+                  "total_group_blocker_occurrences":groups[g],
+              }
+              for g,c in single_counts.items() if c
+          ],key=lambda x:(
+              -x["actionable_single_blocker_count"],
+              -x["total_group_blocker_occurrences"],
+              x["source_group"],
+          ))
+
+          multis=sorted([
+              {
+                  "source_group":g,
+                  "actionable_multi_blocker_occurrences":c,
+                  "actionable_multi_blocker_ticker_count":len(multi_tickers[g]),
+                  "actionable_multi_blocker_tickers":sorted(multi_tickers[g]),
+                  "total_group_blocker_occurrences":groups[g],
+              }
+              for g,c in multi_counts.items()
+              if c and g!="V880_SCORING_CONTRACT"
+          ],key=lambda x:(
+              -x["actionable_multi_blocker_occurrences"],
+              -x["actionable_multi_blocker_ticker_count"],
+              x["source_group"],
+          ))
+
+          # The just-resolved SK elasticity blocker must be gone.
+          if "034730" in single_tickers.get("PRICE_ELASTICITY_20D",set()):
+              raise RuntimeError("V8199A_SK_STILL_SINGLE_ELASTICITY_BLOCKED")
+
+          if singles:
+              mode="ACTIONABLE_SINGLE_BLOCKER"
+              selected_group=singles[0]["source_group"]
+              selected=singles[0]["actionable_single_blocker_tickers"]
+              next_step="AUDIT_CURRENT_ACTIONABLE_ANALYSIS_SUPPLY_SINGLE_V8200A"
+          elif multis:
+              mode="ACTIONABLE_MULTI_BLOCKER_GROUP"
+              selected_group=multis[0]["source_group"]
+              selected=multis[0]["actionable_multi_blocker_tickers"]
+              next_step="AUDIT_TOP_ACTIONABLE_MULTI_BLOCKER_GROUP_V8200A"
+          else:
+              mode="NO_ACTIONABLE_SOURCE_LANE"
+              selected_group=""
+              selected=[]
+              next_step="REVIEW_REMAINING_POLICY_OR_EXHAUSTED_BLOCKERS_V8200A"
+
+          # Expected next single lane after resolving 034730 is 007700 analysis supply.
+          if mode!="ACTIONABLE_SINGLE_BLOCKER":
+              raise RuntimeError("V8199A_EXPECTED_SINGLE_LANE_NOT_FOUND:"+mode)
+          if selected_group!="PRODUCTION_ANALYSIS_SUPPLY":
+              raise RuntimeError("V8199A_UNEXPECTED_SELECTED_GROUP:"+selected_group)
+          if selected!=["007700"]:
+              raise RuntimeError("V8199A_UNEXPECTED_SELECTED_TICKERS:"+",".join(selected))
+
+          out.sort(key=lambda r:(int(r["missing_component_count"]),r["ticker"],r["blocker_reason"]))
+
+          OUT_CSV.parent.mkdir(parents=True,exist_ok=True)
+          fields=[
+              "ticker","name","market","missing_component_count",
+              "blocker_reason","blocker_category","source_group",
+              "single_blocker_ticker","recovery_status"
+          ]
+          with OUT_CSV.open("w",encoding="utf-8-sig",newline="") as f:
+              w=csv.DictWriter(f,fieldnames=fields,lineterminator="\n")
+              w.writeheader()
+              w.writerows(out)
+
+          summary={
+              "version":VERSION,
+              "generated_at_kst":datetime.now(KST).isoformat(timespec="seconds"),
+              "status":"AUDIT_ONLY_DYNAMIC_POST_SINGLE_ELASTICITY_BLOCKERS",
+              "policy_version":POLICY,
+              "v8198a_version":V8198A_VERSION,
+              "v8198a_result_commit":V8198A_COMMIT,
+              "reaudit_mode":"CURRENT_PRODUCTION_DYNAMIC_UNIVERSE",
+              "production_manifest":{
+                  "basis_date":mf.get("basis_date"),
+                  "source_build_id":mf.get("source_build_id"),
+                  "source_commit":mf.get("source_commit"),
+                  "manifest_universe_count":mf.get("universe_count"),
+                  "scorer_target_universe_count":current_universe,
+              },
+              "current_elasticity_state":{
+                  "refresh_version":em.get("refresh_version"),
+                  "production_unique_tickers":em.get("production_unique_tickers"),
+                  "ready_tickers":em.get("ready_tickers"),
+                  "narrow_patch_count":em.get("narrow_patch",{}).get("ticker_count"),
+                  "bulk_patch_count":em.get("bulk_patch",{}).get("ticker_count"),
+              },
+              "current_ocf_state":{
+                  "refresh_version":ocf.get("refresh_version"),
+                  "production_unique_tickers":ocf.get("production_unique_tickers"),
+                  "ready_tickers":ocf.get("operating_cash_flow_ready"),
+                  "limited_tickers":ocf.get("operating_cash_flow_limited"),
+              },
+              "scorer_universe_count":len(score_rows),
+              "ready_count":len(ready),
+              "limited_count":len(limited),
+              "limited_blocker_occurrences":blocker_count,
+              "blocker_category_counts":dict(cats),
+              "source_group_counts":dict(groups),
+              "source_group_tickers":{g:sorted(v) for g,v in group_tickers.items()},
+              "recovery_status_counts":dict(rec),
+              "exhausted_status_counts":dict(exhausted_counts),
+              "policy_defer_group_counts":dict(policy_counts),
+              "known_exhausted_evidence":{
+                  "exact_da_exhausted_union_count":67,
+                  "exact_da_exhausted_union_tickers":sorted(da),
+                  "score_cache_q2_exhausted_count":2,
+                  "score_cache_q2_exhausted_tickers":sorted(q2),
+                  "v8104_exhausted_tickers":sorted(v8104),
+              },
+              "actionable_single_priority":singles,
+              "actionable_multi_priority":multis,
+              "selection_mode":mode,
+              "selected_source_group":selected_group,
+              "selected_ticker_count":len(selected),
+              "selected_tickers":selected,
+              "hard_guards":{
+                  "production_data_modified":False,
+                  "production_api_modified":False,
+                  "production_score_written":False,
+                  "scoring_policy_modified":False,
+                  "source_value_imputed":False,
+                  "exhausted_lane_auto_requeried":False,
+                  "fixed_historical_universe_assumption_used":False,
+              },
+              "next_step":next_step,
+          }
+
+          OUT_JSON.write_text(json.dumps(summary,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+          OUT_LOG.write_text("\n".join([
+              f"VERSION={VERSION}",
+              "STATUS=AUDIT_ONLY_DYNAMIC_POST_SINGLE_ELASTICITY_BLOCKERS",
+              f"PRODUCTION_BASIS_DATE={mf.get('basis_date')}",
+              f"SCORER_UNIVERSE={len(score_rows)}",
+              f"READY={len(ready)}",
+              f"LIMITED={len(limited)}",
+              f"BLOCKER_OCCURRENCES={blocker_count}",
+              f"ACTIONABLE_SINGLE_BLOCKERS={sum(single_counts.values())}",
+              f"SELECTION_MODE={mode}",
+              f"SELECTED_SOURCE_GROUP={selected_group}",
+              f"SELECTED_TICKER_COUNT={len(selected)}",
+              f"SELECTED_TICKERS={','.join(selected)}",
+              f"ELASTICITY_CACHE_ROWS={em.get('production_unique_tickers')}",
+              "PRODUCTION_DATA_MODIFIED=false",
+              "STATUS_OK=true",
+              f"NEXT_STEP={next_step}",
+          ])+"\n",encoding="utf-8")
+
+          OUT_DOC.parent.mkdir(parents=True,exist_ok=True)
+          OUT_DOC.write_text(
+              "# V8.19.9A dynamic post-single-elasticity blocker reaudit\n\n"
+              f"- Current scorer universe: {len(score_rows)}.\n"
+              f"- READY / LIMITED: {len(ready)} / {len(limited)}.\n"
+              f"- Current blocker occurrences: {blocker_count}.\n"
+              f"- Selection mode: {mode}.\n"
+              f"- Selected source group: {selected_group}.\n"
+              f"- Selected ticker: {','.join(selected)}.\n"
+              "- 034730 elasticity single blocker is confirmed resolved.\n"
+              "- Exhausted evidence is preserved and not automatically requeried.\n"
+              "- Audit-only; production cache, API, score and policy are unchanged.\n\n"
+              f"Next: {next_step}\n",
+              encoding="utf-8"
+          )
+
+          print("V8199A_DYNAMIC_REAUDIT=PASS")
+          print(f"V8199A_READY={len(ready)}")
+          print(f"V8199A_LIMITED={len(limited)}")
+          print(f"V8199A_BLOCKERS={blocker_count}")
+          print(f"V8199A_SELECTED_SOURCE_GROUP={selected_group}")
+          print(f"V8199A_SELECTED_TICKERS={','.join(selected)}")
+          PY
+
+          python -m py_compile investment_score_current_blocker_reaudit_v8199a.py
+          python investment_score_current_blocker_reaudit_v8199a.py | tee /tmp/v8199a_stdout.txt
+
+          grep -q '^V8199A_DYNAMIC_REAUDIT=PASS$' /tmp/v8199a_stdout.txt
+          grep -q '^STATUS_OK=true$' latest/investment_score_current_blockers_v8199a_run_log_latest.txt
+          grep -q '^READY=23$' latest/investment_score_current_blockers_v8199a_run_log_latest.txt
+          grep -q '^LIMITED=175$' latest/investment_score_current_blockers_v8199a_run_log_latest.txt
+          grep -q '^BLOCKER_OCCURRENCES=1617$' latest/investment_score_current_blockers_v8199a_run_log_latest.txt
+          grep -q '^SELECTED_SOURCE_GROUP=PRODUCTION_ANALYSIS_SUPPLY$' latest/investment_score_current_blockers_v8199a_run_log_latest.txt
+          grep -q '^SELECTED_TICKERS=007700$' latest/investment_score_current_blockers_v8199a_run_log_latest.txt
+
+      - name: Validate outputs and production immutability
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          s=json.loads(Path(
+              "latest/investment_score_current_blockers_v8199a_summary_latest.json"
+          ).read_text(encoding="utf-8"))
+
+          assert s["version"]=="2026-09-24-v8.19.9A-post-single-elasticity-dynamic-blocker-reaudit"
+          assert s["status"]=="AUDIT_ONLY_DYNAMIC_POST_SINGLE_ELASTICITY_BLOCKERS"
+          assert s["v8198a_result_commit"]=="fb482d31b4e582807967a054880fc19f6184be45"
+          assert s["scorer_universe_count"]==198
+          assert s["ready_count"]==23
+          assert s["limited_count"]==175
+          assert s["limited_blocker_occurrences"]==1617
+          assert s["selection_mode"]=="ACTIONABLE_SINGLE_BLOCKER"
+          assert s["selected_source_group"]=="PRODUCTION_ANALYSIS_SUPPLY"
+          assert s["selected_ticker_count"]==1
+          assert s["selected_tickers"]==["007700"]
+          assert s["current_elasticity_state"]["production_unique_tickers"]==218
+          assert s["current_elasticity_state"]["ready_tickers"]==218
+          assert s["current_elasticity_state"]["narrow_patch_count"]==7
+          assert s["current_elasticity_state"]["bulk_patch_count"]==62
+          assert all(v is False for v in s["hard_guards"].values())
+          assert s["next_step"]=="AUDIT_CURRENT_ACTIONABLE_ANALYSIS_SUPPLY_SINGLE_V8200A"
+
+          print("V8199A_OUTPUT_VALIDATION=PASS")
+          PY
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.json \
+            latest/investment_score_price_elasticity_20d_run_log_latest.txt \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_ocf_source_latest.json \
+            latest/investment_score_source_cache_latest.csv \
+            latest/financial_valuation_cache_latest.csv \
+            > /tmp/v8199a_protected.after
+
+          diff -u /tmp/v8199a_protected.before /tmp/v8199a_protected.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum > /tmp/v8199a_api.after
+          diff -u /tmp/v8199a_api.before /tmp/v8199a_api.after
+
+      - name: Restrict changed files and concurrent protected drift
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+
+          allowed={
+              "investment_score_current_blocker_reaudit_v8199a.py",
+              "latest/investment_score_current_blockers_v8199a.csv",
+              "latest/investment_score_current_blockers_v8199a_summary_latest.json",
+              "latest/investment_score_current_blockers_v8199a_run_log_latest.txt",
+              "docs/investment_score_current_blockers_v8199a.md",
+          }
+
+          changed=set()
+          for line in subprocess.check_output(
+              ["git","status","--porcelain","--untracked-files=all"],text=True
+          ).splitlines():
+              if line:
+                  changed.add(line[3:].split(" -> ")[-1])
+
+          bad=sorted(changed-allowed)
+          if bad:
+              raise SystemExit("V8199A_UNEXPECTED_CHANGED_FILES:"+",".join(bad))
+
+          print("V8199A_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+
+          protected={
+              "config/investment_score_policy_v880.json",
+              "investment_score_dry_run_v882.py",
+              "latest/investment_score_price_elasticity_20d_latest.csv",
+              "latest/investment_score_price_elasticity_20d_latest.json",
+              "latest/investment_score_price_elasticity_20d_run_log_latest.txt",
+              "latest/investment_score_ocf_source_latest.csv",
+              "latest/investment_score_ocf_source_latest.json",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/financial_valuation_cache_latest.csv",
+          }
+
+          upstream=set(subprocess.check_output(
+              ["git","diff","--name-only","HEAD..origin/main"],text=True
+          ).splitlines())
+
+          bad=sorted(
+              p for p in upstream
+              if p in protected or p.startswith("api/two_table_v1/")
+          )
+          if bad:
+              raise SystemExit("V8199A_CONCURRENT_PROTECTED_DRIFT:"+",".join(bad))
+
+          print("V8199A_NO_CONCURRENT_PROTECTED_DRIFT=PASS")
+          PY
+
+      - name: Commit and push V8.19.9A audit outputs
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_current_blocker_reaudit_v8199a.py \
+            latest/investment_score_current_blockers_v8199a.csv \
+            latest/investment_score_current_blockers_v8199a_summary_latest.json \
+            latest/investment_score_current_blockers_v8199a_run_log_latest.txt \
+            docs/investment_score_current_blockers_v8199a.md
+
+          git diff --cached --check
+          git commit -m "Dynamic post-single-elasticity blocker reaudit v8.19.9A"
+          git pull --rebase origin main
+          git push origin HEAD:main

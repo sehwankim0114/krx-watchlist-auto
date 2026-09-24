@@ -1,0 +1,994 @@
+name: F&F Holdings supply fast lane v8.20.0A
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/v8200a_fastlane.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-krx-watchlist-latest
+  cancel-in-progress: false
+
+jobs:
+  fastlane:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify current production and capture protected state
+        run: |
+          set -euo pipefail
+
+          test -n "${DART_API_KEY:-}" || {
+            echo "::error::DART_API_KEY secret is missing"
+            exit 1
+          }
+
+          git merge-base --is-ancestor \
+            fb482d31b4e582807967a054880fc19f6184be45 HEAD
+
+          for f in \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            investment_score_supply_overlay_v8139b.py \
+            supply_burden_enricher.py \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_supply_source_latest.csv \
+            latest/investment_score_supply_source_latest.json \
+            latest/investment_score_supply_source_run_log_latest.txt \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_source_cache_latest.csv \
+            api/two_table_v1/manifest.json; do
+            test -f "$f"
+          done
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            investment_score_supply_overlay_v8139b.py \
+            supply_burden_enricher.py \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.json \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_ocf_source_latest.json \
+            latest/investment_score_source_cache_latest.csv \
+            > /tmp/v8200a_non_supply.before
+
+          sha256sum \
+            latest/investment_score_supply_source_latest.csv \
+            latest/investment_score_supply_source_latest.json \
+            latest/investment_score_supply_source_run_log_latest.txt \
+            > /tmp/v8200a_supply.before
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum > /tmp/v8200a_api.before
+
+      - name: Audit shadow stage and controlled supply source patch
+        run: |
+          set -euo pipefail
+
+          cat > investment_score_supply_fastlane_v8200a.py <<'PY'
+          from __future__ import annotations
+
+          import ast
+          import copy
+          import csv
+          import io
+          import json
+          import os
+          import shutil
+          import time
+          import urllib.parse
+          import urllib.request
+          import zipfile
+          from collections import defaultdict
+          from datetime import datetime, timedelta
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+          import xml.etree.ElementTree as ET
+
+          import investment_score_dry_run_v882 as scorer
+
+          VERSION="2026-09-24-v8.20.0A-ff-holdings-supply-fast-lane"
+          POLICY="2026-09-13-v8.8.0-explicit-100-point-scoring-contract"
+          SUPPLY_POLICY="2026-07-01-v6.0-supply-status-separated"
+
+          TARGET="007700"
+          TARGET_NAME="F&F홀딩스"
+          EXPECTED_CORP_CODE="00126487"
+          TARGET_REASON="수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+
+          ROOT=Path(".")
+          KST=ZoneInfo("Asia/Seoul")
+
+          FIN=ROOT/"latest/financial_valuation_cache_latest.csv"
+          SUPPLY=ROOT/"latest/investment_score_supply_source_latest.csv"
+          SUPPLY_META=ROOT/"latest/investment_score_supply_source_latest.json"
+          SUPPLY_LOG=ROOT/"latest/investment_score_supply_source_run_log_latest.txt"
+          ENRICHER=ROOT/"supply_burden_enricher.py"
+          MANIFEST=ROOT/"api/two_table_v1/manifest.json"
+
+          AUDIT_CSV=ROOT/"latest/investment_score_supply_fastlane_v8200a_audit.csv"
+          CAND_CSV=ROOT/"latest/investment_score_supply_fastlane_v8200a_candidate.csv"
+          COMPARE_CSV=ROOT/"latest/investment_score_supply_fastlane_v8200a_shadow.csv"
+          SUMMARY=ROOT/"latest/investment_score_supply_fastlane_v8200a_summary_latest.json"
+          RUNLOG=ROOT/"latest/investment_score_supply_fastlane_v8200a_run_log_latest.txt"
+          DOC=ROOT/"docs/investment_score_supply_fastlane_v8200a.md"
+
+          B_SUPPLY=Path("/tmp/v8200a_supply.backup.csv")
+          B_META=Path("/tmp/v8200a_supply.backup.json")
+          B_LOG=Path("/tmp/v8200a_supply.backup.log")
+
+          CORP_CODE_URL="https://opendart.fss.or.kr/api/corpCode.xml"
+          LIST_URL="https://opendart.fss.or.kr/api/list.json"
+          LOOKBACK_DAYS=180
+          CHUNK_DAYS=90
+          PAGE_COUNT=100
+          TIMEOUT=35
+          ATTEMPTS=4
+
+          def ticker(v):
+              s="".join(ch for ch in str(v or "") if ch.isdigit())
+              return s.zfill(6) if s else ""
+
+          def read_json(p):
+              return json.loads(Path(p).read_text(encoding="utf-8-sig"))
+
+          def read_rows(p):
+              with Path(p).open(encoding="utf-8-sig",newline="") as f:
+                  return list(csv.DictReader(f))
+
+          def write_rows(p, rows, fields):
+              Path(p).parent.mkdir(parents=True,exist_ok=True)
+              with Path(p).open("w",encoding="utf-8-sig",newline="") as f:
+                  w=csv.DictWriter(f,fieldnames=fields,lineterminator="\n")
+                  w.writeheader()
+                  w.writerows(rows)
+
+          def row_map(rows):
+              return {ticker(r.get("ticker")):r for r in rows if ticker(r.get("ticker"))}
+
+          def stable(r):
+              return json.dumps(r,ensure_ascii=False,sort_keys=True,separators=(",",":"))
+
+          def blocker_count(rows):
+              return sum(int(r.get("missing_component_count") or 0) for r in rows.values())
+
+          def split_missing(v):
+              return [x for x in str(v or "").split(";") if x]
+
+          def literal_constant(path,name):
+              tree=ast.parse(Path(path).read_text(encoding="utf-8"))
+              for node in tree.body:
+                  if isinstance(node,(ast.Assign,ast.AnnAssign)):
+                      targets=node.targets if isinstance(node,ast.Assign) else [node.target]
+                      value=node.value
+                      for target in targets:
+                          if isinstance(target,ast.Name) and target.id==name:
+                              return ast.literal_eval(value)
+              raise RuntimeError("V8200A_CONSTANT_NOT_FOUND:"+name)
+
+          def load_supply_contract():
+              text=ENRICHER.read_text(encoding="utf-8")
+              if SUPPLY_POLICY not in text:
+                  raise RuntimeError("V8200A_SUPPLY_POLICY_NOT_FOUND")
+              rules=literal_constant(ENRICHER,"KEYWORD_RULES")
+              relief=literal_constant(ENRICHER,"RELIEF_KEYWORDS")
+              if not rules:
+                  raise RuntimeError("V8200A_KEYWORD_RULES_EMPTY")
+              return rules,relief
+
+          def request_bytes(url):
+              last=None
+              for attempt in range(1,ATTEMPTS+1):
+                  req=urllib.request.Request(
+                      url,
+                      headers={
+                          "User-Agent":"krx-watchlist-v8200a-fastlane",
+                          "Accept":"*/*",
+                          "Cache-Control":"no-cache",
+                      },
+                  )
+                  try:
+                      with urllib.request.urlopen(req,timeout=TIMEOUT) as resp:
+                          return resp.read()
+                  except Exception as exc:
+                      last=exc
+                      if attempt<ATTEMPTS:
+                          time.sleep(0.8*attempt)
+              raise RuntimeError("V8200A_HTTP_FAILED:"+type(last).__name__+":"+str(last))
+
+          def request_json(url):
+              blob=request_bytes(url)
+              return json.loads(blob.decode("utf-8",errors="replace"))
+
+          def exact_corp_code(api_key):
+              url=CORP_CODE_URL+"?"+urllib.parse.urlencode({"crtfc_key":api_key})
+              blob=request_bytes(url)
+              try:
+                  zf=zipfile.ZipFile(io.BytesIO(blob))
+              except zipfile.BadZipFile as exc:
+                  raise RuntimeError("V8200A_CORPCODE_NOT_ZIP") from exc
+              names=[x for x in zf.namelist() if x.lower().endswith(".xml")]
+              if not names:
+                  raise RuntimeError("V8200A_CORPCODE_XML_MISSING")
+              root=ET.fromstring(zf.read(names[0]))
+              found=set()
+              for item in root.findall(".//list"):
+                  if ticker(item.findtext("stock_code") or "")==TARGET:
+                      code=str(item.findtext("corp_code") or "").strip()
+                      name=str(item.findtext("corp_name") or "").strip()
+                      if code:
+                          found.add((code,name))
+              if len(found)!=1:
+                  raise RuntimeError("V8200A_EXACT_STOCK_NOT_UNIQUE:"+str(len(found)))
+              return sorted(found)[0]
+
+          def classify_report(name,rules,relief_keywords):
+              title=str(name or "")
+              labels=[]
+              severity=0
+              for keyword,label,level in rules:
+                  if keyword in title:
+                      labels.append(label)
+                      severity=max(severity,int(level))
+              relief=any(k in title for k in relief_keywords)
+              return bool(labels),sorted(set(labels)),severity,relief
+
+          def severity_to_level(severity,count):
+              if severity>=3:
+                  return "위험"
+              if severity==2:
+                  return "위험" if count>=3 else "경계"
+              if severity==1:
+                  return "경계" if count>=3 else "주의"
+              return "없음"
+
+          def date_chunks(start,end):
+              out=[]
+              cur=start
+              while cur<=end:
+                  chunk_end=min(cur+timedelta(days=CHUNK_DAYS-1),end)
+                  out.append((cur,chunk_end))
+                  cur=chunk_end+timedelta(days=1)
+              return out
+
+          def fetch_reports(api_key,corp_code,start,end):
+              reports=[]
+              calls=0
+              chunks=[]
+              errors=[]
+              for cs,ce in date_chunks(start,end):
+                  page=1
+                  count=0
+                  pages=0
+                  complete=True
+                  official_013=False
+                  total_page_seen=None
+                  while True:
+                      params={
+                          "crtfc_key":api_key,
+                          "corp_code":corp_code,
+                          "bgn_de":cs.strftime("%Y%m%d"),
+                          "end_de":ce.strftime("%Y%m%d"),
+                          "page_no":page,
+                          "page_count":PAGE_COUNT,
+                      }
+                      try:
+                          payload=request_json(LIST_URL+"?"+urllib.parse.urlencode(params))
+                          calls+=1
+                      except Exception as exc:
+                          complete=False
+                          errors.append(f"{cs}:{ce}:page={page}:{type(exc).__name__}:{exc}")
+                          break
+
+                      status=str(payload.get("status") or "")
+                      if status=="013":
+                          official_013=True
+                          total_page_seen=0
+                          break
+                      if status!="000":
+                          complete=False
+                          errors.append(f"{cs}:{ce}:page={page}:DART_STATUS={status}:{payload.get('message') or ''}")
+                          break
+
+                      rr=payload.get("list") or []
+                      if not isinstance(rr,list):
+                          complete=False
+                          errors.append(f"{cs}:{ce}:page={page}:LIST_NOT_ARRAY")
+                          break
+
+                      reports.extend(rr)
+                      count+=len(rr)
+                      pages+=1
+                      try:
+                          total_page=int(payload.get("total_page") or 1)
+                      except Exception:
+                          complete=False
+                          errors.append(f"{cs}:{ce}:page={page}:TOTAL_PAGE_INVALID")
+                          break
+                      total_page_seen=total_page
+                      if page>=total_page:
+                          break
+                      page+=1
+                      if page>100:
+                          complete=False
+                          errors.append(f"{cs}:{ce}:PAGE_SAFETY_LIMIT")
+                          break
+                      time.sleep(0.05)
+
+                  chunks.append({
+                      "start":cs.isoformat(),
+                      "end":ce.isoformat(),
+                      "complete":complete,
+                      "official_013_no_data":official_013,
+                      "pages_fetched":pages,
+                      "total_page_seen":total_page_seen,
+                      "report_count":count,
+                  })
+
+              complete=all(x["complete"] for x in chunks) and not errors
+              return {
+                  "complete":complete,
+                  "reports":reports,
+                  "api_calls":calls,
+                  "chunks":chunks,
+                  "api_errors":errors,
+              }
+
+          def run_scorer_real(tag):
+              old={k:getattr(scorer,k) for k in ("VERSION","OUT_CSV","OUT_JSON","OUT_LOG","OUT_DOC")}
+              oc=Path(f"/tmp/{tag}.csv")
+              oj=Path(f"/tmp/{tag}.json")
+              ol=Path(f"/tmp/{tag}.log")
+              od=Path(f"/tmp/{tag}.md")
+              try:
+                  scorer.VERSION=VERSION
+                  scorer.OUT_CSV=oc
+                  scorer.OUT_JSON=oj
+                  scorer.OUT_LOG=ol
+                  scorer.OUT_DOC=od
+                  rc=scorer.main()
+              finally:
+                  for k,v in old.items():
+                      setattr(scorer,k,v)
+              if rc not in (None,0):
+                  raise RuntimeError("V8200A_SCORER_FAILED:"+str(rc))
+              return row_map(read_rows(oc)),read_json(oj)
+
+          def run_scorer_with_prod(prod_rows,tag):
+              original=scorer.production_rows
+              old={k:getattr(scorer,k) for k in ("VERSION","OUT_CSV","OUT_JSON","OUT_LOG","OUT_DOC")}
+              oc=Path(f"/tmp/{tag}.csv")
+              oj=Path(f"/tmp/{tag}.json")
+              ol=Path(f"/tmp/{tag}.log")
+              od=Path(f"/tmp/{tag}.md")
+              try:
+                  scorer.production_rows=lambda: copy.deepcopy(prod_rows)
+                  scorer.VERSION=VERSION
+                  scorer.OUT_CSV=oc
+                  scorer.OUT_JSON=oj
+                  scorer.OUT_LOG=ol
+                  scorer.OUT_DOC=od
+                  rc=scorer.main()
+              finally:
+                  scorer.production_rows=original
+                  for k,v in old.items():
+                      setattr(scorer,k,v)
+              if rc not in (None,0):
+                  raise RuntimeError("V8200A_SHADOW_SCORER_FAILED:"+str(rc))
+              return row_map(read_rows(oc)),read_json(oj)
+
+          api_key=os.environ.get("DART_API_KEY","").strip()
+          if not api_key:
+              raise RuntimeError("V8200A_DART_API_KEY_MISSING")
+
+          policy=read_json(ROOT/"config/investment_score_policy_v880.json")
+          if policy.get("version")!=POLICY:
+              raise RuntimeError("V8200A_POLICY_DRIFT")
+
+          manifest=read_json(MANIFEST)
+          if manifest.get("release_stage")!="PRODUCTION" or manifest.get("safe_to_analyze_as_latest") is not True:
+              raise RuntimeError("V8200A_PRODUCTION_MANIFEST_NOT_READY")
+
+          fin=row_map(read_rows(FIN)).get(TARGET)
+          if not fin:
+              raise RuntimeError("V8200A_FIN_TARGET_MISSING")
+          if fin.get("name")!=TARGET_NAME:
+              raise RuntimeError("V8200A_FIN_NAME_MISMATCH")
+          if fin.get("corp_identity_status") not in {"MATCH","MATCH_NORMALIZED"}:
+              raise RuntimeError("V8200A_FIN_IDENTITY_NOT_MATCH")
+          if str(fin.get("corp_code") or "")!=EXPECTED_CORP_CODE:
+              raise RuntimeError("V8200A_FIN_CORP_CODE_CHANGED")
+
+          supply_meta=read_json(SUPPLY_META)
+          if int(supply_meta.get("source_count") or 0)!=9:
+              raise RuntimeError("V8200A_SUPPLY_SOURCE_COUNT_NOT_9")
+          if supply_meta.get("status")!="PRODUCTION_SOURCE_APPLIED_API_REBUILT":
+              raise RuntimeError("V8200A_SUPPLY_META_STATUS_DRIFT")
+
+          old_rows=read_rows(SUPPLY)
+          fields=list(old_rows[0].keys())
+          old_map=row_map(old_rows)
+          if len(old_rows)!=9 or len(old_map)!=9:
+              raise RuntimeError("V8200A_SUPPLY_ROWS_NOT_9")
+          if TARGET in old_map:
+              raise RuntimeError("V8200A_TARGET_ALREADY_IN_SUPPLY_SOURCE")
+
+          base,bsum=run_scorer_real("v8200a_base")
+          if len(base)!=198:
+              raise RuntimeError("V8200A_SCORER_UNIVERSE_DRIFT:"+str(len(base)))
+          if (int(bsum["ready_count"]),int(bsum["limited_count"]),blocker_count(base))!=(23,175,1617):
+              raise RuntimeError(
+                  f"V8200A_BASELINE_DRIFT:{bsum['ready_count']}:{bsum['limited_count']}:{blocker_count(base)}"
+              )
+          if TARGET not in base:
+              raise RuntimeError("V8200A_TARGET_NOT_IN_SCORER")
+          if base[TARGET].get("score_status")!="LIMITED":
+              raise RuntimeError("V8200A_TARGET_NOT_LIMITED")
+          if split_missing(base[TARGET].get("missing_components"))!=[TARGET_REASON]:
+              raise RuntimeError("V8200A_TARGET_NOT_SINGLE_SUPPLY:"+base[TARGET].get("missing_components",""))
+
+          prod_rows=scorer.production_rows()
+          if TARGET not in prod_rows:
+              raise RuntimeError("V8200A_TARGET_NOT_IN_PRODUCTION_API")
+          analysis=prod_rows[TARGET].get("analysis") or {}
+          if analysis.get("supply_status")!="LIMITED" or analysis.get("supply_level")!="없음":
+              raise RuntimeError("V8200A_BASE_SUPPLY_STATE_CHANGED")
+
+          dart_code,dart_name=exact_corp_code(api_key)
+          if dart_code!=EXPECTED_CORP_CODE:
+              raise RuntimeError("V8200A_DART_CORP_CODE_CHANGED:"+dart_code)
+          if dart_code!=str(fin.get("corp_code") or ""):
+              raise RuntimeError("V8200A_CORP_CODE_CROSSCHECK_MISMATCH")
+
+          rules,relief_keywords=load_supply_contract()
+          audit_end=datetime.now(KST).date()
+          audit_start=audit_end-timedelta(days=LOOKBACK_DAYS-1)
+          fetched=fetch_reports(api_key,dart_code,audit_start,audit_end)
+
+          evidence=[]
+          max_severity=0
+          keyword_set=set()
+          relief_count=0
+
+          if fetched["complete"]:
+              for item in fetched["reports"]:
+                  report_name=str(item.get("report_nm") or "")
+                  is_risk,labels,severity,relief=classify_report(report_name,rules,relief_keywords)
+                  if relief:
+                      relief_count+=1
+                  if not is_risk:
+                      continue
+                  max_severity=max(max_severity,severity)
+                  keyword_set.update(labels)
+                  evidence.append({
+                      "rcept_dt":str(item.get("rcept_dt") or ""),
+                      "rcept_no":str(item.get("rcept_no") or ""),
+                      "report_nm":report_name,
+                      "corp_name":str(item.get("corp_name") or ""),
+                      "keywords":labels,
+                      "severity":severity,
+                      "relief_flag":relief,
+                  })
+
+          evidence.sort(key=lambda x:(x["rcept_dt"],x["rcept_no"]),reverse=True)
+
+          if not fetched["complete"]:
+              raise RuntimeError("V8200A_DART_180D_INCOMPLETE:"+json.dumps(fetched["api_errors"],ensure_ascii=False))
+          if evidence:
+              classification="COMPLETE_180D_POSITIVE_BURDEN"
+              proposed_level=severity_to_level(max_severity,len(evidence))
+          else:
+              classification="COMPLETE_180D_NO_POSITIVE_BURDEN"
+              proposed_level="없음"
+          proposed_status="OK"
+          latest=evidence[0] if evidence else {}
+
+          audit_row={
+              "ticker":TARGET,
+              "name":TARGET_NAME,
+              "corp_code":dart_code,
+              "corp_name_dart":dart_name,
+              "audit_start_date":audit_start.isoformat(),
+              "audit_end_date":audit_end.isoformat(),
+              "requested_lookback_days":LOOKBACK_DAYS,
+              "chunk_count":len(fetched["chunks"]),
+              "dart_list_api_calls":fetched["api_calls"],
+              "dart_report_count":len(fetched["reports"]),
+              "risk_report_count":len(evidence),
+              "relief_report_match_count":relief_count,
+              "classification":classification,
+              "proposed_supply_status":proposed_status,
+              "proposed_supply_level":proposed_level,
+              "risk_keywords":",".join(sorted(keyword_set)),
+              "latest_risk_report_date":latest.get("rcept_dt",""),
+              "latest_risk_report_name":latest.get("report_nm",""),
+              "latest_risk_rcept_no":latest.get("rcept_no",""),
+              "chunk_summaries_json":json.dumps(fetched["chunks"],ensure_ascii=False,separators=(",",":")),
+              "evidence_reports_json":json.dumps(evidence,ensure_ascii=False,separators=(",",":")),
+          }
+          write_rows(AUDIT_CSV,[audit_row],list(audit_row.keys()))
+
+          candidate_prod=copy.deepcopy(prod_rows)
+          ca=copy.deepcopy(candidate_prod[TARGET].get("analysis") or {})
+          ca["supply_status"]=proposed_status
+          ca["supply_level"]=proposed_level
+          ca["supply_keywords"]=audit_row["risk_keywords"]
+          candidate_prod[TARGET]["analysis"]=ca
+
+          shadow,ssum=run_scorer_with_prod(candidate_prod,"v8200a_shadow")
+          if set(base)!=set(shadow):
+              raise RuntimeError("V8200A_SHADOW_UNIVERSE_CHANGED")
+          if (int(ssum["ready_count"]),int(ssum["limited_count"]),blocker_count(shadow))!=(24,174,1616):
+              raise RuntimeError(
+                  f"V8200A_SHADOW_RESULT_BAD:{ssum['ready_count']}:{ssum['limited_count']}:{blocker_count(shadow)}"
+              )
+          if shadow[TARGET].get("score_status")!="READY":
+              raise RuntimeError("V8200A_TARGET_NOT_READY_IN_SHADOW")
+          changed=[c for c in sorted(base) if stable(base[c])!=stable(shadow[c])]
+          if changed!=[TARGET]:
+              raise RuntimeError("V8200A_NON_TARGET_SCORE_DRIFT:"+",".join(changed))
+
+          compare={
+              "ticker":TARGET,
+              "name":TARGET_NAME,
+              "classification":classification,
+              "proposed_supply_status":proposed_status,
+              "proposed_supply_level":proposed_level,
+              "risk_keywords":audit_row["risk_keywords"],
+              "baseline_status":base[TARGET].get("score_status",""),
+              "shadow_status":shadow[TARGET].get("score_status",""),
+              "baseline_missing_components":base[TARGET].get("missing_components",""),
+              "shadow_missing_components":shadow[TARGET].get("missing_components",""),
+          }
+          write_rows(COMPARE_CSV,[compare],list(compare.keys()))
+
+          new_row={k:"" for k in fields}
+          new_row.update({
+              "ticker":TARGET,
+              "name":TARGET_NAME,
+              "source_origin":"V8200A_FASTLANE_CURRENT_SOURCE",
+              "source_status":"SOURCE_ONLY_READY",
+              "source_version":VERSION,
+              "source_classification":classification,
+              "corp_code":dart_code,
+              "corp_name_dart":dart_name,
+              "audit_start_date":audit_start.isoformat(),
+              "audit_end_date":audit_end.isoformat(),
+              "requested_lookback_days":str(LOOKBACK_DAYS),
+              "chunk_count":str(len(fetched["chunks"])),
+              "dart_list_api_calls":str(fetched["api_calls"]),
+              "dart_report_count":str(len(fetched["reports"])),
+              "risk_report_count":str(len(evidence)),
+              "supply_status":proposed_status,
+              "supply_level":proposed_level,
+              "risk_keywords":audit_row["risk_keywords"],
+              "latest_risk_report_date":latest.get("rcept_dt",""),
+              "latest_risk_report_name":latest.get("report_nm",""),
+              "latest_risk_rcept_no":latest.get("rcept_no",""),
+              "relief_report_match_count":str(relief_count),
+              "evidence_reports_json":json.dumps(evidence,ensure_ascii=False,separators=(",",":")),
+              "chunk_summaries_json":json.dumps(fetched["chunks"],ensure_ascii=False,separators=(",",":")),
+              "evidence_ref":"V8200A:DART_LIST_180D_EXACT_STOCK:007700",
+          })
+
+          candidate_rows=list(old_rows)+[new_row]
+          candidate_rows.sort(key=lambda r:ticker(r.get("ticker")))
+          if len(candidate_rows)!=10 or len(row_map(candidate_rows))!=10:
+              raise RuntimeError("V8200A_CANDIDATE_SOURCE_NOT_10")
+          for code in old_map:
+              if stable(old_map[code])!=stable(row_map(candidate_rows)[code]):
+                  raise RuntimeError("V8200A_EXISTING_SOURCE_ROW_CHANGED:"+code)
+          write_rows(CAND_CSV,candidate_rows,fields)
+
+          shutil.copy2(SUPPLY,B_SUPPLY)
+          shutil.copy2(SUPPLY_META,B_META)
+          shutil.copy2(SUPPLY_LOG,B_LOG)
+
+          try:
+              write_rows(SUPPLY,candidate_rows,fields)
+              after=read_rows(SUPPLY)
+              amap=row_map(after)
+              if len(after)!=10 or TARGET not in amap:
+                  raise RuntimeError("V8200A_PRODUCTION_SOURCE_APPLY_BAD")
+              changed_old=[c for c in sorted(old_map) if stable(old_map[c])!=stable(amap[c])]
+              if changed_old:
+                  raise RuntimeError("V8200A_EXISTING_SOURCE_CHANGED_POST_APPLY:"+",".join(changed_old))
+
+              now=datetime.now(KST).isoformat(timespec="seconds")
+              new_meta=copy.deepcopy(supply_meta)
+              levels={c:r.get("supply_level","") for c,r in sorted(amap.items())}
+              new_meta.update({
+                  "version":VERSION,
+                  "status":"PRODUCTION_SOURCE_READY_NOT_YET_API_REBUILT",
+                  "policy_version":POLICY,
+                  "supply_policy_version":SUPPLY_POLICY,
+                  "generated_at_kst":now,
+                  "source_count":10,
+                  "source_tickers":sorted(amap),
+                  "supply_levels":levels,
+                  "previous_narrow_patch":supply_meta.get("narrow_patch"),
+                  "narrow_patch":{
+                      "version":VERSION,
+                      "ticker_count":1,
+                      "tickers":[TARGET],
+                      "supply_status":proposed_status,
+                      "supply_level":proposed_level,
+                      "risk_keywords":sorted(keyword_set),
+                      "risk_report_count":len(evidence),
+                      "classification":classification,
+                  },
+                  "candidate_regression":{
+                      "current_scorer_universe_count":198,
+                      "baseline_ready_count":23,
+                      "baseline_limited_count":175,
+                      "baseline_blocker_occurrences":1617,
+                      "candidate_ready_count":24,
+                      "candidate_limited_count":174,
+                      "candidate_blocker_occurrences":1616,
+                      "ready_delta":1,
+                      "limited_delta":-1,
+                      "blocker_occurrences_reduced_by":1,
+                      "non_target_score_row_changed_count":0,
+                  },
+                  "integration":{
+                      **(supply_meta.get("integration") or {}),
+                      "builder":"build_stock_table_preview_v850.py",
+                      "overlay_module":"investment_score_supply_overlay_v8139b.py",
+                      "precedence":"VERIFIED_SUPPLY_SOURCE_OVER_LEGACY_WHOLE_MARKET_SCAN",
+                      "production_api_rebuilt":False,
+                      "production_api_rebuild_mode":"PENDING_FASTLANE_REBUILD_V8201A",
+                  },
+                  "next_step":"FAST_REBUILD_API_AND_POST_AUDIT_V8201A",
+              })
+              SUPPLY_META.write_text(json.dumps(new_meta,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+              SUPPLY_LOG.write_text("\n".join([
+                  f"VERSION={VERSION}",
+                  "STATUS=PRODUCTION_SOURCE_READY_NOT_YET_API_REBUILT",
+                  "SOURCE_COUNT_BEFORE=9",
+                  "SOURCE_COUNT_AFTER=10",
+                  "NARROW_PATCH_COUNT=1",
+                  "NARROW_PATCH_TICKER=007700",
+                  f"NARROW_PATCH_SUPPLY_STATUS={proposed_status}",
+                  f"NARROW_PATCH_SUPPLY_LEVEL={proposed_level}",
+                  "SCORER_UNIVERSE=198",
+                  "BASELINE_READY=23",
+                  "BASELINE_LIMITED=175",
+                  "BASELINE_BLOCKERS=1617",
+                  "CANDIDATE_READY=24",
+                  "CANDIDATE_LIMITED=174",
+                  "CANDIDATE_BLOCKERS=1616",
+                  "READY_DELTA=1",
+                  "LIMITED_DELTA=-1",
+                  "BLOCKER_REDUCED_BY=1",
+                  "NON_TARGET_SCORE_ROW_CHANGED=0",
+                  "EXISTING_SUPPLY_SOURCE_ROWS_CHANGED=0",
+                  "PRODUCTION_SUPPLY_SOURCE_MODIFIED=true",
+                  "PRODUCTION_API_REBUILT=false",
+                  "PRODUCTION_SCORE_WRITTEN=false",
+                  "STATUS_OK=true",
+                  "NEXT_STEP=FAST_REBUILD_API_AND_POST_AUDIT_V8201A",
+              ])+"\n",encoding="utf-8")
+
+              # API intentionally unchanged until V8.20.1A.
+              post,psum=run_scorer_real("v8200a_post_source_patch")
+              if (int(psum["ready_count"]),int(psum["limited_count"]),blocker_count(post))!=(23,175,1617):
+                  raise RuntimeError("V8200A_API_CHANGED_BEFORE_REBUILD")
+
+              summary={
+                  "version":VERSION,
+                  "generated_at_kst":now,
+                  "status":"FASTLANE_AUDIT_SHADOW_STAGE_SOURCE_PATCH_PASS",
+                  "policy_version":POLICY,
+                  "supply_policy_version":SUPPLY_POLICY,
+                  "target_ticker":TARGET,
+                  "target_name":TARGET_NAME,
+                  "corp_code":dart_code,
+                  "corp_name_dart":dart_name,
+                  "audit":{
+                      "complete":True,
+                      "audit_start_date":audit_start.isoformat(),
+                      "audit_end_date":audit_end.isoformat(),
+                      "classification":classification,
+                      "dart_report_count":len(fetched["reports"]),
+                      "risk_report_count":len(evidence),
+                      "proposed_supply_status":proposed_status,
+                      "proposed_supply_level":proposed_level,
+                      "risk_keywords":sorted(keyword_set),
+                  },
+                  "shadow_stage":{
+                      "universe_count":198,
+                      "baseline_ready":23,
+                      "candidate_ready":24,
+                      "baseline_limited":175,
+                      "candidate_limited":174,
+                      "baseline_blockers":1617,
+                      "candidate_blockers":1616,
+                      "changed_score_row_count":1,
+                      "changed_score_tickers":[TARGET],
+                      "non_target_score_row_changed_count":0,
+                  },
+                  "production_supply_source":{
+                      "rows_before":9,
+                      "rows_after":10,
+                      "existing_rows_changed":0,
+                      "api_rebuilt":False,
+                  },
+                  "rollback_guard":{
+                      "enabled":True,
+                      "restores_supply_csv":True,
+                      "restores_supply_metadata":True,
+                      "restores_supply_run_log":True,
+                  },
+                  "hard_guards":{
+                      "production_supply_source_modified":True,
+                      "production_api_modified":False,
+                      "production_score_written":False,
+                      "production_source_cache_modified":False,
+                      "production_financial_cache_modified":False,
+                      "production_ocf_cache_modified":False,
+                      "production_price_elasticity_cache_modified":False,
+                      "scoring_policy_modified":False,
+                      "supply_policy_modified":False,
+                      "issuer_mapping_guessed":False,
+                      "incomplete_query_treated_as_absence":False,
+                      "non_target_score_row_changed":False,
+                  },
+                  "next_step":"FAST_REBUILD_API_AND_POST_AUDIT_V8201A",
+              }
+              SUMMARY.write_text(json.dumps(summary,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+              RUNLOG.write_text("\n".join([
+                  f"VERSION={VERSION}",
+                  "STATUS=FASTLANE_AUDIT_SHADOW_STAGE_SOURCE_PATCH_PASS",
+                  "TARGET_TICKER=007700",
+                  "DART_180D_COMPLETE=true",
+                  f"CLASSIFICATION={classification}",
+                  f"PROPOSED_SUPPLY_STATUS={proposed_status}",
+                  f"PROPOSED_SUPPLY_LEVEL={proposed_level}",
+                  "SOURCE_ROWS_BEFORE=9",
+                  "SOURCE_ROWS_AFTER=10",
+                  "BASELINE_READY=23",
+                  "CANDIDATE_READY=24",
+                  "BASELINE_LIMITED=175",
+                  "CANDIDATE_LIMITED=174",
+                  "BASELINE_BLOCKERS=1617",
+                  "CANDIDATE_BLOCKERS=1616",
+                  "NON_TARGET_SCORE_ROW_CHANGED=0",
+                  "PRODUCTION_API_MODIFIED=false",
+                  "ROLLBACK_GUARD=true",
+                  "STATUS_OK=true",
+                  "NEXT_STEP=FAST_REBUILD_API_AND_POST_AUDIT_V8201A",
+              ])+"\n",encoding="utf-8")
+
+              DOC.parent.mkdir(parents=True,exist_ok=True)
+              DOC.write_text(
+                  "# V8.20.0A F&F홀딩스 supply fast lane\n\n"
+                  "- Target: F&F홀딩스 (007700).\n"
+                  "- OpenDART exact-stock issuer audit: complete 180-day / 90-day chunks.\n"
+                  f"- Classification: {classification}.\n"
+                  f"- Proposed supply state: {proposed_status} / {proposed_level}.\n"
+                  "- Shadow + stage effect: READY 23→24, LIMITED 175→174, blockers 1617→1616.\n"
+                  "- Only score row 007700 changes in counterfactual validation.\n"
+                  "- Persistent verified supply source: 9→10 rows; existing 9 rows unchanged.\n"
+                  "- Production API is intentionally unchanged in this phase.\n"
+                  "- Rollback covers supply CSV, metadata and run log.\n\n"
+                  "Next: FAST_REBUILD_API_AND_POST_AUDIT_V8201A\n",
+                  encoding="utf-8"
+              )
+
+          except Exception:
+              shutil.copy2(B_SUPPLY,SUPPLY)
+              shutil.copy2(B_META,SUPPLY_META)
+              shutil.copy2(B_LOG,SUPPLY_LOG)
+              raise
+
+          print("V8200A_FASTLANE=PASS")
+          print("V8200A_SOURCE_ROWS=9->10")
+          print("V8200A_SHADOW_READY=23->24")
+          print("V8200A_SHADOW_BLOCKERS=1617->1616")
+          print("V8200A_API_REBUILT=false")
+          PY
+
+          python -m py_compile investment_score_supply_fastlane_v8200a.py
+          python investment_score_supply_fastlane_v8200a.py | tee /tmp/v8200a_stdout.txt
+
+          grep -q '^V8200A_FASTLANE=PASS$' /tmp/v8200a_stdout.txt
+          grep -q '^STATUS_OK=true$' latest/investment_score_supply_fastlane_v8200a_run_log_latest.txt
+          grep -q '^SOURCE_ROWS_AFTER=10$' latest/investment_score_supply_fastlane_v8200a_run_log_latest.txt
+          grep -q '^CANDIDATE_READY=24$' latest/investment_score_supply_fastlane_v8200a_run_log_latest.txt
+          grep -q '^CANDIDATE_BLOCKERS=1616$' latest/investment_score_supply_fastlane_v8200a_run_log_latest.txt
+
+      - name: Validate fast lane outputs and API immutability
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import csv,json
+          from pathlib import Path
+
+          s=json.loads(Path(
+              "latest/investment_score_supply_fastlane_v8200a_summary_latest.json"
+          ).read_text(encoding="utf-8"))
+
+          assert s["version"]=="2026-09-24-v8.20.0A-ff-holdings-supply-fast-lane"
+          assert s["status"]=="FASTLANE_AUDIT_SHADOW_STAGE_SOURCE_PATCH_PASS"
+          assert s["target_ticker"]=="007700"
+          assert s["target_name"]=="F&F홀딩스"
+          assert s["corp_code"]=="00126487"
+          assert s["audit"]["complete"] is True
+          assert s["audit"]["proposed_supply_status"]=="OK"
+
+          sh=s["shadow_stage"]
+          assert sh["universe_count"]==198
+          assert (sh["baseline_ready"],sh["candidate_ready"])==(23,24)
+          assert (sh["baseline_limited"],sh["candidate_limited"])==(175,174)
+          assert (sh["baseline_blockers"],sh["candidate_blockers"])==(1617,1616)
+          assert sh["changed_score_tickers"]==["007700"]
+          assert sh["non_target_score_row_changed_count"]==0
+
+          ps=s["production_supply_source"]
+          assert (ps["rows_before"],ps["rows_after"])==(9,10)
+          assert ps["existing_rows_changed"]==0
+          assert ps["api_rebuilt"] is False
+
+          assert s["rollback_guard"]["enabled"] is True
+          assert s["hard_guards"]["production_supply_source_modified"] is True
+          for k,v in s["hard_guards"].items():
+              if k!="production_supply_source_modified":
+                  assert v is False, (k,v)
+
+          with Path("latest/investment_score_supply_source_latest.csv").open(
+              encoding="utf-8-sig",newline=""
+          ) as f:
+              rows=list(csv.DictReader(f))
+          assert len(rows)==10
+          m={r["ticker"]:r for r in rows}
+          assert m["007700"]["source_status"]=="SOURCE_ONLY_READY"
+          assert m["007700"]["supply_status"]=="OK"
+
+          meta=json.loads(Path(
+              "latest/investment_score_supply_source_latest.json"
+          ).read_text(encoding="utf-8"))
+          assert meta["version"]=="2026-09-24-v8.20.0A-ff-holdings-supply-fast-lane"
+          assert meta["status"]=="PRODUCTION_SOURCE_READY_NOT_YET_API_REBUILT"
+          assert meta["source_count"]==10
+          assert meta["narrow_patch"]["tickers"]==["007700"]
+          assert meta["integration"]["production_api_rebuilt"] is False
+          assert meta["next_step"]=="FAST_REBUILD_API_AND_POST_AUDIT_V8201A"
+
+          print("V8200A_OUTPUT_VALIDATION=PASS")
+          PY
+
+          sha256sum \
+            config/investment_score_policy_v880.json \
+            investment_score_dry_run_v882.py \
+            investment_score_supply_overlay_v8139b.py \
+            supply_burden_enricher.py \
+            latest/financial_valuation_cache_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.csv \
+            latest/investment_score_price_elasticity_20d_latest.json \
+            latest/investment_score_ocf_source_latest.csv \
+            latest/investment_score_ocf_source_latest.json \
+            latest/investment_score_source_cache_latest.csv \
+            > /tmp/v8200a_non_supply.after
+
+          diff -u /tmp/v8200a_non_supply.before /tmp/v8200a_non_supply.after
+
+          find api/two_table_v1 -maxdepth 1 -type f -print0 \
+            | sort -z | xargs -0 sha256sum > /tmp/v8200a_api.after
+          diff -u /tmp/v8200a_api.before /tmp/v8200a_api.after
+
+      - name: Restrict changed files and concurrent protected drift
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import subprocess
+
+          allowed={
+              "investment_score_supply_fastlane_v8200a.py",
+              "latest/investment_score_supply_fastlane_v8200a_audit.csv",
+              "latest/investment_score_supply_fastlane_v8200a_candidate.csv",
+              "latest/investment_score_supply_fastlane_v8200a_shadow.csv",
+              "latest/investment_score_supply_fastlane_v8200a_summary_latest.json",
+              "latest/investment_score_supply_fastlane_v8200a_run_log_latest.txt",
+              "docs/investment_score_supply_fastlane_v8200a.md",
+              "latest/investment_score_supply_source_latest.csv",
+              "latest/investment_score_supply_source_latest.json",
+              "latest/investment_score_supply_source_run_log_latest.txt",
+          }
+
+          changed=set()
+          for line in subprocess.check_output(
+              ["git","status","--porcelain","--untracked-files=all"],text=True
+          ).splitlines():
+              if line:
+                  changed.add(line[3:].split(" -> ")[-1])
+
+          bad=sorted(changed-allowed)
+          if bad:
+              raise SystemExit("V8200A_UNEXPECTED_CHANGED_FILES:"+",".join(bad))
+
+          print("V8200A_CHANGED_FILES_RESTRICTED=PASS")
+          PY
+
+          git fetch origin main
+
+          python - <<'PY'
+          import subprocess
+
+          protected={
+              "config/investment_score_policy_v880.json",
+              "investment_score_dry_run_v882.py",
+              "latest/investment_score_price_elasticity_20d_latest.csv",
+              "latest/investment_score_price_elasticity_20d_latest.json",
+              "latest/investment_score_ocf_source_latest.csv",
+              "latest/investment_score_ocf_source_latest.json",
+              "latest/investment_score_source_cache_latest.csv",
+              "latest/financial_valuation_cache_latest.csv",
+          }
+
+          upstream=set(subprocess.check_output(
+              ["git","diff","--name-only","HEAD..origin/main"],text=True
+          ).splitlines())
+          bad=sorted(
+              p for p in upstream
+              if p in protected or p.startswith("api/two_table_v1/")
+          )
+          if bad:
+              raise SystemExit("V8200A_CONCURRENT_PROTECTED_DRIFT:"+",".join(bad))
+
+          print("V8200A_NO_CONCURRENT_PROTECTED_DRIFT=PASS")
+          PY
+
+      - name: Commit and push V8.20.0A fast lane result
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          git add \
+            investment_score_supply_fastlane_v8200a.py \
+            latest/investment_score_supply_fastlane_v8200a_audit.csv \
+            latest/investment_score_supply_fastlane_v8200a_candidate.csv \
+            latest/investment_score_supply_fastlane_v8200a_shadow.csv \
+            latest/investment_score_supply_fastlane_v8200a_summary_latest.json \
+            latest/investment_score_supply_fastlane_v8200a_run_log_latest.txt \
+            docs/investment_score_supply_fastlane_v8200a.md \
+            latest/investment_score_supply_source_latest.csv \
+            latest/investment_score_supply_source_latest.json \
+            latest/investment_score_supply_source_run_log_latest.txt
+
+          git diff --cached --check
+          git commit -m "F&F Holdings supply fast lane v8.20.0A"
+          git pull --rebase origin main
+          git push origin HEAD:main

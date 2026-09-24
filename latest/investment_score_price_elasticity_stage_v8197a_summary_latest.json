@@ -1,0 +1,57 @@
+{
+  "version": "2026-09-24-v8.19.7A-stage-current-single-price-elasticity-patch",
+  "generated_at_kst": "2026-09-24T20:42:49+09:00",
+  "status": "STAGED_CURRENT_SINGLE_PRICE_ELASTICITY_PATCH_PASS",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "v8196a_version": "2026-09-24-v8.19.6A-freeze-current-actionable-price-elasticity-shadow",
+  "v8196a_result_commit": "1db585c319ece8f2bf89b621b2878a6b967558d5",
+  "staged_cache": {
+    "production_row_count": 217,
+    "staged_row_count": 218,
+    "row_delta": 1,
+    "added_tickers": [
+      "034730"
+    ],
+    "existing_row_changed_count": 0,
+    "target_values": {
+      "034730": 2.9064
+    },
+    "basis_date": "2026-09-23"
+  },
+  "scorer_regression": {
+    "universe_count": 198,
+    "baseline_ready_count": 22,
+    "staged_ready_count": 23,
+    "baseline_limited_count": 176,
+    "staged_limited_count": 175,
+    "baseline_blocker_occurrences": 1618,
+    "staged_blocker_occurrences": 1617,
+    "blocker_occurrences_reduced_by": 1,
+    "changed_score_row_count": 1,
+    "changed_score_tickers": [
+      "034730"
+    ],
+    "non_target_score_row_changed_count": 0,
+    "newly_ready_count": 1,
+    "newly_ready_tickers": [
+      "034730"
+    ],
+    "lost_ready_count": 0
+  },
+  "automatic_promotion": false,
+  "hard_guards": {
+    "production_price_elasticity_cache_modified": false,
+    "production_price_elasticity_metadata_modified": false,
+    "production_price_elasticity_run_log_modified": false,
+    "production_ocf_cache_modified": false,
+    "production_source_cache_modified": false,
+    "production_financial_cache_modified": false,
+    "production_api_modified": false,
+    "production_score_written": false,
+    "scoring_policy_modified": false,
+    "atr_substituted": false,
+    "nonofficial_price_source_used": false,
+    "non_target_score_row_changed": false
+  },
+  "next_step": "CONTROLLED_CURRENT_SINGLE_PRICE_ELASTICITY_APPLY_V8198A"
+}

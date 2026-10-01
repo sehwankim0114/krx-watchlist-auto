@@ -1,10 +1,6 @@
 script=collect_universe.py v4.6.2_market_metric_20_session_elasticity_v6
-started_at=2026-09-30T11:02:36
-collection_period=2026-01-21~2026-09-30
-KRX_RETRY market=KOSPI_stock date=20260121 attempt=1/4 status=200 keys=['OutBlock_1'] rows=954 result=SUCCESS
-OPENAPI KOSPI 20260121: rows=929
-KRX_RETRY market=KOSDAQ_stock date=20260121 attempt=1/4 status=200 keys=['OutBlock_1'] rows=1828 result=SUCCESS
-OPENAPI KOSDAQ 20260121: rows=1796
+started_at=2026-10-01T11:03:54
+collection_period=2026-01-22~2026-10-01
 KRX_RETRY market=KOSPI_stock date=20260122 attempt=1/4 status=200 keys=['OutBlock_1'] rows=954 result=SUCCESS
 OPENAPI KOSPI 20260122: rows=929
 KRX_RETRY market=KOSDAQ_stock date=20260122 attempt=1/4 status=200 keys=['OutBlock_1'] rows=1827 result=SUCCESS
@@ -889,39 +885,43 @@ KRX_RETRY market=KOSPI_stock date=20260929 attempt=1/4 status=200 keys=['OutBloc
 OPENAPI KOSPI 20260929: rows=915
 KRX_RETRY market=KOSDAQ_stock date=20260929 attempt=1/4 status=200 keys=['OutBlock_1'] rows=1823 result=SUCCESS
 OPENAPI KOSDAQ 20260929: rows=1764
-KRX_RETRY market=KOSPI_stock date=20260930 attempt=1/4 status=200 keys=['OutBlock_1'] rows=0 body={"OutBlock_1":[]} result=EMPTY_RETRY
-KRX_RETRY_WAIT market=KOSPI_stock date=20260930 attempt=2 seconds=1
-KRX_RETRY market=KOSPI_stock date=20260930 attempt=2/4 status=200 keys=['OutBlock_1'] rows=0 body={"OutBlock_1":[]} result=EMPTY_RETRY
-KRX_RETRY_WAIT market=KOSPI_stock date=20260930 attempt=3 seconds=3
-KRX_RETRY market=KOSPI_stock date=20260930 attempt=3/4 status=200 keys=['OutBlock_1'] rows=0 body={"OutBlock_1":[]} result=EMPTY_RETRY
-KRX_RETRY_WAIT market=KOSPI_stock date=20260930 attempt=4 seconds=7
-KRX_RETRY market=KOSPI_stock date=20260930 attempt=4/4 status=200 keys=['OutBlock_1'] rows=0 body={"OutBlock_1":[]} result=EMPTY_RETRY
-OPENAPI_EMPTY_AFTER_RETRY market=KOSPI_stock date=20260930 attempts=4
-OPENAPI KOSPI 20260930: empty after normalize
-KRX_RETRY market=KOSDAQ_stock date=20260930 attempt=1/4 status=200 keys=['OutBlock_1'] rows=0 body={"OutBlock_1":[]} result=EMPTY_RETRY
-KRX_RETRY_WAIT market=KOSDAQ_stock date=20260930 attempt=2 seconds=1
-KRX_RETRY market=KOSDAQ_stock date=20260930 attempt=2/4 status=200 keys=['OutBlock_1'] rows=0 body={"OutBlock_1":[]} result=EMPTY_RETRY
-KRX_RETRY_WAIT market=KOSDAQ_stock date=20260930 attempt=3 seconds=3
-KRX_RETRY market=KOSDAQ_stock date=20260930 attempt=3/4 status=200 keys=['OutBlock_1'] rows=0 body={"OutBlock_1":[]} result=EMPTY_RETRY
-KRX_RETRY_WAIT market=KOSDAQ_stock date=20260930 attempt=4 seconds=7
-KRX_RETRY market=KOSDAQ_stock date=20260930 attempt=4/4 status=200 keys=['OutBlock_1'] rows=0 body={"OutBlock_1":[]} result=EMPTY_RETRY
-OPENAPI_EMPTY_AFTER_RETRY market=KOSDAQ_stock date=20260930 attempts=4
-OPENAPI KOSDAQ 20260930: empty after normalize
-HISTORY_COMBINE: fresh=453432, existing=173193, combined=385538
-raw_history=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/universe_raw_history_latest.csv, rows=385538
-SUMMARY KOSPI: input rows=131709
-SUMMARY KOSPI: 3m rows=57801, tickers=921
-SUMMARY KOSPI: output rows=921
-SUMMARY KOSDAQ: input rows=253829
-SUMMARY KOSDAQ: 3m rows=111443, tickers=1785
+KRX_RETRY market=KOSPI_stock date=20260930 attempt=1/4 status=200 keys=['OutBlock_1'] rows=942 result=SUCCESS
+OPENAPI KOSPI 20260930: rows=915
+KRX_RETRY market=KOSDAQ_stock date=20260930 attempt=1/4 status=200 keys=['OutBlock_1'] rows=1824 result=SUCCESS
+OPENAPI KOSDAQ 20260930: rows=1765
+KRX_RETRY market=KOSPI_stock date=20261001 attempt=1/4 status=200 keys=['OutBlock_1'] rows=0 body={"OutBlock_1":[]} result=EMPTY_RETRY
+KRX_RETRY_WAIT market=KOSPI_stock date=20261001 attempt=2 seconds=1
+KRX_RETRY market=KOSPI_stock date=20261001 attempt=2/4 status=200 keys=['OutBlock_1'] rows=0 body={"OutBlock_1":[]} result=EMPTY_RETRY
+KRX_RETRY_WAIT market=KOSPI_stock date=20261001 attempt=3 seconds=3
+KRX_RETRY market=KOSPI_stock date=20261001 attempt=3/4 status=200 keys=['OutBlock_1'] rows=0 body={"OutBlock_1":[]} result=EMPTY_RETRY
+KRX_RETRY_WAIT market=KOSPI_stock date=20261001 attempt=4 seconds=7
+KRX_RETRY market=KOSPI_stock date=20261001 attempt=4/4 status=200 keys=['OutBlock_1'] rows=0 body={"OutBlock_1":[]} result=EMPTY_RETRY
+OPENAPI_EMPTY_AFTER_RETRY market=KOSPI_stock date=20261001 attempts=4
+OPENAPI KOSPI 20261001: empty after normalize
+KRX_RETRY market=KOSDAQ_stock date=20261001 attempt=1/4 status=200 keys=['OutBlock_1'] rows=0 body={"OutBlock_1":[]} result=EMPTY_RETRY
+KRX_RETRY_WAIT market=KOSDAQ_stock date=20261001 attempt=2 seconds=1
+KRX_RETRY market=KOSDAQ_stock date=20261001 attempt=2/4 status=200 keys=['OutBlock_1'] rows=0 body={"OutBlock_1":[]} result=EMPTY_RETRY
+KRX_RETRY_WAIT market=KOSDAQ_stock date=20261001 attempt=3 seconds=3
+KRX_RETRY market=KOSDAQ_stock date=20261001 attempt=3/4 status=200 keys=['OutBlock_1'] rows=0 body={"OutBlock_1":[]} result=EMPTY_RETRY
+KRX_RETRY_WAIT market=KOSDAQ_stock date=20261001 attempt=4 seconds=7
+KRX_RETRY market=KOSDAQ_stock date=20261001 attempt=4/4 status=200 keys=['OutBlock_1'] rows=0 body={"OutBlock_1":[]} result=EMPTY_RETRY
+OPENAPI_EMPTY_AFTER_RETRY market=KOSDAQ_stock date=20261001 attempts=4
+OPENAPI KOSDAQ 20261001: empty after normalize
+HISTORY_COMBINE: fresh=453387, existing=174406, combined=388218
+raw_history=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/universe_raw_history_latest.csv, rows=388218
+SUMMARY KOSPI: input rows=132624
+SUMMARY KOSPI: 3m rows=57795, tickers=920
+SUMMARY KOSPI: output rows=920
+SUMMARY KOSDAQ: input rows=255594
+SUMMARY KOSDAQ: 3m rows=111433, tickers=1785
 SUMMARY KOSDAQ: output rows=1785
-actual_data_last_date=2026-09-29
-KOSPI_summary=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kospi_universe_summary_latest.csv, rows=921
+actual_data_last_date=2026-09-30
+KOSPI_summary=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kospi_universe_summary_latest.csv, rows=920
 KOSDAQ_summary=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kosdaq_universe_summary_latest.csv, rows=1785
 KOSPI_GAINERS_ANOMALY_EXCLUDED: rows=6, examples=디와이에이, 사조동아원, 상상인증권, 조일알미늄, 주성코퍼레이션, 진흥기업
-KOSPI_GAINERS_FILTER: before=779, after_valid=109
+KOSPI_GAINERS_FILTER: before=778, after_valid=110
 KOSPI_GAINERS: rows=20
-KOSPI_CANDIDATES: after exclusion rows=779
+KOSPI_CANDIDATES: after exclusion rows=778
 KOSPI_CANDIDATES: candidates=30, recommend=7
 kospi_gainers_1m=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kospi_gainers_1m_latest.csv, rows=20
 kospi_candidates_30=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kospi_candidates_30_latest.csv, rows=30
@@ -931,28 +931,28 @@ KOSDAQ_CANDIDATES: candidates=10, recommend=5
 kosdaq_candidates_10=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kosdaq_candidates_10_latest.csv, rows=10
 kosdaq_recommend_5=/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/kosdaq_recommend_5_latest.csv, rows=5
 market_index_summary=kept_existing:/home/runner/work/krx-watchlist-auto/krx-watchlist-auto/latest/market_index_summary_latest.csv
-finished_at=2026-09-30T11:25:09
+finished_at=2026-10-01T11:31:49
 
 ----- KRX_OFFICIAL_FRESHNESS_STATUS -----
 stage=after_collect
 script=run_universe_latest.py v1.5_one_month_runtime_hook
-run_at_kst=2026-09-30T11:25:10+09:00
+run_at_kst=2026-10-01T11:31:49+09:00
 run_mode=official
 final_run_mode=official
-expected_official_trading_date=2026-09-29
+expected_official_trading_date=2026-09-30
 status=FRESH
 official_status=FRESH
 fresh=True
 official_fresh=True
 display_label=최신 공식판
 warning=
-kospi_actual_date=2026-09-29
-kosdaq_actual_date=2026-09-29
-actual_min_date=2026-09-29
-actual_max_date=2026-09-29
-basis_date_for_display=2026-09-29
+kospi_actual_date=2026-09-30
+kosdaq_actual_date=2026-09-30
+actual_min_date=2026-09-30
+actual_max_date=2026-09-30
+basis_date_for_display=2026-09-30
 same_market_date=True
-kospi_summary_rows=921
+kospi_summary_rows=920
 kosdaq_summary_rows=1785
 holiday_file=config/krx_market_holidays.json
 holiday_file_exists=True

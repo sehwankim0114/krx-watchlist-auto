@@ -1,26 +1,39 @@
 {
   "version": "2026-09-12-v8.7.0-official-krx-sector-rs",
-  "generated_at_kst": "2026-10-01T15:35:09+09:00",
-  "basis_date": "2026-09-30",
-  "unique_ticker_count": 110,
-  "classifiable_ticker_count": 110,
+  "generated_at_kst": "2026-10-02T12:02:15+09:00",
+  "basis_date": "2026-10-01",
+  "unique_ticker_count": 140,
+  "classifiable_ticker_count": 140,
   "unclassified_ticker_count": 0,
   "unclassified_tickers": [],
-  "table_row_count": 116,
-  "compact_row_count": 116,
-  "rs_values_ready": 220,
-  "rs_values_expected": 220,
+  "table_row_count": 145,
+  "compact_row_count": 145,
+  "rs_values_ready": 280,
+  "rs_values_expected": 280,
   "mapping": [
     {
-      "ticker": "000105",
-      "name": "유한양행우",
-      "benchmark_ticker": "1009",
-      "benchmark_name": "제약",
-      "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
-      "common_ticker": "000100",
+      "ticker": "000080",
+      "name": "하이트진로",
+      "benchmark_ticker": "1005",
+      "benchmark_name": "음식료·담배",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
       "rs_sector_pp": {
-        "1": -1.4951,
-        "3": 4.5388
+        "1": 2.7094,
+        "3": -0.1555
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "000120",
+      "name": "CJ대한통운",
+      "benchmark_ticker": "1019",
+      "benchmark_name": "운송·창고",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -5.3974,
+        "3": -15.6457
       },
       "rs_sector_status": "READY"
     },
@@ -32,60 +45,73 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 4.7572,
-        "3": 16.6338
+        "1": 8.4761,
+        "3": 6.4805
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "000155",
-      "name": "두산우",
-      "benchmark_ticker": "1013",
-      "benchmark_name": "전기전자",
-      "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
-      "common_ticker": "000150",
-      "rs_sector_pp": {
-        "1": 2.3528,
-        "3": 16.7314
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "000157",
-      "name": "두산2우B",
-      "benchmark_ticker": "1013",
-      "benchmark_name": "전기전자",
-      "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
-      "common_ticker": "000150",
-      "rs_sector_pp": {
-        "1": 1.4509,
-        "3": 15.5907
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "000430",
-      "name": "대원강업",
-      "benchmark_ticker": "1015",
-      "benchmark_name": "운송장비·부품",
+      "ticker": "000210",
+      "name": "DL",
+      "benchmark_ticker": "1008",
+      "benchmark_name": "화학",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 15.3429,
-        "3": 34.6973
+        "1": -0.1812,
+        "3": 0.2427
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "000590",
-      "name": "CS홀딩스",
-      "benchmark_ticker": "1021",
-      "benchmark_name": "금융",
-      "selection_mode": "DIRECT_NARROW",
+      "ticker": "000215",
+      "name": "DL우",
+      "benchmark_ticker": "1008",
+      "benchmark_name": "화학",
+      "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
+      "common_ticker": "000210",
+      "rs_sector_pp": {
+        "1": 6.5315,
+        "3": 9.0599
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "000227",
+      "name": "유유제약2우B",
+      "benchmark_ticker": "1009",
+      "benchmark_name": "제약",
+      "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
+      "common_ticker": "000220",
+      "rs_sector_pp": {
+        "1": 4.437,
+        "3": -16.6802
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "000370",
+      "name": "한화손해보험",
+      "benchmark_ticker": "1025",
+      "benchmark_name": "보험",
+      "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 3.3515,
-        "3": 11.1646
+        "1": -10.2482,
+        "3": 37.708
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "000540",
+      "name": "흥국화재",
+      "benchmark_ticker": "1025",
+      "benchmark_name": "보험",
+      "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -1.3396,
+        "3": 15.6737
       },
       "rs_sector_status": "READY"
     },
@@ -97,8 +123,8 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 2.5369,
-        "3": -8.3446
+        "1": 1.9859,
+        "3": -8.9619
       },
       "rs_sector_status": "READY"
     },
@@ -110,8 +136,8 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 11.4737,
-        "3": 4.9466
+        "1": 6.8643,
+        "3": 1.4474
       },
       "rs_sector_status": "READY"
     },
@@ -123,47 +149,125 @@
       "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 1.0249,
-        "3": 15.5734
+        "1": 0.3288,
+        "3": 11.8006
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "001380",
-      "name": "SG글로벌",
+      "ticker": "000815",
+      "name": "삼성화재우",
+      "benchmark_ticker": "1025",
+      "benchmark_name": "보험",
+      "selection_mode": "PREFERRED_INHERIT_DIRECT_CHILD_OVER_FINANCE",
+      "common_ticker": "000810",
+      "rs_sector_pp": {
+        "1": -2.6643,
+        "3": 6.9181
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "000880",
+      "name": "한화",
+      "benchmark_ticker": "1008",
+      "benchmark_name": "화학",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 0.5758,
+        "3": 15.6707
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "001420",
+      "name": "태원물산",
       "benchmark_ticker": "1015",
       "benchmark_name": "운송장비·부품",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -10.3422,
-        "3": 5.0881
+        "1": 25.6792,
+        "3": 32.4424
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "002030",
-      "name": "아세아",
-      "benchmark_ticker": "1026",
-      "benchmark_name": "일반서비스",
+      "ticker": "001440",
+      "name": "대한전선",
+      "benchmark_ticker": "1013",
+      "benchmark_name": "전기전자",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -7.3597,
-        "3": 12.2272
+        "1": -1.0478,
+        "3": 1.3658
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "002200",
-      "name": "한국수출포장",
-      "benchmark_ticker": "1007",
-      "benchmark_name": "종이·목재",
+      "ticker": "001680",
+      "name": "대상",
+      "benchmark_ticker": "1005",
+      "benchmark_name": "음식료·담배",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 9.7031,
-        "3": 22.2333
+        "1": 2.6937,
+        "3": 0.6393
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "001720",
+      "name": "신영증권",
+      "benchmark_ticker": "1024",
+      "benchmark_name": "증권",
+      "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -4.9368,
+        "3": 4.3737
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "001940",
+      "name": "KISCO홀딩스",
+      "benchmark_ticker": "1011",
+      "benchmark_name": "금속",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -2.732,
+        "3": 4.4218
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "002140",
+      "name": "고려산업",
+      "benchmark_ticker": "1005",
+      "benchmark_name": "음식료·담배",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -2.6927,
+        "3": 6.7696
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "002170",
+      "name": "SYTS",
+      "benchmark_ticker": "1006",
+      "benchmark_name": "섬유·의류",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -10.7909,
+        "3": 0.2962
       },
       "rs_sector_status": "READY"
     },
@@ -175,8 +279,21 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -1.716,
-        "3": -0.9205
+        "1": -2.0019,
+        "3": -1.6887
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "002460",
+      "name": "HS화성",
+      "benchmark_ticker": "1018",
+      "benchmark_name": "건설",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 1.4935,
+        "3": -1.6912
       },
       "rs_sector_status": "READY"
     },
@@ -188,8 +305,34 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 95.6829,
-        "3": 84.4649
+        "1": 98.509,
+        "3": 81.4384
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "002780",
+      "name": "진흥기업",
+      "benchmark_ticker": "1018",
+      "benchmark_name": "건설",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 732.145,
+        "3": 642.564
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "002785",
+      "name": "진흥기업우B",
+      "benchmark_ticker": "1018",
+      "benchmark_name": "건설",
+      "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
+      "common_ticker": "002780",
+      "rs_sector_pp": {
+        "1": 454.0867,
+        "3": 292.4445
       },
       "rs_sector_status": "READY"
     },
@@ -201,21 +344,34 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -32.7332,
-        "3": -53.7795
+        "1": -40.4294,
+        "3": -57.4912
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "002920",
-      "name": "유성기업",
-      "benchmark_ticker": "1015",
-      "benchmark_name": "운송장비·부품",
+      "ticker": "002840",
+      "name": "미원상사",
+      "benchmark_ticker": "1008",
+      "benchmark_name": "화학",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 10.7907,
-        "3": 25.0059
+        "1": 0.9453,
+        "3": 4.3732
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "002960",
+      "name": "한국쉘석유",
+      "benchmark_ticker": "1008",
+      "benchmark_name": "화학",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 8.1891,
+        "3": 2.4473
       },
       "rs_sector_status": "READY"
     },
@@ -227,8 +383,8 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -21.241,
-        "3": 6.9852
+        "1": -24.754,
+        "3": -12.5936
       },
       "rs_sector_status": "READY"
     },
@@ -240,60 +396,21 @@
       "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
       "common_ticker": "002990",
       "rs_sector_pp": {
-        "1": -28.4,
-        "3": -58.5557
+        "1": -29.2708,
+        "3": -63.4503
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "003060",
-      "name": "에이프로젠바이오로직스",
-      "benchmark_ticker": "1009",
-      "benchmark_name": "제약",
+      "ticker": "003200",
+      "name": "일신방직",
+      "benchmark_ticker": "1006",
+      "benchmark_name": "섬유·의류",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -10.7375,
-        "3": -29.8854
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "003350",
-      "name": "한국화장품제조",
-      "benchmark_ticker": "1008",
-      "benchmark_name": "화학",
-      "selection_mode": "DIRECT_NARROW",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": 3.2365,
-        "3": 73.0159
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "003470",
-      "name": "유안타증권",
-      "benchmark_ticker": "1024",
-      "benchmark_name": "증권",
-      "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": -1.2327,
-        "3": 17.4941
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "003475",
-      "name": "유안타증권우",
-      "benchmark_ticker": "1024",
-      "benchmark_name": "증권",
-      "selection_mode": "PREFERRED_INHERIT_DIRECT_CHILD_OVER_FINANCE",
-      "common_ticker": "003470",
-      "rs_sector_pp": {
-        "1": 4.1193,
-        "3": 21.6692
+        "1": -2.6304,
+        "3": 2.9604
       },
       "rs_sector_status": "READY"
     },
@@ -305,8 +422,8 @@
       "selection_mode": "PREFERRED_INHERIT_DIRECT_CHILD_OVER_FINANCE",
       "common_ticker": "003540",
       "rs_sector_pp": {
-        "1": 4.3108,
-        "3": 20.2705
+        "1": 1.7747,
+        "3": 18.7618
       },
       "rs_sector_status": "READY"
     },
@@ -318,21 +435,60 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -6.0636,
-        "3": 25.7555
+        "1": -5.9804,
+        "3": 26.4529
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "003720",
-      "name": "삼영",
+      "ticker": "003555",
+      "name": "LG우",
+      "benchmark_ticker": "1021",
+      "benchmark_name": "금융",
+      "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
+      "common_ticker": "003550",
+      "rs_sector_pp": {
+        "1": -4.7418,
+        "3": 13.2401
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "003580",
+      "name": "HLB글로벌",
+      "benchmark_ticker": "1016",
+      "benchmark_name": "유통",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 27.0795,
+        "3": 34.0376
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "003680",
+      "name": "한성기업",
+      "benchmark_ticker": "1005",
+      "benchmark_name": "음식료·담배",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 0.6112,
+        "3": 4.2627
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "004000",
+      "name": "롯데정밀화학",
       "benchmark_ticker": "1008",
       "benchmark_name": "화학",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 0.655,
-        "3": -18.6877
+        "1": -6.9204,
+        "3": -12.5171
       },
       "rs_sector_status": "READY"
     },
@@ -344,8 +500,8 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 9.5603,
-        "3": 25.6481
+        "1": 11.4354,
+        "3": 22.3648
       },
       "rs_sector_status": "READY"
     },
@@ -357,34 +513,8 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -12.0714,
-        "3": -34.1021
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "004270",
-      "name": "남성",
-      "benchmark_ticker": "1016",
-      "benchmark_name": "유통",
-      "selection_mode": "DIRECT_NARROW",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": 18.0972,
-        "3": 5.555
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "004310",
-      "name": "현대약품",
-      "benchmark_ticker": "1009",
-      "benchmark_name": "제약",
-      "selection_mode": "DIRECT_NARROW",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": 39.2572,
-        "3": 45.5251
+        "1": -14.6288,
+        "3": -38.6901
       },
       "rs_sector_status": "READY"
     },
@@ -396,47 +526,73 @@
       "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
       "common_ticker": "004410",
       "rs_sector_pp": {
-        "1": -16.2887,
-        "3": -45.4379
+        "1": -21.129,
+        "3": -46.177
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "004910",
-      "name": "조광페인트",
+      "ticker": "004430",
+      "name": "송원산업",
       "benchmark_ticker": "1008",
       "benchmark_name": "화학",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -3.5621,
-        "3": -10.3518
+        "1": -0.5204,
+        "3": -10.0833
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "004985",
-      "name": "성신양회우",
-      "benchmark_ticker": "1010",
-      "benchmark_name": "비금속",
-      "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
-      "common_ticker": "004980",
-      "rs_sector_pp": {
-        "1": 11.5173,
-        "3": -4.0708
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "005490",
-      "name": "POSCO홀딩스",
+      "ticker": "004450",
+      "name": "삼화왕관",
       "benchmark_ticker": "1011",
       "benchmark_name": "금속",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -1.2525,
-        "3": -2.9538
+        "1": 11.4783,
+        "3": 8.8068
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "004690",
+      "name": "삼천리",
+      "benchmark_ticker": "1017",
+      "benchmark_name": "전기·가스",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 0.8446,
+        "3": 22.9562
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "004980",
+      "name": "성신양회",
+      "benchmark_ticker": "1010",
+      "benchmark_name": "비금속",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 1.157,
+        "3": -7.9873
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "005180",
+      "name": "빙그레",
+      "benchmark_ticker": "1005",
+      "benchmark_name": "음식료·담배",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 1.0354,
+        "3": 28.6541
       },
       "rs_sector_status": "READY"
     },
@@ -448,21 +604,8 @@
       "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
       "common_ticker": "005740",
       "rs_sector_pp": {
-        "1": -0.1892,
-        "3": 5.5746
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "005750",
-      "name": "대림바스",
-      "benchmark_ticker": "1010",
-      "benchmark_name": "비금속",
-      "selection_mode": "DIRECT_NARROW",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": -6.8382,
-        "3": 1.6731
+        "1": -1.9251,
+        "3": 10.3026
       },
       "rs_sector_status": "READY"
     },
@@ -474,8 +617,8 @@
       "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 7.9904,
-        "3": 51.309
+        "1": 2.9295,
+        "3": 45.8525
       },
       "rs_sector_status": "READY"
     },
@@ -487,34 +630,21 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -0.2871,
-        "3": 5.0257
+        "1": -0.5363,
+        "3": 7.1948
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "005935",
-      "name": "삼성전자우",
-      "benchmark_ticker": "1013",
-      "benchmark_name": "전기전자",
-      "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
-      "common_ticker": "005930",
+      "ticker": "006060",
+      "name": "화승인더",
+      "benchmark_ticker": "1016",
+      "benchmark_name": "유통",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
       "rs_sector_pp": {
-        "1": 1.1086,
-        "3": 16.712
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "005945",
-      "name": "NH투자증권우",
-      "benchmark_ticker": "1024",
-      "benchmark_name": "증권",
-      "selection_mode": "PREFERRED_INHERIT_DIRECT_CHILD_OVER_FINANCE",
-      "common_ticker": "005940",
-      "rs_sector_pp": {
-        "1": 1.9945,
-        "3": 13.0683
+        "1": -4.3869,
+        "3": 5.0658
       },
       "rs_sector_status": "READY"
     },
@@ -526,99 +656,112 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -6.6678,
-        "3": -8.3413
+        "1": -9.887,
+        "3": -19.3075
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "006340",
-      "name": "대원전선",
+      "ticker": "006360",
+      "name": "GS건설",
+      "benchmark_ticker": "1018",
+      "benchmark_name": "건설",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -0.1081,
+        "3": 12.5557
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "006400",
+      "name": "삼성SDI",
       "benchmark_ticker": "1013",
       "benchmark_name": "전기전자",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -8.1819,
-        "3": 50.6307
+        "1": -15.4222,
+        "3": 24.7318
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "006740",
-      "name": "블루산업개발",
-      "benchmark_ticker": "1007",
-      "benchmark_name": "종이·목재",
+      "ticker": "006980",
+      "name": "우성",
+      "benchmark_ticker": "1005",
+      "benchmark_name": "음식료·담배",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -4.5915,
-        "3": 379.4551
+        "1": 14.6163,
+        "3": -0.4649
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "006800",
-      "name": "미래에셋증권",
-      "benchmark_ticker": "1024",
-      "benchmark_name": "증권",
-      "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": -4.1115,
-        "3": -7.6446
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "006805",
-      "name": "미래에셋증권우",
-      "benchmark_ticker": "1024",
-      "benchmark_name": "증권",
-      "selection_mode": "PREFERRED_INHERIT_DIRECT_CHILD_OVER_FINANCE",
-      "common_ticker": "006800",
-      "rs_sector_pp": {
-        "1": -3.6081,
-        "3": -12.4731
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "006890",
-      "name": "태경케미컬",
-      "benchmark_ticker": "1008",
-      "benchmark_name": "화학",
+      "ticker": "007070",
+      "name": "GS리테일",
+      "benchmark_ticker": "1016",
+      "benchmark_name": "유통",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -4.9378,
-        "3": -22.1734
+        "1": -7.2486,
+        "3": 11.9772
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "007610",
-      "name": "선도전기",
-      "benchmark_ticker": "1013",
-      "benchmark_name": "전기전자",
+      "ticker": "007160",
+      "name": "사조산업",
+      "benchmark_ticker": "1005",
+      "benchmark_name": "음식료·담배",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 2.8793,
-        "3": 33.9122
+        "1": -0.7709,
+        "3": -2.8205
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "008730",
-      "name": "율촌화학",
-      "benchmark_ticker": "1008",
-      "benchmark_name": "화학",
+      "ticker": "007310",
+      "name": "오뚜기",
+      "benchmark_ticker": "1005",
+      "benchmark_name": "음식료·담배",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -10.9165,
-        "3": -15.8972
+        "1": 1.0462,
+        "3": -0.2088
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "007700",
+      "name": "F&F홀딩스",
+      "benchmark_ticker": "1021",
+      "benchmark_name": "금융",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -4.9285,
+        "3": 0.6172
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "008770",
+      "name": "호텔신라",
+      "benchmark_ticker": "1016",
+      "benchmark_name": "유통",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -3.6196,
+        "3": 1.5603
       },
       "rs_sector_status": "READY"
     },
@@ -630,8 +773,8 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -16.8896,
-        "3": 13.6614
+        "1": -20.1024,
+        "3": 3.7562
       },
       "rs_sector_status": "READY"
     },
@@ -643,21 +786,60 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 0.216,
-        "3": -6.0869
+        "1": 2.8774,
+        "3": -9.7698
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "009320",
-      "name": "아진전자부품",
-      "benchmark_ticker": "1015",
-      "benchmark_name": "운송장비·부품",
+      "ticker": "009155",
+      "name": "삼성전기우",
+      "benchmark_ticker": "1013",
+      "benchmark_name": "전기전자",
+      "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
+      "common_ticker": "009150",
+      "rs_sector_pp": {
+        "1": -6.0926,
+        "3": -13.428
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "009240",
+      "name": "한샘",
+      "benchmark_ticker": "1016",
+      "benchmark_name": "유통",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 10.826,
-        "3": 21.089
+        "1": 10.4429,
+        "3": 36.1579
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "009830",
+      "name": "한화솔루션",
+      "benchmark_ticker": "1008",
+      "benchmark_name": "화학",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 7.2457,
+        "3": -11.5779
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "009970",
+      "name": "영원무역홀딩스",
+      "benchmark_ticker": "1021",
+      "benchmark_name": "금융",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -0.366,
+        "3": 8.9833
       },
       "rs_sector_status": "READY"
     },
@@ -669,8 +851,21 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 54.2299,
-        "3": 62.4849
+        "1": 36.0272,
+        "3": 56.8811
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "010950",
+      "name": "S-Oil",
+      "benchmark_ticker": "1008",
+      "benchmark_name": "화학",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 1.8597,
+        "3": 29.3132
       },
       "rs_sector_status": "READY"
     },
@@ -682,47 +877,8 @@
       "selection_mode": "DIRECT_MANUFACTURING_FALLBACK_NO_NARROWER",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -6.1433,
-        "3": 57.35
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "011330",
-      "name": "유니켐",
-      "benchmark_ticker": "1015",
-      "benchmark_name": "운송장비·부품",
-      "selection_mode": "DIRECT_NARROW",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": 0.4717,
-        "3": 23.5056
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "012200",
-      "name": "계양전기",
-      "benchmark_ticker": "1012",
-      "benchmark_name": "기계·장비",
-      "selection_mode": "DIRECT_NARROW",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": -22.1902,
-        "3": -37.1902
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "012280",
-      "name": "영화금속",
-      "benchmark_ticker": "1015",
-      "benchmark_name": "운송장비·부품",
-      "selection_mode": "DIRECT_NARROW",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": -6.9063,
-        "3": 329.5712
+        "1": -14.3941,
+        "3": 41.9918
       },
       "rs_sector_status": "READY"
     },
@@ -734,8 +890,34 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 2.622,
-        "3": 22.5038
+        "1": 6.81,
+        "3": 17.1432
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "012630",
+      "name": "HDC",
+      "benchmark_ticker": "1021",
+      "benchmark_name": "금융",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 13.4861,
+        "3": 28.1729
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "013580",
+      "name": "계룡건설",
+      "benchmark_ticker": "1018",
+      "benchmark_name": "건설",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 1.6472,
+        "3": -6.7866
       },
       "rs_sector_status": "READY"
     },
@@ -747,47 +929,60 @@
       "selection_mode": "DIRECT_MANUFACTURING_FALLBACK_NO_NARROWER",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -5.9709,
-        "3": -2.2893
+        "1": -15.479,
+        "3": -7.2891
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "014915",
-      "name": "성문전자우",
-      "benchmark_ticker": "1013",
-      "benchmark_name": "전기전자",
-      "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
-      "common_ticker": "014910",
-      "rs_sector_pp": {
-        "1": -6.97,
-        "3": 27.5242
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "016360",
-      "name": "삼성증권",
-      "benchmark_ticker": "1024",
-      "benchmark_name": "증권",
-      "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": 7.1499,
-        "3": 1.4324
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "016880",
-      "name": "웅진",
-      "benchmark_ticker": "1021",
-      "benchmark_name": "금융",
+      "ticker": "014440",
+      "name": "영보화학",
+      "benchmark_ticker": "1008",
+      "benchmark_name": "화학",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -14.9838,
-        "3": 6.0423
+        "1": 3.0267,
+        "3": -3.3593
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "014530",
+      "name": "극동유화",
+      "benchmark_ticker": "1008",
+      "benchmark_name": "화학",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 6.7126,
+        "3": 0.8049
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "016590",
+      "name": "신대양제지",
+      "benchmark_ticker": "1007",
+      "benchmark_name": "종이·목재",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -5.7602,
+        "3": -4.1547
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "017800",
+      "name": "현대엘리베이터",
+      "benchmark_ticker": "1012",
+      "benchmark_name": "기계·장비",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -7.8345,
+        "3": 4.7143
       },
       "rs_sector_status": "READY"
     },
@@ -799,34 +994,21 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 1.2755,
-        "3": 20.6325
+        "1": -0.3192,
+        "3": 18.127
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "023150",
-      "name": "MH에탄올",
-      "benchmark_ticker": "1005",
-      "benchmark_name": "음식료·담배",
-      "selection_mode": "DIRECT_NARROW",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": 5.1084,
-        "3": -10.5246
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "023350",
-      "name": "한국종합기술",
+      "ticker": "021240",
+      "name": "코웨이",
       "benchmark_ticker": "1026",
       "benchmark_name": "일반서비스",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -7.2989,
-        "3": -19.9515
+        "1": -0.4306,
+        "3": 4.0544
       },
       "rs_sector_status": "READY"
     },
@@ -838,47 +1020,34 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 1.9492,
-        "3": -18.9191
+        "1": -1.711,
+        "3": -26.9101
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "025530",
-      "name": "SJM홀딩스",
-      "benchmark_ticker": "1016",
-      "benchmark_name": "유통",
+      "ticker": "024110",
+      "name": "기업은행",
+      "benchmark_ticker": "1021",
+      "benchmark_name": "금융",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 5.8197,
-        "3": 24.4893
+        "1": -0.8407,
+        "3": 12.2945
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "025820",
-      "name": "이구산업",
-      "benchmark_ticker": "1011",
-      "benchmark_name": "금속",
+      "ticker": "025860",
+      "name": "남해화학",
+      "benchmark_ticker": "1008",
+      "benchmark_name": "화학",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 1.0942,
-        "3": 2.4794
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "027740",
-      "name": "마니커",
-      "benchmark_ticker": "1005",
-      "benchmark_name": "음식료·담배",
-      "selection_mode": "DIRECT_NARROW",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": -16.9305,
-        "3": 3.6223
+        "1": -3.0187,
+        "3": -2.6731
       },
       "rs_sector_status": "READY"
     },
@@ -890,21 +1059,21 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 0.6748,
-        "3": -3.297
+        "1": 1.42,
+        "3": -8.8858
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "028260",
-      "name": "삼성물산",
-      "benchmark_ticker": "1016",
-      "benchmark_name": "유통",
+      "ticker": "029780",
+      "name": "삼성카드",
+      "benchmark_ticker": "1021",
+      "benchmark_name": "금융",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -2.6477,
-        "3": -5.7794
+        "1": -6.3727,
+        "3": 1.4536
       },
       "rs_sector_status": "READY"
     },
@@ -916,60 +1085,60 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -2.4368,
-        "3": -0.3239
+        "1": -3.3649,
+        "3": -1.9656
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "034120",
-      "name": "SBS",
-      "benchmark_ticker": "1047",
-      "benchmark_name": "오락·문화",
+      "ticker": "035420",
+      "name": "NAVER",
+      "benchmark_ticker": "1046",
+      "benchmark_name": "IT 서비스",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 4.6833,
-        "3": 17.47
+        "1": -2.4094,
+        "3": 2.0176
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "034220",
-      "name": "LG디스플레이",
-      "benchmark_ticker": "1013",
-      "benchmark_name": "전기전자",
+      "ticker": "036530",
+      "name": "SNT홀딩스",
+      "benchmark_ticker": "1021",
+      "benchmark_name": "금융",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -15.3148,
-        "3": -3.1172
+        "1": 2.3106,
+        "3": 3.345
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "036580",
-      "name": "팜스코",
-      "benchmark_ticker": "1005",
-      "benchmark_name": "음식료·담배",
+      "ticker": "037710",
+      "name": "광주신세계",
+      "benchmark_ticker": "1016",
+      "benchmark_name": "유통",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 6.6873,
-        "3": 0.3581
+        "1": 0.0966,
+        "3": -4.0807
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "039490",
-      "name": "키움증권",
-      "benchmark_ticker": "1024",
-      "benchmark_name": "증권",
-      "selection_mode": "DIRECT_CHILD_OVER_FINANCE",
+      "ticker": "047040",
+      "name": "대우건설",
+      "benchmark_ticker": "1018",
+      "benchmark_name": "건설",
+      "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -2.674,
-        "3": -6.7187
+        "1": 6.5316,
+        "3": -5.4606
       },
       "rs_sector_status": "READY"
     },
@@ -981,21 +1150,34 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 12.6074,
-        "3": 37.0965
+        "1": 8.8804,
+        "3": 26.1304
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "051900",
-      "name": "LG생활건강",
+      "ticker": "051910",
+      "name": "LG화학",
       "benchmark_ticker": "1008",
       "benchmark_name": "화학",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -11.2218,
-        "3": 6.7107
+        "1": -5.0938,
+        "3": -14.6675
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "052690",
+      "name": "한전기술",
+      "benchmark_ticker": "1026",
+      "benchmark_name": "일반서비스",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 11.8819,
+        "3": 9.9759
       },
       "rs_sector_status": "READY"
     },
@@ -1007,34 +1189,60 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -1.4321,
-        "3": 22.6325
+        "1": -3.8229,
+        "3": 20.4646
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "064350",
-      "name": "현대로템",
-      "benchmark_ticker": "1015",
-      "benchmark_name": "운송장비·부품",
-      "selection_mode": "DIRECT_NARROW",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": -6.819,
-        "3": -14.1935
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "071050",
-      "name": "한국금융지주",
+      "ticker": "060980",
+      "name": "HL홀딩스",
       "benchmark_ticker": "1021",
       "benchmark_name": "금융",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -6.7693,
-        "3": -8.0286
+        "1": -3.1781,
+        "3": 10.7317
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "064400",
+      "name": "LG씨엔에스",
+      "benchmark_ticker": "1046",
+      "benchmark_name": "IT 서비스",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 1.9322,
+        "3": -2.0594
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "066570",
+      "name": "LG전자",
+      "benchmark_ticker": "1013",
+      "benchmark_name": "전기전자",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -3.8621,
+        "3": 28.8519
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "070960",
+      "name": "모나용평",
+      "benchmark_ticker": "1026",
+      "benchmark_name": "일반서비스",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -6.4881,
+        "3": -17.2769
       },
       "rs_sector_status": "READY"
     },
@@ -1046,8 +1254,34 @@
       "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
       "common_ticker": "071050",
       "rs_sector_pp": {
-        "1": -3.3053,
-        "3": 6.2293
+        "1": -4.2732,
+        "3": 5.4027
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "078930",
+      "name": "GS",
+      "benchmark_ticker": "1021",
+      "benchmark_name": "금융",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -15.2955,
+        "3": 52.7883
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "079160",
+      "name": "CJ CGV",
+      "benchmark_ticker": "1047",
+      "benchmark_name": "오락·문화",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -0.2489,
+        "3": 32.4264
       },
       "rs_sector_status": "READY"
     },
@@ -1059,47 +1293,21 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 6.6196,
-        "3": -4.6298
+        "1": 11.9381,
+        "3": -5.0216
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "079900",
-      "name": "전진건설로봇",
-      "benchmark_ticker": "1012",
-      "benchmark_name": "기계·장비",
+      "ticker": "084670",
+      "name": "동양고속",
+      "benchmark_ticker": "1019",
+      "benchmark_name": "운송·창고",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -0.3358,
-        "3": 7.7077
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "082740",
-      "name": "한화엔진",
-      "benchmark_ticker": "1012",
-      "benchmark_name": "기계·장비",
-      "selection_mode": "DIRECT_NARROW",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": 1.9207,
-        "3": 1.7453
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "084870",
-      "name": "TBH글로벌",
-      "benchmark_ticker": "1006",
-      "benchmark_name": "섬유·의류",
-      "selection_mode": "DIRECT_NARROW",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": -6.0291,
-        "3": 19.4432
+        "1": -7.0166,
+        "3": -30.9169
       },
       "rs_sector_status": "READY"
     },
@@ -1111,8 +1319,8 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -5.6601,
-        "3": -3.4201
+        "1": -5.6617,
+        "3": -7.9875
       },
       "rs_sector_status": "READY"
     },
@@ -1124,8 +1332,86 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -3.4831,
-        "3": 25.3189
+        "1": -3.8752,
+        "3": 23.0117
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "088980",
+      "name": "맥쿼리인프라",
+      "benchmark_ticker": "1021",
+      "benchmark_name": "금융",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 0.6394,
+        "3": 9.9967
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "091810",
+      "name": "트리니티항공",
+      "benchmark_ticker": "1019",
+      "benchmark_name": "운송·창고",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -8.874,
+        "3": 233.8335
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "095570",
+      "name": "AJ네트웍스",
+      "benchmark_ticker": "1026",
+      "benchmark_name": "일반서비스",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -5.3773,
+        "3": 0.72
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "096770",
+      "name": "SK이노베이션",
+      "benchmark_ticker": "1008",
+      "benchmark_name": "화학",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 6.9495,
+        "3": 35.9958
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "097955",
+      "name": "CJ제일제당 우",
+      "benchmark_ticker": "1005",
+      "benchmark_name": "음식료·담배",
+      "selection_mode": "PREFERRED_INHERIT_DIRECT_NARROW",
+      "common_ticker": "097950",
+      "rs_sector_pp": {
+        "1": -3.6395,
+        "3": -10.4541
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "100250",
+      "name": "진양홀딩스",
+      "benchmark_ticker": "1008",
+      "benchmark_name": "화학",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 0.9323,
+        "3": -2.5746
       },
       "rs_sector_status": "READY"
     },
@@ -1137,47 +1423,34 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -1.4576,
-        "3": 18.0444
+        "1": -0.2896,
+        "3": 17.5202
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "120030",
-      "name": "조선선재",
-      "benchmark_ticker": "1011",
-      "benchmark_name": "금속",
+      "ticker": "117580",
+      "name": "대성에너지",
+      "benchmark_ticker": "1017",
+      "benchmark_name": "전기·가스",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 7.0313,
-        "3": -4.6622
+        "1": 7.9369,
+        "3": 19.0218
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "134790",
-      "name": "시디즈",
-      "benchmark_ticker": "1027",
-      "benchmark_name": "제조",
-      "selection_mode": "DIRECT_MANUFACTURING_FALLBACK_NO_NARROWER",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": -7.2761,
-        "3": 21.3664
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "136490",
-      "name": "선진",
-      "benchmark_ticker": "1005",
-      "benchmark_name": "음식료·담배",
+      "ticker": "123700",
+      "name": "SJM",
+      "benchmark_ticker": "1015",
+      "benchmark_name": "운송장비·부품",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 6.9868,
-        "3": 5.0421
+        "1": 4.9486,
+        "3": 23.2995
       },
       "rs_sector_status": "READY"
     },
@@ -1189,47 +1462,86 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 5.8759,
-        "3": 5.2533
+        "1": 5.4084,
+        "3": 4.1278
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "217590",
-      "name": "티엠씨",
-      "benchmark_ticker": "1013",
-      "benchmark_name": "전기전자",
+      "ticker": "139480",
+      "name": "이마트",
+      "benchmark_ticker": "1016",
+      "benchmark_name": "유통",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 16.6565,
-        "3": 28.784
+        "1": 3.6665,
+        "3": 4.3768
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "229640",
-      "name": "LS에코에너지",
+      "ticker": "161390",
+      "name": "한국타이어앤테크놀로지",
+      "benchmark_ticker": "1008",
+      "benchmark_name": "화학",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -8.8399,
+        "3": -12.6634
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "175330",
+      "name": "JB금융지주",
       "benchmark_ticker": "1021",
       "benchmark_name": "금융",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 35.6293,
-        "3": 29.9761
+        "1": -0.3291,
+        "3": 28.5026
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "267260",
-      "name": "HD현대일렉트릭",
-      "benchmark_ticker": "1013",
-      "benchmark_name": "전기전자",
+      "ticker": "180640",
+      "name": "한진칼",
+      "benchmark_ticker": "1021",
+      "benchmark_name": "금융",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -18.7932,
-        "3": -7.2565
+        "1": 5.8295,
+        "3": 19.6573
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "183190",
+      "name": "아세아시멘트",
+      "benchmark_ticker": "1010",
+      "benchmark_name": "비금속",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -3.7412,
+        "3": 7.7618
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "244920",
+      "name": "에이플러스에셋",
+      "benchmark_ticker": "1021",
+      "benchmark_name": "금융",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -5.4109,
+        "3": 25.2539
       },
       "rs_sector_status": "READY"
     },
@@ -1241,8 +1553,21 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -8.6977,
-        "3": 4.6252
+        "1": -11.9409,
+        "3": 0.4889
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "267290",
+      "name": "경동도시가스",
+      "benchmark_ticker": "1017",
+      "benchmark_name": "전기·가스",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": 2.7731,
+        "3": 23.4916
       },
       "rs_sector_status": "READY"
     },
@@ -1254,34 +1579,73 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -1.0973,
-        "3": 27.3762
+        "1": 5.473,
+        "3": 21.904
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "307950",
-      "name": "현대오토에버",
-      "benchmark_ticker": "1046",
-      "benchmark_name": "IT 서비스",
+      "ticker": "280360",
+      "name": "롯데웰푸드",
+      "benchmark_ticker": "1005",
+      "benchmark_name": "음식료·담배",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -2.3114,
-        "3": -24.4304
+        "1": -7.8651,
+        "3": 24.9714
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "308170",
-      "name": "씨티알모빌리티",
-      "benchmark_ticker": "1015",
-      "benchmark_name": "운송장비·부품",
+      "ticker": "282330",
+      "name": "BGF리테일",
+      "benchmark_ticker": "1016",
+      "benchmark_name": "유통",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 3.8047,
-        "3": 29.3364
+        "1": -6.3615,
+        "3": 28.9732
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "285130",
+      "name": "SK케미칼",
+      "benchmark_ticker": "1008",
+      "benchmark_name": "화학",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -2.1436,
+        "3": 17.8447
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "298020",
+      "name": "효성티앤씨",
+      "benchmark_ticker": "1008",
+      "benchmark_name": "화학",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -16.6634,
+        "3": -11.9609
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "300720",
+      "name": "한일시멘트",
+      "benchmark_ticker": "1010",
+      "benchmark_name": "비금속",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -0.3684,
+        "3": 17.2905
       },
       "rs_sector_status": "READY"
     },
@@ -1293,47 +1657,60 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 4.3935,
-        "3": 32.2257
+        "1": -1.0149,
+        "3": 26.0762
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "350520",
-      "name": "이지스레지던스리츠",
+      "ticker": "323410",
+      "name": "카카오뱅크",
+      "benchmark_ticker": "1021",
+      "benchmark_name": "금융",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -7.2294,
+        "3": 7.3338
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "352820",
+      "name": "하이브",
+      "benchmark_ticker": "1047",
+      "benchmark_name": "오락·문화",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -3.1098,
+        "3": -6.5401
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "357120",
+      "name": "코람코라이프인프라리츠",
       "benchmark_ticker": "1045",
       "benchmark_name": "부동산",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -0.6002,
-        "3": -6.8862
+        "1": -0.9654,
+        "3": -6.2129
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "353200",
-      "name": "대덕전자",
-      "benchmark_ticker": "1013",
-      "benchmark_name": "전기전자",
+      "ticker": "357430",
+      "name": "마스턴프리미어리츠",
+      "benchmark_ticker": "1045",
+      "benchmark_name": "부동산",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 14.0125,
-        "3": 10.8995
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "361610",
-      "name": "SK아이이테크놀로지",
-      "benchmark_ticker": "1013",
-      "benchmark_name": "전기전자",
-      "selection_mode": "DIRECT_NARROW",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": 3.6086,
-        "3": 31.6692
+        "1": -12.6859,
+        "3": 44.4495
       },
       "rs_sector_status": "READY"
     },
@@ -1345,21 +1722,8 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 0.6988,
-        "3": -11.2672
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "373220",
-      "name": "LG에너지솔루션",
-      "benchmark_ticker": "1013",
-      "benchmark_name": "전기전자",
-      "selection_mode": "DIRECT_NARROW",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": -9.1119,
-        "3": 23.2553
+        "1": -2.1064,
+        "3": -12.191
       },
       "rs_sector_status": "READY"
     },
@@ -1371,8 +1735,8 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 12.088,
-        "3": 18.4385
+        "1": 7.2367,
+        "3": 16.8598
       },
       "rs_sector_status": "READY"
     },
@@ -1384,21 +1748,34 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -7.6376,
-        "3": -6.6505
+        "1": -8.8599,
+        "3": -4.6604
       },
       "rs_sector_status": "READY"
     },
     {
-      "ticker": "378850",
-      "name": "화승알앤에이",
-      "benchmark_ticker": "1015",
-      "benchmark_name": "운송장비·부품",
+      "ticker": "381970",
+      "name": "KG모빌리티플랫폼",
+      "benchmark_ticker": "1016",
+      "benchmark_name": "유통",
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 4.7643,
-        "3": 20.9438
+        "1": 5.6145,
+        "3": -9.2571
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "383800",
+      "name": "LX홀딩스",
+      "benchmark_ticker": "1021",
+      "benchmark_name": "금융",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -0.0333,
+        "3": 20.1314
       },
       "rs_sector_status": "READY"
     },
@@ -1410,21 +1787,8 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": 10.9752,
-        "3": -21.0007
-      },
-      "rs_sector_status": "READY"
-    },
-    {
-      "ticker": "417310",
-      "name": "코람코더원리츠",
-      "benchmark_ticker": "1045",
-      "benchmark_name": "부동산",
-      "selection_mode": "DIRECT_NARROW",
-      "common_ticker": null,
-      "rs_sector_pp": {
-        "1": 1.9234,
-        "3": -80.9195
+        "1": 10.9952,
+        "3": -21.4746
       },
       "rs_sector_status": "READY"
     },
@@ -1436,8 +1800,34 @@
       "selection_mode": "DIRECT_NARROW",
       "common_ticker": null,
       "rs_sector_pp": {
-        "1": -29.9788,
-        "3": 10.2535
+        "1": -25.8601,
+        "3": 1.9525
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "484870",
+      "name": "엠앤씨솔루션",
+      "benchmark_ticker": "1012",
+      "benchmark_name": "기계·장비",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -11.0184,
+        "3": -31.3329
+      },
+      "rs_sector_status": "READY"
+    },
+    {
+      "ticker": "499790",
+      "name": "GS피앤엘",
+      "benchmark_ticker": "1021",
+      "benchmark_name": "금융",
+      "selection_mode": "DIRECT_NARROW",
+      "common_ticker": null,
+      "rs_sector_pp": {
+        "1": -12.9255,
+        "3": 15.0641
       },
       "rs_sector_status": "READY"
     }

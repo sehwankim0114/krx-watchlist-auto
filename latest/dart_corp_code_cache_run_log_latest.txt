@@ -1,9 +1,9 @@
 script=dart_corp_code_cache.py v1.0
-run_at_kst=2026-10-08T12:20:21+0900
-status=OK
+run_at_kst=2026-10-09T12:29:54+0900
+status=ERROR
 output_dir=latest
-total_rows=119573
-listed_rows=3998
+total_rows=0
+listed_rows=0
 duplicate_stock_codes=0
 output=dart_corp_code_cache_latest.csv
-error=
+error=RuntimeError: DART corpCode.xml download failed after 3 attempts: NOT_ZIP_RESPONSE:<?xml version="1.0" encoding="UTF-8" standalone="yes"?><result><status>800</status><message>시스템 점검으로 인한  서비스가 중지 중입니다.</message></result>

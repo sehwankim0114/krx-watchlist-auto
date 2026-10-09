@@ -1,42 +1,45 @@
 {
   "script": "supply_burden_enricher.py v2.0.0-check-status-separated",
   "policy_version": "2026-07-01-v6.0-supply-status-separated",
-  "run_at_kst": "2026-10-08T12:03:31+09:00",
+  "run_at_kst": "2026-10-09T12:17:33+09:00",
   "status": "LIMITED",
   "check_scope": "DART 최근 90일 공시 제목 기준",
-  "check_limited_reason": "DART_WHOLE_MARKET_LOOKBACK_CAPPED_90D_FROM_180D",
+  "check_limited_reason": "DART_WHOLE_MARKET_LOOKBACK_CAPPED_90D_FROM_180D;DART_PARTIAL_ERROR_COUNT_2",
   "output_dir": "latest",
   "requested_lookback_days": 180,
   "effective_lookback_days": 90,
   "dart_whole_market_max_days": 90,
-  "target_tickers": 2701,
-  "hit_reports": 10202,
-  "supply_burden_detected_tickers": 1650,
-  "danger_tickers": 585,
-  "warning_tickers": 560,
-  "caution_tickers": 505,
+  "target_tickers": 2700,
+  "hit_reports": 2007,
+  "supply_burden_detected_tickers": 625,
+  "danger_tickers": 133,
+  "warning_tickers": 185,
+  "caution_tickers": 307,
   "dart_status": {
-    "bgn_de": "20260710",
-    "end_de": "20261008",
+    "bgn_de": "20260711",
+    "end_de": "20261009",
     "lookback_days": 90,
     "corp_cls": {
       "Y": {
-        "pages_requested": 142,
+        "pages_requested": 78,
         "total_page": 142,
-        "raw_reports": 14128,
-        "target_reports": 14128,
-        "matched_reports": 3702
+        "raw_reports": 7800,
+        "target_reports": 7800,
+        "matched_reports": 1739
       },
       "K": {
-        "pages_requested": 156,
+        "pages_requested": 6,
         "total_page": 156,
-        "raw_reports": 15579,
-        "target_reports": 15450,
-        "matched_reports": 6500
+        "raw_reports": 600,
+        "target_reports": 599,
+        "matched_reports": 268
       }
     },
-    "api_calls": 298,
-    "api_errors": []
+    "api_calls": 84,
+    "api_errors": [
+      "corp_cls=Y,page=79,error=URLError:<urlopen error [Errno 111] Connection refused>",
+      "corp_cls=K,page=7,error=TimeoutError:The read operation timed out"
+    ]
   },
   "enrich_results": [
     {
@@ -44,7 +47,7 @@
       "status": "OK",
       "rows": 10,
       "matched_rows": 10,
-      "burden_detected_rows": 7,
+      "burden_detected_rows": 3,
       "check_limited_rows": 10,
       "check_failed_rows": 0,
       "note": ""
@@ -54,7 +57,7 @@
       "status": "OK",
       "rows": 10,
       "matched_rows": 10,
-      "burden_detected_rows": 7,
+      "burden_detected_rows": 2,
       "check_limited_rows": 10,
       "check_failed_rows": 0,
       "note": ""
@@ -64,7 +67,7 @@
       "status": "OK",
       "rows": 10,
       "matched_rows": 10,
-      "burden_detected_rows": 7,
+      "burden_detected_rows": 3,
       "check_limited_rows": 10,
       "check_failed_rows": 0,
       "note": ""
@@ -84,7 +87,7 @@
       "status": "OK",
       "rows": 5,
       "matched_rows": 5,
-      "burden_detected_rows": 4,
+      "burden_detected_rows": 1,
       "check_limited_rows": 5,
       "check_failed_rows": 0,
       "note": ""
@@ -112,10 +115,10 @@
     {
       "file": "kosdaq_universe_summary_latest.csv",
       "status": "OK",
-      "rows": 1781,
-      "matched_rows": 1781,
-      "burden_detected_rows": 1107,
-      "check_limited_rows": 1781,
+      "rows": 1780,
+      "matched_rows": 1780,
+      "burden_detected_rows": 169,
+      "check_limited_rows": 1780,
       "check_failed_rows": 0,
       "note": ""
     },
@@ -134,7 +137,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 26,
+      "burden_detected_rows": 21,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -144,7 +147,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 24,
+      "burden_detected_rows": 20,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -154,7 +157,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 26,
+      "burden_detected_rows": 21,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -174,7 +177,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 24,
+      "burden_detected_rows": 23,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -224,7 +227,7 @@
       "status": "OK",
       "rows": 20,
       "matched_rows": 20,
-      "burden_detected_rows": 17,
+      "burden_detected_rows": 15,
       "check_limited_rows": 20,
       "check_failed_rows": 0,
       "note": ""
@@ -234,7 +237,7 @@
       "status": "OK",
       "rows": 20,
       "matched_rows": 20,
-      "burden_detected_rows": 17,
+      "burden_detected_rows": 15,
       "check_limited_rows": 20,
       "check_failed_rows": 0,
       "note": ""
@@ -244,7 +247,7 @@
       "status": "OK",
       "rows": 20,
       "matched_rows": 20,
-      "burden_detected_rows": 17,
+      "burden_detected_rows": 15,
       "check_limited_rows": 20,
       "check_failed_rows": 0,
       "note": ""
@@ -264,7 +267,7 @@
       "status": "OK",
       "rows": 40,
       "matched_rows": 40,
-      "burden_detected_rows": 31,
+      "burden_detected_rows": 27,
       "check_limited_rows": 40,
       "check_failed_rows": 0,
       "note": ""
@@ -294,7 +297,7 @@
       "status": "OK",
       "rows": 7,
       "matched_rows": 7,
-      "burden_detected_rows": 6,
+      "burden_detected_rows": 5,
       "check_limited_rows": 7,
       "check_failed_rows": 0,
       "note": ""
@@ -324,7 +327,7 @@
       "status": "OK",
       "rows": 30,
       "matched_rows": 30,
-      "burden_detected_rows": 23,
+      "burden_detected_rows": 21,
       "check_limited_rows": 30,
       "check_failed_rows": 0,
       "note": ""
@@ -384,7 +387,7 @@
       "status": "OK",
       "rows": 920,
       "matched_rows": 920,
-      "burden_detected_rows": 543,
+      "burden_detected_rows": 456,
       "check_limited_rows": 920,
       "check_failed_rows": 0,
       "note": ""
@@ -404,7 +407,7 @@
       "status": "OK",
       "rows": 47,
       "matched_rows": 44,
-      "burden_detected_rows": 36,
+      "burden_detected_rows": 29,
       "check_limited_rows": 44,
       "check_failed_rows": 0,
       "note": ""
@@ -414,7 +417,7 @@
       "status": "OK",
       "rows": 47,
       "matched_rows": 44,
-      "burden_detected_rows": 36,
+      "burden_detected_rows": 29,
       "check_limited_rows": 44,
       "check_failed_rows": 0,
       "note": ""
@@ -424,7 +427,7 @@
       "status": "OK",
       "rows": 47,
       "matched_rows": 44,
-      "burden_detected_rows": 36,
+      "burden_detected_rows": 29,
       "check_limited_rows": 44,
       "check_failed_rows": 0,
       "note": ""

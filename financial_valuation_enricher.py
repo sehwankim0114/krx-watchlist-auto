@@ -1829,6 +1829,50 @@ def read_cache(
     return stable, temporary
 
 
+def refresh_cached_valuation(
+    record: Mapping[str, Any],
+    market_metric: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Reprice a cached report with the current official KRX market data.
+
+    Financial statement figures retain their report-period cache. PER, PBR,
+    market cap and their price date must follow the latest market snapshot.
+    Missing market data clears stale valuation values.
+    """
+    statement = {
+        key: parse_number(record.get(key))
+        for key in (
+            "revenue",
+            "operating_profit",
+            "net_income",
+            "total_liabilities",
+            "total_equity",
+            "previous_revenue",
+            "previous_operating_profit",
+            "previous_net_income",
+        )
+    }
+    metrics = compute_metrics(
+        statement,
+        normalize_text(record.get("financial_report_code", "")),
+        market_metric,
+    )
+    refreshed = dict(record)
+    for key in (
+        "market_cap",
+        "listed_shares",
+        "valuation_price_basis_date",
+        "eps_annualized",
+        "bps",
+        "per_annualized",
+        "pbr",
+        "valuation_data_status",
+        "valuation_basis",
+    ):
+        refreshed[key] = metrics[key]
+    return refreshed
+
+
 def normalize_bool_text(value: Any) -> str:
     if isinstance(value, bool):
         return "TRUE" if value else "FALSE"
@@ -2214,7 +2258,9 @@ def main() -> int:
 
     for ticker in sorted(metadata):
         if ticker in stable_cache:
-            result_map[ticker] = stable_cache[ticker]
+            result_map[ticker] = refresh_cached_valuation(
+                stable_cache[ticker], market_metrics.get(ticker, {})
+            )
         elif ticker in temporary_cache:
             result_map[ticker] = temporary_cache[ticker]
         else:

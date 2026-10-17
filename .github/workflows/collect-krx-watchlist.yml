@@ -1,6 +1,13 @@
 name: collect-krx-watchlist
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/collect-krx-watchlist.yml"
+      - "financial_valuation_enricher.py"
+      - "test_financial_cached_valuation.py"
+
   workflow_dispatch:
     inputs:
       run_mode:

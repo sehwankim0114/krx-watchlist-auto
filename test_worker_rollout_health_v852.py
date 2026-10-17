@@ -15,7 +15,7 @@ class RolloutHealthTest(unittest.TestCase):
             "standalone_swing_table_enabled": False,
         }
         self.old = {"build_version": "1.3.9-kospi-action-compact-v2"}
-        self.new = {"build_version": "1.4.0-two-table-guarded-preview", "two_table_proxy": {
+        self.new = {"build_version": "1.4.1-two-table-dual-schema", "two_table_proxy": {
             "version": "1", "page_limit_bytes": 30000, "page_limit_rows": 30,
             "sha256_required": True, "later_pages_require_build_id": True,
             "cache_mode": "NO_STORE_CONTROL_RECHECK", "values_recalculated": False,
@@ -37,6 +37,15 @@ class RolloutHealthTest(unittest.TestCase):
     def test_unknown_dataset_version_cannot_authorize_legacy(self):
         p = dict(self.shadow, version="future-contract")
         self.assertEqual(worker_build_rollout_mode(self.old, p), "UNSUPPORTED_OR_ACTIVATION_MISMATCH")
+
+    def test_previous_guarded_build_only_while_shadow_inactive(self):
+        previous = copy.deepcopy(self.new)
+        previous["build_version"] = "1.4.0-two-table-guarded-preview"
+        self.assertEqual(worker_build_rollout_mode(previous, self.shadow), "CURRENT_GUARDED_WORKER")
+        production = dict(self.shadow, release_stage="PRODUCTION", production_activation_allowed=True)
+        self.assertEqual(worker_build_rollout_mode(previous, production), "UNSUPPORTED_OR_ACTIVATION_MISMATCH")
+        production = dict(self.shadow, custom_gpt_route_enabled=True)
+        self.assertEqual(worker_build_rollout_mode(previous, production), "UNSUPPORTED_OR_ACTIVATION_MISMATCH")
 
     def test_new_worker_requires_all_guard_metadata(self):
         self.assertEqual(worker_build_rollout_mode(self.new, self.shadow), "CURRENT_GUARDED_WORKER")

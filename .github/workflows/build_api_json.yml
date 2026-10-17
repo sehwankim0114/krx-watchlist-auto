@@ -9,6 +9,9 @@ on:
       - "docs/stock_table_rules_latest.md"
       - "docs/stock_table_manual.md"
       - "docs/stock_table_manual-final.md"
+      - "docs/custom_gpt_action_schema.yaml"
+      - "docs/custom_gpt_instructions.md"
+      - "validate_custom_gpt_contract_v870.py"
 
   workflow_run:
     workflows:
@@ -133,6 +136,12 @@ jobs:
             two_table_release_v870.py
           python two_table_release_v870.py --repo . --check-only
           echo "V870_DAILY_TWO_TABLE_PUBLISH=PASS"
+
+      - name: Validate V8.7 Custom GPT release contract
+        run: |
+          set -euo pipefail
+          python -m py_compile validate_custom_gpt_contract_v870.py
+          python validate_custom_gpt_contract_v870.py --repo .
 
       - name: Show generated status
         run: |

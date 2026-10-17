@@ -1,0 +1,129 @@
+{
+  "version": "2026-10-17-v8.8-current-universe-score-readiness-audit",
+  "generated_at_kst": "2026-10-18T06:41:37+09:00",
+  "status": "AUDIT_ONLY_NOT_FOR_GPT_DISPLAY",
+  "source_build_id": "20261018T064039+0900-bcc5075af6",
+  "source_rules_sha256": "f96806bab26cedffa87a5749ebef0c04548871f8f28a22bac77a7e0b280f3fdf",
+  "basis_date": "2026-10-16",
+  "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
+  "scorer_version": "2026-09-13-v8.8.2-investment-score-dry-run-gate-reconciliation",
+  "production_unique_tickers": 56,
+  "ready_count": 6,
+  "limited_count": 50,
+  "ready_pct": 10.71,
+  "top_missing_reasons": [
+    [
+      "하루평균 절대등락률:MISSING_ELASTICITY",
+      36
+    ],
+    [
+      "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+      35
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
+      24
+    ],
+    [
+      "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
+      14
+    ],
+    [
+      "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+      13
+    ],
+    [
+      "PER:MISSING_PER",
+      13
+    ],
+    [
+      "영업이익 성장과 흑자 여부:MISSING_OP_PROFIT",
+      12
+    ],
+    [
+      "순이익 흐름:MISSING_EARNINGS_TREND",
+      12
+    ],
+    [
+      "영업이익률:MISSING_MARGIN",
+      12
+    ],
+    [
+      "ROE:MISSING_ROE",
+      12
+    ],
+    [
+      "PBR:MISSING_PBR_OR_ROE",
+      12
+    ],
+    [
+      "흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND",
+      12
+    ],
+    [
+      "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+      12
+    ],
+    [
+      "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+      12
+    ],
+    [
+      "부채비율:MISSING_DEBT_RATIO",
+      11
+    ],
+    [
+      "PSR 또는 대체 가치지표:MISSING_PSR_INPUT",
+      11
+    ],
+    [
+      "최근 3년 영업이익 성장률:MISSING_3Y_OP",
+      11
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:NO_EXACT_CANDIDATE:NO_EXACT_CANDIDATE",
+      10
+    ],
+    [
+      "순현금·기업가치 상태:NETCASH_INPUT:NO_EXACT_CANDIDATE",
+      10
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:EMPTY_AS_ZERO:NO_EXACT_CANDIDATE",
+      6
+    ],
+    [
+      "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
+      6
+    ],
+    [
+      "과열·급락 위험:MISSING_RISK_INPUT",
+      3
+    ],
+    [
+      "순현금·기업가치 상태:NETCASH_INPUT:EMPTY_AS_ZERO",
+      1
+    ],
+    [
+      "기간 저가·고가 대비 현재위치:MISSING_POSITION",
+      1
+    ]
+  ],
+  "score_summary_ready_only": {
+    "count": 6,
+    "min": 49.5,
+    "median": 64.75,
+    "mean": 63.5,
+    "max": 71.5
+  },
+  "price_elasticity_source_basis_date": "2026-09-18",
+  "price_elasticity_basis_matches_current": false,
+  "promotion_blockers": [
+    "LIMITED_SCORE_COMPONENTS_REMAIN",
+    "PRICE_ELASTICITY_BASIS_STALE",
+    "PRODUCTION_SCORE_ADOPTION_AND_GPT_E2E_NOT_DONE"
+  ],
+  "production_score_written": false,
+  "partial_scores_published": false,
+  "legacy_score_rescaled": false
+}

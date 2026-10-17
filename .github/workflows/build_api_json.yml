@@ -6,6 +6,9 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/build_api_json.yml"
+      - "docs/stock_table_rules_latest.md"
+      - "docs/stock_table_manual.md"
+      - "docs/stock_table_manual-final.md"
 
   workflow_run:
     workflows:

@@ -59,7 +59,11 @@ with HISTORY.open(encoding="utf-8-sig", newline="") as f:
 rows = []
 for code in sorted(prod):
     series = sorted((history.get(code) or {}).items())
-    if len(series) < 21:
+    if len(series) < 21 or series[-1][0] != basis:
+        source_status = (
+            "LIMITED_INSUFFICIENT_HISTORY" if len(series) < 21
+            else "LIMITED_NO_CURRENT_OFFICIAL_CLOSE"
+        )
         rows.append({
             "ticker": code,
             "name": prod[code],
@@ -70,7 +74,7 @@ for code in sorted(prod):
             "daily_return_observation_count": max(0, len(series) - 1),
             "avg_daily_move_abs": "",
             "avg_daily_move_pct": "",
-            "source_status": "LIMITED_INSUFFICIENT_HISTORY",
+            "source_status": source_status,
         })
         continue
 

@@ -8,6 +8,13 @@ on:
       - "validate_daily_integrated_health_v731.py"
       - "test_worker_rollout_health_v852.py"
       - ".github/workflows/v731-daily-integrated-health.yml"
+  workflow_run:
+    workflows:
+      - Build API JSON
+    types:
+      - completed
+    branches:
+      - main
   schedule:
     # GitHub cron is UTC. 00:15 UTC = 09:15 KST.
     - cron: "15 0 * * 1-5"
@@ -22,6 +29,9 @@ concurrency:
 
 jobs:
   health:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
 
     steps:

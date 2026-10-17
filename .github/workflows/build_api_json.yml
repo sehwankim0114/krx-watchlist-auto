@@ -13,6 +13,8 @@ on:
       - "docs/custom_gpt_instructions.md"
       - "validate_custom_gpt_contract_v870.py"
       - "audit_current_score_readiness.py"
+      - "refresh_current_elasticity_source.py"
+      - "investment_score_price_elasticity_v875.py"
       - "investment_score_dry_run_v882.py"
       - "config/investment_score_policy_v880.json"
 
@@ -145,6 +147,12 @@ jobs:
           set -euo pipefail
           python -m py_compile validate_custom_gpt_contract_v870.py
           python validate_custom_gpt_contract_v870.py --repo .
+
+      - name: Refresh 20-session price elasticity from current official history
+        run: |
+          set -euo pipefail
+          python -m py_compile refresh_current_elasticity_source.py investment_score_price_elasticity_v875.py
+          python refresh_current_elasticity_source.py
 
       - name: Audit current 100-point score readiness without publishing scores
         run: |

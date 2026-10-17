@@ -220,6 +220,11 @@ jobs:
 
           cd /tmp/us_sp500_production_repo
 
+          git init -q
+          printf '%s\n' "$GITHUB_WORKSPACE/.git/objects" > .git/objects/info/alternates
+          git update-ref HEAD "$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
           rm -rf .us_build
           mkdir -p .us_build/latest
 

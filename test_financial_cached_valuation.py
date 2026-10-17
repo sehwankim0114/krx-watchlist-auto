@@ -45,8 +45,8 @@ class CachedValuationTests(unittest.TestCase):
     def test_missing_current_market_data_clears_stale_valuation(self):
         result = refresh_cached_valuation(self.cached, {})
         self.assertEqual(result["valuation_price_basis_date"], "")
-        self.assertIsNone(result["per_annualized"])
-        self.assertIsNone(result["pbr"])
+        self.assertEqual(result["per_annualized"], "")
+        self.assertEqual(result["pbr"], "")
         self.assertEqual(result["valuation_data_status"], "LIMITED_NO_MARKET_CAP")
 
 

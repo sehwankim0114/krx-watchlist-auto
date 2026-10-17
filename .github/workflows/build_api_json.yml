@@ -97,7 +97,17 @@ jobs:
         run: |
           set -euo pipefail
           python -m py_compile build_api_json.py
-          python build_api_json.py
+          for attempt in 1 2 3; do
+            if python build_api_json.py; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::API build failed after 3 attempts"
+              exit 1
+            fi
+            echo "::warning::API build attempt $attempt failed; retrying in 30 seconds"
+            sleep 30
+          done
 
       - name: Validate API synchronization
         run: |
@@ -114,7 +124,6 @@ jobs:
             build_two_table_shadow_v851.py \
             sector_rs_source_v870.py \
             two_table_release_v870.py
-          python two_table_release_v870.py --repo .
           python two_table_release_v870.py --repo . --check-only
           echo "V870_DAILY_TWO_TABLE_PUBLISH=PASS"
 

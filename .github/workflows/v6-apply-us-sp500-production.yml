@@ -22,6 +22,8 @@ jobs:
     timeout-minutes: 120
     env:
       TZ: Asia/Seoul
+      KRX_ID: ${{ secrets.KRX_ID }}
+      KRX_PW: ${{ secrets.KRX_PW }}
 
     steps:
       - name: Checkout repository
@@ -47,7 +49,8 @@ jobs:
             lxml \
             html5lib \
             beautifulsoup4 \
-            pyyaml
+            pyyaml \
+            "pykrx==1.2.8"
 
       - name: Check prerequisites
         shell: bash

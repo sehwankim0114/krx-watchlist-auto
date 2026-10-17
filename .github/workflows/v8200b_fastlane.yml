@@ -620,6 +620,7 @@ jobs:
           SUPPLY=ROOT/"latest/investment_score_supply_source_latest.csv"
           SUPPLY_META=ROOT/"latest/investment_score_supply_source_latest.json"
           SUPPLY_LOG=ROOT/"latest/investment_score_supply_source_run_log_latest.txt"
+          DOC=ROOT/"docs/investment_score_supply_fastlane_v8200b.md"
           MANIFEST=ROOT/"api/two_table_v1/manifest.json"
           EXHAUSTED=ROOT/"latest/investment_score_current_blockers_v8194a_summary_latest.json"
 
@@ -911,6 +912,17 @@ jobs:
               "next_step":"CONTINUE_DYNAMIC_SELECTED_LANE_V8201A",
           },ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
 
+          DOC.parent.mkdir(parents=True, exist_ok=True)
+          DOC.write_text(
+              "# F&F Holdings supply fast lane v8.20.0B\n\n"
+              f"Generated: {now}\n\n"
+              f"Resolved ticker: {TARGET}\n\n"
+              f"Post rebuild: READY {p_ready}, LIMITED {p_limited}, "
+              f"blockers {p_blockers}.\n\n"
+              f"Next source group: {selected_group}; tickers: {len(selected)}.\n",
+              encoding="utf-8",
+          )
+
           print("V8200B_POST_REBUILD=PASS")
           print(f"V8200B_POST_READY={p_ready}")
           print(f"V8200B_POST_LIMITED={p_limited}")
@@ -920,7 +932,7 @@ jobs:
           print(f"V8200B_NEXT_TICKER_COUNT={len(selected)}")
           PY
 
-          python /tmp/v8200b_post.py | tee /tmp/v8200b_post_stdout.txt
+          PYTHONPATH="$GITHUB_WORKSPACE" python /tmp/v8200b_post.py | tee /tmp/v8200b_post_stdout.txt
           grep -q '^V8200B_POST_REBUILD=PASS$' /tmp/v8200b_post_stdout.txt
 
       - name: Validate protected sources and changed-file scope
@@ -953,6 +965,7 @@ jobs:
               "latest/investment_score_supply_source_latest.csv",
               "latest/investment_score_supply_source_latest.json",
               "latest/investment_score_supply_source_run_log_latest.txt",
+              "latest/sector_rs_source_latest.json",
               "docs/investment_score_supply_fastlane_v8200b.md",
           }
 
@@ -993,6 +1006,7 @@ jobs:
               "latest/financial_valuation_cache_latest.csv",
               "latest/investment_score_ocf_source_latest.csv",
               "latest/investment_score_price_elasticity_20d_latest.csv",
+              "latest/sector_rs_source_latest.json",
           }
           bad=sorted(
               p for p in upstream
@@ -1022,6 +1036,7 @@ jobs:
             latest/investment_score_supply_source_latest.csv \
             latest/investment_score_supply_source_latest.json \
             latest/investment_score_supply_source_run_log_latest.txt \
+            latest/sector_rs_source_latest.json \
             docs/investment_score_supply_fastlane_v8200b.md \
             api/two_table_v1
 

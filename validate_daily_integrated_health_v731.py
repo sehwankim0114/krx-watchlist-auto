@@ -34,10 +34,10 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 SCHEMA_VERSION = "1.0"
-CHECKER_VERSION = "2026-09-04-v8.5.2-shadow-aware-worker-health"
+CHECKER_VERSION = "2026-10-17-v8.7-production-worker-health"
 DEFAULT_WORKER_BASE = "https://krx-live-price-ksh.diaconos.workers.dev"
-EXPECTED_WORKER_BUILD_PREFIX = "1.4.0-"
-EXPECTED_WORKER_BUILD = "1.4.0-two-table-guarded-preview"
+EXPECTED_WORKER_BUILD = "1.4.1-two-table-dual-schema"
+SHADOW_ONLY_WORKER_BUILD = "1.4.0-two-table-guarded-preview"
 LEGACY_SHADOW_ONLY_WORKER_BUILD = "1.3.9-kospi-action-compact-v2"
 DEFAULT_MAX_WATCHLIST_BYTES = 90000
 MAX_COMPACT_MANIFEST_BYTES = 65000
@@ -984,7 +984,16 @@ def worker_build_rollout_mode(health: Mapping[str, Any], rollout: Mapping[str, A
     inactive. It is never accepted after new-table production activation.
     """
     build = health.get("build_version")
-    if build == EXPECTED_WORKER_BUILD:
+    guarded_build_allowed = build == EXPECTED_WORKER_BUILD or (
+        build == SHADOW_ONLY_WORKER_BUILD
+        and rollout.get("version") == "2026-09-04-v8.5.1-scheduled-two-table-shadow"
+        and rollout.get("release_stage") == "SCHEDULED_SHADOW_ONLY"
+        and all(rollout.get(key) is False for key in (
+            "production_activation_allowed", "custom_gpt_route_enabled",
+            "safe_to_analyze_as_latest", "standalone_swing_table_enabled",
+        ))
+    )
+    if guarded_build_allowed:
         proxy = health.get("two_table_proxy") or {}
         required = {
             "version": "1", "page_limit_bytes": 30000, "page_limit_rows": 30,

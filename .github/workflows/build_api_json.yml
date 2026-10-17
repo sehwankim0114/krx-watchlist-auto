@@ -34,8 +34,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: build-api-json-main
-  cancel-in-progress: true
+  group: krx-main-data-writers
+  cancel-in-progress: false
 
 jobs:
   build-api-json:

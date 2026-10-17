@@ -3,6 +3,10 @@ name: US S&P500 Production v8.2.7
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/v6-apply-us-sp500-production.yml"
   schedule:
     # 22:20 UTC Monday-Friday
     # = 07:20 KST Tuesday-Saturday

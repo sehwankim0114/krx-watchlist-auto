@@ -55,11 +55,14 @@ def run():
     elasticity_basis = elasticity.get("basis_date")
     current_basis = manifest.get("basis_date")
     basis_matches = elasticity_basis == current_basis
+    eligible_ready_count = summary["ready_count"] if basis_matches else 0
     blockers = []
     if summary["limited_count"]:
         blockers.append("LIMITED_SCORE_COMPONENTS_REMAIN")
     if not basis_matches:
         blockers.append("PRICE_ELASTICITY_BASIS_STALE")
+    if elasticity.get("limited_tickers"):
+        blockers.append("PRICE_ELASTICITY_SOURCE_PARTIAL")
     blockers.append("PRODUCTION_SCORE_ADOPTION_AND_GPT_E2E_NOT_DONE")
 
     result = {
@@ -75,9 +78,15 @@ def run():
         "ready_count": summary["ready_count"],
         "limited_count": summary["limited_count"],
         "ready_pct": summary["ready_pct"],
+        "eligible_ready_count_after_source_freshness_gate": eligible_ready_count,
+        "eligible_ready_pct_after_source_freshness_gate": round(
+            eligible_ready_count / summary["production_unique_tickers"] * 100, 2
+        ) if summary["production_unique_tickers"] else 0,
         "top_missing_reasons": summary["top_missing_reasons"],
         "score_summary_ready_only": summary["score_summary_ready_only"],
         "price_elasticity_source_basis_date": elasticity_basis,
+        "price_elasticity_source_ready_tickers": elasticity.get("ready_tickers"),
+        "price_elasticity_source_limited_tickers": elasticity.get("limited_tickers"),
         "price_elasticity_basis_matches_current": basis_matches,
         "promotion_blockers": blockers,
         "production_score_written": False,

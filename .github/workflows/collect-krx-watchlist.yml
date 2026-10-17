@@ -70,7 +70,10 @@ jobs:
           from pathlib import Path
           from zoneinfo import ZoneInfo
 
+          event_name = "${{ github.event_name }}".strip()
           requested_mode = "${{ github.event.inputs.run_mode }}".strip() or "auto"
+          if event_name == "push":
+              requested_mode = "official"
           explicit_manual_mode = requested_mode in {"official", "aux"}
           now = datetime.now(ZoneInfo("Asia/Seoul"))
 
@@ -269,9 +272,9 @@ jobs:
 
           if explicit_manual_mode:
               final_mode = requested_mode
-              mode_source = "manual_explicit"
+              mode_source = "financial_code_push" if event_name == "push" else "manual_explicit"
               stale_upgrade = False
-              stale_reason = "manual_explicit_mode"
+              stale_reason = "financial_code_push" if event_name == "push" else "manual_explicit_mode"
           else:
               mode_source = "manual_auto" if requested_mode == "auto" else "schedule_or_default"
               if stale:

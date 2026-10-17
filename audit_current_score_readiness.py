@@ -3,6 +3,7 @@
 This is an audit only. It never writes a score into the production API.
 """
 
+import csv
 import json
 import tempfile
 from datetime import datetime
@@ -14,7 +15,7 @@ import investment_score_dry_run_v882 as scorer
 
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "latest/investment_score_current_readiness_latest.json"
-VERSION = "2026-10-17-v8.8-current-universe-score-readiness-audit"
+VERSION = "2026-10-18-v8.8-current-universe-source-date-audit"
 
 
 def read_json(path):
@@ -37,6 +38,8 @@ def run():
         scorer.OUT_DOC = tmp / "score_explanation.md"
         scorer.main()
         summary = read_json(scorer.OUT_JSON)
+        with scorer.OUT_CSV.open(encoding="utf-8-sig", newline="") as source:
+            score_rows = list(csv.DictReader(source))
 
     if summary["production_unique_tickers"] != len(scorer.production_rows()):
         raise ValueError("SCORE_AUDIT_UNIVERSE_MISMATCH")
@@ -55,7 +58,21 @@ def run():
     elasticity_basis = elasticity.get("basis_date")
     current_basis = manifest.get("basis_date")
     basis_matches = elasticity_basis == current_basis
-    eligible_ready_count = summary["ready_count"] if basis_matches else 0
+    ready_tickers = {
+        row["ticker"] for row in score_rows if row["score_status"] == "READY"
+    }
+    if len(ready_tickers) != summary["ready_count"]:
+        raise ValueError("SCORE_AUDIT_READY_TICKER_COUNT_MISMATCH")
+    financial = scorer.read_csv_map(scorer.FIN)
+    valuation_current_tickers = {
+        ticker for ticker in ready_tickers
+        if (financial.get(ticker) or {}).get("valuation_price_basis_date") == current_basis
+        and (financial.get(ticker) or {}).get("financial_data_status") == "READY"
+        and (financial.get(ticker) or {}).get("valuation_data_status") == "READY"
+    }
+    current_price_input_ready_count = (
+        len(valuation_current_tickers) if basis_matches else 0
+    )
     blockers = []
     if summary["limited_count"]:
         blockers.append("LIMITED_SCORE_COMPONENTS_REMAIN")
@@ -63,6 +80,8 @@ def run():
         blockers.append("PRICE_ELASTICITY_BASIS_STALE")
     if elasticity.get("limited_tickers"):
         blockers.append("PRICE_ELASTICITY_SOURCE_PARTIAL")
+    if len(valuation_current_tickers) != len(ready_tickers):
+        blockers.append("VALUATION_PRICE_BASIS_OR_STATUS_NOT_CURRENT")
     blockers.append("PRODUCTION_SCORE_ADOPTION_AND_GPT_E2E_NOT_DONE")
 
     result = {
@@ -78,9 +97,10 @@ def run():
         "ready_count": summary["ready_count"],
         "limited_count": summary["limited_count"],
         "ready_pct": summary["ready_pct"],
-        "eligible_ready_count_after_source_freshness_gate": eligible_ready_count,
-        "eligible_ready_pct_after_source_freshness_gate": round(
-            eligible_ready_count / summary["production_unique_tickers"] * 100, 2
+        "current_valuation_ready_count_among_scorer_ready": len(valuation_current_tickers),
+        "current_price_input_ready_count": current_price_input_ready_count,
+        "current_price_input_ready_pct": round(
+            current_price_input_ready_count / summary["production_unique_tickers"] * 100, 2
         ) if summary["production_unique_tickers"] else 0,
         "top_missing_reasons": summary["top_missing_reasons"],
         "score_summary_ready_only": summary["score_summary_ready_only"],

@@ -2,6 +2,12 @@ name: V731 Daily Integrated Health
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "validate_daily_integrated_health_v731.py"
+      - "test_worker_rollout_health_v852.py"
+      - ".github/workflows/v731-daily-integrated-health.yml"
   schedule:
     # GitHub cron is UTC. 00:15 UTC = 09:15 KST.
     - cron: "15 0 * * 1-5"
@@ -35,6 +41,9 @@ jobs:
           set -euo pipefail
           test -f validate_daily_integrated_health_v731.py
           echo "V73_PREREQUISITES=OK"
+
+      - name: Test Worker rollout policy
+        run: python -m unittest test_worker_rollout_health_v852.py
 
       - name: Run integrated health check
         id: health

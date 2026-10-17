@@ -1,21 +1,19 @@
 {
   "version": "2026-10-17-v8.8-current-universe-score-readiness-audit",
-  "generated_at_kst": "2026-10-18T06:41:37+09:00",
+  "generated_at_kst": "2026-10-18T06:50:07+09:00",
   "status": "AUDIT_ONLY_NOT_FOR_GPT_DISPLAY",
-  "source_build_id": "20261018T064039+0900-bcc5075af6",
+  "source_build_id": "20261018T064919+0900-7fb92a288c",
   "source_rules_sha256": "f96806bab26cedffa87a5749ebef0c04548871f8f28a22bac77a7e0b280f3fdf",
   "basis_date": "2026-10-16",
   "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
   "scorer_version": "2026-09-13-v8.8.2-investment-score-dry-run-gate-reconciliation",
   "production_unique_tickers": 56,
-  "ready_count": 6,
-  "limited_count": 50,
-  "ready_pct": 10.71,
+  "ready_count": 8,
+  "limited_count": 48,
+  "ready_pct": 14.29,
+  "eligible_ready_count_after_source_freshness_gate": 8,
+  "eligible_ready_pct_after_source_freshness_gate": 14.29,
   "top_missing_reasons": [
-    [
-      "하루평균 절대등락률:MISSING_ELASTICITY",
-      36
-    ],
     [
       "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
       35
@@ -110,17 +108,18 @@
     ]
   ],
   "score_summary_ready_only": {
-    "count": 6,
+    "count": 8,
     "min": 49.5,
-    "median": 64.75,
-    "mean": 63.5,
-    "max": 71.5
+    "median": 65.0,
+    "mean": 63.0,
+    "max": 72.5
   },
-  "price_elasticity_source_basis_date": "2026-09-18",
-  "price_elasticity_basis_matches_current": false,
+  "price_elasticity_source_basis_date": "2026-10-16",
+  "price_elasticity_source_ready_tickers": 56,
+  "price_elasticity_source_limited_tickers": 0,
+  "price_elasticity_basis_matches_current": true,
   "promotion_blockers": [
     "LIMITED_SCORE_COMPONENTS_REMAIN",
-    "PRICE_ELASTICITY_BASIS_STALE",
     "PRODUCTION_SCORE_ADOPTION_AND_GPT_E2E_NOT_DONE"
   ],
   "production_score_written": false,

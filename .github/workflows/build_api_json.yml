@@ -12,6 +12,9 @@ on:
       - "docs/custom_gpt_action_schema.yaml"
       - "docs/custom_gpt_instructions.md"
       - "validate_custom_gpt_contract_v870.py"
+      - "audit_current_score_readiness.py"
+      - "investment_score_dry_run_v882.py"
+      - "config/investment_score_policy_v880.json"
 
   workflow_run:
     workflows:
@@ -142,6 +145,12 @@ jobs:
           set -euo pipefail
           python -m py_compile validate_custom_gpt_contract_v870.py
           python validate_custom_gpt_contract_v870.py --repo .
+
+      - name: Audit current 100-point score readiness without publishing scores
+        run: |
+          set -euo pipefail
+          python -m py_compile audit_current_score_readiness.py
+          python audit_current_score_readiness.py
 
       - name: Show generated status
         run: |

@@ -43,7 +43,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: collect-krx-watchlist-latest
+  group: krx-main-data-writers
   cancel-in-progress: false
 
 jobs:
@@ -548,7 +548,7 @@ jobs:
 
           if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
             echo "REMOTE_MAIN_CHANGED=true"
-            git rebase origin/main
+            git rebase -X theirs origin/main
           else
             echo "REMOTE_MAIN_CHANGED=false"
           fi

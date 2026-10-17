@@ -1,8 +1,8 @@
 {
-  "version": "2026-10-17-v8.8-current-universe-score-readiness-audit",
-  "generated_at_kst": "2026-10-18T06:50:07+09:00",
+  "version": "2026-10-18-v8.8-current-universe-source-date-audit",
+  "generated_at_kst": "2026-10-18T08:21:24+09:00",
   "status": "AUDIT_ONLY_NOT_FOR_GPT_DISPLAY",
-  "source_build_id": "20261018T064919+0900-7fb92a288c",
+  "source_build_id": "20261018T082037+0900-b64ad797b5",
   "source_rules_sha256": "f96806bab26cedffa87a5749ebef0c04548871f8f28a22bac77a7e0b280f3fdf",
   "basis_date": "2026-10-16",
   "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
@@ -11,8 +11,9 @@
   "ready_count": 8,
   "limited_count": 48,
   "ready_pct": 14.29,
-  "eligible_ready_count_after_source_freshness_gate": 8,
-  "eligible_ready_pct_after_source_freshness_gate": 14.29,
+  "current_valuation_ready_count_among_scorer_ready": 3,
+  "current_price_input_ready_count": 3,
+  "current_price_input_ready_pct": 5.36,
   "top_missing_reasons": [
     [
       "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
@@ -120,6 +121,7 @@
   "price_elasticity_basis_matches_current": true,
   "promotion_blockers": [
     "LIMITED_SCORE_COMPONENTS_REMAIN",
+    "VALUATION_PRICE_BASIS_OR_STATUS_NOT_CURRENT",
     "PRODUCTION_SCORE_ADOPTION_AND_GPT_E2E_NOT_DONE"
   ],
   "production_score_written": false,

@@ -1,12 +1,12 @@
 {
-  "version": "2026-10-18-v8.8-current-universe-validated-da-overlay-audit",
+  "version": "2026-10-18-v8.8-current-universe-official-da-overlay-audit",
   "status": "AUDIT_ONLY_NOT_FOR_GPT_DISPLAY",
-  "source_build_id": "20261018T135033+0900-29c6994a4e",
+  "source_build_id": "20261018T135648+0900-3036752ab7",
   "basis_date": "2026-10-16",
-  "limited_ticker_count": 42,
-  "ev_ebitda_missing_exact_da_count": 32,
+  "limited_ticker_count": 28,
+  "ev_ebitda_missing_exact_da_count": 11,
   "da_recovery_lane_counts": {
-    "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED": 26,
+    "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED": 5,
     "PRIOR_OFFICIAL_PATH_EXHAUSTED_RECHECK_ON_NEW_PERIOD": 2,
     "RAW_SOURCE_UNAVAILABLE": 4
   },
@@ -49,9 +49,8 @@
       "ticker": "001620",
       "name": "케이비아이동국실업",
       "market": "KOSPI",
-      "missing_component_count": 4,
+      "missing_component_count": 3,
       "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
         "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
         "과열·급락 위험:MISSING_RISK_INPUT",
         "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
@@ -62,7 +61,7 @@
       "raw_source_status": "READY_RAW_SOURCE",
       "annual_source_year": "2025",
       "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
+      "da_recovery_lane": ""
     },
     {
       "ticker": "003550",
@@ -79,22 +78,6 @@
       "annual_source_year": "2025",
       "deep_fs_div": "CFS",
       "da_recovery_lane": ""
-    },
-    {
-      "ticker": "003670",
-      "name": "포스코퓨처엠",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "003670",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
     },
     {
       "ticker": "004105",
@@ -210,38 +193,6 @@
       "da_recovery_lane": ""
     },
     {
-      "ticker": "009150",
-      "name": "삼성전기",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "009150",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
-    },
-    {
-      "ticker": "009240",
-      "name": "한샘",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "009240",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
-    },
-    {
       "ticker": "009450",
       "name": "경동나비엔",
       "market": "KOSPI",
@@ -262,34 +213,17 @@
       "ticker": "009830",
       "name": "한화솔루션",
       "market": "KOSPI",
-      "missing_component_count": 2,
+      "missing_component_count": 1,
       "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
         "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE"
       ],
-      "single_blocker": false,
+      "single_blocker": true,
       "raw_source_ticker": "009830",
       "raw_source_mode": "DIRECT",
       "raw_source_status": "READY_RAW_SOURCE",
       "annual_source_year": "2025",
       "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
-    },
-    {
-      "ticker": "010950",
-      "name": "S-Oil",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "010950",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
+      "da_recovery_lane": ""
     },
     {
       "ticker": "011300",
@@ -312,18 +246,17 @@
       "ticker": "011790",
       "name": "SKC",
       "market": "KOSPI",
-      "missing_component_count": 2,
+      "missing_component_count": 1,
       "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
         "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE"
       ],
-      "single_blocker": false,
+      "single_blocker": true,
       "raw_source_ticker": "011790",
       "raw_source_mode": "DIRECT",
       "raw_source_status": "READY_RAW_SOURCE",
       "annual_source_year": "2025",
       "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
+      "da_recovery_lane": ""
     },
     {
       "ticker": "012170",
@@ -348,18 +281,17 @@
       "ticker": "012330",
       "name": "현대모비스",
       "market": "KOSPI",
-      "missing_component_count": 2,
+      "missing_component_count": 1,
       "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
         "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
       ],
-      "single_blocker": false,
+      "single_blocker": true,
       "raw_source_ticker": "012330",
       "raw_source_mode": "DIRECT",
       "raw_source_status": "READY_RAW_SOURCE",
       "annual_source_year": "2025",
       "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
+      "da_recovery_lane": ""
     },
     {
       "ticker": "015230",
@@ -381,34 +313,17 @@
       "ticker": "018880",
       "name": "한온시스템",
       "market": "KOSPI",
-      "missing_component_count": 2,
+      "missing_component_count": 1,
       "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
         "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
       ],
-      "single_blocker": false,
+      "single_blocker": true,
       "raw_source_ticker": "018880",
       "raw_source_mode": "DIRECT",
       "raw_source_status": "READY_RAW_SOURCE",
       "annual_source_year": "2025",
       "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
-    },
-    {
-      "ticker": "028670",
-      "name": "팬오션",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "028670",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
+      "da_recovery_lane": ""
     },
     {
       "ticker": "051600",
@@ -430,18 +345,17 @@
       "ticker": "051910",
       "name": "LG화학",
       "market": "KOSPI",
-      "missing_component_count": 2,
+      "missing_component_count": 1,
       "missing_components": [
-        "PER:MISSING_PER",
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE"
+        "PER:MISSING_PER"
       ],
-      "single_blocker": false,
+      "single_blocker": true,
       "raw_source_ticker": "051910",
       "raw_source_mode": "DIRECT",
       "raw_source_status": "READY_RAW_SOURCE",
       "annual_source_year": "2025",
       "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
+      "da_recovery_lane": ""
     },
     {
       "ticker": "055550",
@@ -462,54 +376,6 @@
       "da_recovery_lane": ""
     },
     {
-      "ticker": "062040",
-      "name": "산일전기",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "062040",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
-    },
-    {
-      "ticker": "068270",
-      "name": "셀트리온",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:EMPTY_AS_ZERO:NO_EXACT_CANDIDATE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "068270",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
-    },
-    {
-      "ticker": "081660",
-      "name": "미스토홀딩스",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "081660",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
-    },
-    {
       "ticker": "090430",
       "name": "아모레퍼시픽",
       "market": "KOSPI",
@@ -526,37 +392,20 @@
       "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
     },
     {
-      "ticker": "096770",
-      "name": "SK이노베이션",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "096770",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
-    },
-    {
       "ticker": "103590",
       "name": "일진전기",
       "market": "KOSPI",
-      "missing_component_count": 2,
+      "missing_component_count": 1,
       "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
         "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
       ],
-      "single_blocker": false,
+      "single_blocker": true,
       "raw_source_ticker": "103590",
       "raw_source_mode": "DIRECT",
       "raw_source_status": "READY_RAW_SOURCE",
       "annual_source_year": "2025",
       "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
+      "da_recovery_lane": ""
     },
     {
       "ticker": "128820",
@@ -609,86 +458,6 @@
       "annual_source_year": "2025",
       "deep_fs_div": "CFS",
       "da_recovery_lane": ""
-    },
-    {
-      "ticker": "161390",
-      "name": "한국타이어앤테크놀로지",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:EMPTY_AS_ZERO:NO_EXACT_CANDIDATE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "161390",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
-    },
-    {
-      "ticker": "248070",
-      "name": "솔루엠",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "248070",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
-    },
-    {
-      "ticker": "272210",
-      "name": "한화시스템",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "272210",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
-    },
-    {
-      "ticker": "285130",
-      "name": "SK케미칼",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "285130",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
-    },
-    {
-      "ticker": "352820",
-      "name": "하이브",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "352820",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
     },
     {
       "ticker": "357250",

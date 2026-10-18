@@ -162,6 +162,16 @@ def main():
     }
     financial = scorer.read_csv_map(FIN_SOURCE)
     raw = scorer.read_csv_map(RAW_SOURCE)
+    stale_annual_period = sorted(
+        code for code in universe
+        if (existing.get(code) or {}).get("source_status") == "READY"
+        and (raw.get(code) or {}).get("annual_source_year") != "2025"
+    )
+    if stale_annual_period:
+        raise RuntimeError(
+            "OCF_ANNUAL_REPORT_YEAR_CONTRACT_EXPIRED:"
+            + ",".join(stale_annual_period)
+        )
 
     recovered = []
     limited = []

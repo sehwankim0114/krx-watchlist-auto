@@ -15,13 +15,14 @@ import investment_score_dry_run_v882 as scorer
 
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "latest/investment_score_current_readiness_latest.json"
-VERSION = "2026-10-18-v8.8-current-universe-validated-da-overlay-audit"
+VERSION = "2026-10-18-v8.8-current-universe-official-da-overlay-audit"
 DA_SOURCE = ROOT / "latest/investment_score_da_source_v894.csv"
 DA_SUMMARY = ROOT / "latest/investment_score_da_source_v894_summary_latest.json"
 DA_DEP_ID = "ifrs-full_AdjustmentsForDepreciationExpense"
 DA_AMO_ID = "ifrs-full_AdjustmentsForAmortisationExpense"
 BLOCKER_OUT = ROOT / "latest/investment_score_current_blockers_latest.json"
 PRIOR_DA_AUDIT = ROOT / "latest/investment_score_exact_da_actionable_v8154_summary_latest.json"
+CURRENT_OFFICIAL_DA = ROOT / "latest/investment_score_current_exact_da_official_audit_latest.json"
 
 
 def read_json(path):
@@ -33,6 +34,61 @@ def read_csv_rows(path):
     with path.open(encoding="utf-8-sig", newline="") as source:
         reader = csv.DictReader(source)
         return list(reader.fieldnames or []), list(reader)
+
+
+
+def current_official_da_sources():
+    audit = read_json(CURRENT_OFFICIAL_DA)
+    if (audit.get("version") != "2026-10-18-current-exact-da-official-xbrl-audit"
+            or audit.get("status") != "AUDIT_ONLY_NOT_FOR_GPT_DISPLAY"
+            or audit.get("production_source_cache_modified") is True
+            or audit.get("production_score_written") is not False):
+        raise ValueError("SCORE_AUDIT_CURRENT_DA_EVIDENCE_INVALID")
+    rows = audit.get("rows") or []
+    recoverable = set(audit.get("recoverable_exact_tickers") or [])
+    if len(rows) != audit.get("target_count"):
+        raise ValueError("SCORE_AUDIT_CURRENT_DA_ROW_COUNT_MISMATCH")
+    if recoverable != {
+        row.get("ticker") for row in rows
+        if row.get("audit_status") == "RECOVERABLE_EXACT_CANDIDATE"
+    }:
+        raise ValueError("SCORE_AUDIT_CURRENT_DA_CANDIDATE_SET_MISMATCH")
+    sources = {}
+    for row in rows:
+        if row.get("audit_status") != "RECOVERABLE_EXACT_CANDIDATE":
+            continue
+        if (row.get("source_fs_status") != "CONSISTENT"
+                or row.get("selection_classification") != "MATCHED_FS_MEMBER_BOTH_FACTS_UNIQUE"
+                or row.get("selected_value_conflict") != "FALSE"
+                or row.get("selected_context_conflict") != "FALSE"
+                or json.loads(row.get("selected_unit_signatures_json") or "[]") != ["iso4217:KRW"]
+                or not str(row.get("rcept_no") or "").isdigit()):
+            raise ValueError("SCORE_AUDIT_CURRENT_DA_FACT_GUARD:" + row["ticker"])
+        pair = row.get("exact_candidate") or {}
+        dep, amo, total = (
+            scorer.num(pair.get("depreciation_value")),
+            scorer.num(pair.get("amortisation_value")),
+            scorer.num(pair.get("da_total")),
+        )
+        if (None in (dep, amo, total) or dep < 0 or amo < 0
+                or abs(dep + amo - total) > 0.5):
+            raise ValueError("SCORE_AUDIT_CURRENT_DA_AMOUNT_INVALID:" + row["ticker"])
+        code = scorer.ticker(row.get("raw_source_ticker"))
+        if not code or code in sources:
+            raise ValueError("SCORE_AUDIT_CURRENT_DA_DUPLICATE_RAW:" + code)
+        sources[code] = {
+            "ticker": code,
+            "source_status": "READY_EXACT_DA_SOURCE",
+            "both_exact_facts_present": "TRUE",
+            "target_year": row["annual_source_year"],
+            "fs_div": row["source_fs_div"],
+            "corp_code": row["corp_code"],
+            "depreciation_value": dep,
+            "amortisation_value": amo,
+            "da_total": total,
+            "source_type": "CURRENT_OFFICIAL_XBRL",
+        }
+    return sources
 
 
 def validated_da_shadow(tmp):
@@ -47,9 +103,15 @@ def validated_da_shadow(tmp):
     source_map = {scorer.ticker(row["ticker"]): row for row in source_rows}
     if len(source_map) != len(source_rows):
         raise ValueError("SCORE_AUDIT_DA_SOURCE_DUPLICATE")
+    official_sources = current_official_da_sources()
+    overlap = set(source_map) & set(official_sources)
+    if overlap:
+        raise ValueError("SCORE_AUDIT_DA_SOURCE_OVERLAP:" + ",".join(sorted(overlap)))
+    source_map.update(official_sources)
 
     fields, raw_rows = read_csv_rows(scorer.RAW)
     raw_map = {scorer.ticker(row["ticker"]): row for row in raw_rows}
+    financial_map = scorer.read_csv_map(scorer.FIN)
     production = scorer.production_rows()
     selected = {}
     for ticker, prod_row in production.items():
@@ -60,6 +122,12 @@ def validated_da_shadow(tmp):
         source = source_map.get(raw_ticker)
         if not source or source.get("source_status") != "READY_EXACT_DA_SOURCE":
             continue
+        if source.get("source_type") == "CURRENT_OFFICIAL_XBRL":
+            financial = financial_map.get(raw_ticker) or {}
+            if (raw.get("corp_code") != source.get("corp_code")
+                    or financial.get("corp_code") != source.get("corp_code")
+                    or financial.get("corp_identity_status") not in {"MATCH", "MATCH_NORMALIZED"}):
+                raise ValueError("SCORE_AUDIT_CURRENT_DA_CORP_IDENTITY:" + raw_ticker)
         if source.get("both_exact_facts_present") != "TRUE":
             continue
         year, fs = source.get("target_year"), source.get("fs_div")
@@ -105,7 +173,7 @@ def validated_da_shadow(tmp):
         writer = csv.DictWriter(target, fieldnames=fields)
         writer.writeheader()
         writer.writerows(raw_rows)
-    return shadow, sorted(selected)
+    return shadow, sorted(selected), sorted(set(selected) & set(official_sources))
 
 
 def validate_da_reconciliation(before, after, selected):
@@ -224,7 +292,7 @@ def run():
         scorer.OUT_DOC = tmp / "score_explanation.md"
         scorer.main()
         _, baseline_rows = read_csv_rows(scorer.OUT_CSV)
-        shadow, da_selected = validated_da_shadow(tmp)
+        shadow, da_selected, official_da_selected = validated_da_shadow(tmp)
         scorer.RAW = shadow
         scorer.main()
         summary = read_json(scorer.OUT_JSON)
@@ -325,6 +393,8 @@ def run():
         "da_recovery_lane_counts": blocker_inventory["da_recovery_lane_counts"],
         "da_validated_shadow_tickers": da_selected,
         "da_validated_shadow_count": len(da_selected),
+        "da_current_official_shadow_tickers": official_da_selected,
+        "da_current_official_shadow_count": len(official_da_selected),
         "da_newly_ready_tickers": da_newly_ready,
         "da_newly_ready_count": len(da_newly_ready),
         "da_source_year": "2025",
@@ -346,6 +416,7 @@ def run():
     print("CURRENT_SCORE_READY=" + str(summary["ready_count"]))
     print("CURRENT_SCORE_LIMITED=" + str(summary["limited_count"]))
     print("CURRENT_SCORE_DA_OVERLAY=" + str(len(da_selected)))
+    print("CURRENT_SCORE_DA_CURRENT_OFFICIAL=" + str(len(official_da_selected)))
     print("CURRENT_SCORE_DA_NEW_READY=" + str(len(da_newly_ready)))
     print("CURRENT_SCORE_DA_REMAINING=" + str(blocker_inventory["ev_ebitda_missing_exact_da_count"]))
     print("CURRENT_SCORE_ELASTICITY_BASIS_MATCH=" + str(basis_matches).lower())

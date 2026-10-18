@@ -1,0 +1,56 @@
+name: Audit current exact D&A official XBRL
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "audit_current_exact_da_official.py"
+      - ".github/workflows/audit-current-exact-da-official.yml"
+  schedule:
+    # Monday 19:15 KST. Unchanged annual receipts reuse their prior XBRL audit.
+    - cron: "15 10 * * 1"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: krx-main-data-writers
+  cancel-in-progress: false
+
+jobs:
+  audit-current-exact-da:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Audit current official annual XBRL exact D&A
+        run: |
+          set -euo pipefail
+          python -m py_compile audit_current_exact_da_official.py investment_score_xbrl_cfs_ofs_v887.py
+          python audit_current_exact_da_official.py
+      - name: Commit audit-only evidence
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add latest/investment_score_current_exact_da_official_audit_latest.json
+          if git diff --cached --quiet; then
+            echo "NO_AUDIT_CHANGE=true"
+            exit 0
+          fi
+          git commit -m "Refresh current exact D&A official audit evidence"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main

@@ -91,3 +91,11 @@
 1. 남은 EV/EBITDA 원천 결측 32건 및 수급 14건은 검증 가능한 공식 원천·기간 계약으로만 복구한다. 과거 조사에서 원천 부재로 판정한 종목과 새 유니버스를 구분하고, 결측을 0으로 대체하지 않는다.
 2. 재무·성장·가속 결측과 업종 편향, 점수 분포, 기존 등급 충돌을 재검증한 다음 별도 production 점수 활성화를 검토한다. 현행 42개 LIMITED 종목의 총점은 null을 유지한다.
 3. 실적전망 변화와 확정 손절가는 유효한 원천·계산 계약이 아직 없어 null이다. Custom GPT 계정 편집기 설치 상태와 `연속하락표`·`2.4연속하락표` 실제 화면은 현재 접근 권한으로 확인할 수 없어 최종 E2E 미완료다.
+
+## 2026-10-18 13:58 KST 공식 D&A 추가 감사
+
+- [PR #26](https://github.com/sehwankim0114/krx-watchlist-auto/pull/26): 현행 LIMITED 종목별 결측을 기록한다. 당시 EV/EBITDA 원천 결측 32건을 새 공식 조사 26건, 과거 동일 연도 조사 완료 2건, 원천·법인 확인 부족 4건으로 분리했다.
+- [PR #27](https://github.com/sehwankim0114/krx-watchlist-auto/pull/27): 새 대상 26건의 공식 OpenDART 연차 사업보고서와 XBRL을 조회했다. 정확한 감가상각비·상각비 두 계정과 CFS·KRW·연도·문맥이 일치하는 21건이 복구 후보였다. 나머지는 XBRL 읽기 실패 1건, CFS 문맥 미일치 3건, 단일 계정만 존재 1건이다. 주간 재조회는 보고서 접수번호가 그대로면 XBRL 다운로드를 건너뛴다.
+- [PR #28](https://github.com/sehwankim0114/krx-watchlist-auto/pull/28): 21개 공식 후보를 점수 감사용 임시 원천에만 적용했다. 과거 검증 5건과 합쳐 26건을 감사에 연결했고, 현재 시험 점수는 56종목 중 READY 28, LIMITED 28이다. 기존 READY 점수와 비대상 종목 변화는 자동 차단한다. 공개 API 점수는 여전히 비활성이다.
+- [최신 API 빌드](https://github.com/sehwankim0114/krx-watchlist-auto/actions/runs/39098796806)와 [통합 건강검사](https://github.com/sehwankim0114/krx-watchlist-auto/actions/runs/39098889937) 성공. 빌드 ID `20261018T135648+0900-3036752ab7`, 기준일 2026-10-16, 건강 PASS·critical 0·warning 0. Cloudflare 세 표의 READY 응답과 빌드 ID·규칙 SHA가 일치한다.
+- [현행 결측 목록](https://github.com/sehwankim0114/krx-watchlist-auto/blob/main/latest/investment_score_current_blockers_latest.json): EV/EBITDA 원천 결측은 11건(새 조사 후 미복구 5, 과거 동일 연도 조사 완료 2, 원천·법인 확인 부족 4)으로 줄었다. 다음 최상위 결측은 수급 근거 LIMITED 14, 분기 가속 9, 매출·3년 성장 입력 각각 6이다. 서로 겹치는 종목이 있으므로 건수를 합쳐 LIMITED 종목 수로 해석하지 않는다.

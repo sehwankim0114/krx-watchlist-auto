@@ -120,6 +120,43 @@ def exact_candidate(evidence):
     return {"depreciation_value": dep, "amortisation_value": amo, "da_total": total}
 
 
+def current_production_tickers(build_id):
+    tickers = set()
+    for table in ("kospi", "decliners", "decliners24"):
+        payload = read_json(ROOT / f"api/two_table_v1/{table}.json")
+        if payload.get("source_build_id") != build_id:
+            raise RuntimeError("CURRENT_DA_AUDIT_TABLE_BUILD_MISMATCH:" + table)
+        tickers.update(row["ticker"] for row in payload.get("rows") or [])
+    return tickers
+
+
+def select_targets(inventory, prior, production_tickers):
+    """Keep previously validated facts in scope after they make a ticker READY."""
+    inventory_rows = inventory.get("rows") or []
+    current_rows = {row["ticker"]: row for row in inventory_rows}
+    if len(current_rows) != len(inventory_rows):
+        raise RuntimeError("CURRENT_DA_AUDIT_TARGET_SET_INVALID")
+    targets = {
+        ticker: row for ticker, row in current_rows.items()
+        if row.get("da_recovery_lane") == "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
+    }
+    for old in prior.get("rows") or []:
+        ticker = old.get("ticker")
+        if (old.get("audit_status") != "RECOVERABLE_EXACT_CANDIDATE"
+                or ticker not in production_tickers or ticker in targets):
+            continue
+        current = current_rows.get(ticker) or {}
+        targets[ticker] = {
+            "ticker": ticker,
+            "name": current.get("name") or old.get("name") or "",
+            "raw_source_ticker": current.get("raw_source_ticker") or old.get("raw_source_ticker") or "",
+        }
+    if (len(targets) > 40
+            or not set(targets).issubset(production_tickers)):
+        raise RuntimeError("CURRENT_DA_AUDIT_TARGET_SET_INVALID")
+    return [targets[ticker] for ticker in sorted(targets)]
+
+
 def main():
     api_key = os.environ.get("DART_API_KEY", "").strip()
     if not api_key:
@@ -133,12 +170,9 @@ def main():
         row["ticker"]: row for row in prior.get("rows") or []
         if row.get("ticker")
     }
-    targets = [
-        row for row in inventory.get("rows") or []
-        if row.get("da_recovery_lane") == "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
-    ]
-    if len(targets) > 40 or len({row["ticker"] for row in targets}) != len(targets):
-        raise RuntimeError("CURRENT_DA_AUDIT_TARGET_SET_INVALID")
+    targets = select_targets(
+        inventory, prior, current_production_tickers(status["build_id"])
+    )
 
     results = []
     to_xbrl = []
@@ -172,8 +206,15 @@ def main():
         if (old.get("rcept_no") == report["rcept_no"]
                 and old.get("annual_source_year") == year_text
                 and old.get("source_fs_div") == base["source_fs_div"]
-                and old.get("audit_status") not in {"XBRL_REQUEST_FAILED", "LIST_TRANSPORT_FAILURE"}):
-            results.append({**old, "source_build_id": status["build_id"], "reused_unchanged_receipt": True})
+                and old.get("corp_code") == base["corp_code"]
+                and old.get("audit_status") not in {
+                    "XBRL_REQUEST_FAILED", "XBRL_PARSE_FAILED", "LIST_TRANSPORT_FAILURE"
+                }):
+            results.append({
+                **old, "name": base["name"],
+                "source_build_id": status["build_id"],
+                "reused_unchanged_receipt": True,
+            })
             continue
         to_xbrl.append((base, raw, year))
         time.sleep(0.2)
@@ -203,6 +244,7 @@ def main():
                 "audit_status": "RECOVERABLE_EXACT_CANDIDATE" if candidate else evidence["selection_classification"],
                 "source_fs_status": evidence["source_fs_status"],
                 "selection_classification": evidence["selection_classification"],
+                "xbrl_status": evidence["xbrl_status"],
                 "selected_value_conflict": evidence["selected_value_conflict"],
                 "selected_context_conflict": evidence["selected_context_conflict"],
                 "selected_unit_signatures_json": evidence["selected_unit_signatures_json"],
@@ -242,3 +284,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

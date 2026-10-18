@@ -1,8 +1,8 @@
 {
-  "version": "2026-10-18-v8.8-current-universe-source-date-audit",
-  "generated_at_kst": "2026-10-18T09:16:14+09:00",
+  "version": "2026-10-18-v8.8-current-universe-source-date-audit-loss-per",
+  "generated_at_kst": "2026-10-18T10:51:06+09:00",
   "status": "AUDIT_ONLY_NOT_FOR_GPT_DISPLAY",
-  "source_build_id": "20261018T091529+0900-42420baadb",
+  "source_build_id": "20261018T105009+0900-404b13f580",
   "source_rules_sha256": "f96806bab26cedffa87a5749ebef0c04548871f8f28a22bac77a7e0b280f3fdf",
   "basis_date": "2026-10-16",
   "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
@@ -11,60 +11,48 @@
   "ready_count": 8,
   "limited_count": 48,
   "ready_pct": 14.29,
-  "current_valuation_ready_count_among_scorer_ready": 6,
-  "current_price_input_ready_count": 6,
-  "current_price_input_ready_pct": 10.71,
+  "current_valuation_ready_count_among_scorer_ready": 8,
+  "current_price_input_ready_count": 8,
+  "current_price_input_ready_pct": 14.29,
   "top_missing_reasons": [
     [
       "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
-      35
+      34
     ],
     [
       "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
-      24
+      29
     ],
     [
       "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
       14
     ],
     [
+      "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
+      9
+    ],
+    [
       "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
-      13
+      6
     ],
     [
       "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
-      12
+      6
     ],
     [
       "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
-      12
-    ],
-    [
-      "PSR 또는 대체 가치지표:MISSING_PSR_INPUT",
-      11
-    ],
-    [
-      "최근 3년 영업이익 성장률:MISSING_3Y_OP",
-      11
-    ],
-    [
-      "EV/EBITDA:EV_EBITDA_INPUT:NO_EXACT_CANDIDATE:NO_EXACT_CANDIDATE",
-      10
-    ],
-    [
-      "순현금·기업가치 상태:NETCASH_INPUT:NO_EXACT_CANDIDATE",
-      10
+      6
     ],
     [
       "EV/EBITDA:EV_EBITDA_INPUT:EMPTY_AS_ZERO:NO_EXACT_CANDIDATE",
-      6
-    ],
-    [
-      "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
-      6
+      5
     ],
     [
       "PER:MISSING_PER",
+      4
+    ],
+    [
+      "최근 3년 영업이익 성장률:MISSING_3Y_OP",
       4
     ],
     [
@@ -92,16 +80,24 @@
       3
     ],
     [
+      "EV/EBITDA:EV_EBITDA_INPUT:NO_EXACT_CANDIDATE:NO_EXACT_CANDIDATE",
+      3
+    ],
+    [
+      "PSR 또는 대체 가치지표:MISSING_PSR_INPUT",
+      3
+    ],
+    [
       "흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND",
+      3
+    ],
+    [
+      "순현금·기업가치 상태:NETCASH_INPUT:NO_EXACT_CANDIDATE",
       3
     ],
     [
       "과열·급락 위험:MISSING_RISK_INPUT",
       3
-    ],
-    [
-      "순현금·기업가치 상태:NETCASH_INPUT:EMPTY_AS_ZERO",
-      1
     ],
     [
       "기간 저가·고가 대비 현재위치:MISSING_POSITION",
@@ -121,7 +117,6 @@
   "price_elasticity_basis_matches_current": true,
   "promotion_blockers": [
     "LIMITED_SCORE_COMPONENTS_REMAIN",
-    "VALUATION_PRICE_BASIS_OR_STATUS_NOT_CURRENT",
     "PRODUCTION_SCORE_ADOPTION_AND_GPT_E2E_NOT_DONE"
   ],
   "production_score_written": false,

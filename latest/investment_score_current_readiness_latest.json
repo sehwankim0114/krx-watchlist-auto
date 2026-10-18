@@ -1,6 +1,6 @@
 {
   "version": "2026-10-18-v8.8-current-universe-source-date-audit-loss-per",
-  "generated_at_kst": "2026-10-18T10:51:06+09:00",
+  "generated_at_kst": "2026-10-18T13:05:07+09:00",
   "status": "AUDIT_ONLY_NOT_FOR_GPT_DISPLAY",
   "source_build_id": "20261018T105009+0900-404b13f580",
   "source_rules_sha256": "f96806bab26cedffa87a5749ebef0c04548871f8f28a22bac77a7e0b280f3fdf",
@@ -8,17 +8,13 @@
   "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
   "scorer_version": "2026-09-13-v8.8.2-investment-score-dry-run-gate-reconciliation",
   "production_unique_tickers": 56,
-  "ready_count": 8,
-  "limited_count": 48,
-  "ready_pct": 14.29,
-  "current_valuation_ready_count_among_scorer_ready": 8,
-  "current_price_input_ready_count": 8,
-  "current_price_input_ready_pct": 14.29,
+  "ready_count": 10,
+  "limited_count": 46,
+  "ready_pct": 17.86,
+  "current_valuation_ready_count_among_scorer_ready": 10,
+  "current_price_input_ready_count": 10,
+  "current_price_input_ready_pct": 17.86,
   "top_missing_reasons": [
-    [
-      "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
-      34
-    ],
     [
       "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
       29
@@ -42,6 +38,10 @@
     [
       "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
       6
+    ],
+    [
+      "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+      5
     ],
     [
       "EV/EBITDA:EV_EBITDA_INPUT:EMPTY_AS_ZERO:NO_EXACT_CANDIDATE",
@@ -105,11 +105,11 @@
     ]
   ],
   "score_summary_ready_only": {
-    "count": 8,
+    "count": 10,
     "min": 49.5,
-    "median": 65.0,
-    "mean": 63.0,
-    "max": 72.5
+    "median": 68.5,
+    "mean": 64.65,
+    "max": 74.0
   },
   "price_elasticity_source_basis_date": "2026-10-16",
   "price_elasticity_source_ready_tickers": 56,

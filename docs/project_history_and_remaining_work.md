@@ -77,3 +77,17 @@
 3. 나머지 재무·3년 성장·분기 가속 결측을 검증한 뒤 READY/LIMITED 분포, 점수 극단치, 업종 편향, 기존 등급과의 충돌을 재감사한다.
 4. 검증된 원천과 GPT 실제 화면 확인 후에만 별도 production 점수 활성화를 검토한다. 실적전망 변화와 확정 손절가도 각각 원천·날짜·결측 계약이 성립하기 전까지 null로 둔다.
 5. 계정의 Custom GPT 편집기에는 현재 도구로 접근할 수 없으므로 `연속하락표`·`2.4연속하락표`의 실제 화면 E2E는 아직 미완료다.
+
+## 2026-10-18 13:43 KST 추가 검증
+
+- [PR #22](https://github.com/sehwankim0114/krx-watchlist-auto/pull/22), [#23](https://github.com/sehwankim0114/krx-watchlist-auto/pull/23): 현행 유니버스와 2025년 연차보고서의 법인·CFS/OFS 범위가 일치하는 정확한 영업현금흐름 32건을 검증하고 source 캐시에 승격했다. READY 8→10, 영업현금흐름 결측 34→5. 매주 원천 재검증을 예약했다.
+- [PR #24](https://github.com/sehwankim0114/krx-watchlist-auto/pull/24): 연차보고서 연도가 바뀌면 기존 OCF를 조용히 재사용하지 않도록 현행 점수 감사와 주간 원천 워크플로에 차단 검사를 추가했다. 현재 불일치 0건.
+- [PR #25](https://github.com/sehwankim0114/krx-watchlist-auto/pull/25): 과거 공식 XBRL에서 검증된 정확한 감가상각·상각비 2025년 원천을 현재 연도·CFS/OFS가 일치하는 5종목의 점수 감사용 임시 원천에만 연결했다. 4종목이 새로 READY가 됐다. 기존 READY 점수·비대상 종목 변화를 차단한다. production source 캐시와 API 점수는 수정하지 않았다.
+- [최신 API 빌드](https://github.com/sehwankim0114/krx-watchlist-auto/actions/runs/39097965397), [통합 건강검사](https://github.com/sehwankim0114/krx-watchlist-auto/actions/runs/39098067792) 성공. 빌드 ID `20261018T134215+0900-775ebe52be`, 기준일 2026-10-16, 건강 PASS·critical 0·warning 0. Cloudflare Worker의 코피표 첫 페이지도 같은 빌드 ID·규칙 SHA·READY 상태와 30행을 반환했다.
+- [현행 점수 준비도](https://github.com/sehwankim0114/krx-watchlist-auto/blob/main/latest/investment_score_current_readiness_latest.json): 56종목 중 READY 14, LIMITED 42. 남은 최상위 결측은 정확한 EV/EBITDA D&A 25건, 수급 근거 LIMITED 14건, 전년 영업이익이 0 이하인 분기 가속 9건이다. 이 수치는 production 점수 공개가 아닌 시험 계산이다.
+
+### 현재 남은 게이트
+
+1. 남은 정확한 D&A 25건 및 수급 14건은 검증 가능한 공식 원천·기간 계약으로만 복구한다. 과거 조사에서 원천 부재로 판정한 종목과 새 유니버스를 구분하고, 결측을 0으로 대체하지 않는다.
+2. 재무·성장·가속 결측과 업종 편향, 점수 분포, 기존 등급 충돌을 재검증한 다음 별도 production 점수 활성화를 검토한다. 현행 42개 LIMITED 종목의 총점은 null을 유지한다.
+3. 실적전망 변화와 확정 손절가는 유효한 원천·계산 계약이 아직 없어 null이다. Custom GPT 계정 편집기 설치 상태와 `연속하락표`·`2.4연속하락표` 실제 화면은 현재 접근 권한으로 확인할 수 없어 최종 E2E 미완료다.

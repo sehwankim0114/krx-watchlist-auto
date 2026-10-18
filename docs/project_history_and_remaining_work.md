@@ -58,3 +58,22 @@
 현행 API 기준 점수 준비도 자동 감사 → 결측 원천과 날짜 동기화 → 점수 분포·업종 편향 및 등급 충돌 검증 → 별도 production 활성화 → 전망·손절 원천 계약 확정 → Custom GPT 실제 화면 E2E → 보류된 표현 정리와 워크플로 정리.
 
 이 문서는 이력과 작업 상태를 기록한다. 상태의 최종 판정은 각 시점의 GitHub Actions·API·Worker·Custom GPT 화면 검사에 따른다.
+
+## 2026-10-18 10:51 KST 실행 검증
+
+- [PR #15](https://github.com/sehwankim0114/krx-watchlist-auto/pull/15): 현행 표 유니버스의 100점 점수 준비도 자동 감사와 27개 공유 대화의 시간순 기록.
+- [PR #16](https://github.com/sehwankim0114/krx-watchlist-auto/pull/16): 공식 260거래일 캐시에서 현재 기준일의 20거래일 가격탄력을 재계산. 56종목 모두 2026-10-16 기준 원천 준비.
+- [PR #17](https://github.com/sehwankim0114/krx-watchlist-auto/pull/17): 밸류에이션 가격 입력 날짜를 점수 감사에 추가.
+- [PR #18](https://github.com/sehwankim0114/krx-watchlist-auto/pull/18), [#19](https://github.com/sehwankim0114/krx-watchlist-auto/pull/19): 캐시 재사용 시 재무 보고서 원문은 유지하고 시가총액·주식수·PER·PBR·가격 기준일만 현재 공식 KRX 데이터로 재계산. 공식 수집 회귀 검사 2건 통과.
+- [PR #20](https://github.com/sehwankim0114/krx-watchlist-auto/pull/20), [#21](https://github.com/sehwankim0114/krx-watchlist-auto/pull/21): 공식 수집과 API 쓰기 작업을 직렬화하고, 대기한 API 빌드는 시작 시 최신 main을 읽도록 수정. 적자 기업의 계약상 PER null 예외를 점수 감사에 반영.
+- [최종 API 빌드](https://github.com/sehwankim0114/krx-watchlist-auto/actions/runs/39087856941), [공식 수집](https://github.com/sehwankim0114/krx-watchlist-auto/actions/runs/39080034683), [통합 건강검사](https://github.com/sehwankim0114/krx-watchlist-auto/actions/runs/39087969042) 모두 성공. 건강 보고서는 PASS, critical 0, warning 0.
+- [점수 준비도](https://github.com/sehwankim0114/krx-watchlist-auto/blob/main/latest/investment_score_current_readiness_latest.json): 빌드 `20261018T105009+0900-404b13f580`, 기준일 2026-10-16, 유니버스 56종목, 입력 완비 8, LIMITED 48. 입력 완비 8개 모두 가격탄력 및 밸류에이션 날짜가 현재 기준일과 일치한다. 이 수치는 시험 계산이며 production 점수 공개 승인이 아니다.
+- [Cloudflare Worker](https://krx-live-price-ksh.diaconos.workers.dev/tables/v1/kospi?page=1)의 `kospi` 30행, `decliners` 27행, `decliners24` 1행은 모두 READY/PRODUCTION, 15열, 동일 빌드 ID와 규칙 SHA를 반환했다.
+
+### 다음 결측 해소 순서
+
+1. 현행 56종목 기준 영업현금흐름 결측 34건의 공식 OpenDART 계정·법인 식별을 재검증한다. 기존 2026-09-24 OCF 캐시는 과거 유니버스 156종목용이므로 그대로 현행 전체로 간주하지 않는다.
+2. EV/EBITDA의 정확한 감가상각·상각비 원천 결측 29건과 수급 근거 제한 14건을 각각 공식 원천 및 충돌 검사로 보완한다. 임의 값 대체는 금지한다.
+3. 나머지 재무·3년 성장·분기 가속 결측을 검증한 뒤 READY/LIMITED 분포, 점수 극단치, 업종 편향, 기존 등급과의 충돌을 재감사한다.
+4. 검증된 원천과 GPT 실제 화면 확인 후에만 별도 production 점수 활성화를 검토한다. 실적전망 변화와 확정 손절가도 각각 원천·날짜·결측 계약이 성립하기 전까지 null로 둔다.
+5. 계정의 Custom GPT 편집기에는 현재 도구로 접근할 수 없으므로 `연속하락표`·`2.4연속하락표`의 실제 화면 E2E는 아직 미완료다.

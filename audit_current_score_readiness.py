@@ -15,7 +15,7 @@ import investment_score_dry_run_v882 as scorer
 
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "latest/investment_score_current_readiness_latest.json"
-VERSION = "2026-10-18-v8.8-current-universe-source-date-audit"
+VERSION = "2026-10-18-v8.8-current-universe-source-date-audit-loss-per"
 
 
 def read_json(path):
@@ -64,12 +64,20 @@ def run():
     if len(ready_tickers) != summary["ready_count"]:
         raise ValueError("SCORE_AUDIT_READY_TICKER_COUNT_MISMATCH")
     financial = scorer.read_csv_map(scorer.FIN)
-    valuation_current_tickers = {
-        ticker for ticker in ready_tickers
-        if (financial.get(ticker) or {}).get("valuation_price_basis_date") == current_basis
-        and (financial.get(ticker) or {}).get("financial_data_status") == "READY"
-        and (financial.get(ticker) or {}).get("valuation_data_status") == "READY"
-    }
+    valuation_current_tickers = set()
+    for ticker in ready_tickers:
+        row = financial.get(ticker) or {}
+        loss_per_exception = (
+            row.get("valuation_data_status") == "PARTIAL_LOSS_PER_NA"
+            and row.get("earnings_trend") in {"적자지속", "적자전환"}
+            and not row.get("per_annualized")
+        )
+        if (
+            row.get("valuation_price_basis_date") == current_basis
+            and row.get("financial_data_status") == "READY"
+            and (row.get("valuation_data_status") == "READY" or loss_per_exception)
+        ):
+            valuation_current_tickers.add(ticker)
     current_price_input_ready_count = (
         len(valuation_current_tickers) if basis_matches else 0
     )

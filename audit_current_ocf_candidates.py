@@ -65,9 +65,9 @@ def current_universe():
     return result
 
 
-def exact_dart_ocf(api_key: str, corp_code: str):
+def exact_dart_ocf(api_key: str, corp_code: str, fs_div: str):
     errors = []
-    for fs_div in ("CFS", "OFS"):
+    for fs_div in (fs_div,):
         query = urllib.parse.urlencode({
             "crtfc_key": api_key, "corp_code": corp_code, "bsns_year": "2025",
             "reprt_code": "11011", "fs_div": fs_div,
@@ -176,7 +176,11 @@ def main():
         fin = financial.get(code) or {}
         source = raw.get(code) or {}
         reason = ""
-        if source.get("annual_source_year") != "2025" or (
+        if source.get("source_cache_status") != "READY_RAW_SOURCE":
+            reason = "ANNUAL_SOURCE_NOT_READY"
+        elif source.get("annual_fs_div") not in {"CFS", "OFS"}:
+            reason = "ANNUAL_FS_DIV_NOT_VERIFIED"
+        elif source.get("annual_source_year") != "2025" or (
             scorer.num(source.get("annual_revenue_y0")) or 0
         ) <= 0:
             reason = "NO_MATCHING_2025_ANNUAL_REVENUE"
@@ -192,7 +196,9 @@ def main():
             limited.append({"ticker": code, "name": name, "reason": reason})
             continue
 
-        result, reason, errors = exact_dart_ocf(api_key, fin["corp_code"])
+        result, reason, errors = exact_dart_ocf(
+            api_key, fin["corp_code"], source["annual_fs_div"]
+        )
         if result is None:
             limited.append({"ticker": code, "name": name, "reason": reason,
                             "query_errors": errors})

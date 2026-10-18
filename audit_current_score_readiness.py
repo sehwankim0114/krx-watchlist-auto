@@ -201,7 +201,7 @@ def run():
     current_price_input_ready_count = (
         len(valuation_current_tickers) if basis_matches else 0
     )
-    raw_sources = scorer.read_csv_map(scorer.RAW)
+    raw_sources = scorer.read_csv_map(ROOT / "latest/investment_score_source_cache_latest.csv")
     ocf_sources = scorer.read_csv_map(scorer.OCF)
     ocf_period_mismatches = sorted(
         ticker for ticker in scorer.production_rows()

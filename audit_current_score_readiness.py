@@ -3,10 +3,11 @@
 This is an audit only. It never writes a score into the production API.
 """
 
+import copy
 import csv
 import json
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -15,7 +16,7 @@ import investment_score_dry_run_v882 as scorer
 
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "latest/investment_score_current_readiness_latest.json"
-VERSION = "2026-10-18-v8.8-current-universe-official-da-overlay-audit"
+VERSION = "2026-10-18-v8.8-current-universe-official-da-supply-overlay-audit"
 DA_SOURCE = ROOT / "latest/investment_score_da_source_v894.csv"
 DA_SUMMARY = ROOT / "latest/investment_score_da_source_v894_summary_latest.json"
 DA_DEP_ID = "ifrs-full_AdjustmentsForDepreciationExpense"
@@ -23,6 +24,8 @@ DA_AMO_ID = "ifrs-full_AdjustmentsForAmortisationExpense"
 BLOCKER_OUT = ROOT / "latest/investment_score_current_blockers_latest.json"
 PRIOR_DA_AUDIT = ROOT / "latest/investment_score_exact_da_actionable_v8154_summary_latest.json"
 CURRENT_OFFICIAL_DA = ROOT / "latest/investment_score_current_exact_da_official_audit_latest.json"
+CURRENT_SUPPLY = ROOT / "latest/investment_score_current_supply_180d_latest.json"
+SUPPLY_REASON = "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
 
 
 def read_json(path):
@@ -207,6 +210,91 @@ def validate_da_reconciliation(before, after, selected):
 
 
 
+
+def validated_supply_rows():
+    """Overlay only a same-build, complete issuer-specific 180-day DART scan."""
+    production = scorer.production_rows()
+    if not CURRENT_SUPPLY.is_file():
+        return production, [], False
+    audit = read_json(CURRENT_SUPPLY)
+    status = read_json(ROOT / "api/status.json")
+    today = datetime.now(ZoneInfo("Asia/Seoul")).date()
+    if (audit.get("status") != "AUDIT_ONLY_NOT_FOR_GPT_DISPLAY"
+            or audit.get("source_build_id") != status.get("build_id")
+            or audit.get("window_end") != today.isoformat()
+            or audit.get("window_start") != (today - timedelta(days=179)).isoformat()):
+        return production, [], False
+    rows = audit.get("rows") or []
+    if len(rows) != audit.get("target_count"):
+        raise ValueError("SCORE_AUDIT_SUPPLY_ROW_COUNT_MISMATCH")
+    if len({row.get("ticker") for row in rows}) != len(rows):
+        raise ValueError("SCORE_AUDIT_SUPPLY_DUPLICATE_TICKER")
+    financial = scorer.read_csv_map(scorer.FIN)
+    selected = []
+    overlay = copy.deepcopy(production)
+    for row in rows:
+        classification = row.get("audit_status") or ""
+        if not classification.startswith("COMPLETE_180D_"):
+            continue
+        ticker = row["ticker"]
+        prod = overlay.get(ticker)
+        fin = financial.get(ticker) or {}
+        if (prod is None
+                or fin.get("corp_code") != row.get("corp_code")
+                or fin.get("corp_identity_status") not in {"MATCH", "MATCH_NORMALIZED"}
+                or row.get("corp_code_exact_stock_match_count") != 1):
+            raise ValueError("SCORE_AUDIT_SUPPLY_CORP_IDENTITY:" + ticker)
+        chunks = row.get("chunk_summaries") or []
+        if (len(chunks) != 2 or not all(x.get("complete") is True for x in chunks)
+                or chunks[0].get("start") != audit["window_start"]
+                or chunks[-1].get("end") != audit["window_end"]
+                or chunks[0].get("end") >= chunks[1].get("start")):
+            raise ValueError("SCORE_AUDIT_SUPPLY_COVERAGE_INVALID:" + ticker)
+        level = row.get("supply_level")
+        count = row.get("risk_report_count")
+        evidence = row.get("evidence_reports") or []
+        if (row.get("supply_status") != "OK"
+                or level not in {"없음", "주의", "경계", "위험"}
+                or count != len(evidence)):
+            raise ValueError("SCORE_AUDIT_SUPPLY_EVIDENCE_INVALID:" + ticker)
+        if ((classification == "COMPLETE_180D_NO_POSITIVE_BURDEN")
+                != (count == 0 and level == "없음")):
+            raise ValueError("SCORE_AUDIT_SUPPLY_ABSENCE_INVALID:" + ticker)
+        analysis = prod.get("analysis") or {}
+        if analysis.get("supply_status") != "LIMITED" or analysis.get("supply_level") != "없음":
+            raise ValueError("SCORE_AUDIT_SUPPLY_PRODUCTION_STATUS_CHANGED:" + ticker)
+        analysis["supply_status"] = "OK"
+        analysis["supply_level"] = level
+        selected.append(ticker)
+    return overlay, sorted(selected), True
+
+
+def validate_supply_reconciliation(before, after, selected):
+    old = {row["ticker"]: row for row in before}
+    new = {row["ticker"]: row for row in after}
+    if old.keys() != new.keys():
+        raise ValueError("SCORE_AUDIT_SUPPLY_UNIVERSE_CHANGED")
+    selected = set(selected)
+    newly_ready = []
+    for ticker, a in old.items():
+        b = new[ticker]
+        if a["score_status"] == "READY":
+            if b["score_status"] != "READY" or a["score_total"] != b["score_total"]:
+                raise ValueError("SCORE_AUDIT_SUPPLY_READY_REGRESSION:" + ticker)
+        if ticker not in selected:
+            if (a["score_status"], a["score_total"], a["missing_components"]) != (
+                    b["score_status"], b["score_total"], b["missing_components"]):
+                raise ValueError("SCORE_AUDIT_SUPPLY_UNSELECTED_CHANGED:" + ticker)
+            continue
+        old_missing = set(filter(None, a["missing_components"].split(";")))
+        new_missing = set(filter(None, b["missing_components"].split(";")))
+        if SUPPLY_REASON not in old_missing or old_missing - new_missing != {SUPPLY_REASON} or new_missing - old_missing:
+            raise ValueError("SCORE_AUDIT_SUPPLY_COMPONENT_SCOPE_CHANGED:" + ticker)
+        if a["score_status"] != "READY" and b["score_status"] == "READY":
+            newly_ready.append(ticker)
+    return sorted(newly_ready)
+
+
 def write_blocker_inventory(score_rows, build_id, basis_date):
     """Classify current missing inputs before any further official-source query."""
     prior = read_json(PRIOR_DA_AUDIT)
@@ -295,10 +383,17 @@ def run():
         shadow, da_selected, official_da_selected = validated_da_shadow(tmp)
         scorer.RAW = shadow
         scorer.main()
+        _, da_rows = read_csv_rows(scorer.OUT_CSV)
+        da_newly_ready = validate_da_reconciliation(
+            baseline_rows, da_rows, da_selected
+        )
+        supply_rows, supply_selected, supply_current = validated_supply_rows()
+        scorer.production_rows = lambda: copy.deepcopy(supply_rows)
+        scorer.main()
         summary = read_json(scorer.OUT_JSON)
         _, score_rows = read_csv_rows(scorer.OUT_CSV)
-        da_newly_ready = validate_da_reconciliation(
-            baseline_rows, score_rows, da_selected
+        supply_newly_ready = validate_supply_reconciliation(
+            da_rows, score_rows, supply_selected
         )
 
     if summary["production_unique_tickers"] != len(scorer.production_rows()):
@@ -399,6 +494,12 @@ def run():
         "da_newly_ready_count": len(da_newly_ready),
         "da_source_year": "2025",
         "da_source_only_overlay": True,
+        "supply_180d_audit_current": supply_current,
+        "supply_validated_shadow_tickers": supply_selected,
+        "supply_validated_shadow_count": len(supply_selected),
+        "supply_newly_ready_tickers": supply_newly_ready,
+        "supply_newly_ready_count": len(supply_newly_ready),
+        "supply_source_only_overlay": True,
         "score_summary_ready_only": summary["score_summary_ready_only"],
         "price_elasticity_source_basis_date": elasticity_basis,
         "price_elasticity_source_ready_tickers": elasticity.get("ready_tickers"),
@@ -419,6 +520,8 @@ def run():
     print("CURRENT_SCORE_DA_CURRENT_OFFICIAL=" + str(len(official_da_selected)))
     print("CURRENT_SCORE_DA_NEW_READY=" + str(len(da_newly_ready)))
     print("CURRENT_SCORE_DA_REMAINING=" + str(blocker_inventory["ev_ebitda_missing_exact_da_count"]))
+    print("CURRENT_SCORE_SUPPLY_OVERLAY=" + str(len(supply_selected)))
+    print("CURRENT_SCORE_SUPPLY_NEW_READY=" + str(len(supply_newly_ready)))
     print("CURRENT_SCORE_ELASTICITY_BASIS_MATCH=" + str(basis_matches).lower())
 
 

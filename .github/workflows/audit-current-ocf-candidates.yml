@@ -2,11 +2,15 @@ name: Audit current exact OCF candidates
 
 on:
   workflow_dispatch:
+  schedule:
+    # KST Monday 18:45 = UTC Monday 09:45
+    - cron: "45 9 * * 1"
   push:
     branches: [main]
     paths:
       - ".github/workflows/audit-current-ocf-candidates.yml"
       - "audit_current_ocf_candidates.py"
+      - "promote_current_ocf_candidates.py"
 
 permissions:
   contents: write
@@ -40,13 +44,25 @@ jobs:
           python -m py_compile audit_current_ocf_candidates.py investment_score_dry_run_v882.py
           python audit_current_ocf_candidates.py
 
-      - name: Commit candidate audit only
+      - name: Promote verified exact OCF source and refresh readiness
+        run: |
+          set -euo pipefail
+          python -m py_compile promote_current_ocf_candidates.py
+          python promote_current_ocf_candidates.py
+
+      - name: Commit candidate audit and verified source
         run: |
           set -euo pipefail
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git add latest/investment_score_current_ocf_candidate_latest.csv
           git add latest/investment_score_current_ocf_candidate_latest.json
+          git add latest/investment_score_ocf_source_latest.csv
+          git add latest/investment_score_ocf_source_latest.json
+          git add latest/investment_score_current_readiness_latest.json
+          if [ -f latest/investment_score_current_ocf_promotion_run_log_latest.txt ]; then
+            git add latest/investment_score_current_ocf_promotion_run_log_latest.txt
+          fi
           if git diff --cached --quiet; then
             echo "NO_CANDIDATE_AUDIT_CHANGE=true"
             exit 0

@@ -15,7 +15,7 @@ import investment_score_dry_run_v882 as scorer
 
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "latest/investment_score_current_readiness_latest.json"
-VERSION = "2026-10-18-v8.8-current-universe-source-date-audit-loss-per"
+VERSION = "2026-10-18-v8.8-current-universe-ocf-period-audit"
 
 
 def read_json(path):
@@ -81,6 +81,17 @@ def run():
     current_price_input_ready_count = (
         len(valuation_current_tickers) if basis_matches else 0
     )
+    raw_sources = scorer.read_csv_map(scorer.RAW)
+    ocf_sources = scorer.read_csv_map(scorer.OCF)
+    ocf_period_mismatches = sorted(
+        ticker for ticker in scorer.production_rows()
+        if (ocf_sources.get(ticker) or {}).get("source_status") == "READY"
+        and (raw_sources.get(ticker) or {}).get("annual_source_year") != "2025"
+    )
+    current_price_and_ocf_period_ready_count = (
+        len(valuation_current_tickers - set(ocf_period_mismatches))
+        if basis_matches else 0
+    )
     blockers = []
     if summary["limited_count"]:
         blockers.append("LIMITED_SCORE_COMPONENTS_REMAIN")
@@ -90,6 +101,8 @@ def run():
         blockers.append("PRICE_ELASTICITY_SOURCE_PARTIAL")
     if len(valuation_current_tickers) != len(ready_tickers):
         blockers.append("VALUATION_PRICE_BASIS_OR_STATUS_NOT_CURRENT")
+    if ocf_period_mismatches:
+        blockers.append("OCF_ANNUAL_REPORT_YEAR_MISMATCH")
     blockers.append("PRODUCTION_SCORE_ADOPTION_AND_GPT_E2E_NOT_DONE")
 
     result = {
@@ -107,6 +120,10 @@ def run():
         "ready_pct": summary["ready_pct"],
         "current_valuation_ready_count_among_scorer_ready": len(valuation_current_tickers),
         "current_price_input_ready_count": current_price_input_ready_count,
+        "current_price_and_ocf_period_ready_count": current_price_and_ocf_period_ready_count,
+        "ocf_required_annual_report_year": "2025",
+        "ocf_annual_period_mismatch_count": len(ocf_period_mismatches),
+        "ocf_annual_period_mismatch_tickers": ocf_period_mismatches,
         "current_price_input_ready_pct": round(
             current_price_input_ready_count / summary["production_unique_tickers"] * 100, 2
         ) if summary["production_unique_tickers"] else 0,

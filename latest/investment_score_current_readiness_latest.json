@@ -1,28 +1,24 @@
 {
-  "version": "2026-10-18-v8.8-current-universe-official-da-overlay-audit",
-  "generated_at_kst": "2026-10-18T13:57:32+09:00",
+  "version": "2026-10-18-v8.8-current-universe-official-da-supply-overlay-audit",
+  "generated_at_kst": "2026-10-18T14:18:08+09:00",
   "status": "AUDIT_ONLY_NOT_FOR_GPT_DISPLAY",
-  "source_build_id": "20261018T135648+0900-3036752ab7",
+  "source_build_id": "20261018T141326+0900-d9bcabe417",
   "source_rules_sha256": "f96806bab26cedffa87a5749ebef0c04548871f8f28a22bac77a7e0b280f3fdf",
   "basis_date": "2026-10-16",
   "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
   "scorer_version": "2026-09-13-v8.8.2-investment-score-dry-run-gate-reconciliation",
   "production_unique_tickers": 56,
-  "ready_count": 28,
-  "limited_count": 28,
-  "ready_pct": 50.0,
-  "current_valuation_ready_count_among_scorer_ready": 28,
-  "current_price_input_ready_count": 28,
-  "current_price_and_ocf_period_ready_count": 28,
+  "ready_count": 34,
+  "limited_count": 22,
+  "ready_pct": 60.71,
+  "current_valuation_ready_count_among_scorer_ready": 34,
+  "current_price_input_ready_count": 34,
+  "current_price_and_ocf_period_ready_count": 34,
   "ocf_required_annual_report_year": "2025",
   "ocf_annual_period_mismatch_count": 0,
   "ocf_annual_period_mismatch_tickers": [],
-  "current_price_input_ready_pct": 50.0,
+  "current_price_input_ready_pct": 60.71,
   "top_missing_reasons": [
-    [
-      "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-      14
-    ],
     [
       "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
       9
@@ -93,6 +89,10 @@
     ],
     [
       "순현금·기업가치 상태:NETCASH_INPUT:NO_EXACT_CANDIDATE",
+      3
+    ],
+    [
+      "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
       3
     ],
     [
@@ -190,11 +190,36 @@
   "da_newly_ready_count": 18,
   "da_source_year": "2025",
   "da_source_only_overlay": true,
+  "supply_180d_audit_current": true,
+  "supply_validated_shadow_tickers": [
+    "001620",
+    "003550",
+    "009140",
+    "009450",
+    "012330",
+    "015230",
+    "018880",
+    "051600",
+    "103590",
+    "134790",
+    "361610"
+  ],
+  "supply_validated_shadow_count": 11,
+  "supply_newly_ready_tickers": [
+    "003550",
+    "012330",
+    "015230",
+    "018880",
+    "051600",
+    "103590"
+  ],
+  "supply_newly_ready_count": 6,
+  "supply_source_only_overlay": true,
   "score_summary_ready_only": {
-    "count": 28,
+    "count": 34,
     "min": 41.5,
-    "median": 65.5,
-    "mean": 62.82142857142857,
+    "median": 66.5,
+    "mean": 63.720588235294116,
     "max": 82.0
   },
   "price_elasticity_source_basis_date": "2026-10-16",

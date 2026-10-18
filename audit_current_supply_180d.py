@@ -19,7 +19,6 @@ import xml.etree.ElementTree as ET
 import supply_burden_enricher as policy
 
 ROOT = Path(__file__).resolve().parent
-INVENTORY = ROOT / "latest/investment_score_current_blockers_latest.json"
 FIN = ROOT / "latest/financial_valuation_cache_latest.csv"
 STATUS = ROOT / "api/status.json"
 OUT = ROOT / "latest/investment_score_current_supply_180d_latest.json"
@@ -27,7 +26,6 @@ VERSION = "2026-10-18-current-targeted-180d-supply-audit"
 KST = ZoneInfo("Asia/Seoul")
 LIST_URL = "https://opendart.fss.or.kr/api/list.json"
 CORP_URL = "https://opendart.fss.or.kr/api/corpCode.xml"
-SUPPLY_REASON = "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
 
 
 def read_json(path):
@@ -141,17 +139,33 @@ def main():
     key = os.environ.get("DART_API_KEY", "").strip()
     if not key:
         raise RuntimeError("DART_API_KEY_MISSING")
-    inventory, status = read_json(INVENTORY), read_json(STATUS)
-    if inventory.get("source_build_id") != status.get("build_id") or not status.get("api_sync_ok"):
+    status = read_json(STATUS)
+    manifest = read_json(ROOT / "api/two_table_v1/manifest.json")
+    if (not status.get("api_sync_ok")
+            or manifest.get("source_build_id") != status.get("build_id")):
         raise RuntimeError("SUPPLY_AUDIT_BUILD_NOT_SYNCED")
+    production = {}
+    for table in ("kospi", "decliners", "decliners24"):
+        payload = read_json(ROOT / f"api/two_table_v1/{table}.json")
+        if payload.get("source_build_id") != status["build_id"]:
+            raise RuntimeError("SUPPLY_AUDIT_TABLE_BUILD_MISMATCH:" + table)
+        for row in payload.get("rows") or []:
+            production[row["ticker"]] = row
     targets = [
-        row for row in inventory.get("rows") or []
-        if SUPPLY_REASON in (row.get("missing_components") or [])
+        {"ticker": ticker, "name": row.get("name") or ""}
+        for ticker, row in sorted(production.items())
+        if (row.get("analysis") or {}).get("supply_status") == "LIMITED"
+        and (row.get("analysis") or {}).get("supply_level") == "없음"
     ]
-    if len(targets) > 40 or len({row["ticker"] for row in targets}) != len(targets):
+    if len(targets) > 40:
         raise RuntimeError("SUPPLY_AUDIT_TARGET_SET_INVALID")
     financial = fin_map()
-    exact_corp = corp_map(key)
+    try:
+        exact_corp = corp_map(key)
+        corp_map_error_type = ""
+    except Exception as exc:
+        exact_corp = {}
+        corp_map_error_type = type(exc).__name__
     end = datetime.now(KST).date()
     start = end - timedelta(days=179)
     rows = []
@@ -165,6 +179,9 @@ def main():
             "lookback_days": 180, "source_build_id": status["build_id"],
         }
         matches = exact_corp.get(ticker) or set()
+        if corp_map_error_type:
+            rows.append({**base, "audit_status": "CORP_MAP_UNAVAILABLE"})
+            continue
         if (fin.get("corp_identity_status") not in {"MATCH", "MATCH_NORMALIZED"}
                 or not corp_code or matches != {corp_code}):
             rows.append({**base, "audit_status": "CORP_IDENTITY_UNRESOLVED",
@@ -217,7 +234,8 @@ def main():
         "generated_at_kst": datetime.now(KST).isoformat(timespec="seconds"),
         "status": "AUDIT_ONLY_NOT_FOR_GPT_DISPLAY",
         "source_build_id": status["build_id"],
-        "basis_date": inventory["basis_date"],
+        "basis_date": manifest["basis_date"],
+        "corp_map_error_type": corp_map_error_type,
         "window_start": start.isoformat(), "window_end": end.isoformat(),
         "target_count": len(targets),
         "classification_counts": counts,

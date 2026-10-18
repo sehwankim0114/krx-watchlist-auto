@@ -13,6 +13,7 @@ on:
       - "docs/custom_gpt_instructions.md"
       - "validate_custom_gpt_contract_v870.py"
       - "audit_current_score_readiness.py"
+      - "audit_current_supply_180d.py"
       - "refresh_current_elasticity_source.py"
       - "investment_score_price_elasticity_v875.py"
       - "investment_score_dry_run_v882.py"
@@ -154,6 +155,12 @@ jobs:
           set -euo pipefail
           python -m py_compile refresh_current_elasticity_source.py investment_score_price_elasticity_v875.py
           python refresh_current_elasticity_source.py
+
+      - name: Audit complete current 180-day DART supply evidence
+        run: |
+          set -euo pipefail
+          python -m py_compile audit_current_supply_180d.py
+          python audit_current_supply_180d.py
 
       - name: Audit current 100-point score readiness without publishing scores
         run: |

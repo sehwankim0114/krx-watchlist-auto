@@ -15,11 +15,125 @@ import investment_score_dry_run_v882 as scorer
 
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "latest/investment_score_current_readiness_latest.json"
-VERSION = "2026-10-18-v8.8-current-universe-ocf-period-audit"
+VERSION = "2026-10-18-v8.8-current-universe-validated-da-overlay-audit"
+DA_SOURCE = ROOT / "latest/investment_score_da_source_v894.csv"
+DA_SUMMARY = ROOT / "latest/investment_score_da_source_v894_summary_latest.json"
+DA_DEP_ID = "ifrs-full_AdjustmentsForDepreciationExpense"
+DA_AMO_ID = "ifrs-full_AdjustmentsForAmortisationExpense"
 
 
 def read_json(path):
     return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
+
+def read_csv_rows(path):
+    with path.open(encoding="utf-8-sig", newline="") as source:
+        reader = csv.DictReader(source)
+        return list(reader.fieldnames or []), list(reader)
+
+
+def validated_da_shadow(tmp):
+    """Use already audited exact 2025 XBRL facts for this audit only."""
+    source_summary = read_json(DA_SUMMARY)
+    if (source_summary.get("status") != "SOURCE_ONLY_READY"
+            or source_summary.get("source_only_ready_count") != 67):
+        raise ValueError("SCORE_AUDIT_DA_SOURCE_NOT_VALIDATED")
+    _, source_rows = read_csv_rows(DA_SOURCE)
+    if len(source_rows) != 67:
+        raise ValueError("SCORE_AUDIT_DA_SOURCE_ROW_COUNT_CHANGED")
+    source_map = {scorer.ticker(row["ticker"]): row for row in source_rows}
+    if len(source_map) != len(source_rows):
+        raise ValueError("SCORE_AUDIT_DA_SOURCE_DUPLICATE")
+
+    fields, raw_rows = read_csv_rows(scorer.RAW)
+    raw_map = {scorer.ticker(row["ticker"]): row for row in raw_rows}
+    production = scorer.production_rows()
+    selected = {}
+    for ticker, prod_row in production.items():
+        raw, mode = scorer.get_common_raw(ticker, raw_map, prod_row)
+        if raw.get("source_cache_status") != "READY_RAW_SOURCE":
+            continue
+        raw_ticker = scorer.ticker(raw.get("ticker"))
+        source = source_map.get(raw_ticker)
+        if not source or source.get("source_status") != "READY_EXACT_DA_SOURCE":
+            continue
+        if source.get("both_exact_facts_present") != "TRUE":
+            continue
+        year, fs = source.get("target_year"), source.get("fs_div")
+        if not (year and fs in {"CFS", "OFS"}
+                and raw.get("annual_source_year") == year
+                and raw.get("deep_source_year") == year
+                and raw.get("annual_fs_div") == fs
+                and raw.get("deep_fs_div") == fs
+                and raw.get("deep_source_status") == "OK"):
+            continue
+        candidates = scorer.parse_json_list(
+            raw.get("depreciation_amortization_candidates_json")
+        )
+        if any(row.get("account_id") in scorer.DA_IDS for row in candidates):
+            continue
+        dep = scorer.num(source.get("depreciation_value"))
+        amo = scorer.num(source.get("amortisation_value"))
+        total = scorer.num(source.get("da_total"))
+        if (dep is None or amo is None or total is None
+                or dep < 0 or amo < 0 or abs(dep + amo - total) > 0.5):
+            raise ValueError("SCORE_AUDIT_DA_SOURCE_AMOUNT_INVALID:" + raw_ticker)
+        pair = (dep, amo)
+        if raw_ticker in selected and selected[raw_ticker] != pair:
+            raise ValueError("SCORE_AUDIT_DA_PREFERRED_CONFLICT:" + raw_ticker)
+        selected[raw_ticker] = pair
+
+    for raw_ticker, (dep, amo) in selected.items():
+        raw = raw_map[raw_ticker]
+        candidates = scorer.parse_json_list(
+            raw.get("depreciation_amortization_candidates_json")
+        )
+        candidates.extend([
+            {"account_id": DA_DEP_ID, "account_nm": "audited exact depreciation",
+             "amount": dep},
+            {"account_id": DA_AMO_ID, "account_nm": "audited exact amortisation",
+             "amount": amo},
+        ])
+        raw["depreciation_amortization_candidates_json"] = json.dumps(
+            candidates, ensure_ascii=False, separators=(",", ":")
+        )
+    shadow = tmp / "validated_da_shadow.csv"
+    with shadow.open("w", encoding="utf-8-sig", newline="") as target:
+        writer = csv.DictWriter(target, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(raw_rows)
+    return shadow, sorted(selected)
+
+
+def validate_da_reconciliation(before, after, selected):
+    old = {row["ticker"]: row for row in before}
+    new = {row["ticker"]: row for row in after}
+    if old.keys() != new.keys():
+        raise ValueError("SCORE_AUDIT_DA_UNIVERSE_CHANGED")
+    selected = set(selected)
+    newly_ready = []
+    for ticker in old:
+        a, b = old[ticker], new[ticker]
+        if a["score_status"] == "READY":
+            if b["score_status"] != "READY" or a["score_total"] != b["score_total"]:
+                raise ValueError("SCORE_AUDIT_DA_READY_REGRESSION:" + ticker)
+        if ticker not in selected:
+            if (a["score_status"], a["score_total"], a["missing_components"]) != (
+                    b["score_status"], b["score_total"], b["missing_components"]):
+                raise ValueError("SCORE_AUDIT_DA_UNSELECTED_CHANGED:" + ticker)
+        else:
+            old_missing = set(filter(None, a["missing_components"].split(";")))
+            new_missing = set(filter(None, b["missing_components"].split(";")))
+            if (old_missing - new_missing) != {
+                    reason for reason in old_missing if reason.startswith("EV/EBITDA:")
+            } or (new_missing - old_missing):
+                raise ValueError("SCORE_AUDIT_DA_COMPONENT_SCOPE_CHANGED:" + ticker)
+            if any(reason.startswith("EV/EBITDA:") for reason in new_missing):
+                raise ValueError("SCORE_AUDIT_DA_EV_STILL_MISSING:" + ticker)
+            if a["score_status"] != "READY" and b["score_status"] == "READY":
+                newly_ready.append(ticker)
+    return sorted(newly_ready)
 
 
 def run():
@@ -37,9 +151,15 @@ def run():
         scorer.OUT_LOG = tmp / "score_run_log.txt"
         scorer.OUT_DOC = tmp / "score_explanation.md"
         scorer.main()
+        _, baseline_rows = read_csv_rows(scorer.OUT_CSV)
+        shadow, da_selected = validated_da_shadow(tmp)
+        scorer.RAW = shadow
+        scorer.main()
         summary = read_json(scorer.OUT_JSON)
-        with scorer.OUT_CSV.open(encoding="utf-8-sig", newline="") as source:
-            score_rows = list(csv.DictReader(source))
+        _, score_rows = read_csv_rows(scorer.OUT_CSV)
+        da_newly_ready = validate_da_reconciliation(
+            baseline_rows, score_rows, da_selected
+        )
 
     if summary["production_unique_tickers"] != len(scorer.production_rows()):
         raise ValueError("SCORE_AUDIT_UNIVERSE_MISMATCH")
@@ -128,6 +248,12 @@ def run():
             current_price_input_ready_count / summary["production_unique_tickers"] * 100, 2
         ) if summary["production_unique_tickers"] else 0,
         "top_missing_reasons": summary["top_missing_reasons"],
+        "da_validated_shadow_tickers": da_selected,
+        "da_validated_shadow_count": len(da_selected),
+        "da_newly_ready_tickers": da_newly_ready,
+        "da_newly_ready_count": len(da_newly_ready),
+        "da_source_year": "2025",
+        "da_source_only_overlay": True,
         "score_summary_ready_only": summary["score_summary_ready_only"],
         "price_elasticity_source_basis_date": elasticity_basis,
         "price_elasticity_source_ready_tickers": elasticity.get("ready_tickers"),
@@ -144,6 +270,8 @@ def run():
     print("CURRENT_SCORE_UNIVERSE=" + str(summary["production_unique_tickers"]))
     print("CURRENT_SCORE_READY=" + str(summary["ready_count"]))
     print("CURRENT_SCORE_LIMITED=" + str(summary["limited_count"]))
+    print("CURRENT_SCORE_DA_OVERLAY=" + str(len(da_selected)))
+    print("CURRENT_SCORE_DA_NEW_READY=" + str(len(da_newly_ready)))
     print("CURRENT_SCORE_ELASTICITY_BASIS_MATCH=" + str(basis_matches).lower())
 
 

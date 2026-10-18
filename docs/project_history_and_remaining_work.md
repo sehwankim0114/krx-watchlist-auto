@@ -99,3 +99,10 @@
 - [PR #28](https://github.com/sehwankim0114/krx-watchlist-auto/pull/28): 21개 공식 후보를 점수 감사용 임시 원천에만 적용했다. 과거 검증 5건과 합쳐 26건을 감사에 연결했고, 현재 시험 점수는 56종목 중 READY 28, LIMITED 28이다. 기존 READY 점수와 비대상 종목 변화는 자동 차단한다. 공개 API 점수는 여전히 비활성이다.
 - [최신 API 빌드](https://github.com/sehwankim0114/krx-watchlist-auto/actions/runs/39098796806)와 [통합 건강검사](https://github.com/sehwankim0114/krx-watchlist-auto/actions/runs/39098889937) 성공. 빌드 ID `20261018T135648+0900-3036752ab7`, 기준일 2026-10-16, 건강 PASS·critical 0·warning 0. Cloudflare 세 표의 READY 응답과 빌드 ID·규칙 SHA가 일치한다.
 - [현행 결측 목록](https://github.com/sehwankim0114/krx-watchlist-auto/blob/main/latest/investment_score_current_blockers_latest.json): EV/EBITDA 원천 결측은 11건(새 조사 후 미복구 5, 과거 동일 연도 조사 완료 2, 원천·법인 확인 부족 4)으로 줄었다. 다음 최상위 결측은 수급 근거 LIMITED 14, 분기 가속 9, 매출·3년 성장 입력 각각 6이다. 서로 겹치는 종목이 있으므로 건수를 합쳐 LIMITED 종목 수로 해석하지 않는다.
+
+## 2026-10-18 14:18 KST 180일 수급 원천 감사
+
+- [PR #29](https://github.com/sehwankim0114/krx-watchlist-auto/pull/29): 현행 수급 LIMITED 14종목의 DART 법인코드를 정확한 종목코드로 확인하고, 종목별 180일을 90일씩 2구간으로 완전 조회했다. 11건 조회 완료(위험 공시 확인 8, 전 구간 조회 후 해당 공시 없음 3), 법인 식별 불가 우선주 3건은 제한 유지.
+- [PR #30](https://github.com/sehwankim0114/krx-watchlist-auto/pull/30): 매 API 빌드에서 현재 표의 수급 제한 종목을 새로 감사한다. 같은 빌드·같은 날·완전한 180일 조회와 정확한 법인 확인을 통과한 11건만 점수 감사용 임시 분석에 반영한다. 기존 READY 점수와 비대상 종목 변화는 자동 차단한다. 공개 API의 수급 표시나 100점 점수는 바꾸지 않았다.
+- [API 빌드](https://github.com/sehwankim0114/krx-watchlist-auto/actions/runs/39099764937), [통합 건강검사](https://github.com/sehwankim0114/krx-watchlist-auto/actions/runs/39100088024) 성공. 빌드 ID `20261018T141326+0900-d9bcabe417`, 기준일 2026-10-16. 건강 PASS·critical 0·warning 0. Cloudflare의 `kospi` 30행, `decliners` 27행, `decliners24` 1행은 모두 READY이며 빌드 ID·규칙 SHA가 일치했다.
+- [점수 준비도](https://github.com/sehwankim0114/krx-watchlist-auto/blob/main/latest/investment_score_current_readiness_latest.json): 56종목 중 READY 34, LIMITED 22. 추가 READY 6건은 180일 수급 근거 완비로 생겼다. 현행 단일 결측은 EV/EBITDA 정확 D&A 5건, 전년 영업이익 0 이하 분기 가속 5건, PER 1건 등이다. 일부 원천은 공식 보고서에 존재하지 않거나 정책상 분모가 성립하지 않으므로 임의 0점·값 대체로 완결하지 않는다.

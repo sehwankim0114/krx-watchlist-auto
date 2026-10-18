@@ -1,0 +1,60 @@
+name: Audit current exact OCF candidates
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/audit-current-ocf-candidates.yml"
+      - "audit_current_ocf_candidates.py"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: krx-main-data-writers
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TZ: Asia/Seoul
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Audit exact 2025 annual OCF without production writes
+        run: |
+          set -euo pipefail
+          python -m py_compile audit_current_ocf_candidates.py investment_score_dry_run_v882.py
+          python audit_current_ocf_candidates.py
+
+      - name: Commit candidate audit only
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add latest/investment_score_current_ocf_candidate_latest.csv
+          git add latest/investment_score_current_ocf_candidate_latest.json
+          if git diff --cached --quiet; then
+            echo "NO_CANDIDATE_AUDIT_CHANGE=true"
+            exit 0
+          fi
+          git commit -m "Audit current official OCF candidates"
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+          fi
+          git push origin HEAD:main
+          echo "CURRENT_OCF_CANDIDATE_PUSH=PASS"

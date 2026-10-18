@@ -20,6 +20,8 @@ DA_SOURCE = ROOT / "latest/investment_score_da_source_v894.csv"
 DA_SUMMARY = ROOT / "latest/investment_score_da_source_v894_summary_latest.json"
 DA_DEP_ID = "ifrs-full_AdjustmentsForDepreciationExpense"
 DA_AMO_ID = "ifrs-full_AdjustmentsForAmortisationExpense"
+BLOCKER_OUT = ROOT / "latest/investment_score_current_blockers_latest.json"
+PRIOR_DA_AUDIT = ROOT / "latest/investment_score_exact_da_actionable_v8154_summary_latest.json"
 
 
 def read_json(path):
@@ -136,6 +138,76 @@ def validate_da_reconciliation(before, after, selected):
     return sorted(newly_ready)
 
 
+
+def write_blocker_inventory(score_rows, build_id, basis_date):
+    """Classify current missing inputs before any further official-source query."""
+    prior = read_json(PRIOR_DA_AUDIT)
+    if prior.get("status") != "AUDIT_ONLY_CURRENT_ACTIONABLE_EXACT_DA":
+        raise ValueError("SCORE_AUDIT_PRIOR_DA_EVIDENCE_INVALID")
+    exhausted = set(prior.get("post_audit_exhausted_union_tickers") or [])
+    raw_sources = scorer.read_csv_map(ROOT / "latest/investment_score_source_cache_latest.csv")
+    production = scorer.production_rows()
+    rows = []
+    da_lanes = {}
+    for row in score_rows:
+        if row["score_status"] != "LIMITED":
+            continue
+        ticker = row["ticker"]
+        missing = list(filter(None, row["missing_components"].split(";")))
+        raw, mode = scorer.get_common_raw(ticker, raw_sources, production[ticker])
+        source_ticker = scorer.ticker(raw.get("ticker"))
+        da_missing = any(
+            reason.startswith("EV/EBITDA:") and reason.endswith("NO_EXACT_CANDIDATE")
+            for reason in missing
+        )
+        da_lane = ""
+        if da_missing:
+            if not source_ticker or mode == "UNAVAILABLE":
+                da_lane = "RAW_SOURCE_UNAVAILABLE"
+            elif source_ticker in exhausted:
+                da_lane = "PRIOR_OFFICIAL_PATH_EXHAUSTED_RECHECK_ON_NEW_PERIOD"
+            else:
+                da_lane = "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
+            da_lanes[ticker] = da_lane
+        rows.append({
+            "ticker": ticker,
+            "name": row["name"],
+            "market": row["market"],
+            "missing_component_count": len(missing),
+            "missing_components": missing,
+            "single_blocker": len(missing) == 1,
+            "raw_source_ticker": source_ticker,
+            "raw_source_mode": mode,
+            "raw_source_status": raw.get("source_cache_status") or "",
+            "annual_source_year": raw.get("annual_source_year") or "",
+            "deep_fs_div": raw.get("deep_fs_div") or "",
+            "da_recovery_lane": da_lane,
+        })
+    if len(rows) != len([r for r in score_rows if r["score_status"] == "LIMITED"]):
+        raise ValueError("SCORE_AUDIT_BLOCKER_ROW_COUNT_MISMATCH")
+    counts = {
+        lane: sum(value == lane for value in da_lanes.values())
+        for lane in sorted(set(da_lanes.values()))
+    }
+    result = {
+        "version": VERSION,
+        "status": "AUDIT_ONLY_NOT_FOR_GPT_DISPLAY",
+        "source_build_id": build_id,
+        "basis_date": basis_date,
+        "limited_ticker_count": len(rows),
+        "ev_ebitda_missing_exact_da_count": len(da_lanes),
+        "da_recovery_lane_counts": counts,
+        "prior_exhausted_evidence_version": prior["version"],
+        "production_score_written": False,
+        "rows": rows,
+    }
+    BLOCKER_OUT.write_text(
+        json.dumps(result, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return result
+
+
 def run():
     status = read_json(ROOT / "api/status.json")
     manifest = read_json(ROOT / "api/two_table_v1/manifest.json")
@@ -202,6 +274,7 @@ def run():
         len(valuation_current_tickers) if basis_matches else 0
     )
     raw_sources = scorer.read_csv_map(ROOT / "latest/investment_score_source_cache_latest.csv")
+    blocker_inventory = write_blocker_inventory(score_rows, status["build_id"], current_basis)
     ocf_sources = scorer.read_csv_map(scorer.OCF)
     ocf_period_mismatches = sorted(
         ticker for ticker in scorer.production_rows()
@@ -248,6 +321,8 @@ def run():
             current_price_input_ready_count / summary["production_unique_tickers"] * 100, 2
         ) if summary["production_unique_tickers"] else 0,
         "top_missing_reasons": summary["top_missing_reasons"],
+        "current_blocker_inventory_path": str(BLOCKER_OUT.relative_to(ROOT)),
+        "da_recovery_lane_counts": blocker_inventory["da_recovery_lane_counts"],
         "da_validated_shadow_tickers": da_selected,
         "da_validated_shadow_count": len(da_selected),
         "da_newly_ready_tickers": da_newly_ready,
@@ -272,6 +347,7 @@ def run():
     print("CURRENT_SCORE_LIMITED=" + str(summary["limited_count"]))
     print("CURRENT_SCORE_DA_OVERLAY=" + str(len(da_selected)))
     print("CURRENT_SCORE_DA_NEW_READY=" + str(len(da_newly_ready)))
+    print("CURRENT_SCORE_DA_REMAINING=" + str(blocker_inventory["ev_ebitda_missing_exact_da_count"]))
     print("CURRENT_SCORE_ELASTICITY_BASIS_MATCH=" + str(basis_matches).lower())
 
 

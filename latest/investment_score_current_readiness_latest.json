@@ -1,27 +1,27 @@
 {
-  "version": "2026-10-18-v8.8-current-universe-ocf-period-audit",
-  "generated_at_kst": "2026-10-18T13:09:07+09:00",
+  "version": "2026-10-18-v8.8-current-universe-validated-da-overlay-audit",
+  "generated_at_kst": "2026-10-18T13:43:09+09:00",
   "status": "AUDIT_ONLY_NOT_FOR_GPT_DISPLAY",
-  "source_build_id": "20261018T130816+0900-6792c57ae0",
+  "source_build_id": "20261018T134215+0900-775ebe52be",
   "source_rules_sha256": "f96806bab26cedffa87a5749ebef0c04548871f8f28a22bac77a7e0b280f3fdf",
   "basis_date": "2026-10-16",
   "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
   "scorer_version": "2026-09-13-v8.8.2-investment-score-dry-run-gate-reconciliation",
   "production_unique_tickers": 56,
-  "ready_count": 10,
-  "limited_count": 46,
-  "ready_pct": 17.86,
-  "current_valuation_ready_count_among_scorer_ready": 10,
-  "current_price_input_ready_count": 10,
-  "current_price_and_ocf_period_ready_count": 10,
+  "ready_count": 14,
+  "limited_count": 42,
+  "ready_pct": 25.0,
+  "current_valuation_ready_count_among_scorer_ready": 14,
+  "current_price_input_ready_count": 14,
+  "current_price_and_ocf_period_ready_count": 14,
   "ocf_required_annual_report_year": "2025",
   "ocf_annual_period_mismatch_count": 0,
   "ocf_annual_period_mismatch_tickers": [],
-  "current_price_input_ready_pct": 17.86,
+  "current_price_input_ready_pct": 25.0,
   "top_missing_reasons": [
     [
       "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
-      29
+      25
     ],
     [
       "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
@@ -48,15 +48,15 @@
       5
     ],
     [
-      "EV/EBITDA:EV_EBITDA_INPUT:EMPTY_AS_ZERO:NO_EXACT_CANDIDATE",
-      5
-    ],
-    [
       "PER:MISSING_PER",
       4
     ],
     [
       "최근 3년 영업이익 성장률:MISSING_3Y_OP",
+      4
+    ],
+    [
+      "EV/EBITDA:EV_EBITDA_INPUT:EMPTY_AS_ZERO:NO_EXACT_CANDIDATE",
       4
     ],
     [
@@ -108,11 +108,28 @@
       1
     ]
   ],
+  "da_validated_shadow_tickers": [
+    "003230",
+    "004370",
+    "267270",
+    "361610",
+    "373220"
+  ],
+  "da_validated_shadow_count": 5,
+  "da_newly_ready_tickers": [
+    "003230",
+    "004370",
+    "267270",
+    "373220"
+  ],
+  "da_newly_ready_count": 4,
+  "da_source_year": "2025",
+  "da_source_only_overlay": true,
   "score_summary_ready_only": {
-    "count": 10,
-    "min": 49.5,
+    "count": 14,
+    "min": 41.5,
     "median": 68.5,
-    "mean": 64.65,
+    "mean": 63.607142857142854,
     "max": 74.0
   },
   "price_elasticity_source_basis_date": "2026-10-16",

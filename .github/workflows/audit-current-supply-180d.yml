@@ -2,11 +2,6 @@ name: Audit current 180d supply evidence
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "audit_current_supply_180d.py"
-      - ".github/workflows/audit-current-supply-180d.yml"
   schedule:
     - cron: "35 10 * * 1"
 

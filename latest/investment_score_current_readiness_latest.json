@@ -1,6 +1,6 @@
 {
   "version": "2026-10-18-v8.8-current-universe-official-da-supply-overlay-audit",
-  "generated_at_kst": "2026-10-20T16:58:44+09:00",
+  "generated_at_kst": "2026-10-20T18:44:19+09:00",
   "status": "AUDIT_ONLY_NOT_FOR_GPT_DISPLAY",
   "source_build_id": "20261020T160920+0900-0b2ac871fc",
   "source_rules_sha256": "f96806bab26cedffa87a5749ebef0c04548871f8f28a22bac77a7e0b280f3fdf",
@@ -8,27 +8,27 @@
   "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
   "scorer_version": "2026-09-13-v8.8.2-investment-score-dry-run-gate-reconciliation",
   "production_unique_tickers": 49,
-  "ready_count": 26,
-  "limited_count": 23,
-  "ready_pct": 53.06,
-  "current_valuation_ready_count_among_scorer_ready": 26,
-  "current_price_input_ready_count": 26,
-  "current_price_and_ocf_period_ready_count": 26,
+  "ready_count": 31,
+  "limited_count": 18,
+  "ready_pct": 63.27,
+  "current_valuation_ready_count_among_scorer_ready": 31,
+  "current_price_input_ready_count": 31,
+  "current_price_and_ocf_period_ready_count": 31,
   "ocf_required_annual_report_year": "2025",
   "ocf_annual_period_mismatch_count": 0,
   "ocf_annual_period_mismatch_tickers": [],
-  "current_price_input_ready_pct": 53.06,
+  "current_price_input_ready_pct": 63.27,
   "top_missing_reasons": [
-    [
-      "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
-      14
-    ],
     [
       "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
       7
     ],
     [
       "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+      6
+    ],
+    [
+      "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
       6
     ],
     [
@@ -174,13 +174,17 @@
     "028670",
     "035420",
     "062040",
+    "064400",
     "068270",
     "086280",
+    "139480",
     "161390",
+    "207940",
     "272210",
+    "329180",
     "352820"
   ],
-  "da_newly_ready_count": 14,
+  "da_newly_ready_count": 18,
   "da_source_year": "2025",
   "da_source_only_overlay": true,
   "supply_180d_audit_current": true,
@@ -193,17 +197,18 @@
   ],
   "supply_validated_shadow_count": 5,
   "supply_newly_ready_tickers": [
+    "000270",
     "003550",
     "007690",
     "012330"
   ],
-  "supply_newly_ready_count": 3,
+  "supply_newly_ready_count": 4,
   "supply_source_only_overlay": true,
   "score_summary_ready_only": {
-    "count": 26,
+    "count": 31,
     "min": 43.0,
-    "median": 67.75,
-    "mean": 65.65384615384616,
+    "median": 68.0,
+    "mean": 65.51612903225806,
     "max": 82.5
   },
   "price_elasticity_source_basis_date": "2026-10-19",

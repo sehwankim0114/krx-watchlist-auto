@@ -1,0 +1,89 @@
+name: Refresh current score readiness after official D&A audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/refresh-current-score-readiness-after-da.yml"
+  workflow_run:
+    workflows:
+      - Audit current exact D&A official XBRL
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: krx-main-data-writers
+  cancel-in-progress: false
+
+jobs:
+  refresh-readiness:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Check whether official audit is newer than readiness
+        id: gate
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+
+          def load(path):
+              return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+          status = load("api/status.json")
+          audit = load("latest/investment_score_current_exact_da_official_audit_latest.json")
+          readiness = load("latest/investment_score_current_readiness_latest.json")
+          same_build = audit.get("source_build_id") == status.get("build_id")
+          newer_audit = str(audit.get("generated_at_kst") or "") > str(
+              readiness.get("generated_at_kst") or ""
+          )
+          run_refresh = same_build and newer_audit and status.get("api_sync_ok") is True
+          print("run_refresh=" + str(run_refresh).lower())
+          print("reason=" + (
+              "new_current_build_audit" if run_refresh
+              else "audit_not_newer_or_build_mismatch"
+          ))
+          PY
+      - name: Show refresh decision
+        run: |
+          echo "run_refresh=${{ steps.gate.outputs.run_refresh }}"
+          echo "reason=${{ steps.gate.outputs.reason }}"
+      - name: Recompute audit-only score readiness
+        if: steps.gate.outputs.run_refresh == 'true'
+        run: |
+          set -euo pipefail
+          python -m py_compile audit_current_score_readiness.py investment_score_dry_run_v882.py
+          python audit_current_score_readiness.py
+      - name: Commit audit-only readiness and blockers
+        if: steps.gate.outputs.run_refresh == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add latest/investment_score_current_readiness_latest.json latest/investment_score_current_blockers_latest.json
+          if git diff --cached --quiet; then
+            echo "NO_READINESS_CHANGE=true"
+            exit 0
+          fi
+          git commit -m "Refresh current score readiness after official D&A audit"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main

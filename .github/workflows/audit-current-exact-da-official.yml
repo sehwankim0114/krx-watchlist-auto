@@ -93,13 +93,21 @@ jobs:
           set -euo pipefail
           python -m py_compile audit_current_exact_da_official.py investment_score_xbrl_cfs_ofs_v887.py
           python audit_current_exact_da_official.py
-      - name: Commit audit-only evidence
+      - name: Recompute audit-only score readiness
+        if: steps.gate.outputs.run_audit == 'true'
+        run: |
+          set -euo pipefail
+          python -m py_compile audit_current_score_readiness.py investment_score_dry_run_v882.py
+          python audit_current_score_readiness.py
+      - name: Commit audit-only evidence and readiness
         if: steps.gate.outputs.run_audit == 'true'
         run: |
           set -euo pipefail
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add latest/investment_score_current_exact_da_official_audit_latest.json
+          git add latest/investment_score_current_exact_da_official_audit_latest.json \
+            latest/investment_score_current_readiness_latest.json \
+            latest/investment_score_current_blockers_latest.json
           if git diff --cached --quiet; then
             echo "NO_AUDIT_CHANGE=true"
             exit 0

@@ -318,6 +318,25 @@ def refresh_runtime_freshness(
             else "STALE_OFFICIAL"
         )
 
+    # The canonical source snapshot can remain FRESH after its trading date
+    # has become stale. Keep that historical record, but expose today's gate
+    # beside it so consumers do not mistake source-time freshness for now.
+    official_status_path = api_dir / "official_data_status.json"
+    official_status_payload = read_json(official_status_path)
+    if official_status_payload:
+        official_status_payload["runtime_freshness_gate"] = gate
+        official_status_payload["current_status"] = status_payload["status"]
+        official_status_payload["official_fresh_now"] = gate["official_fresh_now"]
+        official_status_payload["safe_to_analyze_as_latest"] = gate[
+            "safe_to_analyze_as_latest"
+        ]
+        official_status_payload["source_snapshot_only"] = True
+        official_status_payload["usage_rule"] = (
+            "data is the historical source snapshot. Use current_status and "
+            "runtime_freshness_gate for current freshness; only describe the "
+            "dataset as latest when safe_to_analyze_as_latest is true."
+        )
+
     changed_tables: list[str] = []
     for path in sorted(api_dir.glob("*.json")):
         # 미국표에는 KRX 최신성 메타데이터를 추가하지 않는다.
@@ -358,6 +377,8 @@ def refresh_runtime_freshness(
         write_json(status_path, status_payload)
         if manifest_payload:
             write_json(manifest_path, manifest_payload)
+        if official_status_payload:
+            write_json(official_status_path, official_status_payload)
 
     return {
         **gate,

@@ -174,5 +174,33 @@
     "source_status_file": "official_data_status_latest.json",
     "source_run_at_kst": "2026-10-18T08:43:33+09:00",
     "source_expected_official_trading_date": "2026-10-16"
-  }
+  },
+  "runtime_freshness_gate": {
+    "version": "2026-07-14-v7.7-runtime-freshness-gate",
+    "evaluated_at_kst": "2026-10-20T11:00:05+09:00",
+    "publication_cutoff_kst": "08:30",
+    "expected_official_trading_date": "2026-10-19",
+    "kospi_actual_date": "2026-10-16",
+    "kosdaq_actual_date": "2026-10-16",
+    "same_market_date": true,
+    "official_fresh_now": false,
+    "api_sync_ok": true,
+    "safe_to_analyze_as_latest": false,
+    "status": "STALE_OFFICIAL_WITH_CURRENT_PRICE_OVERLAY",
+    "display_label": "직전 확정 공식자료 + 더 최신 현재가 혼합",
+    "stale_reasons": [
+      "KOSPI_BEHIND_EXPECTED",
+      "KOSDAQ_BEHIND_EXPECTED",
+      "NEWER_REQUEST_PRICE_OVER_OLDER_ANALYSIS"
+    ],
+    "data_lag_trading_days": 1,
+    "current_price_asof_kst": "2026-10-20T01:27:38+09:00",
+    "newer_current_price_over_older_analysis": true,
+    "analysis_policy": "May describe as latest official only when safe_to_analyze_as_latest=true. When false, keep the table available only as the last confirmed reference, show the stale warning, and do not present score/buy/target ranges as current."
+  },
+  "current_status": "STALE_OFFICIAL",
+  "official_fresh_now": false,
+  "safe_to_analyze_as_latest": false,
+  "source_snapshot_only": true,
+  "usage_rule": "data is the historical source snapshot. Use current_status and runtime_freshness_gate for current freshness; only describe the dataset as latest when safe_to_analyze_as_latest is true."
 }

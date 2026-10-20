@@ -111,7 +111,7 @@ jobs:
       - name: Promote verified exact OCF source and refresh readiness
         if: >-
           steps.gate.outputs.run_audit == 'true' &&
-          (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+          github.event_name != 'workflow_run'
         run: |
           set -euo pipefail
           python -m py_compile promote_current_ocf_candidates.py

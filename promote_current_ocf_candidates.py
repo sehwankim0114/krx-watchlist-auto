@@ -56,6 +56,10 @@ def main():
     ):
         raise RuntimeError("OCF_ACCOUNT_POLICY_CHANGED")
 
+    prior_readiness = read_json(readiness_audit.OUT)
+    if prior_readiness.get("source_build_id") != status["build_id"]:
+        raise RuntimeError("PRE_PROMOTION_READINESS_BUILD_MISMATCH")
+
     rows = candidate_audit.read_csv(CANDIDATE_CSV)
     expected_tickers = candidate.get("new_exact_ocf_candidate_tickers") or []
     if len(rows) != candidate["new_exact_ocf_candidate_count"]:
@@ -187,14 +191,30 @@ def main():
     )
     readiness_audit.run()
     updated_readiness = read_json(readiness_audit.OUT)
-    if updated_readiness["ready_count"] != promoted["ready_count"]:
-        raise RuntimeError("POST_PROMOTION_READINESS_MISMATCH")
+    updated_blockers = read_json(readiness_audit.BLOCKER_OUT)
+    if (updated_readiness.get("source_build_id") != status["build_id"]
+            or updated_blockers.get("source_build_id") != status["build_id"]):
+        raise RuntimeError("POST_PROMOTION_READINESS_BUILD_MISMATCH")
+    if (updated_readiness["ready_count"] < prior_readiness["ready_count"]
+            or updated_readiness["limited_count"] > prior_readiness["limited_count"]):
+        raise RuntimeError("POST_PROMOTION_READINESS_REGRESSION")
+    remaining_ocf = {
+        row["ticker"] for row in updated_blockers.get("rows", [])
+        if any(str(component).startswith("영업현금흐름:")
+               for component in row.get("missing_components", []))
+    }
+    if set(expected_tickers) & remaining_ocf:
+        raise RuntimeError("PROMOTED_OCF_STILL_MISSING_IN_READINESS")
+    if updated_readiness.get("production_score_written") is not False:
+        raise RuntimeError("PRODUCTION_SCORE_MUST_REMAIN_UNWRITTEN")
     LOG.write_text("\n".join([
         "VERSION=" + VERSION,
         "SOURCE_BUILD_ID=" + status["build_id"],
         "CANDIDATE_ADDED=" + str(len(rows)),
         "BASELINE_READY=" + str(baseline["ready_count"]),
         "PROMOTED_READY=" + str(promoted["ready_count"]),
+        "SHADOW_READY_BEFORE=" + str(prior_readiness["ready_count"]),
+        "SHADOW_READY_AFTER=" + str(updated_readiness["ready_count"]),
         "BASELINE_OCF_MISSING=" + str(candidate["baseline_ocf_missing_count"]),
         "PROMOTED_OCF_MISSING=" + str(candidate["candidate_ocf_missing_count"]),
         "PRODUCTION_OCF_SOURCE_CHANGED=true",

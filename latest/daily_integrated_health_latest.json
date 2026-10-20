@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "checker_version": "2026-10-17-v8.7-production-worker-health",
-  "generated_at_kst": "2026-10-20T12:24:38+09:00",
+  "generated_at_kst": "2026-10-20T13:46:47+09:00",
   "status": "PASS",
   "critical_count": 0,
   "warning_count": 0,
   "context": {
-    "build_id": "20261020T122249+0900-7986f46c54",
+    "build_id": "20261020T134136+0900-b5411535d3",
     "rules_version": "2026-07-14-v8.0-request-time-position-alignment",
     "rules_sha256": "f96806bab26cedffa87a5749ebef0c04548871f8f28a22bac77a7e0b280f3fdf",
-    "source_commit_sha": "7986f46c542f33106965d94edd9ce781d262ccd0",
+    "source_commit_sha": "b5411535d386df4e15e71e086b44c32745793be4",
     "payload_limits_bytes": {
       "kospi_watchlist": 90000,
       "kosdaq_watchlist": 50000,
@@ -71,7 +71,7 @@
       "severity": "ERROR",
       "message": "kospi_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 74372,
+        "bytes": 74432,
         "limit": 90000,
         "market": "KR"
       }
@@ -216,7 +216,7 @@
       "severity": "ERROR",
       "message": "kosdaq_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 36337,
+        "bytes": 36414,
         "limit": 50000,
         "market": "KR"
       }

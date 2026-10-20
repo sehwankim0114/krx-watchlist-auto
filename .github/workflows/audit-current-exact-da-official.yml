@@ -7,6 +7,13 @@ on:
     paths:
       - "audit_current_exact_da_official.py"
       - ".github/workflows/audit-current-exact-da-official.yml"
+  workflow_run:
+    workflows:
+      - Build API JSON
+    types:
+      - completed
+    branches:
+      - main
   schedule:
     # Monday 19:15 KST. Unchanged annual receipts reuse their prior XBRL audit.
     - cron: "15 10 * * 1"
@@ -20,6 +27,9 @@ concurrency:
 
 jobs:
   audit-current-exact-da:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -35,12 +45,56 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+      - name: Check whether current D&A audit needs refreshing
+        id: gate
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import os
+          from pathlib import Path
+
+          run_audit = True
+          reason = "manual_push_or_weekly_schedule"
+          if os.environ["EVENT_NAME"] == "workflow_run":
+              inventory_path = Path("latest/investment_score_current_blockers_latest.json")
+              audit_path = Path("latest/investment_score_current_exact_da_official_audit_latest.json")
+              if inventory_path.is_file() and audit_path.is_file():
+                  inventory = json.loads(inventory_path.read_text(encoding="utf-8-sig"))
+                  audit = json.loads(audit_path.read_text(encoding="utf-8-sig"))
+                  needed = {
+                      row["ticker"] for row in inventory.get("rows", [])
+                      if row.get("da_recovery_lane") == "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
+                  }
+                  audited = {
+                      row["ticker"] for row in audit.get("rows", [])
+                      if row.get("ticker")
+                  }
+                  if (inventory.get("basis_date") == audit.get("basis_date")
+                          and needed.issubset(audited)):
+                      run_audit = False
+                      reason = "same_basis_and_targets_already_audited"
+                  else:
+                      reason = "new_basis_or_unaudited_targets"
+              else:
+                  reason = "audit_or_inventory_missing"
+          print("run_audit=" + str(run_audit).lower())
+          print("reason=" + reason)
+          PY
+      - name: Show audit decision
+        run: |
+          echo "run_audit=${{ steps.gate.outputs.run_audit }}"
+          echo "reason=${{ steps.gate.outputs.reason }}"
       - name: Audit current official annual XBRL exact D&A
+        if: steps.gate.outputs.run_audit == 'true'
         run: |
           set -euo pipefail
           python -m py_compile audit_current_exact_da_official.py investment_score_xbrl_cfs_ofs_v887.py
           python audit_current_exact_da_official.py
       - name: Commit audit-only evidence
+        if: steps.gate.outputs.run_audit == 'true'
         run: |
           set -euo pipefail
           git config user.name "github-actions"

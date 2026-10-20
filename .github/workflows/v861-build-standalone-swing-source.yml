@@ -152,6 +152,63 @@ jobs:
           grep -q '^V861_PENDING_FIELDS_NULL=PASS$' /tmp/v861-validate.log
           grep -q '^V861_SOURCE_ONLY_CONTRACT=PASS$' /tmp/v861-validate.log
 
+      - name: Audit current standalone swing readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          def read(path):
+              return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+          history = read("latest/active_stock_long_history_260d_meta_latest.json")
+          source = read("latest/standalone_swing_source_meta_latest.json")
+          integrated = read("latest/standalone_swing_integrated_latest.json")
+          preprod = read("latest/standalone_swing_preproduction_readiness_latest.json")
+          display = read("latest/standalone_swing_display_merge_readiness_latest.json")
+          basis = history["cache_max_date"]
+          source_rows = int(source["output_rows"])
+          if source["basis_date"] != basis or source_rows != int(history["target_ticker_count"]):
+              raise SystemExit("CURRENT_SWING_SOURCE_MISMATCH")
+          if source["status"] != "READY_SOURCE_ONLY" or source["standalone_swing_table_enabled"]:
+              raise SystemExit("CURRENT_SWING_SOURCE_SAFETY_MISMATCH")
+          if int(source["kospi30_exact_matches"]) != 30 or int(source["kospi30_mismatches"]) != 0:
+              raise SystemExit("CURRENT_SWING_KOSPI30_REGRESSION_FAILED")
+
+          snapshots = {
+              "integrated": {"basis_date": integrated.get("basis_date"), "row_count": integrated.get("row_count")},
+              "preproduction": {"basis_date": preprod.get("basis_date"), "row_count": (preprod.get("snapshot_counts") or {}).get("row_count")},
+              "display_merge": {"basis_date": display.get("basis_date"), "row_count": display.get("source_row_count")},
+          }
+          current = all(
+              item["basis_date"] == basis and item["row_count"] == source_rows
+              for item in snapshots.values()
+          )
+          blockers = list(preprod.get("activation_blockers") or [])
+          if not current:
+              blockers.insert(0, "PREPRODUCTION_SNAPSHOT_STALE")
+          payload = {
+              "generated_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+              "status": "CURRENT_PREPRODUCTION_SYNCED" if current else "PREPRODUCTION_SNAPSHOT_STALE",
+              "basis_date": basis,
+              "current_source_row_count": source_rows,
+              "current_source_status": source["status"],
+              "kospi30_exact_matches": source["kospi30_exact_matches"],
+              "snapshots": snapshots,
+              "production_activation_allowed": False,
+              "standalone_swing_table_enabled": False,
+              "activation_blockers": blockers,
+          }
+          path = Path("latest/standalone_swing_current_readiness_latest.json")
+          path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          print("CURRENT_SWING_READINESS_STATUS=" + payload["status"])
+          print("CURRENT_SWING_SOURCE_ROWS=" + str(source_rows))
+          print("PRODUCTION_ACTIVATION_ALLOWED=false")
+          PY
+
       - name: Verify production files unchanged
         shell: bash
         run: |
@@ -187,7 +244,8 @@ jobs:
             latest/standalone_swing_source_latest.json \
             latest/standalone_swing_source_latest.csv \
             latest/standalone_swing_source_meta_latest.json \
-            latest/standalone_swing_source_run_log_latest.txt
+            latest/standalone_swing_source_run_log_latest.txt \
+            latest/standalone_swing_current_readiness_latest.json
 
           STAGED="$(git diff --cached --name-only || true)"
           echo "V861_STAGED_FILES_BEGIN"
@@ -207,7 +265,8 @@ jobs:
               latest/standalone_swing_source_latest.json|\
               latest/standalone_swing_source_latest.csv|\
               latest/standalone_swing_source_meta_latest.json|\
-              latest/standalone_swing_source_run_log_latest.txt)
+              latest/standalone_swing_source_run_log_latest.txt|\
+              latest/standalone_swing_current_readiness_latest.json)
                 ;;
               *)
                 echo "::error::Unexpected staged path: $p"

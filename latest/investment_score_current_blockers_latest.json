@@ -1,23 +1,67 @@
 {
   "version": "2026-10-18-v8.8-current-universe-official-da-supply-overlay-audit",
   "status": "AUDIT_ONLY_NOT_FOR_GPT_DISPLAY",
-  "source_build_id": "20261020T014028+0900-efe00a092b",
-  "basis_date": "2026-10-16",
-  "limited_ticker_count": 22,
-  "ev_ebitda_missing_exact_da_count": 11,
+  "source_build_id": "20261020T121659+0900-d12b200919",
+  "basis_date": "2026-10-19",
+  "limited_ticker_count": 28,
+  "ev_ebitda_missing_exact_da_count": 17,
   "da_recovery_lane_counts": {
-    "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED": 5,
-    "PRIOR_OFFICIAL_PATH_EXHAUSTED_RECHECK_ON_NEW_PERIOD": 2,
-    "RAW_SOURCE_UNAVAILABLE": 4
+    "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED": 7,
+    "PRIOR_OFFICIAL_PATH_EXHAUSTED_RECHECK_ON_NEW_PERIOD": 1,
+    "RAW_SOURCE_UNAVAILABLE": 9
   },
   "prior_exhausted_evidence_version": "2026-09-22-v8.15.4-current-actionable-exact-da-3-audit",
   "production_score_written": false,
   "rows": [
     {
-      "ticker": "000227",
-      "name": "유유제약2우B",
+      "ticker": "000270",
+      "name": "기아",
       "market": "KOSPI",
-      "missing_component_count": 17,
+      "missing_component_count": 2,
+      "missing_components": [
+        "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE"
+      ],
+      "single_blocker": false,
+      "raw_source_ticker": "000270",
+      "raw_source_mode": "DIRECT",
+      "raw_source_status": "READY_RAW_SOURCE",
+      "annual_source_year": "2025",
+      "deep_fs_div": "CFS",
+      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
+    },
+    {
+      "ticker": "000400",
+      "name": "롯데손해보험",
+      "market": "KOSPI",
+      "missing_component_count": 12,
+      "missing_components": [
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "영업이익 성장과 흑자 여부:MISSING_OP_PROFIT",
+        "순이익 흐름:MISSING_EARNINGS_TREND",
+        "영업이익률:MISSING_MARGIN",
+        "ROE:MISSING_ROE",
+        "PER:MISSING_PER",
+        "PBR:MISSING_PBR_OR_ROE",
+        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+        "최근 3년 영업이익 성장률:MISSING_3Y_OP",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+        "흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND",
+        "하루평균 절대등락률:MISSING_ELASTICITY"
+      ],
+      "single_blocker": false,
+      "raw_source_ticker": "",
+      "raw_source_mode": "UNAVAILABLE",
+      "raw_source_status": "",
+      "annual_source_year": "",
+      "deep_fs_div": "",
+      "da_recovery_lane": ""
+    },
+    {
+      "ticker": "000700",
+      "name": "유수홀딩스",
+      "market": "KOSPI",
+      "missing_component_count": 18,
       "missing_components": [
         "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
         "영업이익 성장과 흑자 여부:MISSING_OP_PROFIT",
@@ -35,6 +79,7 @@
         "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
         "흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND",
         "순현금·기업가치 상태:NETCASH_INPUT:NO_EXACT_CANDIDATE",
+        "하루평균 절대등락률:MISSING_ELASTICITY",
         "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
       ],
       "single_blocker": false,
@@ -46,16 +91,15 @@
       "da_recovery_lane": "RAW_SOURCE_UNAVAILABLE"
     },
     {
-      "ticker": "001620",
-      "name": "케이비아이동국실업",
+      "ticker": "000810",
+      "name": "삼성화재",
       "market": "KOSPI",
-      "missing_component_count": 2,
+      "missing_component_count": 1,
       "missing_components": [
-        "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
-        "과열·급락 위험:MISSING_RISK_INPUT"
+        "하루평균 절대등락률:MISSING_ELASTICITY"
       ],
-      "single_blocker": false,
-      "raw_source_ticker": "001620",
+      "single_blocker": true,
+      "raw_source_ticker": "000810",
       "raw_source_mode": "DIRECT",
       "raw_source_status": "READY_RAW_SOURCE",
       "annual_source_year": "2025",
@@ -63,8 +107,43 @@
       "da_recovery_lane": ""
     },
     {
-      "ticker": "004105",
-      "name": "태양금속우",
+      "ticker": "001525",
+      "name": "동양우",
+      "market": "KOSPI",
+      "missing_component_count": 20,
+      "missing_components": [
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "영업이익 성장과 흑자 여부:MISSING_OP_PROFIT",
+        "순이익 흐름:MISSING_EARNINGS_TREND",
+        "영업이익률:MISSING_MARGIN",
+        "ROE:MISSING_ROE",
+        "부채비율:MISSING_DEBT_RATIO",
+        "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+        "PER:MISSING_PER",
+        "PBR:MISSING_PBR_OR_ROE",
+        "EV/EBITDA:EV_EBITDA_INPUT:NO_EXACT_CANDIDATE:NO_EXACT_CANDIDATE",
+        "PSR 또는 대체 가치지표:MISSING_PSR_INPUT",
+        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+        "최근 3년 영업이익 성장률:MISSING_3Y_OP",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+        "흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND",
+        "순현금·기업가치 상태:NETCASH_INPUT:NO_EXACT_CANDIDATE",
+        "기간 저가·고가 대비 현재위치:MISSING_POSITION",
+        "과열·급락 위험:MISSING_RISK_INPUT",
+        "하루평균 절대등락률:MISSING_ELASTICITY",
+        "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+      ],
+      "single_blocker": false,
+      "raw_source_ticker": "",
+      "raw_source_mode": "UNAVAILABLE",
+      "raw_source_status": "",
+      "annual_source_year": "",
+      "deep_fs_div": "",
+      "da_recovery_lane": "RAW_SOURCE_UNAVAILABLE"
+    },
+    {
+      "ticker": "001630",
+      "name": "종근당홀딩스",
       "market": "KOSPI",
       "missing_component_count": 17,
       "missing_components": [
@@ -84,7 +163,61 @@
         "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
         "흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND",
         "순현금·기업가치 상태:NETCASH_INPUT:NO_EXACT_CANDIDATE",
-        "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+        "하루평균 절대등락률:MISSING_ELASTICITY"
+      ],
+      "single_blocker": false,
+      "raw_source_ticker": "",
+      "raw_source_mode": "UNAVAILABLE",
+      "raw_source_status": "",
+      "annual_source_year": "",
+      "deep_fs_div": "",
+      "da_recovery_lane": "RAW_SOURCE_UNAVAILABLE"
+    },
+    {
+      "ticker": "002630",
+      "name": "오리엔트바이오",
+      "market": "KOSPI",
+      "missing_component_count": 5,
+      "missing_components": [
+        "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+        "EV/EBITDA:EV_EBITDA_INPUT:EMPTY_AS_ZERO:NO_EXACT_CANDIDATE",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+        "기간 저가·고가 대비 현재위치:MISSING_POSITION",
+        "과열·급락 위험:MISSING_RISK_INPUT"
+      ],
+      "single_blocker": false,
+      "raw_source_ticker": "002630",
+      "raw_source_mode": "UNAVAILABLE",
+      "raw_source_status": "LIMITED_RAW_SOURCE",
+      "annual_source_year": "2025",
+      "deep_fs_div": "OFS",
+      "da_recovery_lane": "RAW_SOURCE_UNAVAILABLE"
+    },
+    {
+      "ticker": "002820",
+      "name": "SUN&L",
+      "market": "KOSPI",
+      "missing_component_count": 19,
+      "missing_components": [
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "영업이익 성장과 흑자 여부:MISSING_OP_PROFIT",
+        "순이익 흐름:MISSING_EARNINGS_TREND",
+        "영업이익률:MISSING_MARGIN",
+        "ROE:MISSING_ROE",
+        "부채비율:MISSING_DEBT_RATIO",
+        "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+        "PER:MISSING_PER",
+        "PBR:MISSING_PBR_OR_ROE",
+        "EV/EBITDA:EV_EBITDA_INPUT:NO_EXACT_CANDIDATE:NO_EXACT_CANDIDATE",
+        "PSR 또는 대체 가치지표:MISSING_PSR_INPUT",
+        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+        "최근 3년 영업이익 성장률:MISSING_3Y_OP",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+        "흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND",
+        "순현금·기업가치 상태:NETCASH_INPUT:NO_EXACT_CANDIDATE",
+        "기간 저가·고가 대비 현재위치:MISSING_POSITION",
+        "과열·급락 위험:MISSING_RISK_INPUT",
+        "하루평균 절대등락률:MISSING_ELASTICITY"
       ],
       "single_blocker": false,
       "raw_source_ticker": "",
@@ -127,20 +260,68 @@
       "da_recovery_lane": "RAW_SOURCE_UNAVAILABLE"
     },
     {
-      "ticker": "006400",
-      "name": "삼성SDI",
+      "ticker": "005380",
+      "name": "현대차",
       "market": "KOSPI",
-      "missing_component_count": 1,
+      "missing_component_count": 16,
       "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE"
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "영업이익 성장과 흑자 여부:MISSING_OP_PROFIT",
+        "순이익 흐름:MISSING_EARNINGS_TREND",
+        "영업이익률:MISSING_MARGIN",
+        "ROE:MISSING_ROE",
+        "부채비율:MISSING_DEBT_RATIO",
+        "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+        "PER:MISSING_PER",
+        "PBR:MISSING_PBR_OR_ROE",
+        "EV/EBITDA:EV_EBITDA_INPUT:NO_EXACT_CANDIDATE:NO_EXACT_CANDIDATE",
+        "PSR 또는 대체 가치지표:MISSING_PSR_INPUT",
+        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+        "최근 3년 영업이익 성장률:MISSING_3Y_OP",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+        "흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND",
+        "순현금·기업가치 상태:NETCASH_INPUT:NO_EXACT_CANDIDATE"
       ],
-      "single_blocker": true,
-      "raw_source_ticker": "006400",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": "PRIOR_OFFICIAL_PATH_EXHAUSTED_RECHECK_ON_NEW_PERIOD"
+      "single_blocker": false,
+      "raw_source_ticker": "",
+      "raw_source_mode": "UNAVAILABLE",
+      "raw_source_status": "",
+      "annual_source_year": "",
+      "deep_fs_div": "",
+      "da_recovery_lane": "RAW_SOURCE_UNAVAILABLE"
+    },
+    {
+      "ticker": "007690",
+      "name": "국도화학",
+      "market": "KOSPI",
+      "missing_component_count": 18,
+      "missing_components": [
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "영업이익 성장과 흑자 여부:MISSING_OP_PROFIT",
+        "순이익 흐름:MISSING_EARNINGS_TREND",
+        "영업이익률:MISSING_MARGIN",
+        "ROE:MISSING_ROE",
+        "부채비율:MISSING_DEBT_RATIO",
+        "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+        "PER:MISSING_PER",
+        "PBR:MISSING_PBR_OR_ROE",
+        "EV/EBITDA:EV_EBITDA_INPUT:NO_EXACT_CANDIDATE:NO_EXACT_CANDIDATE",
+        "PSR 또는 대체 가치지표:MISSING_PSR_INPUT",
+        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+        "최근 3년 영업이익 성장률:MISSING_3Y_OP",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+        "흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND",
+        "순현금·기업가치 상태:NETCASH_INPUT:NO_EXACT_CANDIDATE",
+        "하루평균 절대등락률:MISSING_ELASTICITY",
+        "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+      ],
+      "single_blocker": false,
+      "raw_source_ticker": "",
+      "raw_source_mode": "UNAVAILABLE",
+      "raw_source_status": "",
+      "annual_source_year": "",
+      "deep_fs_div": "",
+      "da_recovery_lane": "RAW_SOURCE_UNAVAILABLE"
     },
     {
       "ticker": "007810",
@@ -159,16 +340,31 @@
       "da_recovery_lane": ""
     },
     {
-      "ticker": "009140",
-      "name": "케이아이이",
+      "ticker": "007815",
+      "name": "코리아써우",
       "market": "KOSPI",
-      "missing_component_count": 1,
+      "missing_component_count": 16,
       "missing_components": [
-        "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE"
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "영업이익 성장과 흑자 여부:MISSING_OP_PROFIT",
+        "순이익 흐름:MISSING_EARNINGS_TREND",
+        "영업이익률:MISSING_MARGIN",
+        "ROE:MISSING_ROE",
+        "부채비율:MISSING_DEBT_RATIO",
+        "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+        "PER:MISSING_PER",
+        "PBR:MISSING_PBR_OR_ROE",
+        "EV/EBITDA:EV_EBITDA_INPUT:OK:OK",
+        "PSR 또는 대체 가치지표:MISSING_PSR_INPUT",
+        "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
+        "흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND",
+        "순현금·기업가치 상태:NETCASH_INPUT:OK",
+        "하루평균 절대등락률:MISSING_ELASTICITY",
+        "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
       ],
-      "single_blocker": true,
-      "raw_source_ticker": "009140",
-      "raw_source_mode": "DIRECT",
+      "single_blocker": false,
+      "raw_source_ticker": "007810",
+      "raw_source_mode": "PREFERRED_COMMON:007810",
       "raw_source_status": "READY_RAW_SOURCE",
       "annual_source_year": "2025",
       "deep_fs_div": "CFS",
@@ -191,55 +387,6 @@
       "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
     },
     {
-      "ticker": "009830",
-      "name": "한화솔루션",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "009830",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": ""
-    },
-    {
-      "ticker": "011300",
-      "name": "우성머티리얼스",
-      "market": "KOSPI",
-      "missing_component_count": 2,
-      "missing_components": [
-        "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
-        "과열·급락 위험:MISSING_RISK_INPUT"
-      ],
-      "single_blocker": false,
-      "raw_source_ticker": "011300",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": ""
-    },
-    {
-      "ticker": "011790",
-      "name": "SKC",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "011790",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": ""
-    },
-    {
       "ticker": "012170",
       "name": "아센디오",
       "market": "KOSPI",
@@ -257,6 +404,56 @@
       "annual_source_year": "2025",
       "deep_fs_div": "CFS",
       "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
+    },
+    {
+      "ticker": "027970",
+      "name": "한국제지",
+      "market": "KOSPI",
+      "missing_component_count": 19,
+      "missing_components": [
+        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "영업이익 성장과 흑자 여부:MISSING_OP_PROFIT",
+        "순이익 흐름:MISSING_EARNINGS_TREND",
+        "영업이익률:MISSING_MARGIN",
+        "ROE:MISSING_ROE",
+        "부채비율:MISSING_DEBT_RATIO",
+        "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+        "PER:MISSING_PER",
+        "PBR:MISSING_PBR_OR_ROE",
+        "EV/EBITDA:EV_EBITDA_INPUT:NO_EXACT_CANDIDATE:NO_EXACT_CANDIDATE",
+        "PSR 또는 대체 가치지표:MISSING_PSR_INPUT",
+        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
+        "최근 3년 영업이익 성장률:MISSING_3Y_OP",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+        "흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND",
+        "순현금·기업가치 상태:NETCASH_INPUT:NO_EXACT_CANDIDATE",
+        "기간 저가·고가 대비 현재위치:MISSING_POSITION",
+        "과열·급락 위험:MISSING_RISK_INPUT",
+        "하루평균 절대등락률:MISSING_ELASTICITY"
+      ],
+      "single_blocker": false,
+      "raw_source_ticker": "",
+      "raw_source_mode": "UNAVAILABLE",
+      "raw_source_status": "",
+      "annual_source_year": "",
+      "deep_fs_div": "",
+      "da_recovery_lane": "RAW_SOURCE_UNAVAILABLE"
+    },
+    {
+      "ticker": "028050",
+      "name": "삼성E&A",
+      "market": "KOSPI",
+      "missing_component_count": 1,
+      "missing_components": [
+        "하루평균 절대등락률:MISSING_ELASTICITY"
+      ],
+      "single_blocker": true,
+      "raw_source_ticker": "028050",
+      "raw_source_mode": "DIRECT",
+      "raw_source_status": "READY_RAW_SOURCE",
+      "annual_source_year": "2025",
+      "deep_fs_div": "CFS",
+      "da_recovery_lane": ""
     },
     {
       "ticker": "051910",
@@ -293,20 +490,37 @@
       "da_recovery_lane": ""
     },
     {
-      "ticker": "090430",
-      "name": "아모레퍼시픽",
+      "ticker": "064400",
+      "name": "LG씨엔에스",
       "market": "KOSPI",
-      "missing_component_count": 1,
+      "missing_component_count": 2,
       "missing_components": [
+        "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
         "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE"
       ],
-      "single_blocker": true,
-      "raw_source_ticker": "090430",
+      "single_blocker": false,
+      "raw_source_ticker": "064400",
       "raw_source_mode": "DIRECT",
       "raw_source_status": "READY_RAW_SOURCE",
       "annual_source_year": "2025",
       "deep_fs_div": "CFS",
       "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
+    },
+    {
+      "ticker": "086280",
+      "name": "현대글로비스",
+      "market": "KOSPI",
+      "missing_component_count": 1,
+      "missing_components": [
+        "하루평균 절대등락률:MISSING_ELASTICITY"
+      ],
+      "single_blocker": true,
+      "raw_source_ticker": "086280",
+      "raw_source_mode": "DIRECT",
+      "raw_source_status": "READY_RAW_SOURCE",
+      "annual_source_year": "2025",
+      "deep_fs_div": "CFS",
+      "da_recovery_lane": ""
     },
     {
       "ticker": "128820",
@@ -325,16 +539,33 @@
       "da_recovery_lane": "PRIOR_OFFICIAL_PATH_EXHAUSTED_RECHECK_ON_NEW_PERIOD"
     },
     {
-      "ticker": "134790",
-      "name": "시디즈",
+      "ticker": "139480",
+      "name": "이마트",
       "market": "KOSPI",
       "missing_component_count": 2,
       "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:EMPTY_AS_ZERO:NO_EXACT_CANDIDATE",
-        "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE"
+        "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+        "하루평균 절대등락률:MISSING_ELASTICITY"
       ],
       "single_blocker": false,
-      "raw_source_ticker": "134790",
+      "raw_source_ticker": "139480",
+      "raw_source_mode": "DIRECT",
+      "raw_source_status": "READY_RAW_SOURCE",
+      "annual_source_year": "2025",
+      "deep_fs_div": "CFS",
+      "da_recovery_lane": ""
+    },
+    {
+      "ticker": "207940",
+      "name": "삼성바이오로직스",
+      "market": "KOSPI",
+      "missing_component_count": 2,
+      "missing_components": [
+        "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE"
+      ],
+      "single_blocker": false,
+      "raw_source_ticker": "207940",
       "raw_source_mode": "DIRECT",
       "raw_source_status": "READY_RAW_SOURCE",
       "annual_source_year": "2025",
@@ -342,22 +573,48 @@
       "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
     },
     {
-      "ticker": "138040",
-      "name": "메리츠금융지주",
+      "ticker": "229640",
+      "name": "LS에코에너지",
       "market": "KOSPI",
-      "missing_component_count": 3,
+      "missing_component_count": 12,
       "missing_components": [
         "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
+        "영업이익 성장과 흑자 여부:MISSING_OP_PROFIT",
+        "순이익 흐름:MISSING_EARNINGS_TREND",
+        "영업이익률:MISSING_MARGIN",
+        "ROE:MISSING_ROE",
+        "PER:MISSING_PER",
+        "PBR:MISSING_PBR_OR_ROE",
         "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
-        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT"
+        "최근 3년 영업이익 성장률:MISSING_3Y_OP",
+        "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
+        "흑자 지속성과 이익 안정성:MISSING_EARNINGS_TREND",
+        "하루평균 절대등락률:MISSING_ELASTICITY"
       ],
       "single_blocker": false,
-      "raw_source_ticker": "138040",
+      "raw_source_ticker": "",
       "raw_source_mode": "UNAVAILABLE",
-      "raw_source_status": "LIMITED_RAW_SOURCE",
+      "raw_source_status": "",
+      "annual_source_year": "",
+      "deep_fs_div": "",
+      "da_recovery_lane": ""
+    },
+    {
+      "ticker": "329180",
+      "name": "HD현대중공업",
+      "market": "KOSPI",
+      "missing_component_count": 2,
+      "missing_components": [
+        "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
+        "EV/EBITDA:EV_EBITDA_INPUT:EMPTY_AS_ZERO:NO_EXACT_CANDIDATE"
+      ],
+      "single_blocker": false,
+      "raw_source_ticker": "329180",
+      "raw_source_mode": "DIRECT",
+      "raw_source_status": "READY_RAW_SOURCE",
       "annual_source_year": "2025",
       "deep_fs_div": "CFS",
-      "da_recovery_lane": ""
+      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
     },
     {
       "ticker": "357250",
@@ -377,22 +634,6 @@
       "da_recovery_lane": ""
     },
     {
-      "ticker": "361610",
-      "name": "SK아이이테크놀로지",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "361610",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": ""
-    },
-    {
       "ticker": "443060",
       "name": "HD현대마린솔루션",
       "market": "KOSPI",
@@ -407,26 +648,6 @@
       "annual_source_year": "2025",
       "deep_fs_div": "CFS",
       "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
-    },
-    {
-      "ticker": "475150",
-      "name": "SK이터닉스",
-      "market": "KOSPI",
-      "missing_component_count": 5,
-      "missing_components": [
-        "매출 성장과 안정성:MISSING_REVENUE_GROWTH_INPUT",
-        "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
-        "최근 3년 매출 성장률:MISSING_3Y_REVENUE",
-        "최근 3년 영업이익 성장률:MISSING_3Y_OP"
-      ],
-      "single_blocker": false,
-      "raw_source_ticker": "475150",
-      "raw_source_mode": "UNAVAILABLE",
-      "raw_source_status": "LIMITED_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": "RAW_SOURCE_UNAVAILABLE"
     }
   ]
 }

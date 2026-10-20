@@ -1,17 +1,17 @@
 script=kofia_market_status.py v1.0_three_api_collector
-run_at_kst=2026-10-18T08:43:27+09:00
+run_at_kst=2026-10-20T10:44:12+09:00
 service_key_configured=True
 API_RECEIVED cma: rows=1000, cols=6, parse=json
-HISTORY_WRITTEN cma: fresh=1000, total=2068, file=latest/kofia_cma_history_latest.csv
-API_RECEIVED credit: rows=1000, cols=9, parse=json
-HISTORY_WRITTEN credit: fresh=1000, total=2089, file=latest/kofia_credit_history_latest.csv
+HISTORY_WRITTEN cma: fresh=1000, total=2092, file=latest/kofia_cma_history_latest.csv
+API_REQUEST_EXCEPTION credit: ReadTimeout: HTTPSConnectionPool(host='apis.data.go.kr', port=443): Read timed out. (read timeout=35)
+HISTORY_PRESERVED credit: existing_rows=2089
 API_RECEIVED market_funds: rows=1000, cols=7, parse=json
 HISTORY_WRITTEN market_funds: fresh=1000, total=2089, file=latest/kofia_market_funds_history_latest.csv
-SUMMARY_WRITTEN rows=16, file=latest/kofia_market_funds_summary_latest.csv
-overall_status=OK_ALL_FRESH
+SUMMARY_WRITTEN rows=15, file=latest/kofia_market_funds_summary_latest.csv
+overall_status=PARTIAL_FRESH
 configured_api_count=3
-fresh_success_count=3
-preserved_existing_count=0
+fresh_success_count=2
+preserved_existing_count=1
 usable_history_count=3
-summary_rows=16
+summary_rows=15
 status_file=latest/kofia_market_funds_status_latest.json

@@ -1,13 +1,13 @@
 {
   "script": "kofia_market_status.py v1.0_three_api_collector",
-  "generated_at_kst": "2026-10-18T08:43:27+09:00",
-  "overall_status": "OK_ALL_FRESH",
+  "generated_at_kst": "2026-10-20T10:44:12+09:00",
+  "overall_status": "PARTIAL_FRESH",
   "service_key_configured": true,
   "configured_api_count": 3,
-  "fresh_success_count": 3,
-  "preserved_existing_count": 0,
+  "fresh_success_count": 2,
+  "preserved_existing_count": 1,
   "usable_history_count": 3,
-  "summary_rows": 16,
+  "summary_rows": 15,
   "apis": {
     "cma": {
       "api": "cma",
@@ -45,8 +45,8 @@
       ],
       "missing_required_fields": [],
       "existing_rows_before": 2068,
-      "total_rows_after": 2068,
-      "latest_date": "2026-10-14",
+      "total_rows_after": 2092,
+      "latest_date": "2026-10-16",
       "stored_columns": [
         "date",
         "basDt",
@@ -64,35 +64,25 @@
       "label": "신용공여 잔고 추이",
       "configured": true,
       "url": "https://apis.data.go.kr/1160100/service/GetKofiaStatisticsInfoService/getGrantingOfCreditBalanceInfo",
-      "status": "OK",
-      "http_status": 200,
-      "response_header": {
-        "resultCode": "00",
-        "resultMsg": "NORMAL SERVICE."
-      },
-      "fresh_rows": 1000,
-      "response_columns": [
-        "basDt",
-        "crdTrFingWhl",
-        "crdTrFingScrs",
-        "crdTrFingKosdaq",
-        "crdTrLndrWhl",
-        "crdTrLndrScrs",
-        "crdTrLndrKosdaq",
-        "sbscCapLn",
-        "dpsgScrtMogFing"
-      ],
+      "status": "REQUEST_EXCEPTION",
+      "http_status": null,
+      "response_header": {},
+      "fresh_rows": 0,
+      "response_columns": [],
       "query_parameter_names": [
         "numOfRows",
         "pageNo",
         "resultType"
       ],
-      "parse_mode": "json",
+      "error": "ReadTimeout: HTTPSConnectionPool(host='apis.data.go.kr', port=443): Read timed out. (read timeout=35)",
       "required_fields": [
         "basDt"
       ],
-      "missing_required_fields": [],
+      "missing_required_fields": [
+        "basDt"
+      ],
       "existing_rows_before": 2089,
+      "preserved_existing": true,
       "total_rows_after": 2089,
       "latest_date": "2026-10-14",
       "stored_columns": [
@@ -143,7 +133,7 @@
       "missing_required_fields": [],
       "existing_rows_before": 2089,
       "total_rows_after": 2089,
-      "latest_date": "2026-10-14",
+      "latest_date": "2026-10-16",
       "stored_columns": [
         "date",
         "basDt",

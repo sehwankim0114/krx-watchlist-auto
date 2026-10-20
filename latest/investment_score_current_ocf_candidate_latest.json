@@ -1,26 +1,42 @@
 {
   "version": "2026-10-18-current-universe-exact-ocf-candidate-audit",
-  "generated_at_kst": "2026-10-20T01:38:16+09:00",
+  "generated_at_kst": "2026-10-20T18:39:23+09:00",
   "status": "AUDIT_CANDIDATE_ONLY_NOT_PRODUCTION",
-  "source_build_id": "20261020T004436+0900-ef5dbf6f0b",
-  "source_basis_date": "2026-10-16",
-  "production_unique_tickers": 56,
+  "source_build_id": "20261020T160920+0900-0b2ac871fc",
+  "source_basis_date": "2026-10-19",
+  "production_unique_tickers": 49,
   "prior_source_rows": 188,
-  "new_exact_ocf_candidate_count": 0,
-  "new_exact_ocf_candidate_tickers": [],
-  "unresolved_count": 6,
+  "new_exact_ocf_candidate_count": 10,
+  "new_exact_ocf_candidate_tickers": [
+    "000270",
+    "000700",
+    "002820",
+    "010060",
+    "027970",
+    "064400",
+    "139480",
+    "207940",
+    "229640",
+    "329180"
+  ],
+  "unresolved_count": 7,
   "unresolved_reason_counts": {
-    "ANNUAL_SOURCE_NOT_READY": 6
+    "ANNUAL_SOURCE_NOT_READY": 7
   },
   "unresolved": [
     {
-      "ticker": "000227",
-      "name": "유유제약2우B",
+      "ticker": "000400",
+      "name": "롯데손해보험",
       "reason": "ANNUAL_SOURCE_NOT_READY"
     },
     {
-      "ticker": "004105",
-      "name": "태양금속우",
+      "ticker": "001525",
+      "name": "동양우",
+      "reason": "ANNUAL_SOURCE_NOT_READY"
+    },
+    {
+      "ticker": "002630",
+      "name": "오리엔트바이오",
       "reason": "ANNUAL_SOURCE_NOT_READY"
     },
     {
@@ -29,25 +45,25 @@
       "reason": "ANNUAL_SOURCE_NOT_READY"
     },
     {
-      "ticker": "138040",
-      "name": "메리츠금융지주",
+      "ticker": "005380",
+      "name": "현대차",
+      "reason": "ANNUAL_SOURCE_NOT_READY"
+    },
+    {
+      "ticker": "007815",
+      "name": "코리아써우",
       "reason": "ANNUAL_SOURCE_NOT_READY"
     },
     {
       "ticker": "357250",
       "name": "미래에셋맵스리츠",
       "reason": "ANNUAL_SOURCE_NOT_READY"
-    },
-    {
-      "ticker": "475150",
-      "name": "SK이터닉스",
-      "reason": "ANNUAL_SOURCE_NOT_READY"
     }
   ],
-  "baseline_ready_count": 10,
-  "candidate_ready_count": 10,
-  "baseline_ocf_missing_count": 5,
-  "candidate_ocf_missing_count": 5,
+  "baseline_ready_count": 9,
+  "candidate_ready_count": 9,
+  "baseline_ocf_missing_count": 14,
+  "candidate_ocf_missing_count": 6,
   "previous_ready_scores_unchanged": true,
   "production_ocf_cache_changed": false,
   "production_score_written": false

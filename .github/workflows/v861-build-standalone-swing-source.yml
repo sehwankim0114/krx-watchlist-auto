@@ -2,6 +2,16 @@ name: Build standalone swing source v8.6.1
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/v861-build-standalone-swing-source.yml"
+  workflow_run:
+    workflows:
+      - Build compact 260d active-stock history v8.5.7
+    types:
+      - completed
 
 permissions:
   contents: write
@@ -12,6 +22,9 @@ concurrency:
 
 jobs:
   build-source:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:

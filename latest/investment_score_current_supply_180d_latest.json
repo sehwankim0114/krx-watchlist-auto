@@ -1,21 +1,22 @@
 {
   "version": "2026-10-18-current-targeted-180d-supply-audit",
-  "generated_at_kst": "2026-10-20T14:20:53+09:00",
+  "generated_at_kst": "2026-10-20T16:11:08+09:00",
   "status": "AUDIT_ONLY_NOT_FOR_GPT_DISPLAY",
-  "source_build_id": "20261020T141608+0900-7458d99844",
+  "source_build_id": "20261020T160920+0900-0b2ac871fc",
   "basis_date": "2026-10-19",
   "corp_map_error_type": "",
   "window_start": "2026-04-24",
   "window_end": "2026-10-20",
   "target_count": 9,
   "classification_counts": {
-    "COMPLETE_180D_POSITIVE_BURDEN": 3,
-    "CORP_IDENTITY_UNRESOLVED": 5,
+    "COMPLETE_180D_POSITIVE_BURDEN": 4,
+    "CORP_IDENTITY_UNRESOLVED": 4,
     "COMPLETE_180D_NO_POSITIVE_BURDEN": 1
   },
   "complete_tickers": [
     "000270",
     "003550",
+    "007690",
     "009450",
     "012330"
   ],
@@ -29,7 +30,7 @@
       "window_start": "2026-04-24",
       "window_end": "2026-10-20",
       "lookback_days": 180,
-      "source_build_id": "20261020T141608+0900-7458d99844",
+      "source_build_id": "20261020T160920+0900-0b2ac871fc",
       "audit_status": "COMPLETE_180D_POSITIVE_BURDEN",
       "corp_code_exact_stock_match_count": 1,
       "supply_status": "OK",
@@ -534,11 +535,11 @@
     {
       "ticker": "000700",
       "name": "유수홀딩스",
-      "corp_code": "",
+      "corp_code": "00163691",
       "window_start": "2026-04-24",
       "window_end": "2026-10-20",
       "lookback_days": 180,
-      "source_build_id": "20261020T141608+0900-7458d99844",
+      "source_build_id": "20261020T160920+0900-0b2ac871fc",
       "audit_status": "CORP_IDENTITY_UNRESOLVED",
       "corp_code_exact_stock_match_count": 2
     },
@@ -549,7 +550,7 @@
       "window_start": "2026-04-24",
       "window_end": "2026-10-20",
       "lookback_days": 180,
-      "source_build_id": "20261020T141608+0900-7458d99844",
+      "source_build_id": "20261020T160920+0900-0b2ac871fc",
       "audit_status": "CORP_IDENTITY_UNRESOLVED",
       "corp_code_exact_stock_match_count": 0
     },
@@ -560,7 +561,7 @@
       "window_start": "2026-04-24",
       "window_end": "2026-10-20",
       "lookback_days": 180,
-      "source_build_id": "20261020T141608+0900-7458d99844",
+      "source_build_id": "20261020T160920+0900-0b2ac871fc",
       "audit_status": "COMPLETE_180D_POSITIVE_BURDEN",
       "corp_code_exact_stock_match_count": 1,
       "supply_status": "OK",
@@ -618,20 +619,78 @@
       "window_start": "2026-04-24",
       "window_end": "2026-10-20",
       "lookback_days": 180,
-      "source_build_id": "20261020T141608+0900-7458d99844",
+      "source_build_id": "20261020T160920+0900-0b2ac871fc",
       "audit_status": "CORP_IDENTITY_UNRESOLVED",
       "corp_code_exact_stock_match_count": 0
     },
     {
       "ticker": "007690",
       "name": "국도화학",
-      "corp_code": "",
+      "corp_code": "00104388",
       "window_start": "2026-04-24",
       "window_end": "2026-10-20",
       "lookback_days": 180,
-      "source_build_id": "20261020T141608+0900-7458d99844",
-      "audit_status": "CORP_IDENTITY_UNRESOLVED",
-      "corp_code_exact_stock_match_count": 1
+      "source_build_id": "20261020T160920+0900-0b2ac871fc",
+      "audit_status": "COMPLETE_180D_POSITIVE_BURDEN",
+      "corp_code_exact_stock_match_count": 1,
+      "supply_status": "OK",
+      "supply_level": "경계",
+      "risk_keywords": [
+        "대량보유",
+        "주요주주변동"
+      ],
+      "risk_report_count": 3,
+      "relief_report_match_count": 0,
+      "evidence_reports": [
+        {
+          "rcept_dt": "20260701",
+          "rcept_no": "20260701000430",
+          "report_nm": "주식등의대량보유상황보고서(약식)",
+          "keywords": [
+            "대량보유"
+          ],
+          "severity": 1,
+          "relief_flag": false
+        },
+        {
+          "rcept_dt": "20260701",
+          "rcept_no": "20260701000326",
+          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
+          "keywords": [
+            "주요주주변동"
+          ],
+          "severity": 1,
+          "relief_flag": false
+        },
+        {
+          "rcept_dt": "20260616",
+          "rcept_no": "20260616000376",
+          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
+          "keywords": [
+            "주요주주변동"
+          ],
+          "severity": 1,
+          "relief_flag": false
+        }
+      ],
+      "chunk_summaries": [
+        {
+          "start": "2026-04-24",
+          "end": "2026-07-22",
+          "complete": true,
+          "pages_fetched": 1,
+          "total_pages": 1,
+          "reports_seen": 8
+        },
+        {
+          "start": "2026-07-23",
+          "end": "2026-10-20",
+          "complete": true,
+          "pages_fetched": 1,
+          "total_pages": 1,
+          "reports_seen": 4
+        }
+      ]
     },
     {
       "ticker": "007815",
@@ -640,7 +699,7 @@
       "window_start": "2026-04-24",
       "window_end": "2026-10-20",
       "lookback_days": 180,
-      "source_build_id": "20261020T141608+0900-7458d99844",
+      "source_build_id": "20261020T160920+0900-0b2ac871fc",
       "audit_status": "CORP_IDENTITY_UNRESOLVED",
       "corp_code_exact_stock_match_count": 0
     },
@@ -651,7 +710,7 @@
       "window_start": "2026-04-24",
       "window_end": "2026-10-20",
       "lookback_days": 180,
-      "source_build_id": "20261020T141608+0900-7458d99844",
+      "source_build_id": "20261020T160920+0900-0b2ac871fc",
       "audit_status": "COMPLETE_180D_NO_POSITIVE_BURDEN",
       "corp_code_exact_stock_match_count": 1,
       "supply_status": "OK",
@@ -686,7 +745,7 @@
       "window_start": "2026-04-24",
       "window_end": "2026-10-20",
       "lookback_days": 180,
-      "source_build_id": "20261020T141608+0900-7458d99844",
+      "source_build_id": "20261020T160920+0900-0b2ac871fc",
       "audit_status": "COMPLETE_180D_POSITIVE_BURDEN",
       "corp_code_exact_stock_match_count": 1,
       "supply_status": "OK",

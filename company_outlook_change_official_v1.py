@@ -20,7 +20,7 @@ from datetime import date, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
 
-CONTRACT = "2026-10-21-company-outlook-official-correction-v1"
+CONTRACT = "2026-10-21-company-outlook-official-same-period-v2"
 LIST_URL = "https://opendart.fss.or.kr/api/list.json"
 DOC_URL = "https://opendart.fss.or.kr/api/document.xml"
 LOOKBACK_DAYS = 730
@@ -126,6 +126,50 @@ def parse_correction(html, report_name):
             "reporting_scope": scope, "unit": "100m_KRW", "metrics": result} if result else None
 
 
+def parse_forecast_snapshot(html, report_name):
+    """Read only the first explicitly dated annual forecast column."""
+    scope = "consolidated" if "연결재무제표" in report_name else "separate" if "재무제표" in report_name else None
+    if scope is None:
+        return None
+    tables = tables_from_html(html)
+    outlook = next((table for table in tables if any("영업실적 전망 내용" in " ".join(row) for row in table)), None)
+    if outlook is None:
+        return None
+    starts = [row for row in outlook if len(row) >= 3 and row[0] == "대상기간" and row[1] == "시작일"]
+    ends = [row for row in outlook if len(row) >= 2 and row[0] == "종료일"]
+    if len(starts) != 1 or len(ends) != 1:
+        return None
+    start, end = starts[0][2], ends[0][1]
+    if not (re.fullmatch(r"\d{4}-\d{2}-\d{2}", start) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", end)):
+        return None
+    if start[:4] != end[:4] or start[5:] != "01-01" or end[5:] != "12-31":
+        return None
+    if not any("구분(단위 : 억원)" in " ".join(row) and start[:4] in row for row in outlook):
+        return None
+    values = {}
+    for key, korean in METRICS.items():
+        matches = [row for row in outlook if len(row) >= 2 and row[0] == korean]
+        if len(matches) == 1:
+            value = amount(matches[0][1])
+            if value is not None:
+                values[key] = value
+    return {"target_period_start": start, "target_period_end": end,
+            "reporting_scope": scope, "unit": "100m_KRW", "values": values} if values else None
+
+
+def compare_values(before, after):
+    result = {}
+    for key in METRICS:
+        if key not in before or key not in after:
+            continue
+        old, new = before[key], after[key]
+        result[key] = {"before_100m_krw": old, "after_100m_krw": new,
+                       "change_100m_krw": round(new - old, 6),
+                       "change_pct": round((new / old - 1) * 100, 4) if old else None,
+                       "direction": "UP" if new > old else "DOWN" if new < old else "UNCHANGED"}
+    return result
+
+
 def fetch(url, params):
     request = urllib.request.Request(url + "?" + urllib.parse.urlencode(params),
                                      headers={"User-Agent": "krx-watchlist-official-outlook/1.0"})
@@ -202,30 +246,52 @@ def build(source_path, map_path, key, as_of=None, only_tickers=None):
             continue
         corp = mapping[ticker]
         result = {"ticker": ticker, "name": row["name"], "corp_code": corp,
-                  "status": "CORP_CODE_UNRESOLVED" if not corp else "NO_COMPARABLE_OFFICIAL_CORRECTION",
-                  "latest_change": None}
+                  "status": "CORP_CODE_UNRESOLVED" if not corp else "NO_COMPARABLE_OFFICIAL_FILINGS",
+                  "official_outlook_filing_count": None, "latest_change": None}
         if corp:
             candidates = sorted(list_filings(key, corp, start, end), key=lambda x: x["rcept_no"], reverse=True)
+            result["official_outlook_filing_count"] = len(candidates)
+            snapshots = []
             for filing in candidates:
-                if not str(filing["report_nm"]).lstrip().startswith("[기재정정]"):
+                html = document_html(key, filing["rcept_no"])
+                snapshot = parse_forecast_snapshot(html, filing["report_nm"])
+                if not snapshot or date.fromisoformat(snapshot["target_period_end"]) < as_of:
                     continue
-                parsed = parse_correction(document_html(key, filing["rcept_no"]), filing["report_nm"])
-                if not parsed:
+                correction = parse_correction(html, filing["report_nm"])
+                snapshots.append((filing, snapshot, correction))
+            for position, (filing, snapshot, correction) in enumerate(snapshots):
+                if correction:
+                    result["status"] = "COMPARABLE_OFFICIAL_CORRECTION"
+                    result["latest_change"] = {**correction, "comparison_method": "EXPLICIT_CORRECTION",
+                        "filing_date": filing["rcept_dt"], "receipt_no": filing["rcept_no"],
+                        "source_url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + filing["rcept_no"]}
+                    break
+                prior = next(((other_filing, other_snapshot) for other_filing, other_snapshot, _ in snapshots[position + 1:]
+                              if all(snapshot[field] == other_snapshot[field] for field in
+                                     ("target_period_start", "target_period_end", "reporting_scope", "unit"))
+                              and compare_values(other_snapshot["values"], snapshot["values"])), None)
+                if prior is None:
                     continue
-                # An expired annual guidance period is history, not a current outlook.
-                if date.fromisoformat(parsed["target_period_end"]) < as_of:
-                    continue
-                result["status"] = "COMPARABLE_OFFICIAL_CORRECTION"
-                result["latest_change"] = {**parsed, "filing_date": filing["rcept_dt"],
-                    "receipt_no": filing["rcept_no"],
-                    "source_url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + filing["rcept_no"]}
+                before_filing, before_snapshot = prior
+                result["status"] = "COMPARABLE_OFFICIAL_FILINGS"
+                result["latest_change"] = {
+                    "target_period_start": snapshot["target_period_start"],
+                    "target_period_end": snapshot["target_period_end"],
+                    "reporting_scope": snapshot["reporting_scope"], "unit": snapshot["unit"],
+                    "metrics": compare_values(before_snapshot["values"], snapshot["values"]),
+                    "comparison_method": "SAME_PERIOD_SEPARATE_FILINGS",
+                    "filing_date": filing["rcept_dt"], "receipt_no": filing["rcept_no"],
+                    "source_url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + filing["rcept_no"],
+                    "prior_filing_date": before_filing["rcept_dt"],
+                    "prior_receipt_no": before_filing["rcept_no"],
+                    "prior_source_url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + before_filing["rcept_no"]}
                 break
         rows.append(result)
     counts = dict(Counter(row["status"] for row in rows))
     return {"contract_version": CONTRACT, "status": "READY_SOURCE_ONLY", "basis_date": str(basis),
             "disclosure_as_of_date": str(as_of), "lookback_days": LOOKBACK_DAYS,
             "row_count": len(rows), "status_counts": counts,
-            "comparison_policy": "EXPLICIT_ISSUER_CORRECTION_SAME_ANNUAL_PERIOD_SCOPE_UNIT",
+            "comparison_policy": "ISSUER_CORRECTION_OR_TWO_FILINGS_SAME_ANNUAL_PERIOD_SCOPE_UNIT",
             "active_target_period_only": True,
             "uncomparable_display": "자료 미제공", "production_activation_allowed": False,
             "standalone_swing_table_enabled": False, "rows": rows}
@@ -240,6 +306,9 @@ def self_test(sample_path):
     assert parsed["metrics"]["revenue"]["after_100m_krw"] == 5332
     assert parsed["metrics"]["operating_profit"]["before_100m_krw"] == 260
     assert parsed["metrics"]["operating_profit"]["after_100m_krw"] == 101
+    snapshot = parse_forecast_snapshot(html, "연결재무제표기준영업실적등에대한전망(공정공시)")
+    assert snapshot["values"] == {"revenue": 5332, "operating_profit": 101}
+    assert compare_values({"revenue": 5463, "operating_profit": 260}, snapshot["values"])["revenue"]["direction"] == "DOWN"
     assert parse_correction(html.replace("2025-12-31", "2026-12-31", 1),
                             "[기재정정]연결재무제표기준영업실적등에대한전망(공정공시)") is None
     print("OFFICIAL_OUTLOOK_SAMPLE_TEST=PASS")

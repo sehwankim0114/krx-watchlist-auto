@@ -131,6 +131,23 @@ jobs:
                   if pd.isna(prev) or prev<=0:continue
                   interval=f"{dt.hour:02d}:00-{dt.hour+1:02d}:00" if dt.hour<15 else "15:00-15:30"
                   days_data.append({"date":d.isoformat(),"symbol":name,"slot":interval,"hour":int(dt.hour),"bar_open":float(row["Open"]),"bar_close":float(row["Close"]),"prev_close":float(prev),"hour_pct":100*(float(row["Close"])/float(row["Open"])-1),"cumulative_pct":100*(float(row["Close"])/float(prev)-1)})
+          # The KRX 15:00-15:30 period is not included in the final 14:00 Yahoo 1h bar.
+          # Derive its approximate performance from the bar's ending price (~15:00) to daily settlement (15:30).
+          for name in SYMBOLS:
+              hourdf=FRAMES[(name,"1h")].copy()
+              if hourdf.empty:continue
+              hourdf["day"]=hourdf.index.date
+              hourdf["hour"]=hourdf.index.hour
+              dclose=FRAMES[(name,"1d")].drop_duplicates("day").set_index("day")["Close"]
+              pclose=dclose.shift(1)
+              for day in up:
+                  row=hourdf[(hourdf["day"]==day)&(hourdf["hour"]==14)]
+                  if len(row)!=1 or day not in dclose.index:continue
+                  px15=float(row.iloc[-1]["Close"])
+                  px1530=float(dclose.loc[day])
+                  previous=float(pclose.loc[day])
+                  if min(px15,px1530,previous)<=0:continue
+                  days_data.append({"date":day.isoformat(),"symbol":name,"slot":"15:00-15:30","hour":15,"bar_open":px15,"bar_close":px1530,"prev_close":previous,"hour_pct":100*(px1530/px15-1),"cumulative_pct":100*(px1530/previous-1)})
           with open(OUT/"hourly_observations.csv","w",newline="") as f:
               w=csv.DictWriter(f,fieldnames=["date","symbol","slot","hour","bar_open","bar_close","prev_close","hour_pct","cumulative_pct"])
               w.writeheader();w.writerows(days_data)
@@ -154,7 +171,7 @@ jobs:
                   result["hourly_summary"].append(item)
                   if item["n"] < len(up)*.90:result["quality_warnings"].append(name+" "+slot+f" insufficient coverage {item['n']}/{len(up)}")
           (OUT/"summary.json").write_text(json.dumps(result,indent=2,ensure_ascii=False),encoding="utf8")
-          md=["# KODEX 200 · KODEX INVERSE: recent 60 trading days (completed through 2026-10-20)","","- Historical interval: Yahoo Finance 1h bars; within-hour return = bar close / bar open - 1.","- Last date: "+str(STOP),"- Universe: "+valid[0].isoformat()+" ~ "+valid[-1].isoformat()," - Positive sessions: "+str(len(up)),"- Positive-day selection: "+source,"","| Symbol | Time (KST) | N | Avg bar change % | Avg vs prev close % | Probability positive % |","|---|---|---:|---:|---:|---:|"]
+          md=["# KODEX 200 · KODEX INVERSE: recent 60 trading days (completed through 2026-10-20)","","- Historical interval: Yahoo Finance 1h bars; within-hour return = bar close / bar open - 1. Final 15:00-15:30 is **approximated** using the 14:00 bar close (near 15:00) and daily settlement (15:30); it is not a separately observed half-hour bar.","- Last date: "+str(STOP),"- Universe: "+valid[0].isoformat()+" ~ "+valid[-1].isoformat()," - Positive sessions: "+str(len(up)),"- Positive-day selection: "+source,"","| Symbol | Time (KST) | N | Avg bar change % | Avg vs prev close % | Probability positive % |","|---|---|---:|---:|---:|---:|"]
           for row in result["hourly_summary"]:
               fmt=lambda x:("NA" if x is None else str(x))
               md.append(f"| {row['symbol']} | {row['slot']} | {row['n']} | {fmt(row['avg_hour_pct'])} | {fmt(row['avg_from_prev_pct'])} | {fmt(row['up_probability_pct'])} |")

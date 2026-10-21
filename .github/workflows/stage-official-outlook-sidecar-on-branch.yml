@@ -1,0 +1,56 @@
+name: Stage official outlook reference on review branch
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/stage-official-outlook-sidecar-on-branch.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+      TZ: Asia/Seoul
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Build and validate source-only references
+        run: |
+          python confirmed_swing_low_policy_v1.py --self-test
+          python company_outlook_change_official_v1.py --probe-official-receipt
+          python confirmed_swing_low_policy_v1.py
+          python company_outlook_change_official_v1.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          source = json.loads(Path('latest/standalone_swing_source_latest.json').read_text(encoding='utf-8'))
+          for name in ('confirmed_swing_low_reference', 'company_outlook_change_official'):
+              data = json.loads(Path('latest/' + name + '_latest.json').read_text(encoding='utf-8'))
+              assert data['basis_date'] == source['basis_date']
+              assert data['row_count'] == source['row_count']
+              assert data['production_activation_allowed'] is False
+              assert data['standalone_swing_table_enabled'] is False
+          print('STAGED_SOURCE_ONLY_GUARD=PASS')
+          PY
+      - name: Commit output on review branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c codex/official-outlook-sidecar-20261021
+          git add latest/confirmed_swing_low_reference_latest.json latest/company_outlook_change_official_latest.json
+          git commit -m 'Stage verified source-only outlook and swing references'
+          git push origin HEAD:codex/official-outlook-sidecar-20261021
+

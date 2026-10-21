@@ -69,7 +69,16 @@ def main() -> None:
     print("LIST_MATCHES=" + json.dumps(matches[:10], ensure_ascii=False))
     if not matches:
         raise SystemExit("OUTLOOK_CORRECTION_NOT_FOUND_IN_I002_LIST")
-    probe_document(key, matches[-1]["rcept_no"])
+    selected = matches[-1]
+    corp_params = dict(params, corp_code=selected["corp_code"])
+    corp_payload = json.loads(fetch(LIST_URL, corp_params).decode("utf-8"))
+    corp_receipts = [item.get("rcept_no") for item in corp_payload.get("list") or []]
+    print("CORP_LIST_STATUS=" + str(corp_payload.get("status")))
+    print("CORP_LIST_TOTAL_COUNT=" + str(corp_payload.get("total_count")))
+    print("CORP_LIST_KNOWN_RECEIPT_FOUND=" + str(selected["rcept_no"] in corp_receipts))
+    if selected["rcept_no"] not in corp_receipts:
+        raise SystemExit("CORP_FILTER_DROPPED_KNOWN_CORRECTION")
+    probe_document(key, selected["rcept_no"])
 
 
 if __name__ == "__main__":

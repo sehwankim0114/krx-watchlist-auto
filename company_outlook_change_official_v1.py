@@ -199,7 +199,12 @@ def list_filings(key, corp_code, start, end):
 def document_html(key, receipt):
     raw = fetch(DOC_URL, {"crtfc_key": key, "rcept_no": receipt})
     if not zipfile.is_zipfile(io.BytesIO(raw)):
-        raise RuntimeError("OPENDART_DOCUMENT_NOT_ZIP:" + receipt)
+        response = raw.decode("utf-8", errors="replace")
+        if re.search(r"<status>014</status>", response):
+            return None  # Official API: original file does not exist.
+        status = re.search(r"<status>([^<]+)</status>", response)
+        raise RuntimeError("OPENDART_DOCUMENT_NOT_ZIP:" + receipt + ":" +
+                           (status.group(1) if status else "UNKNOWN_STATUS"))
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
         members = [name for name in archive.namelist() if name.lower().endswith((".xml", ".html", ".htm"))]
         if len(members) != 1:
@@ -247,13 +252,18 @@ def build(source_path, map_path, key, as_of=None, only_tickers=None):
         corp = mapping[ticker]
         result = {"ticker": ticker, "name": row["name"], "corp_code": corp,
                   "status": "CORP_CODE_UNRESOLVED" if not corp else "NO_COMPARABLE_OFFICIAL_FILINGS",
-                  "official_outlook_filing_count": None, "latest_change": None}
+                  "official_outlook_filing_count": None, "unavailable_document_count": None,
+                  "latest_change": None}
         if corp:
             candidates = sorted(list_filings(key, corp, start, end), key=lambda x: x["rcept_no"], reverse=True)
             result["official_outlook_filing_count"] = len(candidates)
+            result["unavailable_document_count"] = 0
             snapshots = []
             for filing in candidates:
                 html = document_html(key, filing["rcept_no"])
+                if html is None:
+                    result["unavailable_document_count"] += 1
+                    continue
                 snapshot = parse_forecast_snapshot(html, filing["report_nm"])
                 if not snapshot or date.fromisoformat(snapshot["target_period_end"]) < as_of:
                     continue

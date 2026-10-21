@@ -1,0 +1,76 @@
+name: Build official outlook and swing stop references
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "company_outlook_change_official_v1.py"
+      - "confirmed_swing_low_policy_v1.py"
+      - ".github/workflows/build-official-outlook-and-swing-stop-reference.yml"
+  schedule:
+    - cron: "30 12 * * 1-5"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-krx-watchlist-latest
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+      TZ: Asia/Seoul
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Validate policy and live official correction
+        run: |
+          python confirmed_swing_low_policy_v1.py --self-test
+          python company_outlook_change_official_v1.py --probe-official-receipt
+      - name: Build source-only references
+        run: |
+          python confirmed_swing_low_policy_v1.py
+          python company_outlook_change_official_v1.py
+      - name: Check source-only contract and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          swing = json.loads(Path('latest/confirmed_swing_low_reference_latest.json').read_text(encoding='utf-8'))
+          outlook = json.loads(Path('latest/company_outlook_change_official_latest.json').read_text(encoding='utf-8'))
+          source = json.loads(Path('latest/standalone_swing_source_latest.json').read_text(encoding='utf-8'))
+          for result in (swing, outlook):
+              assert result['basis_date'] == source['basis_date']
+              assert result['row_count'] == source['row_count']
+              assert result['production_activation_allowed'] is False
+              assert result['standalone_swing_table_enabled'] is False
+              assert len(result['rows']) == source['row_count']
+          assert all(row['reference'].get('actual_trailing_stop') is None
+                     for row in swing['rows'] if 'reference' in row)
+          print('SOURCE_ONLY_RELEASE_GUARD=PASS')
+          PY
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add latest/confirmed_swing_low_reference_latest.json latest/company_outlook_change_official_latest.json
+          if git diff --cached --quiet; then
+            echo 'REFERENCE_OUTPUT_UNCHANGED=true'
+          else
+            git commit -m 'Refresh source-only official outlook and swing stop references'
+            git push origin HEAD:main
+          fi
+

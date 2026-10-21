@@ -11,7 +11,6 @@ import zipfile
 
 LIST_URL = "https://opendart.fss.or.kr/api/list.json"
 DOC_URL = "https://opendart.fss.or.kr/api/document.xml"
-KNOWN_KRX_RECEIPT = "20251222000627"
 
 
 def fetch(url: str, params: dict[str, str]) -> bytes:
@@ -68,7 +67,9 @@ def main() -> None:
         if "영업실적" in str(item.get("report_nm")) and "전망" in str(item.get("report_nm"))
     ]
     print("LIST_MATCHES=" + json.dumps(matches[:10], ensure_ascii=False))
-    probe_document(key, KNOWN_KRX_RECEIPT)
+    if not matches:
+        raise SystemExit("OUTLOOK_CORRECTION_NOT_FOUND_IN_I002_LIST")
+    probe_document(key, matches[-1]["rcept_no"])
 
 
 if __name__ == "__main__":

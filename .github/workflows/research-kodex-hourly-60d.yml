@@ -168,6 +168,29 @@ jobs:
           if not days_data:
               raise RuntimeError("No hourly observations - please inspect data-source availability.")
           PY
+      - name: Validate last 1h bar against official day close
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import yfinance as yf
+          result={}
+          for name,sym in [("KODEX200","069500.KS"),("INVERSE","114800.KS")]:
+              h=yf.Ticker(sym).history(start="2026-07-20",end="2026-10-21",interval="1h",auto_adjust=False)
+              d=yf.Ticker(sym).history(start="2026-07-20",end="2026-10-21",interval="1d",auto_adjust=False)
+              if h.index.tz is not None:h.index=h.index.tz_convert("Asia/Seoul")
+              if d.index.tz is not None:d.index=d.index.tz_convert("Asia/Seoul")
+              last=h.groupby(h.index.date).tail(1)
+              daily=d.groupby(d.index.date).tail(1)
+              daymap={k:float(x) for k,x in zip(daily.index.date,daily.Close)}
+              pairs=[{"date":t.date().isoformat(),"last_hour_start":t.strftime("%H:%M"),"hour_last_close":float(v),"daily_close":daymap.get(t.date()),"difference":round(float(v-daymap.get(t.date(),v)),4)} for t,v in zip(last.index,last.Close) if t.date() in daymap and t.date().isoformat()<="2026-10-20"]
+              equals=sum(abs(x["difference"])<0.01 for x in pairs)
+              result[name]={"compared_sessions":len(pairs),"matched_close":equals,"rate_pct":round(100*equals/len(pairs),2) if pairs else None,"last_5":pairs[-5:]}
+          print("=== LAST HOURLY BAR / DAILY CLOSE CHECK ===")
+          print(json.dumps(result,ensure_ascii=False,indent=2),flush=True)
+          Path("results/kodex_hourly_20261020/last_bar_quality_check.json").write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding="utf8")
+          PY
       - name: Archive computed observations
         if: always()
         uses: actions/upload-artifact@v4

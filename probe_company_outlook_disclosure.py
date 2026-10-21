@@ -79,6 +79,7 @@ def main() -> None:
     if selected["rcept_no"] not in corp_receipts:
         raise SystemExit("CORP_FILTER_DROPPED_KNOWN_CORRECTION")
     probe_document(key, selected["rcept_no"])
+    probe_document(key, "20260512900617")
 
 
 if __name__ == "__main__":

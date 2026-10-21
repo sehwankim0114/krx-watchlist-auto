@@ -212,6 +212,9 @@ def build(source_path, map_path, key, as_of=None, only_tickers=None):
                 parsed = parse_correction(document_html(key, filing["rcept_no"]), filing["report_nm"])
                 if not parsed:
                     continue
+                # An expired annual guidance period is history, not a current outlook.
+                if date.fromisoformat(parsed["target_period_end"]) < as_of:
+                    continue
                 result["status"] = "COMPARABLE_OFFICIAL_CORRECTION"
                 result["latest_change"] = {**parsed, "filing_date": filing["rcept_dt"],
                     "receipt_no": filing["rcept_no"],
@@ -223,6 +226,7 @@ def build(source_path, map_path, key, as_of=None, only_tickers=None):
             "disclosure_as_of_date": str(as_of), "lookback_days": LOOKBACK_DAYS,
             "row_count": len(rows), "status_counts": counts,
             "comparison_policy": "EXPLICIT_ISSUER_CORRECTION_SAME_ANNUAL_PERIOD_SCOPE_UNIT",
+            "active_target_period_only": True,
             "uncomparable_display": "자료 미제공", "production_activation_allowed": False,
             "standalone_swing_table_enabled": False, "rows": rows}
 

@@ -1,0 +1,2305 @@
+{
+  "contract_version": "2026-10-21-confirmed-swing-low-3x3-close-trigger-v1",
+  "status": "READY_REFERENCE_ONLY",
+  "basis_date": "2026-10-19",
+  "row_count": 176,
+  "pivot_definition": "STRICT_LOW_BELOW_3_PREVIOUS_AND_3_FOLLOWING_COMPLETE_BARS",
+  "confirmation_lag_sessions": 3,
+  "breach_basis": "OFFICIAL_DAILY_CLOSE_LE_PIVOT_LOW",
+  "public_reference_lookback_sessions": 60,
+  "actual_trailing_stop_requires_explicit_start_date": true,
+  "ratchet_down_allowed": false,
+  "buffer_applied": false,
+  "production_activation_allowed": false,
+  "standalone_swing_table_enabled": false,
+  "rows": [
+    {
+      "ticker": "000270",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 102600.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "000400",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 2110.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 26
+    },
+    {
+      "ticker": "000540",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 3325.0,
+        "first_close_breach_date": "2026-10-15",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 26
+    },
+    {
+      "ticker": "000650",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-06",
+        "confirmation_date": "2026-10-12",
+        "pivot_low": 137700.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "000660",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 1736000.0,
+        "first_close_breach_date": "2026-10-07",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 26
+    },
+    {
+      "ticker": "000700",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-06",
+        "confirmation_date": "2026-10-12",
+        "pivot_low": 6410.0,
+        "first_close_breach_date": "2026-10-15",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 20
+    },
+    {
+      "ticker": "000810",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 617000.0,
+        "first_close_breach_date": "2026-10-08",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "000990",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 125800.0,
+        "first_close_breach_date": "2026-10-14",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "001440",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 28800.0,
+        "first_close_breach_date": "2026-10-08",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "001525",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 6020.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "001630",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-03",
+        "confirmation_date": "2026-09-08",
+        "pivot_low": 38700.0,
+        "first_close_breach_date": "2026-09-15",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "001820",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 142200.0,
+        "first_close_breach_date": "2026-10-15",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "002220",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 2765.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "002360",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-17",
+        "confirmation_date": "2026-09-22",
+        "pivot_low": 1500.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 14
+    },
+    {
+      "ticker": "002380",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-21",
+        "confirmation_date": "2026-09-28",
+        "pivot_low": 453500.0,
+        "first_close_breach_date": "2026-10-13",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "002630",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 1611.0,
+        "first_close_breach_date": "2026-10-12",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 19
+    },
+    {
+      "ticker": "002710",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 12400.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 26
+    },
+    {
+      "ticker": "002820",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 908.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 18
+    },
+    {
+      "ticker": "003030",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 95200.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 19
+    },
+    {
+      "ticker": "003160",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-14",
+        "confirmation_date": "2026-09-17",
+        "pivot_low": 28600.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "003230",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-28",
+        "confirmation_date": "2026-10-01",
+        "pivot_low": 1202000.0,
+        "first_close_breach_date": "2026-10-08",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "003280",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 1771.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "003350",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-06",
+        "confirmation_date": "2026-10-12",
+        "pivot_low": 14110.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 27
+    },
+    {
+      "ticker": "003490",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-06",
+        "confirmation_date": "2026-10-12",
+        "pivot_low": 30200.0,
+        "first_close_breach_date": "2026-10-14",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "003550",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 100200.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "003570",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-28",
+        "confirmation_date": "2026-10-01",
+        "pivot_low": 25900.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 20
+    },
+    {
+      "ticker": "003580",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-02",
+        "confirmation_date": "2026-10-08",
+        "pivot_low": 1760.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 27
+    },
+    {
+      "ticker": "003670",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 164000.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "004020",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 26350.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "004170",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-03",
+        "confirmation_date": "2026-09-08",
+        "pivot_low": 370000.0,
+        "first_close_breach_date": "2026-09-15",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "004310",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-14",
+        "confirmation_date": "2026-09-17",
+        "pivot_low": 9610.0,
+        "first_close_breach_date": "2026-09-21",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 20
+    },
+    {
+      "ticker": "004370",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-06",
+        "confirmation_date": "2026-10-12",
+        "pivot_low": 391000.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "004710",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-11",
+        "confirmation_date": "2026-09-16",
+        "pivot_low": 8360.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "004835",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-22",
+        "confirmation_date": "2026-09-29",
+        "pivot_low": 4150.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "005070",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-22",
+        "confirmation_date": "2026-09-29",
+        "pivot_low": 39900.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "005380",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-17",
+        "confirmation_date": "2026-09-22",
+        "pivot_low": 358000.0,
+        "first_close_breach_date": "2026-09-23",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "005385",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-16",
+        "confirmation_date": "2026-09-21",
+        "pivot_low": 170900.0,
+        "first_close_breach_date": "2026-10-08",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 26
+    },
+    {
+      "ticker": "005387",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-16",
+        "confirmation_date": "2026-09-21",
+        "pivot_low": 170100.0,
+        "first_close_breach_date": "2026-10-08",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 27
+    },
+    {
+      "ticker": "005490",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 283000.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 20
+    },
+    {
+      "ticker": "005830",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-02",
+        "confirmation_date": "2026-10-08",
+        "pivot_low": 179600.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "005930",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 264500.0,
+        "first_close_breach_date": "2026-10-08",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "005935",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 193300.0,
+        "first_close_breach_date": "2026-10-12",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 20
+    },
+    {
+      "ticker": "005960",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 8100.0,
+        "first_close_breach_date": "2026-10-13",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "006110",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-28",
+        "confirmation_date": "2026-10-01",
+        "pivot_low": 53600.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "006260",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-03",
+        "confirmation_date": "2026-09-08",
+        "pivot_low": 283500.0,
+        "first_close_breach_date": "2026-10-07",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 18
+    },
+    {
+      "ticker": "006400",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 511000.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "006800",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 30300.0,
+        "first_close_breach_date": "2026-10-08",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "007660",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-18",
+        "confirmation_date": "2026-09-23",
+        "pivot_low": 98600.0,
+        "first_close_breach_date": "2026-10-15",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "007690",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 36700.0,
+        "first_close_breach_date": "2026-10-15",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 19
+    },
+    {
+      "ticker": "007810",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-15",
+        "confirmation_date": "2026-09-18",
+        "pivot_low": 48450.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "007815",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-21",
+        "confirmation_date": "2026-09-28",
+        "pivot_low": 16750.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 20
+    },
+    {
+      "ticker": "008060",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-15",
+        "confirmation_date": "2026-09-18",
+        "pivot_low": 13940.0,
+        "first_close_breach_date": "2026-10-15",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 18
+    },
+    {
+      "ticker": "008970",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 1224.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "009150",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 1462000.0,
+        "first_close_breach_date": "2026-10-13",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 20
+    },
+    {
+      "ticker": "009240",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 38650.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "009420",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-28",
+        "confirmation_date": "2026-10-01",
+        "pivot_low": 41600.0,
+        "first_close_breach_date": "2026-10-15",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 28
+    },
+    {
+      "ticker": "009450",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-06",
+        "confirmation_date": "2026-10-12",
+        "pivot_low": 60600.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "009540",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-16",
+        "confirmation_date": "2026-09-21",
+        "pivot_low": 330000.0,
+        "first_close_breach_date": "2026-09-29",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 20
+    },
+    {
+      "ticker": "009830",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-21",
+        "confirmation_date": "2026-09-28",
+        "pivot_low": 27300.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "010060",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-22",
+        "confirmation_date": "2026-09-29",
+        "pivot_low": 187300.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "010120",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 198700.0,
+        "first_close_breach_date": "2026-10-08",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "010140",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 17210.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "010580",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 1994.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "010640",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-07",
+        "confirmation_date": "2026-10-13",
+        "pivot_low": 1965.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "010690",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-16",
+        "confirmation_date": "2026-09-21",
+        "pivot_low": 7400.0,
+        "first_close_breach_date": "2026-09-23",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "010950",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 152700.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "011070",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 547000.0,
+        "first_close_breach_date": "2026-10-12",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 20
+    },
+    {
+      "ticker": "011170",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 57000.0,
+        "first_close_breach_date": "2026-10-15",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "011330",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 3870.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "011780",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 109600.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "012030",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-16",
+        "confirmation_date": "2026-09-21",
+        "pivot_low": 1575.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 20
+    },
+    {
+      "ticker": "012170",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-06",
+        "confirmation_date": "2026-10-12",
+        "pivot_low": 2880.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "012200",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 2970.0,
+        "first_close_breach_date": "2026-10-12",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "012330",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 362000.0,
+        "first_close_breach_date": "2026-10-08",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 27
+    },
+    {
+      "ticker": "012450",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 803000.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 26
+    },
+    {
+      "ticker": "014680",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-14",
+        "confirmation_date": "2026-09-17",
+        "pivot_low": 192000.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 26
+    },
+    {
+      "ticker": "017670",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-12",
+        "confirmation_date": "2026-10-15",
+        "pivot_low": 77200.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "017900",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 9150.0,
+        "first_close_breach_date": "2026-10-13",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 26
+    },
+    {
+      "ticker": "020150",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 46450.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "021240",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 98600.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "027970",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 2670.0,
+        "first_close_breach_date": "2026-10-15",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 20
+    },
+    {
+      "ticker": "028050",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 46700.0,
+        "first_close_breach_date": "2026-10-12",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "028670",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-23",
+        "confirmation_date": "2026-09-30",
+        "pivot_low": 5560.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 26
+    },
+    {
+      "ticker": "032830",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 276500.0,
+        "first_close_breach_date": "2026-10-08",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "034020",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 78700.0,
+        "first_close_breach_date": "2026-10-08",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "034730",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-17",
+        "confirmation_date": "2026-09-22",
+        "pivot_low": 534000.0,
+        "first_close_breach_date": "2026-10-13",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "035420",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-03",
+        "confirmation_date": "2026-09-08",
+        "pivot_low": 203500.0,
+        "first_close_breach_date": "2026-09-16",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 26
+    },
+    {
+      "ticker": "035900",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 36350.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "036570",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 205500.0,
+        "first_close_breach_date": "2026-10-15",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "036930",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-16",
+        "confirmation_date": "2026-09-21",
+        "pivot_low": 189200.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 19
+    },
+    {
+      "ticker": "042660",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-16",
+        "confirmation_date": "2026-09-21",
+        "pivot_low": 81100.0,
+        "first_close_breach_date": "2026-09-23",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "042700",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-16",
+        "confirmation_date": "2026-09-21",
+        "pivot_low": 215500.0,
+        "first_close_breach_date": "2026-10-15",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 26
+    },
+    {
+      "ticker": "043260",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 23400.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "051600",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-03",
+        "confirmation_date": "2026-09-08",
+        "pivot_low": 44200.0,
+        "first_close_breach_date": "2026-09-30",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "051910",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 242500.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "052690",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 119100.0,
+        "first_close_breach_date": "2026-10-12",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "055490",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-23",
+        "confirmation_date": "2026-09-30",
+        "pivot_low": 14370.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 18
+    },
+    {
+      "ticker": "055550",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-11",
+        "confirmation_date": "2026-09-16",
+        "pivot_low": 108900.0,
+        "first_close_breach_date": "2026-09-30",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "058470",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-16",
+        "confirmation_date": "2026-09-21",
+        "pivot_low": 63100.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "060370",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 26700.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "062040",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 199800.0,
+        "first_close_breach_date": "2026-10-15",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "064350",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-16",
+        "confirmation_date": "2026-09-21",
+        "pivot_low": 118200.0,
+        "first_close_breach_date": "2026-09-22",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "064400",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 68300.0,
+        "first_close_breach_date": "2026-10-08",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "066570",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 205000.0,
+        "first_close_breach_date": "2026-10-08",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "066575",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-14",
+        "confirmation_date": "2026-09-17",
+        "pivot_low": 65400.0,
+        "first_close_breach_date": "2026-10-13",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "068270",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 173700.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 27
+    },
+    {
+      "ticker": "071090",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-16",
+        "confirmation_date": "2026-09-21",
+        "pivot_low": 3115.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "073240",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-23",
+        "confirmation_date": "2026-09-30",
+        "pivot_low": 6480.0,
+        "first_close_breach_date": "2026-10-14",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "078520",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 10440.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "079550",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 539000.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 26
+    },
+    {
+      "ticker": "080220",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 73500.0,
+        "first_close_breach_date": "2026-10-14",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "084010",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 7960.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 16
+    },
+    {
+      "ticker": "084670",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 22000.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 20
+    },
+    {
+      "ticker": "084680",
+      "reference": {
+        "status": "REFERENCE_UNKNOWN_MISSING_BAR",
+        "pivot_date": "2026-07-29",
+        "confirmation_date": "2026-08-03",
+        "pivot_low": 461.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": "2026-08-20",
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "085620",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-30",
+        "confirmation_date": "2026-10-06",
+        "pivot_low": 18630.0,
+        "first_close_breach_date": "2026-10-13",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "086280",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 172800.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 27
+    },
+    {
+      "ticker": "086520",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 78100.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "088350",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-10",
+        "confirmation_date": "2026-09-15",
+        "pivot_low": 5640.0,
+        "first_close_breach_date": "2026-09-23",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "089590",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 4330.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "090460",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-16",
+        "confirmation_date": "2026-09-21",
+        "pivot_low": 18650.0,
+        "first_close_breach_date": "2026-10-14",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 19
+    },
+    {
+      "ticker": "092200",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 5300.0,
+        "first_close_breach_date": "2026-10-13",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "092790",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 11990.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "096770",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 143000.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "098460",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-14",
+        "confirmation_date": "2026-09-17",
+        "pivot_low": 26150.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "100790",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 16670.0,
+        "first_close_breach_date": "2026-10-12",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "101490",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-16",
+        "confirmation_date": "2026-09-21",
+        "pivot_low": 39100.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "103590",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-15",
+        "confirmation_date": "2026-09-18",
+        "pivot_low": 67700.0,
+        "first_close_breach_date": "2026-10-15",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 18
+    },
+    {
+      "ticker": "112610",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 48750.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "128820",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 4105.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "131290",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-16",
+        "confirmation_date": "2026-09-21",
+        "pivot_low": 231000.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 17
+    },
+    {
+      "ticker": "138930",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-21",
+        "confirmation_date": "2026-09-28",
+        "pivot_low": 15520.0,
+        "first_close_breach_date": "2026-10-07",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "139130",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-18",
+        "confirmation_date": "2026-09-23",
+        "pivot_low": 17620.0,
+        "first_close_breach_date": "2026-10-08",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "139480",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-08",
+        "confirmation_date": "2026-10-14",
+        "pivot_low": 69600.0,
+        "first_close_breach_date": "2026-10-15",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "161000",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-16",
+        "confirmation_date": "2026-09-21",
+        "pivot_low": 9670.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 19
+    },
+    {
+      "ticker": "161390",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 59300.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "180640",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-02",
+        "confirmation_date": "2026-10-08",
+        "pivot_low": 129500.0,
+        "first_close_breach_date": "2026-10-14",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "192820",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-02",
+        "confirmation_date": "2026-10-08",
+        "pivot_low": 257000.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "195870",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-15",
+        "confirmation_date": "2026-09-18",
+        "pivot_low": 47600.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "196170",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 244000.0,
+        "first_close_breach_date": "2026-10-08",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "207940",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-23",
+        "confirmation_date": "2026-09-30",
+        "pivot_low": 1360000.0,
+        "first_close_breach_date": "2026-10-02",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "214450",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-08-18",
+        "confirmation_date": "2026-08-21",
+        "pivot_low": 380000.0,
+        "first_close_breach_date": "2026-09-07",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "217590",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 13400.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 19
+    },
+    {
+      "ticker": "229640",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-03",
+        "confirmation_date": "2026-09-08",
+        "pivot_low": 43050.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 19
+    },
+    {
+      "ticker": "232140",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 13500.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "234340",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-17",
+        "confirmation_date": "2026-09-22",
+        "pivot_low": 18250.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "244920",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 12000.0,
+        "first_close_breach_date": "2026-10-15",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "247540",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-17",
+        "confirmation_date": "2026-09-22",
+        "pivot_low": 102200.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "261780",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 3300.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "263750",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 31200.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "267260",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-15",
+        "confirmation_date": "2026-09-18",
+        "pivot_low": 698000.0,
+        "first_close_breach_date": "2026-09-28",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "272210",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 71100.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "278470",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-14",
+        "confirmation_date": "2026-10-19",
+        "pivot_low": 266500.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "281820",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-14",
+        "confirmation_date": "2026-09-17",
+        "pivot_low": 65000.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "282330",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-12",
+        "confirmation_date": "2026-10-15",
+        "pivot_low": 124800.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "290550",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-30",
+        "confirmation_date": "2026-10-06",
+        "pivot_low": 21150.0,
+        "first_close_breach_date": "2026-10-15",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "307950",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 361500.0,
+        "first_close_breach_date": "2026-10-08",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "317330",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 12090.0,
+        "first_close_breach_date": "2026-10-13",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 26
+    },
+    {
+      "ticker": "317400",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 9170.0,
+        "first_close_breach_date": "2026-10-13",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 17
+    },
+    {
+      "ticker": "322000",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-22",
+        "confirmation_date": "2026-09-29",
+        "pivot_low": 115900.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 25
+    },
+    {
+      "ticker": "329180",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-16",
+        "confirmation_date": "2026-09-21",
+        "pivot_low": 440000.0,
+        "first_close_breach_date": "2026-09-29",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "336260",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 43000.0,
+        "first_close_breach_date": "2026-10-12",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "352820",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 153000.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "353200",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-15",
+        "confirmation_date": "2026-09-18",
+        "pivot_low": 94500.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "357250",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-23",
+        "confirmation_date": "2026-09-30",
+        "pivot_low": 1810.0,
+        "first_close_breach_date": "2026-10-14",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 21
+    },
+    {
+      "ticker": "373220",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 377000.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 27
+    },
+    {
+      "ticker": "402340",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 1087000.0,
+        "first_close_breach_date": "2026-10-08",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "417200",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 12580.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 22
+    },
+    {
+      "ticker": "439960",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-10-01",
+        "confirmation_date": "2026-10-07",
+        "pivot_low": 6400.0,
+        "first_close_breach_date": "2026-10-12",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 8
+    },
+    {
+      "ticker": "443060",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-10",
+        "confirmation_date": "2026-09-15",
+        "pivot_low": 206500.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 26
+    },
+    {
+      "ticker": "450080",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 31050.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "454910",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 67500.0,
+        "first_close_breach_date": "2026-10-12",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 27
+    },
+    {
+      "ticker": "457190",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-10-13",
+        "confirmation_date": "2026-10-16",
+        "pivot_low": 76300.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "483650",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-16",
+        "confirmation_date": "2026-09-21",
+        "pivot_low": 157500.0,
+        "first_close_breach_date": "2026-10-13",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 24
+    },
+    {
+      "ticker": "489790",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-29",
+        "confirmation_date": "2026-10-02",
+        "pivot_low": 45600.0,
+        "first_close_breach_date": "2026-10-13",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 23
+    },
+    {
+      "ticker": "490470",
+      "reference": {
+        "status": "REFERENCE_UNBREACHED",
+        "pivot_date": "2026-09-16",
+        "confirmation_date": "2026-09-21",
+        "pivot_low": 14120.0,
+        "first_close_breach_date": null,
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 16
+    },
+    {
+      "ticker": "499790",
+      "reference": {
+        "status": "REFERENCE_BREACHED",
+        "pivot_date": "2026-09-23",
+        "confirmation_date": "2026-09-30",
+        "pivot_low": 35750.0,
+        "first_close_breach_date": "2026-10-13",
+        "first_missing_or_invalid_bar_date": null,
+        "actual_trailing_stop": null
+      },
+      "confirmed_pivot_count": 18
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+name: Probe official company outlook disclosures
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/probe-company-outlook-disclosures.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Probe OpenDART fair disclosures
+        run: python probe_company_outlook_disclosure.py

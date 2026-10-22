@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "checker_version": "2026-10-17-v8.7-production-worker-health",
-  "generated_at_kst": "2026-10-22T10:42:51+09:00",
-  "status": "FAIL",
-  "critical_count": 3,
+  "generated_at_kst": "2026-10-22T11:09:18+09:00",
+  "status": "PASS",
+  "critical_count": 0,
   "warning_count": 0,
   "context": {
-    "build_id": "20261022T094840+0900-7539fff8dd",
+    "build_id": "20261022T110729+0900-fd422e2dff",
     "rules_version": "2026-07-14-v8.0-request-time-position-alignment",
     "rules_sha256": "f96806bab26cedffa87a5749ebef0c04548871f8f28a22bac77a7e0b280f3fdf",
-    "source_commit_sha": "7539fff8dd50ed076d54b76a1bf33a5e9b9d976a",
+    "source_commit_sha": "fd422e2dffdf40bdb57f7b3936b94a88c3cf21c9",
     "payload_limits_bytes": {
       "kospi_watchlist": 90000,
       "kosdaq_watchlist": 50000,
@@ -31,21 +31,15 @@
     },
     {
       "check_id": "status_official_fresh_now",
-      "status": "FAIL",
+      "status": "PASS",
       "severity": "ERROR",
-      "message": "official_fresh_now가 true가 아닙니다.",
-      "details": {
-        "actual": false
-      }
+      "message": "official_fresh_now=true"
     },
     {
       "check_id": "status_safe_to_analyze_as_latest",
-      "status": "FAIL",
+      "status": "PASS",
       "severity": "ERROR",
-      "message": "safe_to_analyze_as_latest가 true가 아닙니다.",
-      "details": {
-        "actual": false
-      }
+      "message": "safe_to_analyze_as_latest=true"
     },
     {
       "check_id": "validation_report",
@@ -77,7 +71,7 @@
       "severity": "ERROR",
       "message": "kospi_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 74584,
+        "bytes": 74279,
         "limit": 90000,
         "market": "KR"
       }
@@ -186,12 +180,12 @@
       "message": "kospi_watchlist 밸류에이션 상태·기준일·PBR 연결이 정상입니다.",
       "details": {
         "status_counts": {
-          "PARTIAL_LOSS_PER_NA": 7,
-          "READY": 23
+          "PARTIAL_LOSS_PER_NA": 6,
+          "READY": 24
         },
         "basis_date": 30,
-        "basis_min": "2026-10-20",
-        "basis_max": "2026-10-20",
+        "basis_min": "2026-10-21",
+        "basis_max": "2026-10-21",
         "pbr": 30,
         "total": 30
       }
@@ -220,7 +214,7 @@
       "severity": "ERROR",
       "message": "kosdaq_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 37163,
+        "bytes": 36691,
         "limit": 50000,
         "market": "KR"
       }
@@ -329,12 +323,12 @@
       "message": "kosdaq_watchlist 밸류에이션 상태·기준일·PBR 연결이 정상입니다.",
       "details": {
         "status_counts": {
-          "PARTIAL_LOSS_PER_NA": 1,
-          "READY": 9
+          "PARTIAL_LOSS_PER_NA": 2,
+          "READY": 8
         },
         "basis_date": 10,
-        "basis_min": "2026-10-20",
-        "basis_max": "2026-10-20",
+        "basis_min": "2026-10-21",
+        "basis_max": "2026-10-21",
         "pbr": 10,
         "total": 10
       }
@@ -363,7 +357,7 @@
       "severity": "ERROR",
       "message": "us_watchlist 응답 크기가 시장별 안전 범위입니다.",
       "details": {
-        "bytes": 103689,
+        "bytes": 103688,
         "limit": 110000,
         "market": "US"
       }
@@ -417,7 +411,7 @@
         "files_checked": 13,
         "eligible_rows": 218,
         "below_low_rows": 0,
-        "above_high_rows": 0
+        "above_high_rows": 5
       }
     },
     {
@@ -455,19 +449,15 @@
       "severity": "ERROR",
       "message": "Worker 경량 매니페스트 응답 크기가 안전 범위입니다.",
       "details": {
-        "bytes": 26279,
+        "bytes": 26268,
         "limit": 65000
       }
     },
     {
       "check_id": "worker_compact_manifest_values",
-      "status": "FAIL",
+      "status": "PASS",
       "severity": "ERROR",
-      "message": "경량 매니페스트의 핵심 상태값이 비정상입니다.",
-      "details": {
-        "official_fresh_now": false,
-        "safe_to_analyze_as_latest": false
-      }
+      "message": "경량 매니페스트의 핵심 상태값이 정상입니다."
     },
     {
       "check_id": "worker_freshness_source",

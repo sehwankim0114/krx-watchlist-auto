@@ -1,9 +1,9 @@
 {
   "version": "2026-10-18-v8.8-current-universe-official-da-supply-overlay-audit",
   "status": "AUDIT_ONLY_NOT_FOR_GPT_DISPLAY",
-  "source_build_id": "20261022T142123+0900-587cb8f483",
+  "source_build_id": "20261022T211741+0900-476624fe99",
   "basis_date": "2026-10-21",
-  "limited_ticker_count": 77,
+  "limited_ticker_count": 73,
   "ev_ebitda_missing_exact_da_count": 52,
   "da_recovery_lane_counts": {
     "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED": 3,
@@ -449,12 +449,11 @@
       "ticker": "003280",
       "name": "흥아해운",
       "market": "KOSPI",
-      "missing_component_count": 2,
+      "missing_component_count": 1,
       "missing_components": [
-        "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
-        "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+        "영업현금흐름:MISSING_OCF_MARGIN_INPUT"
       ],
-      "single_blocker": false,
+      "single_blocker": true,
       "raw_source_ticker": "003280",
       "raw_source_mode": "DIRECT",
       "raw_source_status": "READY_RAW_SOURCE",
@@ -495,30 +494,13 @@
       "da_recovery_lane": "RAW_SOURCE_UNAVAILABLE"
     },
     {
-      "ticker": "003550",
-      "name": "LG",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "003550",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": ""
-    },
-    {
       "ticker": "003830",
       "name": "대한화섬",
       "market": "KOSPI",
-      "missing_component_count": 3,
+      "missing_component_count": 2,
       "missing_components": [
         "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
-        "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE",
-        "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+        "최근 분기 실적 가속·둔화:ANNUAL_OP_DENOM_NONPOSITIVE"
       ],
       "single_blocker": false,
       "raw_source_ticker": "003830",
@@ -822,22 +804,6 @@
       "da_recovery_lane": "RAW_SOURCE_UNAVAILABLE"
     },
     {
-      "ticker": "007690",
-      "name": "국도화학",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "007690",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": ""
-    },
-    {
       "ticker": "007980",
       "name": "TP",
       "market": "KOSPI",
@@ -1011,11 +977,10 @@
       "ticker": "011200",
       "name": "HMM",
       "market": "KOSPI",
-      "missing_component_count": 3,
+      "missing_component_count": 2,
       "missing_components": [
         "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
-        "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
+        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE"
       ],
       "single_blocker": false,
       "raw_source_ticker": "011200",
@@ -1059,22 +1024,6 @@
       "annual_source_year": "2025",
       "deep_fs_div": "CFS",
       "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
-    },
-    {
-      "ticker": "012330",
-      "name": "현대모비스",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "012330",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": ""
     },
     {
       "ticker": "014130",
@@ -1190,22 +1139,6 @@
       "annual_source_year": "",
       "deep_fs_div": "",
       "da_recovery_lane": "RAW_SOURCE_UNAVAILABLE"
-    },
-    {
-      "ticker": "018880",
-      "name": "한온시스템",
-      "market": "KOSPI",
-      "missing_component_count": 1,
-      "missing_components": [
-        "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE"
-      ],
-      "single_blocker": true,
-      "raw_source_ticker": "018880",
-      "raw_source_mode": "DIRECT",
-      "raw_source_status": "READY_RAW_SOURCE",
-      "annual_source_year": "2025",
-      "deep_fs_div": "CFS",
-      "da_recovery_lane": ""
     },
     {
       "ticker": "019170",

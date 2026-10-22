@@ -1,569 +1,150 @@
 {
   "version": "2026-10-18-current-targeted-180d-supply-audit",
-  "generated_at_kst": "2026-10-21T23:34:36+09:00",
+  "generated_at_kst": "2026-10-22T11:08:44+09:00",
   "status": "AUDIT_ONLY_NOT_FOR_GPT_DISPLAY",
-  "source_build_id": "20261021T233331+0900-fdedba1c28",
-  "basis_date": "2026-10-20",
+  "source_build_id": "20261022T110729+0900-fd422e2dff",
+  "basis_date": "2026-10-21",
   "corp_map_error_type": "",
-  "window_start": "2026-04-25",
-  "window_end": "2026-10-21",
-  "target_count": 13,
+  "window_start": "2026-04-26",
+  "window_end": "2026-10-22",
+  "target_count": 29,
   "classification_counts": {
-    "COMPLETE_180D_POSITIVE_BURDEN": 6,
-    "CORP_IDENTITY_UNRESOLVED": 6,
-    "COMPLETE_180D_NO_POSITIVE_BURDEN": 1
+    "CORP_IDENTITY_UNRESOLVED": 22,
+    "COMPLETE_180D_NO_POSITIVE_BURDEN": 3,
+    "COMPLETE_180D_POSITIVE_BURDEN": 4
   },
   "complete_tickers": [
-    "000270",
+    "003280",
     "003550",
+    "003830",
     "007690",
-    "009450",
+    "011200",
     "012330",
-    "092790",
-    "361610"
+    "018880"
   ],
   "production_api_modified": false,
   "production_score_written": false,
   "rows": [
     {
-      "ticker": "000270",
-      "name": "기아",
-      "corp_code": "00106641",
-      "window_start": "2026-04-25",
-      "window_end": "2026-10-21",
+      "ticker": "000320",
+      "name": "노루홀딩스",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
       "lookback_days": 180,
-      "source_build_id": "20261021T233331+0900-fdedba1c28",
-      "audit_status": "COMPLETE_180D_POSITIVE_BURDEN",
-      "corp_code_exact_stock_match_count": 1,
-      "supply_status": "OK",
-      "supply_level": "경계",
-      "risk_keywords": [
-        "대량보유",
-        "주요주주변동"
-      ],
-      "risk_report_count": 47,
-      "relief_report_match_count": 0,
-      "evidence_reports": [
-        {
-          "rcept_dt": "20260709",
-          "rcept_no": "20260709000467",
-          "report_nm": "주식등의대량보유상황보고서(일반)",
-          "keywords": [
-            "대량보유"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260622",
-          "rcept_no": "20260622000181",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260511",
-          "rcept_no": "20260511000455",
-          "report_nm": "주식등의대량보유상황보고서(일반)",
-          "keywords": [
-            "대량보유"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000438",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000434",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000427",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000425",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000418",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000413",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000407",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000403",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000399",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000394",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000385",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000380",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000376",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000370",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000367",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000360",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000356",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000353",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000346",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000337",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000332",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000323",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000318",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000314",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000309",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000305",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000303",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000300",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000292",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000285",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000279",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000273",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000268",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000262",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000258",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000256",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000251",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000246",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000239",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000236",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000233",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000230",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000224",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260508",
-          "rcept_no": "20260508000221",
-          "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
-          "keywords": [
-            "주요주주변동"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        }
-      ],
-      "chunk_summaries": [
-        {
-          "start": "2026-04-25",
-          "end": "2026-07-23",
-          "complete": true,
-          "pages_fetched": 1,
-          "total_pages": 1,
-          "reports_seen": 78
-        },
-        {
-          "start": "2026-07-24",
-          "end": "2026-10-21",
-          "complete": true,
-          "pages_fetched": 1,
-          "total_pages": 1,
-          "reports_seen": 27
-        }
-      ]
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "CORP_IDENTITY_UNRESOLVED",
+      "corp_code_exact_stock_match_count": 1
+    },
+    {
+      "ticker": "000325",
+      "name": "노루홀딩스우",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
+      "lookback_days": 180,
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "CORP_IDENTITY_UNRESOLVED",
+      "corp_code_exact_stock_match_count": 0
     },
     {
       "ticker": "000700",
       "name": "유수홀딩스",
       "corp_code": "00163691",
-      "window_start": "2026-04-25",
-      "window_end": "2026-10-21",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
       "lookback_days": 180,
-      "source_build_id": "20261021T233331+0900-fdedba1c28",
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
       "audit_status": "CORP_IDENTITY_UNRESOLVED",
       "corp_code_exact_stock_match_count": 2
     },
     {
-      "ticker": "001067",
-      "name": "JW중외제약2우B",
+      "ticker": "001527",
+      "name": "동양2우B",
       "corp_code": "",
-      "window_start": "2026-04-25",
-      "window_end": "2026-10-21",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
       "lookback_days": 180,
-      "source_build_id": "20261021T233331+0900-fdedba1c28",
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
       "audit_status": "CORP_IDENTITY_UNRESOLVED",
       "corp_code_exact_stock_match_count": 0
+    },
+    {
+      "ticker": "002690",
+      "name": "동일제강",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
+      "lookback_days": 180,
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "CORP_IDENTITY_UNRESOLVED",
+      "corp_code_exact_stock_match_count": 1
+    },
+    {
+      "ticker": "003080",
+      "name": "SB성보",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
+      "lookback_days": 180,
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "CORP_IDENTITY_UNRESOLVED",
+      "corp_code_exact_stock_match_count": 1
+    },
+    {
+      "ticker": "003280",
+      "name": "흥아해운",
+      "corp_code": "00167208",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
+      "lookback_days": 180,
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "COMPLETE_180D_NO_POSITIVE_BURDEN",
+      "corp_code_exact_stock_match_count": 1,
+      "supply_status": "OK",
+      "supply_level": "없음",
+      "risk_keywords": [],
+      "risk_report_count": 0,
+      "relief_report_match_count": 0,
+      "evidence_reports": [],
+      "chunk_summaries": [
+        {
+          "start": "2026-04-26",
+          "end": "2026-07-24",
+          "complete": true,
+          "pages_fetched": 1,
+          "total_pages": 1,
+          "reports_seen": 7
+        },
+        {
+          "start": "2026-07-25",
+          "end": "2026-10-22",
+          "complete": true,
+          "pages_fetched": 1,
+          "total_pages": 1,
+          "reports_seen": 6
+        }
+      ]
+    },
+    {
+      "ticker": "003520",
+      "name": "영진약품",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
+      "lookback_days": 180,
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "CORP_IDENTITY_UNRESOLVED",
+      "corp_code_exact_stock_match_count": 1
     },
     {
       "ticker": "003550",
       "name": "LG",
       "corp_code": "00120021",
-      "window_start": "2026-04-25",
-      "window_end": "2026-10-21",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
       "lookback_days": 180,
-      "source_build_id": "20261021T233331+0900-fdedba1c28",
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
       "audit_status": "COMPLETE_180D_POSITIVE_BURDEN",
       "corp_code_exact_stock_match_count": 1,
       "supply_status": "OK",
@@ -597,42 +178,66 @@
       ],
       "chunk_summaries": [
         {
-          "start": "2026-04-25",
-          "end": "2026-07-23",
+          "start": "2026-04-26",
+          "end": "2026-07-24",
           "complete": true,
           "pages_fetched": 1,
           "total_pages": 1,
-          "reports_seen": 11
+          "reports_seen": 13
         },
         {
-          "start": "2026-07-24",
-          "end": "2026-10-21",
+          "start": "2026-07-25",
+          "end": "2026-10-22",
           "complete": true,
           "pages_fetched": 1,
           "total_pages": 1,
-          "reports_seen": 22
+          "reports_seen": 20
         }
       ]
     },
     {
-      "ticker": "003610",
-      "name": "방림",
-      "corp_code": "",
-      "window_start": "2026-04-25",
-      "window_end": "2026-10-21",
-      "lookback_days": 180,
-      "source_build_id": "20261021T233331+0900-fdedba1c28",
-      "audit_status": "CORP_IDENTITY_UNRESOLVED",
-      "corp_code_exact_stock_match_count": 1
-    },
-    {
       "ticker": "003830",
       "name": "대한화섬",
-      "corp_code": "",
-      "window_start": "2026-04-25",
-      "window_end": "2026-10-21",
+      "corp_code": "00113544",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
       "lookback_days": 180,
-      "source_build_id": "20261021T233331+0900-fdedba1c28",
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "COMPLETE_180D_NO_POSITIVE_BURDEN",
+      "corp_code_exact_stock_match_count": 1,
+      "supply_status": "OK",
+      "supply_level": "없음",
+      "risk_keywords": [],
+      "risk_report_count": 0,
+      "relief_report_match_count": 0,
+      "evidence_reports": [],
+      "chunk_summaries": [
+        {
+          "start": "2026-04-26",
+          "end": "2026-07-24",
+          "complete": true,
+          "pages_fetched": 1,
+          "total_pages": 1,
+          "reports_seen": 5
+        },
+        {
+          "start": "2026-07-25",
+          "end": "2026-10-22",
+          "complete": true,
+          "pages_fetched": 1,
+          "total_pages": 1,
+          "reports_seen": 6
+        }
+      ]
+    },
+    {
+      "ticker": "004430",
+      "name": "송원산업",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
+      "lookback_days": 180,
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
       "audit_status": "CORP_IDENTITY_UNRESOLVED",
       "corp_code_exact_stock_match_count": 1
     },
@@ -640,10 +245,10 @@
       "ticker": "004835",
       "name": "덕성우",
       "corp_code": "",
-      "window_start": "2026-04-25",
-      "window_end": "2026-10-21",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
       "lookback_days": 180,
-      "source_build_id": "20261021T233331+0900-fdedba1c28",
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
       "audit_status": "CORP_IDENTITY_UNRESOLVED",
       "corp_code_exact_stock_match_count": 0
     },
@@ -651,10 +256,10 @@
       "ticker": "007690",
       "name": "국도화학",
       "corp_code": "00104388",
-      "window_start": "2026-04-25",
-      "window_end": "2026-10-21",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
       "lookback_days": 180,
-      "source_build_id": "20261021T233331+0900-fdedba1c28",
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
       "audit_status": "COMPLETE_180D_POSITIVE_BURDEN",
       "corp_code_exact_stock_match_count": 1,
       "supply_status": "OK",
@@ -699,16 +304,16 @@
       ],
       "chunk_summaries": [
         {
-          "start": "2026-04-25",
-          "end": "2026-07-23",
+          "start": "2026-04-26",
+          "end": "2026-07-24",
           "complete": true,
           "pages_fetched": 1,
           "total_pages": 1,
           "reports_seen": 9
         },
         {
-          "start": "2026-07-24",
-          "end": "2026-10-21",
+          "start": "2026-07-25",
+          "end": "2026-10-22",
           "complete": true,
           "pages_fetched": 1,
           "total_pages": 1,
@@ -717,13 +322,35 @@
       ]
     },
     {
-      "ticker": "009450",
-      "name": "경동나비엔",
-      "corp_code": "00101488",
-      "window_start": "2026-04-25",
-      "window_end": "2026-10-21",
+      "ticker": "009180",
+      "name": "한솔로지스틱스",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
       "lookback_days": 180,
-      "source_build_id": "20261021T233331+0900-fdedba1c28",
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "CORP_IDENTITY_UNRESOLVED",
+      "corp_code_exact_stock_match_count": 1
+    },
+    {
+      "ticker": "009470",
+      "name": "삼화전기",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
+      "lookback_days": 180,
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "CORP_IDENTITY_UNRESOLVED",
+      "corp_code_exact_stock_match_count": 1
+    },
+    {
+      "ticker": "011200",
+      "name": "HMM",
+      "corp_code": "00164645",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
+      "lookback_days": 180,
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
       "audit_status": "COMPLETE_180D_NO_POSITIVE_BURDEN",
       "corp_code_exact_stock_match_count": 1,
       "supply_status": "OK",
@@ -734,42 +361,31 @@
       "evidence_reports": [],
       "chunk_summaries": [
         {
-          "start": "2026-04-25",
-          "end": "2026-07-23",
+          "start": "2026-04-26",
+          "end": "2026-07-24",
           "complete": true,
           "pages_fetched": 1,
           "total_pages": 1,
-          "reports_seen": 7
+          "reports_seen": 9
         },
         {
-          "start": "2026-07-24",
-          "end": "2026-10-21",
+          "start": "2026-07-25",
+          "end": "2026-10-22",
           "complete": true,
           "pages_fetched": 1,
           "total_pages": 1,
-          "reports_seen": 2
+          "reports_seen": 8
         }
       ]
-    },
-    {
-      "ticker": "011155",
-      "name": "CJ씨푸드1우",
-      "corp_code": "",
-      "window_start": "2026-04-25",
-      "window_end": "2026-10-21",
-      "lookback_days": 180,
-      "source_build_id": "20261021T233331+0900-fdedba1c28",
-      "audit_status": "CORP_IDENTITY_UNRESOLVED",
-      "corp_code_exact_stock_match_count": 0
     },
     {
       "ticker": "012330",
       "name": "현대모비스",
       "corp_code": "00164788",
-      "window_start": "2026-04-25",
-      "window_end": "2026-10-21",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
       "lookback_days": 180,
-      "source_build_id": "20261021T233331+0900-fdedba1c28",
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
       "audit_status": "COMPLETE_180D_POSITIVE_BURDEN",
       "corp_code_exact_stock_match_count": 1,
       "supply_status": "OK",
@@ -793,90 +409,66 @@
       ],
       "chunk_summaries": [
         {
-          "start": "2026-04-25",
-          "end": "2026-07-23",
+          "start": "2026-04-26",
+          "end": "2026-07-24",
           "complete": true,
           "pages_fetched": 1,
           "total_pages": 1,
-          "reports_seen": 21
+          "reports_seen": 27
         },
         {
-          "start": "2026-07-24",
-          "end": "2026-10-21",
+          "start": "2026-07-25",
+          "end": "2026-10-22",
           "complete": true,
           "pages_fetched": 1,
           "total_pages": 1,
-          "reports_seen": 23
+          "reports_seen": 17
         }
       ]
     },
     {
-      "ticker": "092790",
-      "name": "넥스틸",
-      "corp_code": "00220613",
-      "window_start": "2026-04-25",
-      "window_end": "2026-10-21",
+      "ticker": "014130",
+      "name": "한익스프레스",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
       "lookback_days": 180,
-      "source_build_id": "20261021T233331+0900-fdedba1c28",
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "CORP_IDENTITY_UNRESOLVED",
+      "corp_code_exact_stock_match_count": 1
+    },
+    {
+      "ticker": "016590",
+      "name": "신대양제지",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
+      "lookback_days": 180,
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "CORP_IDENTITY_UNRESOLVED",
+      "corp_code_exact_stock_match_count": 1
+    },
+    {
+      "ticker": "018880",
+      "name": "한온시스템",
+      "corp_code": "00161125",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
+      "lookback_days": 180,
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
       "audit_status": "COMPLETE_180D_POSITIVE_BURDEN",
       "corp_code_exact_stock_match_count": 1,
       "supply_status": "OK",
-      "supply_level": "위험",
+      "supply_level": "주의",
       "risk_keywords": [
-        "CB",
-        "CB발행",
-        "대량보유",
-        "유상증자",
         "주요주주변동"
       ],
-      "risk_report_count": 5,
+      "risk_report_count": 1,
       "relief_report_match_count": 0,
       "evidence_reports": [
         {
-          "rcept_dt": "20260702",
-          "rcept_no": "20260702000122",
-          "report_nm": "주식등의대량보유상황보고서(약식)",
-          "keywords": [
-            "대량보유"
-          ],
-          "severity": 1,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260630",
-          "rcept_no": "20260630800532",
-          "report_nm": "유상증자또는주식관련사채등의발행결과(자율공시)              ",
-          "keywords": [
-            "유상증자"
-          ],
-          "severity": 3,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260629",
-          "rcept_no": "20260629000433",
-          "report_nm": "[기재정정]주요사항보고서(전환사채권발행결정)",
-          "keywords": [
-            "CB",
-            "CB발행"
-          ],
-          "severity": 2,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260622",
-          "rcept_no": "20260622000369",
-          "report_nm": "주요사항보고서(전환사채권발행결정)",
-          "keywords": [
-            "CB",
-            "CB발행"
-          ],
-          "severity": 2,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260528",
-          "rcept_no": "20260528000714",
+          "rcept_dt": "20260626",
+          "rcept_no": "20260626000431",
           "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
           "keywords": [
             "주요주주변동"
@@ -887,80 +479,121 @@
       ],
       "chunk_summaries": [
         {
-          "start": "2026-04-25",
-          "end": "2026-07-23",
+          "start": "2026-04-26",
+          "end": "2026-07-24",
           "complete": true,
           "pages_fetched": 1,
           "total_pages": 1,
-          "reports_seen": 12
+          "reports_seen": 11
         },
         {
-          "start": "2026-07-24",
-          "end": "2026-10-21",
+          "start": "2026-07-25",
+          "end": "2026-10-22",
           "complete": true,
           "pages_fetched": 1,
           "total_pages": 1,
-          "reports_seen": 2
+          "reports_seen": 11
         }
       ]
     },
     {
-      "ticker": "361610",
-      "name": "SK아이이테크놀로지",
-      "corp_code": "01386916",
-      "window_start": "2026-04-25",
-      "window_end": "2026-10-21",
+      "ticker": "019170",
+      "name": "신풍제약",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
       "lookback_days": 180,
-      "source_build_id": "20261021T233331+0900-fdedba1c28",
-      "audit_status": "COMPLETE_180D_POSITIVE_BURDEN",
-      "corp_code_exact_stock_match_count": 1,
-      "supply_status": "OK",
-      "supply_level": "위험",
-      "risk_keywords": [
-        "유상증자"
-      ],
-      "risk_report_count": 2,
-      "relief_report_match_count": 0,
-      "evidence_reports": [
-        {
-          "rcept_dt": "20260626",
-          "rcept_no": "20260626800939",
-          "report_nm": "유상증자결정(종속회사의주요경영사항)              ",
-          "keywords": [
-            "유상증자"
-          ],
-          "severity": 3,
-          "relief_flag": false
-        },
-        {
-          "rcept_dt": "20260429",
-          "rcept_no": "20260429800839",
-          "report_nm": "유상증자결정(종속회사의주요경영사항)              ",
-          "keywords": [
-            "유상증자"
-          ],
-          "severity": 3,
-          "relief_flag": false
-        }
-      ],
-      "chunk_summaries": [
-        {
-          "start": "2026-04-25",
-          "end": "2026-07-23",
-          "complete": true,
-          "pages_fetched": 1,
-          "total_pages": 1,
-          "reports_seen": 14
-        },
-        {
-          "start": "2026-07-24",
-          "end": "2026-10-21",
-          "complete": true,
-          "pages_fetched": 1,
-          "total_pages": 1,
-          "reports_seen": 16
-        }
-      ]
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "CORP_IDENTITY_UNRESOLVED",
+      "corp_code_exact_stock_match_count": 1
+    },
+    {
+      "ticker": "024090",
+      "name": "디씨엠",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
+      "lookback_days": 180,
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "CORP_IDENTITY_UNRESOLVED",
+      "corp_code_exact_stock_match_count": 1
+    },
+    {
+      "ticker": "030210",
+      "name": "다올투자증권",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
+      "lookback_days": 180,
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "CORP_IDENTITY_UNRESOLVED",
+      "corp_code_exact_stock_match_count": 1
+    },
+    {
+      "ticker": "129260",
+      "name": "인터지스",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
+      "lookback_days": 180,
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "CORP_IDENTITY_UNRESOLVED",
+      "corp_code_exact_stock_match_count": 1
+    },
+    {
+      "ticker": "145990",
+      "name": "삼양사",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
+      "lookback_days": 180,
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "CORP_IDENTITY_UNRESOLVED",
+      "corp_code_exact_stock_match_count": 1
+    },
+    {
+      "ticker": "183190",
+      "name": "아세아시멘트",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
+      "lookback_days": 180,
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "CORP_IDENTITY_UNRESOLVED",
+      "corp_code_exact_stock_match_count": 1
+    },
+    {
+      "ticker": "350520",
+      "name": "이지스레지던스리츠",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
+      "lookback_days": 180,
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "CORP_IDENTITY_UNRESOLVED",
+      "corp_code_exact_stock_match_count": 1
+    },
+    {
+      "ticker": "357430",
+      "name": "마스턴프리미어리츠",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
+      "lookback_days": 180,
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "CORP_IDENTITY_UNRESOLVED",
+      "corp_code_exact_stock_match_count": 1
+    },
+    {
+      "ticker": "383220",
+      "name": "F&F",
+      "corp_code": "",
+      "window_start": "2026-04-26",
+      "window_end": "2026-10-22",
+      "lookback_days": 180,
+      "source_build_id": "20261022T110729+0900-fd422e2dff",
+      "audit_status": "CORP_IDENTITY_UNRESOLVED",
+      "corp_code_exact_stock_match_count": 1
     }
   ]
 }

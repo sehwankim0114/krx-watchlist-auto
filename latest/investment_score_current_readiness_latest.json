@@ -1,19 +1,19 @@
 {
   "version": "2026-10-18-v8.8-current-universe-official-da-supply-overlay-audit",
-  "generated_at_kst": "2026-10-22T13:41:38+09:00",
+  "generated_at_kst": "2026-10-22T14:26:18+09:00",
   "status": "AUDIT_ONLY_NOT_FOR_GPT_DISPLAY",
-  "source_build_id": "20261022T133333+0900-1cf54ff251",
+  "source_build_id": "20261022T142123+0900-587cb8f483",
   "source_rules_sha256": "f96806bab26cedffa87a5749ebef0c04548871f8f28a22bac77a7e0b280f3fdf",
   "basis_date": "2026-10-21",
   "policy_version": "2026-09-13-v8.8.0-explicit-100-point-scoring-contract",
   "scorer_version": "2026-09-13-v8.8.2-investment-score-dry-run-gate-reconciliation",
   "production_unique_tickers": 96,
-  "ready_count": 18,
-  "limited_count": 78,
-  "ready_pct": 18.75,
-  "current_valuation_ready_count_among_scorer_ready": 18,
-  "current_price_input_ready_count": 0,
-  "current_price_and_ocf_period_ready_count": 0,
+  "ready_count": 19,
+  "limited_count": 77,
+  "ready_pct": 19.79,
+  "current_valuation_ready_count_among_scorer_ready": 19,
+  "current_price_input_ready_count": 19,
+  "current_price_and_ocf_period_ready_count": 19,
   "ocf_required_annual_report_year": "2025",
   "ocf_annual_period_mismatch_count": 10,
   "ocf_annual_period_mismatch_tickers": [
@@ -28,12 +28,8 @@
     "334890",
     "357430"
   ],
-  "current_price_input_ready_pct": 0.0,
+  "current_price_input_ready_pct": 19.79,
   "top_missing_reasons": [
-    [
-      "하루평균 절대등락률:MISSING_ELASTICITY",
-      64
-    ],
     [
       "최근 분기 실적 가속·둔화:MISSING_ACCEL_INPUT",
       59
@@ -100,7 +96,7 @@
     ],
     [
       "수급·공시부담:SUPPLY_LIMITED_NO_POSITIVE_EVIDENCE",
-      22
+      29
     ],
     [
       "과열·급락 위험:MISSING_RISK_INPUT",
@@ -175,8 +171,12 @@
   "da_current_official_shadow_count": 16,
   "da_newly_ready_tickers": [
     "003230",
+    "009150",
     "010950",
+    "028050",
     "028670",
+    "035420",
+    "047050",
     "064400",
     "068270",
     "161390",
@@ -185,41 +185,28 @@
     "352820",
     "373220"
   ],
-  "da_newly_ready_count": 10,
+  "da_newly_ready_count": 14,
   "da_source_year": "2025",
   "da_source_only_overlay": true,
   "supply_180d_audit_current": true,
-  "supply_validated_shadow_tickers": [
-    "003280",
-    "003550",
-    "003830",
-    "007690",
-    "011200",
-    "012330",
-    "018880"
-  ],
-  "supply_validated_shadow_count": 7,
-  "supply_newly_ready_tickers": [
-    "003550",
-    "007690",
-    "012330"
-  ],
-  "supply_newly_ready_count": 3,
+  "supply_validated_shadow_tickers": [],
+  "supply_validated_shadow_count": 0,
+  "supply_newly_ready_tickers": [],
+  "supply_newly_ready_count": 0,
   "supply_source_only_overlay": true,
   "score_summary_ready_only": {
-    "count": 18,
+    "count": 19,
     "min": 41.0,
-    "median": 67.0,
-    "mean": 64.47222222222223,
+    "median": 68.0,
+    "mean": 64.26315789473684,
     "max": 82.5
   },
-  "price_elasticity_source_basis_date": "2026-10-20",
-  "price_elasticity_source_ready_tickers": 50,
+  "price_elasticity_source_basis_date": "2026-10-21",
+  "price_elasticity_source_ready_tickers": 96,
   "price_elasticity_source_limited_tickers": 0,
-  "price_elasticity_basis_matches_current": false,
+  "price_elasticity_basis_matches_current": true,
   "promotion_blockers": [
     "LIMITED_SCORE_COMPONENTS_REMAIN",
-    "PRICE_ELASTICITY_BASIS_STALE",
     "OCF_ANNUAL_REPORT_YEAR_MISMATCH",
     "PRODUCTION_SCORE_ADOPTION_AND_GPT_E2E_NOT_DONE"
   ],

@@ -4,9 +4,9 @@
   "source_build_id": "20261022T133333+0900-1cf54ff251",
   "basis_date": "2026-10-21",
   "limited_ticker_count": 78,
-  "ev_ebitda_missing_exact_da_count": 55,
+  "ev_ebitda_missing_exact_da_count": 52,
   "da_recovery_lane_counts": {
-    "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED": 6,
+    "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED": 3,
     "PRIOR_OFFICIAL_PATH_EXHAUSTED_RECHECK_ON_NEW_PERIOD": 3,
     "RAW_SOURCE_UNAVAILABLE": 46
   },
@@ -889,18 +889,17 @@
       "ticker": "009150",
       "name": "삼성전기",
       "market": "KOSPI",
-      "missing_component_count": 2,
+      "missing_component_count": 1,
       "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
         "하루평균 절대등락률:MISSING_ELASTICITY"
       ],
-      "single_blocker": false,
+      "single_blocker": true,
       "raw_source_ticker": "009150",
       "raw_source_mode": "DIRECT",
       "raw_source_status": "READY_RAW_SOURCE",
       "annual_source_year": "2025",
       "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
+      "da_recovery_lane": ""
     },
     {
       "ticker": "009180",
@@ -1193,18 +1192,17 @@
       "ticker": "018880",
       "name": "한온시스템",
       "market": "KOSPI",
-      "missing_component_count": 2,
+      "missing_component_count": 1,
       "missing_components": [
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
         "하루평균 절대등락률:MISSING_ELASTICITY"
       ],
-      "single_blocker": false,
+      "single_blocker": true,
       "raw_source_ticker": "018880",
       "raw_source_mode": "DIRECT",
       "raw_source_status": "READY_RAW_SOURCE",
       "annual_source_year": "2025",
       "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
+      "da_recovery_lane": ""
     },
     {
       "ticker": "019170",
@@ -1553,10 +1551,9 @@
       "ticker": "084010",
       "name": "대한제강",
       "market": "KOSPI",
-      "missing_component_count": 3,
+      "missing_component_count": 2,
       "missing_components": [
         "영업현금흐름:MISSING_OCF_MARGIN_INPUT",
-        "EV/EBITDA:EV_EBITDA_INPUT:OK:NO_EXACT_CANDIDATE",
         "하루평균 절대등락률:MISSING_ELASTICITY"
       ],
       "single_blocker": false,
@@ -1565,7 +1562,7 @@
       "raw_source_status": "READY_RAW_SOURCE",
       "annual_source_year": "2025",
       "deep_fs_div": "CFS",
-      "da_recovery_lane": "CURRENT_OFFICIAL_DA_AUDIT_REQUIRED"
+      "da_recovery_lane": ""
     },
     {
       "ticker": "084690",
